@@ -10,6 +10,14 @@ This template includes compilation support, tests, a validation workflow, publis
 
 If you are new, there's also a simpler introduction.  See the [Hello World JavaScript Action](https://github.com/actions/hello-world-javascript-action)
 
+## Testing Locally 🔨
+
+Test with [act](https://github.com/nektos/act) locally to simulate a GitHub Actions event
+
+```bash
+act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test
+```
+
 ## Create an action from this template
 
 Click the `Use this Template` and provide the new repo details for your action
