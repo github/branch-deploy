@@ -21,4 +21,4 @@ jobs:
       - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
       - uses: ./
         with:
-          milliseconds: 1000
+          github-token: ${{ secrets.GITHUB_TOKEN }}
