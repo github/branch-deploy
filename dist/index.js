@@ -41,17 +41,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const github_1 = __nccwpck_require__(5438);
-// import {wait} from './wait'
+const trigger_check_1 = __nccwpck_require__(1505);
 function run() {
     var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const trigger = core.getInput('trigger');
             const reaction = core.getInput('reaction');
+            const prefixOnly = core.getInput('prefix_only') === 'true';
             const token = core.getInput('github-token', { required: true });
             const body = (_b = (_a = github_1.context === null || github_1.context === void 0 ? void 0 : github_1.context.payload) === null || _a === void 0 ? void 0 : _a.comment) === null || _b === void 0 ? void 0 : _b.body;
-            // core.info(`context: ${JSON.stringify(context)}`)
-            core.setOutput('triggered', 'true');
+            const triggerResult = yield (0, trigger_check_1.triggerCheck)(prefixOnly, body, trigger);
+            core.info(`prefixOnly: ${prefixOnly}`);
+            core.info(`triggerResult: ${triggerResult}`);
             core.setOutput('comment_body', body);
         }
         catch (error) {
@@ -61,6 +63,69 @@ function run() {
     });
 }
 run();
+// core.info(`context: ${JSON.stringify(context)}`)
+
+
+/***/ }),
+
+/***/ 1505:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.triggerCheck = void 0;
+const core = __importStar(__nccwpck_require__(2186));
+// A simple function that checks the body of the message against the trigger
+// Returns true if a message trips the trigger
+// Returns false if a message does not trip the trigger
+function triggerCheck(prefixOnly, body, trigger) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return new Promise(resolve => {
+            // If the the trigger is not activated, set the output to false and return with false
+            if ((prefixOnly && !body.startsWith(trigger)) || !body.includes(trigger)) {
+                core.setOutput('triggered', 'false');
+                return resolve(false);
+            }
+            // If the trigger is activated, set the output to true and return with true
+            core.setOutput('triggered', 'true');
+            return resolve(true);
+        });
+    });
+}
+exports.triggerCheck = triggerCheck;
 
 
 /***/ }),
