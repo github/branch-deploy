@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3.0.2
+      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
 
       - name: Set Node.js 16.x
-        uses: actions/setup-node@v3.1.1
+        uses: actions/setup-node@56337c425554a6be30cdef71bf441f15be286854 # pin@v3.1.1
         with:
           node-version: 16.x
 
@@ -46,7 +46,7 @@ jobs:
         id: diff
 
       # If index.js was different than expected, upload the expected version as an artifact
-      - uses: actions/upload-artifact@v3.0.0
+      - uses: actions/upload-artifact@6673cd052c4cd6fcf4b4e6e60ea986c889389535 # pin@v3.0.0
         if: ${{ failure() && steps.diff.conclusion == 'failure' }}
         with:
           name: dist
