@@ -2,10 +2,31 @@ name: "branch-deploy"
 description: "Enabling Branch Deployments through IssueOps with GitHub Actions"
 author: "Grant Birkinbine"
 inputs:
-  milliseconds: # change this
+  reaction:
+    description: 'If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes"'
+    required: false
+    default: "eyes"
+  trigger:
+    description: 'The string to look for in pull-request descriptions and comments. For example ".deploy"'
+    required: false
+    default: ".deploy"
+  prefix_only:
+    description: 'If "false", the trigger can match anywhere in the comment'
+    required: false
+    default: "true"
+  post_deploy:
+    description: 'If "true", the action will execute post deploy cleanup logic instead of standard branch deployment logic'
+    required: false
+    default: "false"
+  github-token:
+    description: The GitHub token used to create an authenticated client
+    default: ${{ github.token }}
     required: true
-    description: "input description here"
-    default: "default value if applicable"
+outputs:
+  triggered:
+    description: 'The string "true" if the trigger was found, otherwise the string "false"'
+  comment_body:
+    description: The comment body
 runs:
   using: "node16"
   main: "dist/index.js"
