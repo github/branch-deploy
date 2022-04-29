@@ -9362,6 +9362,8 @@ async function run() {
       core.setOutput('noop', 'true')
       core.info('noop mode detected')
       return
+    } else {
+      core.setOutput('noop', 'false')
     }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
