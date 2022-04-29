@@ -1,8 +1,8 @@
 import * as core from '@actions/core'
 import {context} from '@actions/github'
-import {triggerCheck} from './lib/trigger-check'
-import {contextCheck} from './lib/context-check'
-import {reactEmote} from './lib/react-emote'
+import {triggerCheck} from './functions/trigger-check'
+import {contextCheck} from './functions/context-check'
+import {reactEmote} from './functions/react-emote'
 import {getOctokit} from '@actions/github'
 
 async function run(): Promise<void> {
