@@ -131,16 +131,16 @@ export async function prechecks(
   }
   // If everything is OK, print a nice message
   if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
-    const message = '✔️ PR is approved and all CI checks passed - OK'
+    message = '✔️ PR is approved and all CI checks passed - OK'
     core.info(message)
     // CI checks have not been defined AND required reviewers have not been defined
   } else if (reviewDecision === null && commitStatus === null) {
-    const message =
+    message =
       '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
     core.info(message)
     // CI checks have been defined BUT required reviewers have not been defined
   } else if (reviewDecision === null && commitStatus === 'SUCCESS') {
-    const message =
+    message =
       '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
     core.info(message)
     // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
@@ -149,22 +149,22 @@ export async function prechecks(
     commitStatus === 'SUCCESS' &&
     noopMode
   ) {
-    const message = '✔️ All CI checks passed and **noop** requested - OK'
+    message = '✔️ All CI checks passed and **noop** requested - OK'
     core.info(message)
     // If CI is passing but the PR is missing an approval, let the user know
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
     commitStatus === 'SUCCESS'
   ) {
-    const message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks are passing but an approval is required before you can proceed with deployment`
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks are passing but an approval is required before you can proceed with deployment`
     return {message: message, status: false}
     // If the PR is approved but CI is failing
   } else if (reviewDecision === 'APPROVED' && commitStatus === 'FAILURE') {
-    const message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is approved but CI checks are failing`
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is approved but CI checks are failing`
     return {message: message, status: false}
     // If there are any other errors blocking deployment, let the user know
   } else {
-    const message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`
     return {message: message, status: false}
   }
 
