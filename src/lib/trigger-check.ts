@@ -9,7 +9,10 @@ export async function triggerCheck(
   trigger: string
 ): Promise<boolean> {
   return new Promise(resolve => {
-    // If the the trigger is not activated, set the output to false and return with false
+    // Set the output of the comment body for later use with other actions
+    core.setOutput('comment_body', body)
+
+    // If the trigger is not activated, set the output to false and return with false
     if ((prefixOnly && !body.startsWith(trigger)) || !body.includes(trigger)) {
       core.setOutput('triggered', 'false')
       return resolve(false)
