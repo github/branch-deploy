@@ -5,14 +5,14 @@ import {reactEmote} from './functions/react-emote'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 
-async function run(): Promise<void> {
+async function run() {
   try {
     // Get the inputs for the branch-deploy Action
-    const trigger: string = core.getInput('trigger')
-    const reaction: string = core.getInput('reaction')
-    const prefixOnly: boolean = core.getInput('prefix_only') === 'true'
-    const token: string = core.getInput('github-token', {required: true})
-    const body: string = context?.payload?.comment?.body
+    const trigger = core.getInput('trigger')
+    const reaction = core.getInput('reaction')
+    const prefixOnly = core.getInput('prefix_only') === 'true'
+    const token = core.getInput('github-token', {required: true})
+    const body = context.payload.comment.body
 
     // Check the context of the event to ensure it is valid
     if (!(await contextCheck(context))) {
