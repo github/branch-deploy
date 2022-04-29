@@ -8807,10 +8807,18 @@ async function triggerCheck(prefixOnly, body, trigger) {
 
 // A simple function that checks the event context to make sure it is valid
 async function contextCheck(context) {
+  // Get the PR event context
+  var pr
+  try {
+    pr = context.payload.issue.pull_request
+  } catch (error) {
+    throw new Error(`Could not get PR event context: ${error}`)
+  }
+
   // If the context is not valid, return false
-  if (context.eventName !== 'issue_comment') {
+  if (context.eventName !== 'issue_comment' || pr == null || pr == undefined) {
     core.setFailed(
-      'This Action can only be run in the context of a pull request comment or issue comment'
+      'This Action can only be run in the context of a pull request comment'
     )
     return false
   }

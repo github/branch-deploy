@@ -1,5 +1,8 @@
 {
     "comment": {
         "body": ".deploy"
+    },
+    "issue": {
+        "pull_request": {}
     }
 }
