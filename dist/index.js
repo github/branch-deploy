@@ -8873,7 +8873,10 @@ async function run() {
     const trigger = core.getInput('trigger')
     const reaction = core.getInput('reaction')
     const prefixOnly = core.getInput('prefix_only') === 'true'
-    const token = core.getInput('github-token', {required: true})
+    const token = core.getInput('github_token', {required: true})
+    const environment = core.getInput('environment', {required: true})
+    const stable_branch = core.getInput('stable_branch')
+    const noop_trigger = core.getInput('noop_trigger')
     const body = github.context.payload.comment.body
 
     // Check the context of the event to ensure it is valid, return if it is not
