@@ -1,3 +1,4 @@
+// Fixed presets of allowed emote types as defined by GitHub
 const presets = [
   '+1',
   '-1',
