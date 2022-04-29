@@ -9110,7 +9110,7 @@ async function prechecks(
   // Format the success message
   const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
   const commentBody = `\
-  __${context.actor}__, starting a ${deploymentType} deployment 🚀
+  __${context.actor}__, started a __${deploymentType}__ deployment 🚀
   - Branch: __${ref}__
   You can watch the progress [here](${log_url})
   `
