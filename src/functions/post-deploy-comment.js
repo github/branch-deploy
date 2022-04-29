@@ -95,7 +95,7 @@ export async function postDeployComment(
   `
 
   // Update the action status to indicate the result of the deployment as a comment
-  actionStatus(
+  await actionStatus(
     context,
     octokit,
     parseInt(deployment_comment_id),

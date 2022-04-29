@@ -39,7 +39,7 @@ async function run() {
 
     // Execute post-deployment comment logic if the action is running under that context
     if (
-      postDeployComment(
+      (await postDeployComment(
         context,
         octokit,
         deployment_comment_id,
@@ -47,7 +47,7 @@ async function run() {
         deployment_message,
         deployment_result_ref,
         deployment_mode_noop
-      ) === true
+      )) === true
     ) {
       core.info('post deploy comment logic executed... exiting')
       return
@@ -74,7 +74,12 @@ async function run() {
 
     // If the prechecks failed, run the actionFailed function and return
     if (!precheckResults.status) {
-      actionStatus(context, octokit, reactRes.data.id, precheckResults.message)
+      await actionStatus(
+        context,
+        octokit,
+        reactRes.data.id,
+        precheckResults.message
+      )
       core.setFailed(precheckResults.message)
       return
     }

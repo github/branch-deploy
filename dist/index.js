@@ -8890,7 +8890,7 @@ async function actionStatus(
   }
 
   // add a comment to the issue with the error message
-  octokit.rest.issues.createComment({
+  await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: context.issue.number,
     body: message
@@ -9017,7 +9017,7 @@ async function postDeployComment(
   `
 
   // Update the action status to indicate the result of the deployment as a comment
-  actionStatus(
+  await actionStatus(
     context,
     octokit,
     parseInt(deployment_comment_id),
@@ -9307,7 +9307,7 @@ async function run() {
 
     // Execute post-deployment comment logic if the action is running under that context
     if (
-      postDeployComment(
+      (await postDeployComment(
         github.context,
         octokit,
         deployment_comment_id,
@@ -9315,7 +9315,7 @@ async function run() {
         deployment_message,
         deployment_result_ref,
         deployment_mode_noop
-      ) === true
+      )) === true
     ) {
       core.info('post deploy comment logic executed... exiting')
       return
@@ -9342,7 +9342,12 @@ async function run() {
 
     // If the prechecks failed, run the actionFailed function and return
     if (!precheckResults.status) {
-      actionStatus(github.context, octokit, reactRes.data.id, precheckResults.message)
+      await actionStatus(
+        github.context,
+        octokit,
+        reactRes.data.id,
+        precheckResults.message
+      )
       core.setFailed(precheckResults.message)
       return
     }

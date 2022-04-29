@@ -19,7 +19,7 @@ export async function actionStatus(
   }
 
   // add a comment to the issue with the error message
-  octokit.rest.issues.createComment({
+  await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: context.issue.number,
     body: message
