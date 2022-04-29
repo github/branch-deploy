@@ -9197,6 +9197,13 @@ async function run() {
       core.setFailed(precheckResults.message)
       return
     }
+
+    // If the operation is a noop deployment, return
+    if (precheckResults.noopMode) {
+      core.setOutput('noop', 'true')
+      core.info('noop mode detected')
+      return
+    }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }
