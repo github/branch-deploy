@@ -9072,6 +9072,16 @@ async function prechecks(
   ) {
     message = '✔️ All CI checks passed and **noop** requested - OK'
     core.info(message)
+    core.info('note: noop deployments do not require pr review')
+    // If CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy
+  } else if (
+    reviewDecision === 'REVIEW_REQUIRED' &&
+    commitStatus === null &&
+    noopMode
+  ) {
+    message = '✔️ CI checks have not been defined and **noop** requested - OK'
+    core.info(message)
+    core.info('note: noop deployments do not require pr review')
     // If CI is passing but the PR is missing an approval, let the user know
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
