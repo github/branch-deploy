@@ -1,12 +1,12 @@
 import * as core from '@actions/core'
-import { triggerCheck } from './functions/trigger-check'
-import { contextCheck } from './functions/context-check'
-import { reactEmote } from './functions/react-emote'
-import { actionStatus } from './functions/action-status'
-import { postDeployComment } from './functions/post-deploy-comment'
-import { prechecks } from './functions/prechecks'
+import {triggerCheck} from './functions/trigger-check'
+import {contextCheck} from './functions/context-check'
+import {reactEmote} from './functions/react-emote'
+import {actionStatus} from './functions/action-status'
+import {postDeployComment} from './functions/post-deploy-comment'
+import {prechecks} from './functions/prechecks'
 import * as github from '@actions/github'
-import { context } from '@actions/github'
+import {context} from '@actions/github'
 
 async function run() {
   try {
@@ -14,8 +14,8 @@ async function run() {
     const trigger = core.getInput('trigger')
     const reaction = core.getInput('reaction')
     const prefixOnly = core.getInput('prefix_only') === 'true'
-    const token = core.getInput('github_token', { required: true })
-    const environment = core.getInput('environment', { required: true })
+    const token = core.getInput('github_token', {required: true})
+    const environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     // Get the inputs for the alternate Action to post a post-deployment comment
@@ -38,13 +38,17 @@ async function run() {
     const octokit = github.getOctokit(token)
 
     // Execute post-deployment comment logic if the action is running under that context
-    if (postDeployComment(context,
-      octokit,
-      deployment_comment_id,
-      deployment_status,
-      deployment_message,
-      deployment_result_ref,
-      deployment_mode_noop)) {
+    if (
+      postDeployComment(
+        context,
+        octokit,
+        deployment_comment_id,
+        deployment_status,
+        deployment_message,
+        deployment_result_ref,
+        deployment_mode_noop
+      )
+    ) {
       core.info('post deploy comment logic executed... exiting')
       return
     }

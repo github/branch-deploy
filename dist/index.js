@@ -8868,12 +8868,20 @@ async function reactEmote(reaction, context, octokit) {
   return reactRes
 }
 
-;// CONCATENATED MODULE: ./src/functions/action-failed.js
+;// CONCATENATED MODULE: ./src/functions/action-status.js
 // Default failure reaction
 const thumbsDown = '-1'
+const rocket = 'rocket'
 
-// Helper function to add a reaction to an issue_comment
-async function actionFailed(context, octokit, reactionId, message) {
+// Helper function to add a reaction to an issue_comment which triggered a deployment
+// It also updates the original comment with a reaction depending on the success of the deployment
+async function actionStatus(
+  context,
+  octokit,
+  reactionId,
+  message,
+  success
+) {
   const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
 
   // check if message is null or empty
@@ -8888,11 +8896,19 @@ async function actionFailed(context, octokit, reactionId, message) {
     body: message
   })
 
+  // Select the reaction to add to the issue_comment
+  var reaction
+  if (success) {
+    reaction = rocket
+  } else {
+    reaction = thumbsDown
+  }
+
   // add a reaction to the issue_comment to indicate failure
   await octokit.rest.reactions.createForIssueComment({
     ...context.repo,
     comment_id: context.payload.comment.id,
-    content: thumbsDown
+    content: reaction
   })
 
   // remove the initial reaction on the IssueOp comment that triggered this action
@@ -8901,6 +8917,116 @@ async function actionFailed(context, octokit, reactionId, message) {
     comment_id: context.payload.comment.id,
     reaction_id: reactionId
   })
+}
+
+;// CONCATENATED MODULE: ./src/functions/post-deploy-comment.js
+
+
+
+// Helper function to comment deployment status after a deployment
+async function postDeployComment(
+  context,
+  octokit,
+  deployment_comment_id,
+  deployment_status,
+  deployment_message,
+  deployment_result_ref,
+  deployment_mode_noop
+) {
+  // Check the inputs to ensure they are valid
+  if (
+    deployment_comment_id &&
+    deployment_status &&
+    deployment_message &&
+    deployment_result_ref &&
+    deployment_mode_noop
+  ) {
+    core.info('post deploy comment logic triggered... executing')
+  } else if (!deployment_comment_id || deployment_comment_id.length === 0) {
+    core.info(
+      'No deployment_comment_id provided, skipping post-deployment comment logic'
+    )
+    return false
+  } else if (!deployment_status || deployment_status.length === 0) {
+    throw new Error(
+      'deployment_comment_id specified but no deployment_status provided'
+    )
+  } else if (!deployment_message || deployment_message.length === 0) {
+    throw new Error(
+      'deployment_comment_id specified but no deployment_message provided'
+    )
+  } else if (!deployment_result_ref || deployment_result_ref.length === 0) {
+    throw new Error(
+      'deployment_comment_id specified but no deployment_result_ref provided'
+    )
+  } else {
+    core.info(
+      'An unhandled condition was encountered, skipping post-deployment comment logic'
+    )
+    return false
+  }
+
+  // Check the deployment status
+  var success
+  if (deployment_status === 'success') {
+    success = true
+  } else {
+    success = false
+  }
+
+  var banner
+  var deployTypeString = ' ' // a single space as a default
+
+  if (deployment_mode_noop === 'true') {
+    banner = 'noop 🧪'
+    deployTypeString = ' noop '
+  } else {
+    banner = 'production 🪐'
+  }
+
+  var message
+  var deployStatus
+  if (deployment_status === 'success') {
+    message = `Successfully${deployTypeString}deployed branch **${deployment_result_ref}**`
+    deployStatus = `\`${deployment_status}\` ✔️`
+  } else if (deployment_status === 'failure') {
+    message = `Failure when${deployTypeString}deploying branch **${deployment_result_ref}**`
+    deployStatus = `\`${deployment_status}\` ❌`
+  } else {
+    message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
+    deployStatus = `\`${deployment_status}\` ⚠️`
+  }
+
+  const deployment_message_fmt = `
+  ### Deployment Results - ${banner}
+
+  - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
+  - Branch: \`${deployment_result_ref}\`
+
+  <details><summary>Show Results</summary>
+
+  \`\`\`${deployment_message}\`\`\`
+
+  </details>
+
+  ${message}
+
+  > Pusher: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
+    context.workflow
+  }\`
+  `
+
+  // Update the action status to indicate the result of the deployment as a comment
+  actionStatus(
+    context,
+    octokit,
+    parseInt(deployment_comment_id),
+    deployment_message_fmt,
+    success
+  )
+
+  // If the post deploy comment logic completes successfully, return true
+  return true
 }
 
 ;// CONCATENATED MODULE: ./src/functions/prechecks.js
@@ -9149,6 +9275,7 @@ var github = __nccwpck_require__(5438);
 
 
 
+
 async function run() {
   try {
     // Get the inputs for the branch-deploy Action
@@ -9159,6 +9286,12 @@ async function run() {
     const environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
+    // Get the inputs for the alternate Action to post a post-deployment comment
+    const deployment_comment_id = core.getInput('deployment_comment_id')
+    const deployment_status = core.getInput('deployment_status')
+    const deployment_message = core.getInput('deployment_message')
+    const deployment_result_ref = core.getInput('deployment_result_ref')
+    const deployment_mode_noop = core.getInput('deployment_mode_noop')
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(github.context))) {
@@ -9169,13 +9302,29 @@ async function run() {
     const body = github.context.payload.comment.body
     const issue_number = github.context.payload.issue.number
 
+    // Create an octokit client
+    const octokit = github.getOctokit(token)
+
+    // Execute post-deployment comment logic if the action is running under that context
+    if (
+      postDeployComment(
+        github.context,
+        octokit,
+        deployment_comment_id,
+        deployment_status,
+        deployment_message,
+        deployment_result_ref,
+        deployment_mode_noop
+      )
+    ) {
+      core.info('post deploy comment logic executed... exiting')
+      return
+    }
+
     // Check if the comment body contains the trigger, exit if it doesn't return true
     if (!(await triggerCheck(prefixOnly, body, trigger))) {
       return
     }
-
-    // Create an octokit client
-    const octokit = github.getOctokit(token)
 
     // Add the reaction to the issue_comment as we begin to start the deployment
     const reactRes = await reactEmote(reaction, github.context, octokit)
@@ -9193,10 +9342,15 @@ async function run() {
 
     // If the prechecks failed, run the actionFailed function and return
     if (!precheckResults.status) {
-      actionFailed(github.context, octokit, reactRes.data.id, precheckResults.message)
+      actionStatus(github.context, octokit, reactRes.data.id, precheckResults.message)
       core.setFailed(precheckResults.message)
       return
     }
+
+    // Set the output of the ref
+    core.setOutput('ref', precheckResults.ref)
+    // Set the output of the comment id which triggered this action
+    core.setOutput('comment_id', reactRes.data.id)
 
     // If the operation is a noop deployment, return
     if (precheckResults.noopMode) {

@@ -4,7 +4,13 @@ const rocket = 'rocket'
 
 // Helper function to add a reaction to an issue_comment which triggered a deployment
 // It also updates the original comment with a reaction depending on the success of the deployment
-export async function actionStatus(context, octokit, reactionId, message, success) {
+export async function actionStatus(
+  context,
+  octokit,
+  reactionId,
+  message,
+  success
+) {
   const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
 
   // check if message is null or empty
