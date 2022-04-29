@@ -1,7 +1,7 @@
 require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 5988:
+/***/ 8932:
 /***/ (function(__unused_webpack_module, exports) {
 
 "use strict";
@@ -35,7 +35,7 @@ exports.contextCheck = contextCheck;
 
 /***/ }),
 
-/***/ 4065:
+/***/ 5794:
 /***/ (function(__unused_webpack_module, exports) {
 
 "use strict";
@@ -51,6 +51,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.reactEmote = void 0;
+const presets = [
+    '+1',
+    '-1',
+    'laugh',
+    'confused',
+    'heart',
+    'hooray',
+    'rocket',
+    'eyes'
+];
 // Helper function to add a reaction to an issue_comment
 function reactEmote(reaction, context, octokit) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -59,15 +69,20 @@ function reactEmote(reaction, context, octokit) {
             // Get the owner and repo from the context
             const { owner, repo } = context.repo;
             // If the reaction is not specified, return
-            if (!reaction || reaction.trim() === "") {
+            if (!reaction || reaction.trim() === '') {
                 return;
             }
+            // Find the reaction in the list of presets, otherwise throw an error
+            const preset = presets.find(preset => preset === reaction.trim());
+            if (!preset) {
+                throw new Error(`Reaction "${reaction}" is not a valid preset`);
+            }
             // Add the reaction to the issue_comment
-            yield octokit.reactions.createForIssueComment({
+            yield octokit.rest.reactions.createForIssueComment({
                 owner,
                 repo,
                 comment_id: (_b = (_a = context === null || context === void 0 ? void 0 : context.payload) === null || _a === void 0 ? void 0 : _a.comment) === null || _b === void 0 ? void 0 : _b.id,
-                content: reaction
+                content: preset
             });
         }));
     });
@@ -77,7 +92,7 @@ exports.reactEmote = reactEmote;
 
 /***/ }),
 
-/***/ 8186:
+/***/ 1018:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -180,11 +195,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
+const trigger_check_1 = __nccwpck_require__(1018);
+const context_check_1 = __nccwpck_require__(8932);
+const react_emote_1 = __nccwpck_require__(5794);
+const github = __importStar(__nccwpck_require__(5438));
 const github_1 = __nccwpck_require__(5438);
-const trigger_check_1 = __nccwpck_require__(8186);
-const context_check_1 = __nccwpck_require__(5988);
-const react_emote_1 = __nccwpck_require__(4065);
-const github_2 = __nccwpck_require__(5438);
 function run() {
     var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
@@ -206,7 +221,7 @@ function run() {
                 return;
             }
             // Create an octokit client
-            const octokit = (0, github_2.getOctokit)(token);
+            const octokit = github.getOctokit(token);
             // Add the reaction to the issue_comment
             yield (0, react_emote_1.reactEmote)(reaction, github_1.context, octokit);
         }
@@ -4041,7 +4056,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var deprecation = __nccwpck_require__(8932);
+var deprecation = __nccwpck_require__(2670);
 var once = _interopDefault(__nccwpck_require__(1223));
 
 const logOnceCode = once(deprecation => console.warn(deprecation));
@@ -4475,7 +4490,7 @@ function removeHook(state, name, method) {
 
 /***/ }),
 
-/***/ 8932:
+/***/ 2670:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
