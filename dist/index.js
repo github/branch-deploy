@@ -195,7 +195,6 @@ function run() {
             const prefixOnly = core.getInput('prefix_only') === 'true';
             const token = core.getInput('github-token', { required: true });
             const body = (_b = (_a = github_1.context === null || github_1.context === void 0 ? void 0 : github_1.context.payload) === null || _a === void 0 ? void 0 : _a.comment) === null || _b === void 0 ? void 0 : _b.body;
-            const octokit = (0, github_2.getOctokit)(token);
             // Check the context of the event to ensure it is valid
             if (!(yield (0, context_check_1.contextCheck)(github_1.context))) {
                 core.setFailed('This Action can only be run in the context of a pull request comment or issue comment');
@@ -206,6 +205,8 @@ function run() {
                 core.info(`Comment body does not contain trigger phrase: ${trigger}`);
                 return;
             }
+            // Create an octokit client
+            const octokit = (0, github_2.getOctokit)(token);
             // Add the reaction to the issue_comment
             yield (0, react_emote_1.reactEmote)(reaction, github_1.context, octokit);
         }
