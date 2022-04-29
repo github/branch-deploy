@@ -3,6 +3,7 @@
         "body": ".deploy"
     },
     "issue": {
-        "pull_request": {}
+        "pull_request": {},
+        "number": 1
     }
 }

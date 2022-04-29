@@ -8885,12 +8885,17 @@ async function run() {
     const environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
-    const body = github.context.payload.comment.body
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(github.context))) {
       return
     }
+
+    // Get variables from the event context
+    const body = github.context.payload.comment.body
+    const issue_number = github.context.payload.issue.number
+
+    core.info(`issue number: ${issue_number}`)
 
     // Check if the comment body contains the trigger, exit if it doesn't return true
     if (!(await triggerCheck(prefixOnly, body, trigger))) {
