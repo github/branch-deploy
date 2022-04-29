@@ -8857,11 +8857,49 @@ async function reactEmote(reaction, context, octokit) {
   }
 
   // Add the reaction to the issue_comment
-  await octokit.rest.reactions.createForIssueComment({
+  const reactRes = await octokit.rest.reactions.createForIssueComment({
     owner,
     repo,
     comment_id: context.payload.comment.id,
     content: preset
+  })
+
+  // Return the reactRes which contains the id for reference later
+  return reactRes
+}
+
+;// CONCATENATED MODULE: ./src/functions/action-failed.js
+// Default failure reaction
+const thumbsDown = '-1'
+
+// Helper function to add a reaction to an issue_comment
+async function actionFailed(context, octokit, reactionId, message) {
+  const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+
+  // check if message is null or empty
+  if (!message || message.length === 0) {
+    message = 'Unknown error, [check logs](' + log_url + ') for more details.'
+  }
+
+  // add a comment to the issue with the error message
+  octokit.rest.issues.createComment({
+    ...context.repo,
+    issue_number: context.issue.number,
+    body: message
+  })
+
+  // add a reaction to the issue_comment to indicate failure
+  await octokit.rest.reactions.createForIssueComment({
+    ...context.repo,
+    comment_id: context.payload.comment.id,
+    content: thumbsDown
+  })
+
+  // remove the initial reaction on the IssueOp comment that triggered this action
+  await octokit.rest.reactions.deleteForIssueComment({
+    ...context.repo,
+    comment_id: context.payload.comment.id,
+    reaction_id: reactionId
   })
 }
 
@@ -8869,6 +8907,14 @@ async function reactEmote(reaction, context, octokit) {
 
 
 // Runs precheck logic before the branch deployment can proceed
+// :param comment: The comment body of the event
+// :param trigger: The trigger word to check for
+// :param noop_trigger: The trigger word to check for if the deployment is a noop
+// :param stable_branch: The "stable" or "base" branch to deploy to (e.g. master|main)
+// :param issue_number: The issue number of the event
+// :param context: The context of the event
+// :param octokit: The octokit client
+// :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
 async function prechecks(
   comment,
   trigger,
@@ -8878,6 +8924,9 @@ async function prechecks(
   context,
   octokit
 ) {
+  // Setup the message variable
+  var message
+
   // Get the permissions of the user who made the comment
   const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(
     {
@@ -8886,12 +8935,12 @@ async function prechecks(
     }
   )
 
-  var message
-
+  // Check permission API call status code
   if (permissionRes.status !== 200) {
     message = 'Permission check returns non-200 status: ${permissionRes.status}'
     return {message: message, status: false}
   }
+
   // Check to ensure the user has at least write permission on the repo
   const actorPermission = permissionRes.data.permission
   if (!['admin', 'write'].includes(actorPermission)) {
@@ -8901,6 +8950,7 @@ async function prechecks(
       '__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: ${actorPermission}'
     return {message: message, status: false}
   }
+
   // Get the PR data
   const pr = await octokit.rest.pulls.get({
     ...context.repo,
@@ -8910,6 +8960,7 @@ async function prechecks(
     message = 'Could not retrieve PR info: ${permissionRes.status}'
     return {message: message, status: false}
   }
+
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref
   var noopMode = false
@@ -8953,6 +9004,7 @@ async function prechecks(
               `
     return {message: message, status: false}
   }
+
   // Check to ensure PR CI checks are passing and the PR has been reviewed
   // mergeStateStatus is in the query below but not used at this time
   const query = `query($owner:String!, $name:String!, $number:Int!) {
@@ -8997,6 +9049,7 @@ async function prechecks(
     core.info('Skipping commit status check and proceeding...')
     commitStatus = null
   }
+
   // If everything is OK, print a nice message
   if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
     message = '✔️ PR is approved and all CI checks passed - OK'
@@ -9074,6 +9127,7 @@ var github = __nccwpck_require__(5438);
 
 
 
+
 async function run() {
   try {
     // Get the inputs for the branch-deploy Action
@@ -9103,7 +9157,7 @@ async function run() {
     const octokit = github.getOctokit(token)
 
     // Add the reaction to the issue_comment as we begin to start the deployment
-    await reactEmote(reaction, github.context, octokit)
+    const reactRes = await reactEmote(reaction, github.context, octokit)
 
     // Execute prechecks to ensure the deployment can proceed
     const precheckResults = await prechecks(
@@ -9116,7 +9170,12 @@ async function run() {
       octokit
     )
 
-    core.info(`Precheck results: ${JSON.stringify(precheckResults)}`)
+    // If the prechecks failed, run the actionFailed function and return
+    if (!precheckResults.status) {
+      actionFailed(github.context, octokit, reactRes.data.id, precheckResults.message)
+      core.setFailed(precheckResults.message)
+      return
+    }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }

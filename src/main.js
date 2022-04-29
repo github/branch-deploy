@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import {triggerCheck} from './functions/trigger-check'
 import {contextCheck} from './functions/context-check'
 import {reactEmote} from './functions/react-emote'
+import {actionFailed} from './functions/action-failed'
 import {prechecks} from './functions/prechecks'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
@@ -35,7 +36,7 @@ async function run() {
     const octokit = github.getOctokit(token)
 
     // Add the reaction to the issue_comment as we begin to start the deployment
-    await reactEmote(reaction, context, octokit)
+    const reactRes = await reactEmote(reaction, context, octokit)
 
     // Execute prechecks to ensure the deployment can proceed
     const precheckResults = await prechecks(
@@ -48,7 +49,12 @@ async function run() {
       octokit
     )
 
-    core.info(`Precheck results: ${JSON.stringify(precheckResults)}`)
+    // If the prechecks failed, run the actionFailed function and return
+    if (!precheckResults.status) {
+      actionFailed(context, octokit, reactRes.data.id, precheckResults.message)
+      core.setFailed(precheckResults.message)
+      return
+    }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }
