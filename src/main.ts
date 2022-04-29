@@ -1,9 +1,9 @@
 import * as core from '@actions/core'
-import {context} from '@actions/github'
 import {triggerCheck} from './functions/trigger-check'
 import {contextCheck} from './functions/context-check'
 import {reactEmote} from './functions/react-emote'
-import {getOctokit} from '@actions/github'
+import * as github from '@actions/github'
+import {context} from '@actions/github'
 
 async function run(): Promise<void> {
   try {
@@ -29,7 +29,7 @@ async function run(): Promise<void> {
     }
 
     // Create an octokit client
-    const octokit = getOctokit(token)
+    const octokit = github.getOctokit(token)
 
     // Add the reaction to the issue_comment
     await reactEmote(reaction, context, octokit)

@@ -1,24 +1,44 @@
-import { Context } from '@actions/github/lib/context'
+import {Context} from '@actions/github/lib/context'
+import {GitHub} from '@actions/github/lib/utils'
 
+const presets = [
+  '+1',
+  '-1',
+  'laugh',
+  'confused',
+  'heart',
+  'hooray',
+  'rocket',
+  'eyes'
+] as const
 
 // Helper function to add a reaction to an issue_comment
-export async function reactEmote(reaction: string, context: Context, octokit: any): Promise<void> {
+export async function reactEmote(
+  reaction: string,
+  context: Context,
+  octokit: InstanceType<typeof GitHub>
+): Promise<void> {
   return new Promise(async () => {
     // Get the owner and repo from the context
-    const { owner, repo } = context.repo
+    const {owner, repo} = context.repo
 
     // If the reaction is not specified, return
-    if (!reaction || reaction.trim() === "") {
-      return;
+    if (!reaction || reaction.trim() === '') {
+      return
+    }
+
+    // Find the reaction in the list of presets, otherwise throw an error
+    const preset = presets.find(preset => preset === reaction.trim())
+    if (!preset) {
+      throw new Error(`Reaction "${reaction}" is not a valid preset`)
     }
 
     // Add the reaction to the issue_comment
-    await octokit.reactions.createForIssueComment({
+    await octokit.rest.reactions.createForIssueComment({
       owner,
       repo,
-      comment_id: context?.payload?.comment?.id,
-      content: reaction
+      comment_id: context?.payload?.comment?.id as number,
+      content: preset
     })
-  }
-  )
+  })
 }
