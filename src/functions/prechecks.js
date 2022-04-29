@@ -191,11 +191,11 @@ export async function prechecks(
   }
   core.setOutput('ref', ref)
   const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
-  const commentBody = `
-    __${context.actor}__, started a ${deploymentType} deployment 🚀
-    - Branch: __${ref}__
-    You can watch the progress [here](${log_url})
-    `
+  const commentBody = `\
+  __${context.actor}__, starting a ${deploymentType} deployment 🚀
+  - Branch: __${ref}__
+  You can watch the progress [here](${log_url})
+  `
   await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: context.issue.number,
