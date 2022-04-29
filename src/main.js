@@ -26,8 +26,6 @@ async function run() {
     const body = context.payload.comment.body
     const issue_number = context.payload.issue.number
 
-    core.info(`issue number: ${issue_number}`)
-
     // Check if the comment body contains the trigger, exit if it doesn't return true
     if (!(await triggerCheck(prefixOnly, body, trigger))) {
       return
@@ -40,7 +38,15 @@ async function run() {
     await reactEmote(reaction, context, octokit)
 
     // Execute prechecks to ensure the deployment can proceed
-    await prechecks(body, context, octokit)
+    await prechecks(
+      body,
+      trigger,
+      noop_trigger,
+      stable_branch,
+      issue_number,
+      context,
+      octokit
+    )
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }

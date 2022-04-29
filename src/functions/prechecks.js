@@ -1,7 +1,15 @@
 import * as core from '@actions/core'
 
 // Runs precheck logic before the branch deployment can proceed
-export async function prechecks(comment, context, octokit) {
+export async function prechecks(
+  comment,
+  trigger,
+  noop_trigger,
+  stable_branch,
+  issue_number,
+  context,
+  octokit
+) {
   // Add a reaction to the comment that triggered this workflow
   const reactionRes = await octokit.rest.reactions.createForIssueComment({
     ...context.repo,
@@ -50,20 +58,20 @@ export async function prechecks(comment, context, octokit) {
   const regexCommandWithNoop = /^\.deploy\s*(noop)$/
   const regexCommandWithoutParameters = /^\.deploy\s*$/
   if (regexCommandWithMain.test(comment)) {
-    ref = process.env.MAIN_BRANCH
+    ref = stable_branch
     core.info(
-      `${process.env.DEPLOY_COMMAND} command used with '${process.env.MAIN_BRANCH}' branch - setting ref to ${ref}`
+      `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
     )
   } else if (regexCommandWithNoop.test(comment)) {
     ref = pr.data.head.ref
     core.info(
-      `${process.env.DEPLOY_COMMAND} command used on current branch with noop mode - setting ref to ${ref}`
+      `${trigger} command used on current branch with noop mode - setting ref to ${ref}`
     )
     noopMode = true
   } else if (regexCommandWithoutParameters.test(comment)) {
     ref = pr.data.head.ref
     core.info(
-      `${process.env.DEPLOY_COMMAND} command used on current branch - setting ref to ${ref}`
+      `${trigger} command used on current branch - setting ref to ${ref}`
     )
   } else {
     ref = pr.data.head.ref
@@ -72,10 +80,10 @@ export async function prechecks(comment, context, octokit) {
               
               Please use one of the following:
               
-              - \`${process.env.DEPLOY_COMMAND}\` - deploy **this** branch (\`${ref}\`)
-              - \`${process.env.DEPLOY_COMMAND} noop\` - deploy **this** branch in **noop** mode (\`${ref}\`)
-              - \`${process.env.DEPLOY_COMMAND} ${process.env.MAIN_BRANCH}\` - deploy the \`${process.env.MAIN_BRANCH}\` branch
-              > Note: \`${process.env.DEPLOY_COMMAND} ${process.env.MAIN_BRANCH}\` is often used for rolling back a change or getting back to a known working state
+              - \`${trigger}\` - deploy **this** branch (\`${ref}\`)
+              - \`${trigger} ${noop_trigger}\` - deploy **this** branch in **noop** mode (\`${ref}\`)
+              - \`${trigger} ${stable_branch}\` - deploy the \`${stable_branch}\` branch
+              > Note: \`${trigger} ${stable_branch}\` is often used for rolling back a change or getting back to a known working state
               `
     core.setOutput('error', message)
     throw new Error(message)
@@ -103,7 +111,7 @@ export async function prechecks(comment, context, octokit) {
   const variables = {
     owner: context.repo.owner,
     name: context.repo.repo,
-    number: parseInt(process.env.PR_NUMBER),
+    number: parseInt(issue_number),
     headers: {
       Accept: 'application/vnd.github.merge-info-preview+json'
     }
