@@ -41,7 +41,6 @@ async function run() {
 
     // Execute prechecks to ensure the deployment can proceed
     await prechecks(body, context, octokit)
-
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }
