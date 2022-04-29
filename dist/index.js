@@ -1,242 +1,6 @@
 require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 8932:
-/***/ (function(__unused_webpack_module, exports) {
-
-"use strict";
-
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.contextCheck = void 0;
-// A simple function that checks the event context to make sure it is valid
-function contextCheck(context) {
-    return __awaiter(this, void 0, void 0, function* () {
-        return new Promise(resolve => {
-            // If the context is not valid, return false
-            if (context.eventName !== 'issue_comment') {
-                return resolve(false);
-            }
-            // If the context is valid, return true
-            return resolve(true);
-        });
-    });
-}
-exports.contextCheck = contextCheck;
-
-
-/***/ }),
-
-/***/ 5794:
-/***/ (function(__unused_webpack_module, exports) {
-
-"use strict";
-
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.reactEmote = void 0;
-const presets = [
-    '+1',
-    '-1',
-    'laugh',
-    'confused',
-    'heart',
-    'hooray',
-    'rocket',
-    'eyes'
-];
-// Helper function to add a reaction to an issue_comment
-function reactEmote(reaction, context, octokit) {
-    return __awaiter(this, void 0, void 0, function* () {
-        return new Promise(() => __awaiter(this, void 0, void 0, function* () {
-            var _a, _b;
-            // Get the owner and repo from the context
-            const { owner, repo } = context.repo;
-            // If the reaction is not specified, return
-            if (!reaction || reaction.trim() === '') {
-                return;
-            }
-            // Find the reaction in the list of presets, otherwise throw an error
-            const preset = presets.find(preset => preset === reaction.trim());
-            if (!preset) {
-                throw new Error(`Reaction "${reaction}" is not a valid preset`);
-            }
-            // Add the reaction to the issue_comment
-            yield octokit.rest.reactions.createForIssueComment({
-                owner,
-                repo,
-                comment_id: (_b = (_a = context === null || context === void 0 ? void 0 : context.payload) === null || _a === void 0 ? void 0 : _a.comment) === null || _b === void 0 ? void 0 : _b.id,
-                content: preset
-            });
-        }));
-    });
-}
-exports.reactEmote = reactEmote;
-
-
-/***/ }),
-
-/***/ 1018:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.triggerCheck = void 0;
-const core = __importStar(__nccwpck_require__(2186));
-// A simple function that checks the body of the message against the trigger
-// Returns true if a message trips the trigger
-// Returns false if a message does not trip the trigger
-function triggerCheck(prefixOnly, body, trigger) {
-    return __awaiter(this, void 0, void 0, function* () {
-        return new Promise(resolve => {
-            // Set the output of the comment body for later use with other actions
-            core.setOutput('comment_body', body);
-            // If the trigger is not activated, set the output to false and return with false
-            if ((prefixOnly && !body.startsWith(trigger)) || !body.includes(trigger)) {
-                core.setOutput('triggered', 'false');
-                return resolve(false);
-            }
-            // If the trigger is activated, set the output to true and return with true
-            core.setOutput('triggered', 'true');
-            return resolve(true);
-        });
-    });
-}
-exports.triggerCheck = triggerCheck;
-
-
-/***/ }),
-
-/***/ 3109:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-const core = __importStar(__nccwpck_require__(2186));
-const trigger_check_1 = __nccwpck_require__(1018);
-const context_check_1 = __nccwpck_require__(8932);
-const react_emote_1 = __nccwpck_require__(5794);
-const github = __importStar(__nccwpck_require__(5438));
-const github_1 = __nccwpck_require__(5438);
-function run() {
-    var _a, _b;
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            // Get the inputs for the branch-deploy Action
-            const trigger = core.getInput('trigger');
-            const reaction = core.getInput('reaction');
-            const prefixOnly = core.getInput('prefix_only') === 'true';
-            const token = core.getInput('github-token', { required: true });
-            const body = (_b = (_a = github_1.context === null || github_1.context === void 0 ? void 0 : github_1.context.payload) === null || _a === void 0 ? void 0 : _a.comment) === null || _b === void 0 ? void 0 : _b.body;
-            // Check the context of the event to ensure it is valid
-            if (!(yield (0, context_check_1.contextCheck)(github_1.context))) {
-                core.setFailed('This Action can only be run in the context of a pull request comment or issue comment');
-                return;
-            }
-            // Check if the comment body contains the trigger
-            if (!(yield (0, trigger_check_1.triggerCheck)(prefixOnly, body, trigger))) {
-                core.info(`Comment body does not contain trigger phrase: ${trigger}`);
-                return;
-            }
-            // Create an octokit client
-            const octokit = github.getOctokit(token);
-            // Add the reaction to the issue_comment
-            yield (0, react_emote_1.reactEmote)(reaction, github_1.context, octokit);
-        }
-        catch (error) {
-            if (error instanceof Error)
-                core.setFailed(error.message);
-        }
-    });
-}
-run();
-// core.info(`context: ${JSON.stringify(context)}`)
-
-
-/***/ }),
-
 /***/ 7351:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -4056,7 +3820,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var deprecation = __nccwpck_require__(2670);
+var deprecation = __nccwpck_require__(8932);
 var once = _interopDefault(__nccwpck_require__(1223));
 
 const logOnceCode = once(deprecation => console.warn(deprecation));
@@ -4490,7 +4254,7 @@ function removeHook(state, name, method) {
 
 /***/ }),
 
-/***/ 2670:
+/***/ 8932:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -8987,18 +8751,155 @@ module.exports = require("zlib");
 /******/ 	}
 /******/ 	
 /************************************************************************/
+/******/ 	/* webpack/runtime/make namespace object */
+/******/ 	(() => {
+/******/ 		// define __esModule on exports
+/******/ 		__nccwpck_require__.r = (exports) => {
+/******/ 			if(typeof Symbol !== 'undefined' && Symbol.toStringTag) {
+/******/ 				Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
+/******/ 			}
+/******/ 			Object.defineProperty(exports, '__esModule', { value: true });
+/******/ 		};
+/******/ 	})();
+/******/ 	
 /******/ 	/* webpack/runtime/compat */
 /******/ 	
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
-/******/ 	
-/******/ 	// startup
-/******/ 	// Load entry module and return exports
-/******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(3109);
-/******/ 	module.exports = __webpack_exports__;
-/******/ 	
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be in strict mode.
+(() => {
+"use strict";
+// ESM COMPAT FLAG
+__nccwpck_require__.r(__webpack_exports__);
+
+// EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
+var core = __nccwpck_require__(2186);
+;// CONCATENATED MODULE: ./src/functions/trigger-check.js
+
+
+// A simple function that checks the body of the message against the trigger
+// Returns true if a message trips the trigger
+// Returns false if a message does not trip the trigger
+async function triggerCheck(prefixOnly, body, trigger) {
+  return new Promise(resolve => {
+    // Set the output of the comment body for later use with other actions
+    core.setOutput('comment_body', body)
+
+    // If the trigger is not activated, set the output to false and return with false
+    if ((prefixOnly && !body.startsWith(trigger)) || !body.includes(trigger)) {
+      core.setOutput('triggered', 'false')
+      return resolve(false)
+    }
+
+    // If the trigger is activated, set the output to true and return with true
+    core.setOutput('triggered', 'true')
+    return resolve(true)
+  })
+}
+
+;// CONCATENATED MODULE: ./src/functions/context-check.js
+// A simple function that checks the event context to make sure it is valid
+async function contextCheck(context) {
+  return new Promise(resolve => {
+    // If the context is not valid, return false
+    if (context.eventName !== 'issue_comment') {
+      return resolve(false)
+    }
+
+    // If the context is valid, return true
+    return resolve(true)
+  })
+}
+
+;// CONCATENATED MODULE: ./src/functions/react-emote.js
+const presets = [
+  '+1',
+  '-1',
+  'laugh',
+  'confused',
+  'heart',
+  'hooray',
+  'rocket',
+  'eyes'
+]
+
+// Helper function to add a reaction to an issue_comment
+async function reactEmote(reaction, context, octokit) {
+  // Get the owner and repo from the context
+  const {owner, repo} = context.repo
+
+  // If the reaction is not specified, return
+  if (!reaction || reaction.trim() === '') {
+    return
+  }
+
+  // Find the reaction in the list of presets, otherwise throw an error
+  const preset = presets.find(preset => preset === reaction.trim())
+  if (!preset) {
+    throw new Error(`Reaction "${reaction}" is not a valid preset`)
+  }
+
+  // Add the reaction to the issue_comment
+  await octokit.rest.reactions.createForIssueComment({
+    owner,
+    repo,
+    comment_id: context.payload.comment.id,
+    content: preset
+  })
+}
+
+// EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
+var github = __nccwpck_require__(5438);
+;// CONCATENATED MODULE: ./src/main.js
+
+
+
+
+
+
+
+async function run() {
+  try {
+    // Get the inputs for the branch-deploy Action
+    const trigger = core.getInput('trigger')
+    const reaction = core.getInput('reaction')
+    const prefixOnly = core.getInput('prefix_only') === 'true'
+    const token = core.getInput('github-token', {required: true})
+    const body = github.context.payload.comment.body
+
+    // Check the context of the event to ensure it is valid
+    if (!(await contextCheck(github.context))) {
+      core.setFailed(
+        'This Action can only be run in the context of a pull request comment or issue comment'
+      )
+      return
+    }
+
+    // Check if the comment body contains the trigger
+    if (!(await triggerCheck(prefixOnly, body, trigger))) {
+      core.info(`Comment body does not contain trigger phrase: ${trigger}`)
+      return
+    }
+
+    // Create an octokit client
+    const octokit = github.getOctokit(token)
+
+    // Add the reaction to the issue_comment
+    await reactEmote(reaction, github.context, octokit)
+  } catch (error) {
+    if (error instanceof Error) core.setFailed(error.message)
+  }
+}
+
+run()
+
+// core.info(`context: ${JSON.stringify(context)}`)
+
+})();
+
+module.exports = __webpack_exports__;
 /******/ })()
 ;
 //# sourceMappingURL=index.js.map

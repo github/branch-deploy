@@ -3,11 +3,7 @@ import * as core from '@actions/core'
 // A simple function that checks the body of the message against the trigger
 // Returns true if a message trips the trigger
 // Returns false if a message does not trip the trigger
-export async function triggerCheck(
-  prefixOnly: boolean,
-  body: string,
-  trigger: string
-): Promise<boolean> {
+export async function triggerCheck(prefixOnly, body, trigger) {
   return new Promise(resolve => {
     // Set the output of the comment body for later use with other actions
     core.setOutput('comment_body', body)
