@@ -9315,7 +9315,7 @@ async function run() {
         deployment_message,
         deployment_result_ref,
         deployment_mode_noop
-      )
+      ) === true
     ) {
       core.info('post deploy comment logic executed... exiting')
       return
