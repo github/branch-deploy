@@ -54,10 +54,17 @@ export async function prechecks(
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref
   var noopMode = false
-  const regexCommandWithMain = /^\.deploy\s*(main)$/
-  const regexCommandWithNoop = /^\.deploy\s*(noop)$/
-  const regexCommandWithoutParameters = /^\.deploy\s*$/
-  if (regexCommandWithMain.test(comment)) {
+
+  const regexCommandWithStableBranch = new RegExp(
+    `^\\${trigger}\\s*(${stable_branch})$`,
+    'i'
+  )
+  const regexCommandWithNoop = new RegExp(
+    `^\\${trigger}\\s*(${noop_trigger})$`,
+    'i'
+  )
+  const regexCommandWithoutParameters = new RegExp(`^\\${trigger}\\s*$`, 'i')
+  if (regexCommandWithStableBranch.test(comment)) {
     ref = stable_branch
     core.info(
       `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
@@ -184,11 +191,11 @@ export async function prechecks(
   }
   core.setOutput('ref', ref)
   const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
-  const commentBody = `\
-            🚀 __${context.actor}__, starting a ${deploymentType} deployment 
-            - Branch: __${ref}__
-            You can watch the progress [here](${log_url})
-            `
+  const commentBody = `
+    __${context.actor}__, started a ${deploymentType} deployment 🚀
+    - Branch: __${ref}__
+    You can watch the progress [here](${log_url})
+    `
   await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: context.issue.number,
