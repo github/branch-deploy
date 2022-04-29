@@ -1,4 +1,4 @@
-name: "build-test"
+name: "test"
 
 on:
   issue_comment:
@@ -6,6 +6,7 @@ on:
 
 permissions:
   issues: write
+  pull-requests: read
   contents: read
 
 jobs:
