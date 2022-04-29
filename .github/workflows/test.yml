@@ -1,8 +1,13 @@
-name: 'build-test'
+name: "build-test"
 
 on:
   issue_comment:
-    types: [ created ]
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: write
 
 jobs:
   build: # make sure build/ci work properly
