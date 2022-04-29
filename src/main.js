@@ -14,17 +14,13 @@ async function run() {
     const token = core.getInput('github-token', {required: true})
     const body = context.payload.comment.body
 
-    // Check the context of the event to ensure it is valid
+    // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(context))) {
-      core.setFailed(
-        'This Action can only be run in the context of a pull request comment or issue comment'
-      )
       return
     }
 
-    // Check if the comment body contains the trigger
+    // Check if the comment body contains the trigger, exit if it doesn't return true
     if (!(await triggerCheck(prefixOnly, body, trigger))) {
-      core.info(`Comment body does not contain trigger phrase: ${trigger}`)
       return
     }
 

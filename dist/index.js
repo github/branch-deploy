@@ -8783,34 +8783,42 @@ var core = __nccwpck_require__(2186);
 // Returns true if a message trips the trigger
 // Returns false if a message does not trip the trigger
 async function triggerCheck(prefixOnly, body, trigger) {
-  return new Promise(resolve => {
-    // Set the output of the comment body for later use with other actions
-    core.setOutput('comment_body', body)
+  // Set the output of the comment body for later use with other actions
+  core.setOutput('comment_body', body)
 
-    // If the trigger is not activated, set the output to false and return with false
-    if ((prefixOnly && !body.startsWith(trigger)) || !body.includes(trigger)) {
-      core.setOutput('triggered', 'false')
-      return resolve(false)
+  // If the trigger is not activated, set the output to false and return with false
+  if ((prefixOnly && !body.startsWith(trigger)) || !body.includes(trigger)) {
+    if (prefixOnly) {
+      core.info(`Trigger "${trigger}" not found as comment prefix`)
+    } else {
+      core.info(
+        `Comment body does not contain trigger phrase: "${trigger}" anywhere`
+      )
     }
+    core.setOutput('triggered', 'false')
+    return false
+  }
 
-    // If the trigger is activated, set the output to true and return with true
-    core.setOutput('triggered', 'true')
-    return resolve(true)
-  })
+  // If the trigger is activated, set the output to true and return with true
+  core.setOutput('triggered', 'true')
+  return true
 }
 
 ;// CONCATENATED MODULE: ./src/functions/context-check.js
+
+
 // A simple function that checks the event context to make sure it is valid
 async function contextCheck(context) {
-  return new Promise(resolve => {
-    // If the context is not valid, return false
-    if (context.eventName !== 'issue_comment') {
-      return resolve(false)
-    }
+  // If the context is not valid, return false
+  if (context.eventName !== 'issue_comment') {
+    core.setFailed(
+      'This Action can only be run in the context of a pull request comment or issue comment'
+    )
+    return false
+  }
 
-    // If the context is valid, return true
-    return resolve(true)
-  })
+  // If the context is valid, return true
+  return true
 }
 
 ;// CONCATENATED MODULE: ./src/functions/react-emote.js
@@ -8869,17 +8877,13 @@ async function run() {
     const token = core.getInput('github-token', {required: true})
     const body = github.context.payload.comment.body
 
-    // Check the context of the event to ensure it is valid
+    // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(github.context))) {
-      core.setFailed(
-        'This Action can only be run in the context of a pull request comment or issue comment'
-      )
       return
     }
 
-    // Check if the comment body contains the trigger
+    // Check if the comment body contains the trigger, exit if it doesn't return true
     if (!(await triggerCheck(prefixOnly, body, trigger))) {
-      core.info(`Comment body does not contain trigger phrase: ${trigger}`)
       return
     }
 
