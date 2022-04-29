@@ -8791,9 +8791,7 @@ async function triggerCheck(prefixOnly, body, trigger) {
     if (prefixOnly) {
       core.info(`Trigger "${trigger}" not found as comment prefix`)
     } else {
-      core.info(
-        `Comment body does not contain trigger phrase: "${trigger}" anywhere`
-      )
+      core.info(`Trigger "${trigger}" not found in the comment body`)
     }
     core.setOutput('triggered', 'false')
     return false
@@ -8822,6 +8820,7 @@ async function contextCheck(context) {
 }
 
 ;// CONCATENATED MODULE: ./src/functions/react-emote.js
+// Fixed presets of allowed emote types as defined by GitHub
 const presets = [
   '+1',
   '-1',
