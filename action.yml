@@ -30,6 +30,10 @@ inputs:
     description: The GitHub token used to create an authenticated client
     default: ${{ github.token }}
     required: true
+  post_deploy:
+    description: 'If "true", post deployment logic is run'
+    required: false
+    default: "false"
   deployment_comment_id:
     description: The ID of the comment which triggered the original deployment
     required: false

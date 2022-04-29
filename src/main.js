@@ -19,6 +19,7 @@ async function run() {
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     // Get the inputs for the alternate Action to post a post-deployment comment
+    const post_deploy = core.getInput('post_deploy')
     const deployment_comment_id = core.getInput('deployment_comment_id')
     const deployment_status = core.getInput('deployment_status')
     const deployment_message = core.getInput('deployment_message')
@@ -42,6 +43,7 @@ async function run() {
       (await postDeployComment(
         context,
         octokit,
+        post_deploy,
         deployment_comment_id,
         deployment_status,
         deployment_message,

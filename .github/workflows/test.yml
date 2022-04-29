@@ -28,6 +28,7 @@ jobs:
       # Optionally, post the deployment results back to the PR formatted how you wish
       - uses: ./
         with:
+          post_deploy: true
           deployment_comment_id: ${{steps.branch-deploy-start.outputs.comment_id}}
           deployment_status: ${{ steps.deployment.outcome }}
           deployment_message: ${{ steps.deployment.outcome }}

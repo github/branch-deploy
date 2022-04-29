@@ -8927,12 +8927,18 @@ async function actionStatus(
 async function postDeployComment(
   context,
   octokit,
+  post_deploy,
   deployment_comment_id,
   deployment_status,
   deployment_message,
   deployment_result_ref,
   deployment_mode_noop
 ) {
+  // Check if this action is requesting the post_deploy workflow
+  if (post_deploy === 'true' || post_deploy === true) {
+    core.info('post_deploy logic triggered... executing')
+  }
+
   // Check the inputs to ensure they are valid
   if (
     deployment_comment_id &&
@@ -8941,24 +8947,15 @@ async function postDeployComment(
     deployment_result_ref &&
     deployment_mode_noop
   ) {
-    core.info('post deploy comment logic triggered... executing')
+    core.debug('post_deploy inputs passed initial check')
   } else if (!deployment_comment_id || deployment_comment_id.length === 0) {
-    core.info(
-      'No deployment_comment_id provided, skipping post-deployment comment logic'
-    )
-    return false
+    throw new Error('no deployment_comment_id provided')
   } else if (!deployment_status || deployment_status.length === 0) {
-    throw new Error(
-      'deployment_comment_id specified but no deployment_status provided'
-    )
+    throw new Error('no deployment_status provided')
   } else if (!deployment_message || deployment_message.length === 0) {
-    throw new Error(
-      'deployment_comment_id specified but no deployment_message provided'
-    )
+    throw new Error('no deployment_message provided')
   } else if (!deployment_result_ref || deployment_result_ref.length === 0) {
-    throw new Error(
-      'deployment_comment_id specified but no deployment_result_ref provided'
-    )
+    throw new Error('no deployment_result_ref provided')
   } else {
     throw new Error(
       'An unhandled condition was encountered while processing post-deployment logic'
@@ -9286,6 +9283,7 @@ async function run() {
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     // Get the inputs for the alternate Action to post a post-deployment comment
+    const post_deploy = core.getInput('post_deploy')
     const deployment_comment_id = core.getInput('deployment_comment_id')
     const deployment_status = core.getInput('deployment_status')
     const deployment_message = core.getInput('deployment_message')
@@ -9309,6 +9307,7 @@ async function run() {
       (await postDeployComment(
         github.context,
         octokit,
+        post_deploy,
         deployment_comment_id,
         deployment_status,
         deployment_message,
