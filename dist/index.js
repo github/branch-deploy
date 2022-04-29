@@ -8878,13 +8878,7 @@ async function prechecks(
   context,
   octokit
 ) {
-  // Add a reaction to the comment that triggered this workflow
-  const reactionRes = await octokit.rest.reactions.createForIssueComment({
-    ...context.repo,
-    comment_id: context.payload.comment.id,
-    content: 'eyes'
-  })
-  core.setOutput('eyes', reactionRes.data.id)
+  // Get the permissions of the user who made the comment
   const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(
     {
       ...context.repo,
@@ -8896,8 +8890,7 @@ async function prechecks(
 
   if (permissionRes.status !== 200) {
     message = 'Permission check returns non-200 status: ${permissionRes.status}'
-    core.setOutput('error', message)
-    throw new Error(message)
+    return {message: message, status: false}
   }
   // Check to ensure the user has at least write permission on the repo
   const actorPermission = permissionRes.data.permission
@@ -8906,8 +8899,7 @@ async function prechecks(
       '👋  __' +
       context.actor +
       '__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: ${actorPermission}'
-    core.setOutput('error', message)
-    throw new Error(message)
+    return {message: message, status: false}
   }
   // Get the PR data
   const pr = await octokit.rest.pulls.get({
@@ -8916,8 +8908,7 @@ async function prechecks(
   })
   if (pr.status !== 200) {
     message = 'Could not retrieve PR info: ${permissionRes.status}'
-    core.setOutput('error', message)
-    throw new Error(message)
+    return {message: message, status: false}
   }
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref
@@ -8960,8 +8951,7 @@ async function prechecks(
               - \`${trigger} ${stable_branch}\` - deploy the \`${stable_branch}\` branch
               > Note: \`${trigger} ${stable_branch}\` is often used for rolling back a change or getting back to a known working state
               `
-    core.setOutput('error', message)
-    throw new Error(message)
+    return {message: message, status: false}
   }
   // Check to ensure PR CI checks are passing and the PR has been reviewed
   // mergeStateStatus is in the query below but not used at this time
@@ -9035,21 +9025,17 @@ async function prechecks(
     commitStatus === 'SUCCESS'
   ) {
     const message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks are passing but an approval is required before you can proceed with deployment`
-    core.setOutput('error', message)
-    throw new Error(message)
+    return {message: message, status: false}
     // If the PR is approved but CI is failing
   } else if (reviewDecision === 'APPROVED' && commitStatus === 'FAILURE') {
     const message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is approved but CI checks are failing`
-    core.setOutput('error', message)
-    throw new Error(message)
+    return {message: message, status: false}
     // If there are any other errors blocking deployment, let the user know
   } else {
     const message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`
-    core.setOutput('error', message)
-    throw new Error(message)
+    return {message: message, status: false}
   }
-  // Export the value of noopMode for later steps
-  core.setOutput('noop', noopMode)
+
   // Format the PR comment message based on deployment mode
   var deploymentType
   if (noopMode) {
@@ -9057,18 +9043,24 @@ async function prechecks(
   } else {
     deploymentType = 'branch'
   }
-  core.setOutput('ref', ref)
+
+  // Format the success message
   const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
   const commentBody = `\
   __${context.actor}__, starting a ${deploymentType} deployment 🚀
   - Branch: __${ref}__
   You can watch the progress [here](${log_url})
   `
+
+  // Make a comment on the pr with the successful results
   await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: context.issue.number,
     body: commentBody
   })
+
+  // Return a success message
+  return {message: message, status: true, ref: ref, noopMode: noopMode}
 }
 
 // EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
@@ -9114,7 +9106,7 @@ async function run() {
     await reactEmote(reaction, github.context, octokit)
 
     // Execute prechecks to ensure the deployment can proceed
-    await prechecks(
+    const precheckResults = await prechecks(
       body,
       trigger,
       noop_trigger,
@@ -9123,6 +9115,8 @@ async function run() {
       github.context,
       octokit
     )
+
+    core.info(`Precheck results: ${JSON.stringify(precheckResults)}`)
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }

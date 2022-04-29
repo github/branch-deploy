@@ -38,7 +38,7 @@ async function run() {
     await reactEmote(reaction, context, octokit)
 
     // Execute prechecks to ensure the deployment can proceed
-    await prechecks(
+    const precheckResults = await prechecks(
       body,
       trigger,
       noop_trigger,
@@ -47,6 +47,8 @@ async function run() {
       context,
       octokit
     )
+
+    core.info(`Precheck results: ${JSON.stringify(precheckResults)}`)
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }
