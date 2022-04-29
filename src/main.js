@@ -51,7 +51,7 @@ async function run() {
         deployment_mode_noop
       )) === true
     ) {
-      core.info('post deploy comment logic executed... exiting')
+      core.info('post_deploy logic completed')
       return
     }
 

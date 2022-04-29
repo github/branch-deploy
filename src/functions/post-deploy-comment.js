@@ -15,6 +15,9 @@ export async function postDeployComment(
   // Check if this action is requesting the post_deploy workflow
   if (post_deploy === 'true' || post_deploy === true) {
     core.info('post_deploy logic triggered... executing')
+  } else {
+    // Exit out of this function if this action is not requesting the post_deploy workflow
+    return false
   }
 
   // Check the inputs to ensure they are valid
