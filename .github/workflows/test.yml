@@ -13,6 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
+  
+      # Start the branch deployment
+      - uses: ./
+        id: branch-deploy-start
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Do some fake deployment logic here
+      - name: fake deploy
+        id: deployment
+        run: echo "fake deploy"
+
+      # Optionally, post the deployment results back to the PR formatted how you wish
       - uses: ./
         with:
+          deployment_comment_id: ${{steps.branch-deploy-start.outputs.comment_id}}
+          deployment_status: ${{ steps.deployment.outcome }}
+          deployment_message: ${{ steps.deployment.outcome }}
+          deployment_result_ref: ${{steps.branch-deploy-start.outputs.ref}}
+          deployment_mode_noop: ${{steps.branch-deploy-start.outputs.noop}}
           github_token: ${{ secrets.GITHUB_TOKEN }}
