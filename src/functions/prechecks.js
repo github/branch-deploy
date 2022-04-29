@@ -187,6 +187,17 @@ export async function prechecks(
   } else if (reviewDecision === 'APPROVED' && commitStatus === 'FAILURE') {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is approved but CI checks are failing`
     return {message: message, status: false}
+    // If the PR is NOT reviewed and CI checks have NOT been defined and NOT a noop deploy
+  } else if (
+    reviewDecision === 'REVIEW_REQUIRED' &&
+    commitStatus === null &&
+    !noopMode
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is missing required approvals`
+    core.info(
+      'note: CI checks have not been defined so they will not be evaluated'
+    )
+    return {message: message, status: false}
     // If there are any other errors blocking deployment, let the user know
   } else {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`
