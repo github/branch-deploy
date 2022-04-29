@@ -27,10 +27,13 @@ export async function reactEmote(reaction, context, octokit) {
   }
 
   // Add the reaction to the issue_comment
-  await octokit.rest.reactions.createForIssueComment({
+  const reactRes = await octokit.rest.reactions.createForIssueComment({
     owner,
     repo,
     comment_id: context.payload.comment.id,
     content: preset
   })
+
+  // Return the reactRes which contains the id for reference later
+  return reactRes
 }
