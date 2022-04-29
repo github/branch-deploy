@@ -8960,10 +8960,9 @@ async function postDeployComment(
       'deployment_comment_id specified but no deployment_result_ref provided'
     )
   } else {
-    core.info(
-      'An unhandled condition was encountered, skipping post-deployment comment logic'
+    throw new Error(
+      'An unhandled condition was encountered while processing post-deployment logic'
     )
-    return false
   }
 
   // Check the deployment status
