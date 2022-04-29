@@ -139,7 +139,7 @@ export async function prechecks(
       result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup
         .state
   } catch (e) {
-    core.info(`Could not retrieve PR commit status: ${e}`)
+    core.info(`Could not retrieve PR commit status: ${e} - Handled: OK`)
     core.info('Skipping commit status check and proceeding...')
     commitStatus = null
   }
