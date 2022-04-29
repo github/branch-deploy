@@ -1,6 +1,14 @@
 import * as core from '@actions/core'
 
 // Runs precheck logic before the branch deployment can proceed
+// :param comment: The comment body of the event
+// :param trigger: The trigger word to check for
+// :param noop_trigger: The trigger word to check for if the deployment is a noop
+// :param stable_branch: The "stable" or "base" branch to deploy to (e.g. master|main)
+// :param issue_number: The issue number of the event
+// :param context: The context of the event
+// :param octokit: The octokit client
+// :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
 export async function prechecks(
   comment,
   trigger,
@@ -10,6 +18,9 @@ export async function prechecks(
   context,
   octokit
 ) {
+  // Setup the message variable
+  var message
+
   // Get the permissions of the user who made the comment
   const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(
     {
@@ -18,12 +29,12 @@ export async function prechecks(
     }
   )
 
-  var message
-
+  // Check permission API call status code
   if (permissionRes.status !== 200) {
     message = 'Permission check returns non-200 status: ${permissionRes.status}'
     return {message: message, status: false}
   }
+
   // Check to ensure the user has at least write permission on the repo
   const actorPermission = permissionRes.data.permission
   if (!['admin', 'write'].includes(actorPermission)) {
@@ -33,6 +44,7 @@ export async function prechecks(
       '__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: ${actorPermission}'
     return {message: message, status: false}
   }
+
   // Get the PR data
   const pr = await octokit.rest.pulls.get({
     ...context.repo,
@@ -42,6 +54,7 @@ export async function prechecks(
     message = 'Could not retrieve PR info: ${permissionRes.status}'
     return {message: message, status: false}
   }
+
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref
   var noopMode = false
@@ -85,6 +98,7 @@ export async function prechecks(
               `
     return {message: message, status: false}
   }
+
   // Check to ensure PR CI checks are passing and the PR has been reviewed
   // mergeStateStatus is in the query below but not used at this time
   const query = `query($owner:String!, $name:String!, $number:Int!) {
@@ -129,6 +143,7 @@ export async function prechecks(
     core.info('Skipping commit status check and proceeding...')
     commitStatus = null
   }
+
   // If everything is OK, print a nice message
   if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
     message = '✔️ PR is approved and all CI checks passed - OK'
