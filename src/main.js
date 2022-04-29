@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import {triggerCheck} from './functions/trigger-check'
 import {contextCheck} from './functions/context-check'
 import {reactEmote} from './functions/react-emote'
+import {prechecks} from './functions/prechecks'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 
@@ -35,8 +36,12 @@ async function run() {
     // Create an octokit client
     const octokit = github.getOctokit(token)
 
-    // Add the reaction to the issue_comment
+    // Add the reaction to the issue_comment as we begin to start the deployment
     await reactEmote(reaction, context, octokit)
+
+    // Execute prechecks to ensure the deployment can proceed
+    await prechecks(body, context, octokit)
+
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }
