@@ -8928,6 +8928,7 @@ async function postDeployComment(
   context,
   octokit,
   post_deploy,
+  dataRaw,
   deployment_comment_id,
   deployment_status,
   deployment_message,
@@ -8940,6 +8941,14 @@ async function postDeployComment(
   } else {
     // Exit out of this function if this action is not requesting the post_deploy workflow
     return false
+  }
+
+  // If the stage one deployment result object was provided, use that instead of individual variables
+  if (dataRaw) {
+    const data = JSON.parse(dataRaw)
+    deployment_mode_noop = data.noop
+    deployment_comment_id = data.comment_id
+    deployment_result_ref = data.ref
   }
 
   // Check the inputs to ensure they are valid
@@ -9292,6 +9301,7 @@ async function run() {
     const deployment_message = core.getInput('deployment_message')
     const deployment_result_ref = core.getInput('deployment_result_ref')
     const deployment_mode_noop = core.getInput('deployment_mode_noop')
+    const dataRaw = core.getInput('data')
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(github.context))) {
@@ -9311,6 +9321,7 @@ async function run() {
         github.context,
         octokit,
         post_deploy,
+        dataRaw,
         deployment_comment_id,
         deployment_status,
         deployment_message,
@@ -9358,13 +9369,27 @@ async function run() {
     // Set the output of the comment id which triggered this action
     core.setOutput('comment_id', reactRes.data.id)
 
-    // If the operation is a noop deployment, return
+    // Set outputs for noopMode
+    var noop
     if (precheckResults.noopMode) {
-      core.setOutput('noop', 'true')
+      noop = 'true'
+      core.setOutput('noop', noop)
       core.info('noop mode detected')
-      return
     } else {
-      core.setOutput('noop', 'false')
+      noop = 'false'
+      core.setOutput('noop', noop)
+    }
+
+    // Outout the data object used for the post deploy step
+    core.setOutput('data', {
+      ref: precheckResults.ref,
+      comment_id: reactRes.data.id,
+      noop: noop
+    })
+
+    // If noopMode is true, exit
+    if (precheckResults.noopMode) {
+      return
     }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)

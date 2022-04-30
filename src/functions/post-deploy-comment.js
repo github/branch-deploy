@@ -6,6 +6,7 @@ export async function postDeployComment(
   context,
   octokit,
   post_deploy,
+  dataRaw,
   deployment_comment_id,
   deployment_status,
   deployment_message,
@@ -18,6 +19,14 @@ export async function postDeployComment(
   } else {
     // Exit out of this function if this action is not requesting the post_deploy workflow
     return false
+  }
+
+  // If the stage one deployment result object was provided, use that instead of individual variables
+  if (dataRaw) {
+    const data = JSON.parse(dataRaw)
+    deployment_mode_noop = data.noop
+    deployment_comment_id = data.comment_id
+    deployment_result_ref = data.ref
   }
 
   // Check the inputs to ensure they are valid

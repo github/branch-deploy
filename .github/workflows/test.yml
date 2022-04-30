@@ -25,13 +25,11 @@ jobs:
         id: deployment
         run: echo "fake deploy"
 
-      # Optionally, post the deployment results back to the PR formatted how you wish
+      # Post the deployments results back to the PR as a comment and complete the deployment
       - uses: ./
         with:
           post_deploy: true
-          deployment_comment_id: ${{steps.branch-deploy-start.outputs.comment_id}}
+          data: ${{steps.branch-deploy-start.outputs.data}}
           deployment_status: ${{ steps.deployment.outcome }}
           deployment_message: ${{ steps.deployment.outcome }}
-          deployment_result_ref: ${{steps.branch-deploy-start.outputs.ref}}
-          deployment_mode_noop: ${{steps.branch-deploy-start.outputs.noop}}
           github_token: ${{ secrets.GITHUB_TOKEN }}

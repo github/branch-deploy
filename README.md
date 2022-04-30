@@ -44,22 +44,20 @@ jobs:
       # Run your deployment logic for your project here
       # Examples: terraform apply, kubectl apply, heroku push
       - name: deployment
-        id: deployment
+        id: deployment # use an id to export the results for post-deployment
         run: echo "I am running a deployment! - (Add your own logic here)"
 
       # Wrap up the deployment and post a comment with deployment details
       - uses: GrantBirki/branch-deploy@main
         with:
           post_deploy: true # activates post deployment logic
-          deployment_comment_id: ${{steps.branch-deploy-start.outputs.comment_id}}
-          deployment_status: ${{ steps.deployment.outcome }}
+          data: ${{steps.branch-deploy-start.outputs.data}} # required deployment data
+          deployment_status: ${{ steps.deployment.outcome }} # id related to the deployment to report status
           deployment_message: ${{ steps.deployment.outcome }}
-          deployment_result_ref: ${{steps.branch-deploy-start.outputs.ref}}
-          deployment_mode_noop: ${{steps.branch-deploy-start.outputs.noop}}
           github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-> Keep reading to learn more about this Action!
+> Keep reading to learn more about this Action! Even further details about how this Action works can be found below as well
 
 ## About 💡
 
