@@ -1,6 +1,8 @@
 import * as core from '@actions/core'
 
 // A simple function that checks the event context to make sure it is valid
+// :param context: The GitHub Actions event context
+// :returns: Boolean - true if the context is valid, false otherwise
 export async function contextCheck(context) {
   // Get the PR event context
   var pr
