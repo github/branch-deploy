@@ -1,14 +1,44 @@
-<p align="center">
-  <a href="https://github.com/actions/typescript-action/actions"><img alt="typescript-action status" src="https://github.com/actions/typescript-action/workflows/build-test/badge.svg"></a>
-</p>
+# Branch Deploy Action 🚀
 
-# Create a JavaScript Action using TypeScript
+A GitHub Action to enable branch deployments using IssueOps!
 
-Use this template to bootstrap the creation of a TypeScript action.:rocket:
+## About 💡
 
-This template includes compilation support, tests, a validation workflow, publishing, and versioning guidance.  
+Before we get into details, let's first define a few key terms below:
 
-If you are new, there's also a simpler introduction.  See the [Hello World JavaScript Action](https://github.com/actions/hello-world-javascript-action)
+- **IssueOps** - Its like ChatOps but instead of using a chat bot, commands are invoked by commenting on a pull request (PRs are issues under the hood) - Example: commenting `.deploy` on a pull request
+- **Branch Deployment** - A branch deploy is a deployment methodology that enables you to deploy a branch (or pull request) to a desired environment before merging to `main` or `master` - More on this below
+- **PR** - Short for pull request
+
+### IssueOps 🗨️
+
+The best way to define IssueOps is to compare it to something similar, ChatOps. You may be familiar with the concept ChatOps already but in case you aren't here is a quick definition below:
+
+> ChatOps is the process of interacting with a chat bot to execute commands directly in a chat platform. For example, with ChatOps you might do something like `.ping example.org` to check the status of a website
+
+IssueOps adopts the same mindset but through a different medium. Rather than using a chat service to invoke the commands we use comments on a GitHub Issue or Pull Request. GitHub Actions is the runtime which executes our desired logic
+
+### Branch Deployments 🌲
+
+Branch deployments are a battle tested way of deploying your changes to a given environment for a variety of reasons. Branch deployments allow you to do the following:
+
+- Deploy your changes to production **before** merging
+- Deploy changes to a staging, QA, or non-production environment
+
+#### Branch Deployment Core Concepts ⭐
+
+> Note: The `main` branch is considered the base repository branch for all examples below
+
+- The `main` branch is always considered to be a stable and deployable branch
+- All changes are deployed to production before they are merged to the `main` branch
+- To roll back a branch deployment, you deploy the `main` branch
+- `noop` deployments should not make changes but rather report what they "would" have done
+
+#### Why use branch deployments?
+
+> To put the *merge -> deploy* model in the past!
+
+What if your changes are bad and you broke production with the *merge -> deploy* model? Well now you have to revert your PR, get passing CI/builds, and then re-merge your changes to get back to a stable environment. With the **branch deploy** model, this is almost never the case. The `main` branch is considered to be always safe and stable
 
 ## Testing Locally 🔨
 
