@@ -88,7 +88,7 @@ async function run() {
       return
     }
 
-    // Set the output of the ref
+    // Set the output of the ref (branch)
     core.setOutput('ref', precheckResults.ref)
     // Set the output of the comment id which triggered this action
     core.setOutput('comment_id', reactRes.data.id)
