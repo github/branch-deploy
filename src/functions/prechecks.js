@@ -76,20 +76,20 @@ export async function prechecks(
     core.info(
       `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
     )
-  // Check to see if the IssueOps command requested noop mode
+    // Check to see if the IssueOps command requested noop mode
   } else if (regexCommandWithNoop.test(comment)) {
     ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch with noop mode - setting ref to ${ref}`
     )
     noopMode = true
-  // Check to see if the IssueOps command was used in a basic form with no other params
+    // Check to see if the IssueOps command was used in a basic form with no other params
   } else if (regexCommandWithoutParameters.test(comment)) {
     ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch - setting ref to ${ref}`
     )
-  // If no regex patterns matched, the IssueOps command was used in an unsupported way
+    // If no regex patterns matched, the IssueOps command was used in an unsupported way
   } else {
     ref = pr.data.head.ref
     message = `\
@@ -154,17 +154,17 @@ export async function prechecks(
   if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
     message = '✔️ PR is approved and all CI checks passed - OK'
     core.info(message)
-  // CI checks have not been defined AND required reviewers have not been defined
+    // CI checks have not been defined AND required reviewers have not been defined
   } else if (reviewDecision === null && commitStatus === null) {
     message =
       '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
     core.info(message)
-  // CI checks have been defined BUT required reviewers have not been defined
+    // CI checks have been defined BUT required reviewers have not been defined
   } else if (reviewDecision === null && commitStatus === 'SUCCESS') {
     message =
       '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
     core.info(message)
-  // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
+    // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
     commitStatus === 'SUCCESS' &&
@@ -173,7 +173,7 @@ export async function prechecks(
     message = '✔️ All CI checks passed and **noop** requested - OK'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
-  // If CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy
+    // If CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
     commitStatus === null &&
@@ -182,18 +182,18 @@ export async function prechecks(
     message = '✔️ CI checks have not been defined and **noop** requested - OK'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
-  // If CI is passing but the PR is missing an approval, let the user know
+    // If CI is passing but the PR is missing an approval, let the user know
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
     commitStatus === 'SUCCESS'
   ) {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks are passing but an approval is required before you can proceed with deployment`
     return {message: message, status: false}
-  // If the PR is approved but CI is failing
+    // If the PR is approved but CI is failing
   } else if (reviewDecision === 'APPROVED' && commitStatus === 'FAILURE') {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is approved but CI checks are failing`
     return {message: message, status: false}
-  // If the PR is NOT reviewed and CI checks have NOT been defined and NOT a noop deploy
+    // If the PR is NOT reviewed and CI checks have NOT been defined and NOT a noop deploy
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
     commitStatus === null &&
@@ -204,7 +204,7 @@ export async function prechecks(
       'note: CI checks have not been defined so they will not be evaluated'
     )
     return {message: message, status: false}
-  // If there are any other errors blocking deployment, let the user know
+    // If there are any other errors blocking deployment, let the user know
   } else {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`
     return {message: message, status: false}
