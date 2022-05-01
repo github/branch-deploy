@@ -52,6 +52,8 @@ inputs:
     description: 'If the mode used for deployment was "noop", set this to "true"'
     required: false
     default: "false"
+  data:
+    description: 'If this is a post deploy action, you can provide the deployed data all in one param using the "data" variable. It contains all necessary outputs needed to configure post-deploy logic'
 outputs:
   triggered:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
@@ -63,6 +65,8 @@ outputs:
     description: The branch to use with deployments
   comment_id:
     description: The comment id which triggered this deployment
+  data:
+    description: A JSON object containing all outputs in one variable from the initial branch deployment. Used to pass in necessary variables to the post deploy workflow with one param
 runs:
   using: "node16"
   main: "dist/index.js"

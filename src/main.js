@@ -25,6 +25,7 @@ async function run() {
     const deployment_message = core.getInput('deployment_message')
     const deployment_result_ref = core.getInput('deployment_result_ref')
     const deployment_mode_noop = core.getInput('deployment_mode_noop')
+    const dataRaw = core.getInput('data')
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(context))) {
@@ -44,6 +45,7 @@ async function run() {
         context,
         octokit,
         post_deploy,
+        dataRaw,
         deployment_comment_id,
         deployment_status,
         deployment_message,
@@ -86,18 +88,32 @@ async function run() {
       return
     }
 
-    // Set the output of the ref
+    // Set the output of the ref (branch)
     core.setOutput('ref', precheckResults.ref)
     // Set the output of the comment id which triggered this action
     core.setOutput('comment_id', reactRes.data.id)
 
-    // If the operation is a noop deployment, return
+    // Set outputs for noopMode
+    var noop
     if (precheckResults.noopMode) {
-      core.setOutput('noop', 'true')
+      noop = 'true'
+      core.setOutput('noop', noop)
       core.info('noop mode detected')
-      return
     } else {
-      core.setOutput('noop', 'false')
+      noop = 'false'
+      core.setOutput('noop', noop)
+    }
+
+    // Outout the data object used for the post deploy step
+    core.setOutput('data', {
+      ref: precheckResults.ref,
+      comment_id: reactRes.data.id,
+      noop: noop
+    })
+
+    // If noopMode is true, exit
+    if (precheckResults.noopMode) {
+      return
     }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
