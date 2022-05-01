@@ -1,7 +1,16 @@
 import * as core from '@actions/core'
 import {actionStatus} from './action-status'
 
-// Helper function to comment deployment status after a deployment
+// Helper function to help facilitate the process of completing a deployment
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :param post_deploy: A boolean that is used to check if this function should run
+// :param deployment_comment_id: The comment_id which initially triggered the deployment Action
+// :param deployment_status: The status of the deployment (String)
+// :param deployment_message: A custom string to add as the deployment status message (String)
+// :param deployment_result_ref: The ref (branch) which is being used for deployment (String)
+// :param deployment_mode_noop: Indicates whether the deployment is a noop or not (String)
+// :returns: true if the function completed successfully, false if the context is not a post deploy workflow, error if anything goes wrong
 export async function postDeployComment(
   context,
   octokit,
@@ -63,6 +72,7 @@ export async function postDeployComment(
   var banner
   var deployTypeString = ' ' // a single space as a default
 
+  // Set the message banner and deploy type based on the deployment mode
   if (deployment_mode_noop === 'true') {
     banner = 'noop 🧪'
     deployTypeString = ' noop '
@@ -70,6 +80,7 @@ export async function postDeployComment(
     banner = 'production 🪐'
   }
 
+  // Dynamically set the message text depending if the deployment succeeded or failed
   var message
   var deployStatus
   if (deployment_status === 'success') {
@@ -83,6 +94,7 @@ export async function postDeployComment(
     deployStatus = `\`${deployment_status}\` ⚠️`
   }
 
+  // Format the message body
   const deployment_message_fmt = `
   ### Deployment Results - ${banner}
 

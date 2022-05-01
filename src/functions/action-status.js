@@ -2,8 +2,8 @@
 const thumbsDown = '-1'
 const rocket = 'rocket'
 
-// Helper function to add a reaction to an issue_comment which triggered a deployment
-// It also updates the original comment with a reaction depending on the success of the deployment
+// Helper function to add a status update for the action that is running a branch deployment
+// It also updates the original comment with a reaction depending on the status of the deployment
 export async function actionStatus(
   context,
   octokit,
@@ -11,10 +11,9 @@ export async function actionStatus(
   message,
   success
 ) {
-  const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
-
   // check if message is null or empty
   if (!message || message.length === 0) {
+    const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
     message = 'Unknown error, [check logs](' + log_url + ') for more details.'
   }
 
