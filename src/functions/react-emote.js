@@ -11,6 +11,10 @@ const presets = [
 ]
 
 // Helper function to add a reaction to an issue_comment
+// :param reaction: A string which determines the reaction to use (String)
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :returns: The reactRes object which contains the reaction ID among other things. Returns nil if no reaction was specified, or throws an error if it fails
 export async function reactEmote(reaction, context, octokit) {
   // Get the owner and repo from the context
   const {owner, repo} = context.repo

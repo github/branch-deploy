@@ -8780,8 +8780,10 @@ var core = __nccwpck_require__(2186);
 
 
 // A simple function that checks the body of the message against the trigger
-// Returns true if a message trips the trigger
-// Returns false if a message does not trip the trigger
+// :param prefixOnly: Input that determines if the whole comment should be checked for the trigger or just check if the trigger is the prefix of the message
+// :param body: The content body of the message being checked (String)
+// :param trigger: The "trigger" phrase which is searched for in the body of the message
+// :returns: true if a message activates the trigger, false otherwise
 async function triggerCheck(prefixOnly, body, trigger) {
   // Set the output of the comment body for later use with other actions
   core.setOutput('comment_body', body)
@@ -8806,6 +8808,8 @@ async function triggerCheck(prefixOnly, body, trigger) {
 
 
 // A simple function that checks the event context to make sure it is valid
+// :param context: The GitHub Actions event context
+// :returns: Boolean - true if the context is valid, false otherwise
 async function contextCheck(context) {
   // Get the PR event context
   var pr
@@ -8841,6 +8845,10 @@ const presets = [
 ]
 
 // Helper function to add a reaction to an issue_comment
+// :param reaction: A string which determines the reaction to use (String)
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :returns: The reactRes object which contains the reaction ID among other things. Returns nil if no reaction was specified, or throws an error if it fails
 async function reactEmote(reaction, context, octokit) {
   // Get the owner and repo from the context
   const {owner, repo} = context.repo
@@ -8873,8 +8881,8 @@ async function reactEmote(reaction, context, octokit) {
 const thumbsDown = '-1'
 const rocket = 'rocket'
 
-// Helper function to add a reaction to an issue_comment which triggered a deployment
-// It also updates the original comment with a reaction depending on the success of the deployment
+// Helper function to add a status update for the action that is running a branch deployment
+// It also updates the original comment with a reaction depending on the status of the deployment
 async function actionStatus(
   context,
   octokit,
@@ -8882,10 +8890,9 @@ async function actionStatus(
   message,
   success
 ) {
-  const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
-
   // check if message is null or empty
   if (!message || message.length === 0) {
+    const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
     message = 'Unknown error, [check logs](' + log_url + ') for more details.'
   }
 
@@ -8923,7 +8930,16 @@ async function actionStatus(
 
 
 
-// Helper function to comment deployment status after a deployment
+// Helper function to help facilitate the process of completing a deployment
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :param post_deploy: A boolean that is used to check if this function should run
+// :param deployment_comment_id: The comment_id which initially triggered the deployment Action
+// :param deployment_status: The status of the deployment (String)
+// :param deployment_message: A custom string to add as the deployment status message (String)
+// :param deployment_result_ref: The ref (branch) which is being used for deployment (String)
+// :param deployment_mode_noop: Indicates whether the deployment is a noop or not (String)
+// :returns: true if the function completed successfully, false if the context is not a post deploy workflow, error if anything goes wrong
 async function postDeployComment(
   context,
   octokit,
@@ -8985,6 +9001,7 @@ async function postDeployComment(
   var banner
   var deployTypeString = ' ' // a single space as a default
 
+  // Set the message banner and deploy type based on the deployment mode
   if (deployment_mode_noop === 'true') {
     banner = 'noop 🧪'
     deployTypeString = ' noop '
@@ -8992,6 +9009,7 @@ async function postDeployComment(
     banner = 'production 🪐'
   }
 
+  // Dynamically set the message text depending if the deployment succeeded or failed
   var message
   var deployStatus
   if (deployment_status === 'success') {
@@ -9005,6 +9023,7 @@ async function postDeployComment(
     deployStatus = `\`${deployment_status}\` ⚠️`
   }
 
+  // Format the message body
   const deployment_message_fmt = `
   ### Deployment Results - ${banner}
 
@@ -9099,6 +9118,7 @@ async function prechecks(
   var ref
   var noopMode = false
 
+  // Regex statements for checking the trigger message
   const regexCommandWithStableBranch = new RegExp(
     `^\\${trigger}\\s*(${stable_branch})$`,
     'i'
@@ -9108,22 +9128,27 @@ async function prechecks(
     'i'
   )
   const regexCommandWithoutParameters = new RegExp(`^\\${trigger}\\s*$`, 'i')
+
+  // Check to see if the "stable" branch was used as the deployment target
   if (regexCommandWithStableBranch.test(comment)) {
     ref = stable_branch
     core.info(
       `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
     )
+    // Check to see if the IssueOps command requested noop mode
   } else if (regexCommandWithNoop.test(comment)) {
     ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch with noop mode - setting ref to ${ref}`
     )
     noopMode = true
+    // Check to see if the IssueOps command was used in a basic form with no other params
   } else if (regexCommandWithoutParameters.test(comment)) {
     ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch - setting ref to ${ref}`
     )
+    // If no regex patterns matched, the IssueOps command was used in an unsupported way
   } else {
     ref = pr.data.head.ref
     message = `\

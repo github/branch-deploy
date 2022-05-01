@@ -59,6 +59,7 @@ export async function prechecks(
   var ref
   var noopMode = false
 
+  // Regex statements for checking the trigger message
   const regexCommandWithStableBranch = new RegExp(
     `^\\${trigger}\\s*(${stable_branch})$`,
     'i'
@@ -68,22 +69,27 @@ export async function prechecks(
     'i'
   )
   const regexCommandWithoutParameters = new RegExp(`^\\${trigger}\\s*$`, 'i')
+
+  // Check to see if the "stable" branch was used as the deployment target
   if (regexCommandWithStableBranch.test(comment)) {
     ref = stable_branch
     core.info(
       `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
     )
+    // Check to see if the IssueOps command requested noop mode
   } else if (regexCommandWithNoop.test(comment)) {
     ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch with noop mode - setting ref to ${ref}`
     )
     noopMode = true
+    // Check to see if the IssueOps command was used in a basic form with no other params
   } else if (regexCommandWithoutParameters.test(comment)) {
     ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch - setting ref to ${ref}`
     )
+    // If no regex patterns matched, the IssueOps command was used in an unsupported way
   } else {
     ref = pr.data.head.ref
     message = `\
