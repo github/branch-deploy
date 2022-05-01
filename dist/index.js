@@ -8780,8 +8780,10 @@ var core = __nccwpck_require__(2186);
 
 
 // A simple function that checks the body of the message against the trigger
-// Returns true if a message trips the trigger
-// Returns false if a message does not trip the trigger
+// :param prefixOnly: Input that determines if the whole comment should be checked for the trigger or just check if the trigger is the prefix of the message
+// :param body: The content body of the message being checked (String)
+// :param trigger: The "trigger" phrase which is searched for in the body of the message
+// :returns: true if a message activates the trigger, false otherwise
 async function triggerCheck(prefixOnly, body, trigger) {
   // Set the output of the comment body for later use with other actions
   core.setOutput('comment_body', body)
@@ -8806,6 +8808,8 @@ async function triggerCheck(prefixOnly, body, trigger) {
 
 
 // A simple function that checks the event context to make sure it is valid
+// :param context: The GitHub Actions event context
+// :returns: Boolean - true if the context is valid, false otherwise
 async function contextCheck(context) {
   // Get the PR event context
   var pr
@@ -8841,6 +8845,10 @@ const presets = [
 ]
 
 // Helper function to add a reaction to an issue_comment
+// :param reaction: A string which determines the reaction to use (String)
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :returns: The reactRes object which contains the reaction ID among other things. Returns nil if no reaction was specified, or throws an error if it fails
 async function reactEmote(reaction, context, octokit) {
   // Get the owner and repo from the context
   const {owner, repo} = context.repo
@@ -8857,18 +8865,200 @@ async function reactEmote(reaction, context, octokit) {
   }
 
   // Add the reaction to the issue_comment
-  await octokit.rest.reactions.createForIssueComment({
+  const reactRes = await octokit.rest.reactions.createForIssueComment({
     owner,
     repo,
     comment_id: context.payload.comment.id,
     content: preset
   })
+
+  // Return the reactRes which contains the id for reference later
+  return reactRes
+}
+
+;// CONCATENATED MODULE: ./src/functions/action-status.js
+// Default failure reaction
+const thumbsDown = '-1'
+const rocket = 'rocket'
+
+// Helper function to add a status update for the action that is running a branch deployment
+// It also updates the original comment with a reaction depending on the status of the deployment
+async function actionStatus(
+  context,
+  octokit,
+  reactionId,
+  message,
+  success
+) {
+  // check if message is null or empty
+  if (!message || message.length === 0) {
+    const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+    message = 'Unknown error, [check logs](' + log_url + ') for more details.'
+  }
+
+  // add a comment to the issue with the error message
+  await octokit.rest.issues.createComment({
+    ...context.repo,
+    issue_number: context.issue.number,
+    body: message
+  })
+
+  // Select the reaction to add to the issue_comment
+  var reaction
+  if (success) {
+    reaction = rocket
+  } else {
+    reaction = thumbsDown
+  }
+
+  // add a reaction to the issue_comment to indicate failure
+  await octokit.rest.reactions.createForIssueComment({
+    ...context.repo,
+    comment_id: context.payload.comment.id,
+    content: reaction
+  })
+
+  // remove the initial reaction on the IssueOp comment that triggered this action
+  await octokit.rest.reactions.deleteForIssueComment({
+    ...context.repo,
+    comment_id: context.payload.comment.id,
+    reaction_id: reactionId
+  })
+}
+
+;// CONCATENATED MODULE: ./src/functions/post-deploy-comment.js
+
+
+
+// Helper function to help facilitate the process of completing a deployment
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :param post_deploy: A boolean that is used to check if this function should run
+// :param deployment_comment_id: The comment_id which initially triggered the deployment Action
+// :param deployment_status: The status of the deployment (String)
+// :param deployment_message: A custom string to add as the deployment status message (String)
+// :param deployment_result_ref: The ref (branch) which is being used for deployment (String)
+// :param deployment_mode_noop: Indicates whether the deployment is a noop or not (String)
+// :returns: true if the function completed successfully, false if the context is not a post deploy workflow, error if anything goes wrong
+async function postDeployComment(
+  context,
+  octokit,
+  post_deploy,
+  deployment_comment_id,
+  deployment_status,
+  deployment_message,
+  deployment_result_ref,
+  deployment_mode_noop
+) {
+  // Check if this action is requesting the post_deploy workflow
+  if (post_deploy === 'true' || post_deploy === true) {
+    core.info('post_deploy logic triggered... executing')
+  } else {
+    // Exit out of this function if this action is not requesting the post_deploy workflow
+    return false
+  }
+
+  // Check the inputs to ensure they are valid
+  if (
+    deployment_comment_id &&
+    deployment_status &&
+    deployment_message &&
+    deployment_result_ref &&
+    deployment_mode_noop
+  ) {
+    core.debug('post_deploy inputs passed initial check')
+  } else if (!deployment_comment_id || deployment_comment_id.length === 0) {
+    throw new Error('no deployment_comment_id provided')
+  } else if (!deployment_status || deployment_status.length === 0) {
+    throw new Error('no deployment_status provided')
+  } else if (!deployment_message || deployment_message.length === 0) {
+    throw new Error('no deployment_message provided')
+  } else if (!deployment_result_ref || deployment_result_ref.length === 0) {
+    throw new Error('no deployment_result_ref provided')
+  } else {
+    throw new Error(
+      'An unhandled condition was encountered while processing post-deployment logic'
+    )
+  }
+
+  // Check the deployment status
+  var success
+  if (deployment_status === 'success') {
+    success = true
+  } else {
+    success = false
+  }
+
+  var banner
+  var deployTypeString = ' ' // a single space as a default
+
+  // Set the message banner and deploy type based on the deployment mode
+  if (deployment_mode_noop === 'true') {
+    banner = 'noop 🧪'
+    deployTypeString = ' noop '
+  } else {
+    banner = 'production 🪐'
+  }
+
+  // Dynamically set the message text depending if the deployment succeeded or failed
+  var message
+  var deployStatus
+  if (deployment_status === 'success') {
+    message = `Successfully${deployTypeString}deployed branch **${deployment_result_ref}**`
+    deployStatus = `\`${deployment_status}\` ✔️`
+  } else if (deployment_status === 'failure') {
+    message = `Failure when${deployTypeString}deploying branch **${deployment_result_ref}**`
+    deployStatus = `\`${deployment_status}\` ❌`
+  } else {
+    message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
+    deployStatus = `\`${deployment_status}\` ⚠️`
+  }
+
+  // Format the message body
+  const deployment_message_fmt = `
+  ### Deployment Results - ${banner}
+
+  - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
+  - Branch: \`${deployment_result_ref}\`
+
+  <details><summary>Show Results</summary>
+
+  \`\`\`${deployment_message}\`\`\`
+
+  </details>
+
+  ${message}
+
+  > Pusher: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
+    context.workflow
+  }\`
+  `
+
+  // Update the action status to indicate the result of the deployment as a comment
+  await actionStatus(
+    context,
+    octokit,
+    parseInt(deployment_comment_id),
+    deployment_message_fmt,
+    success
+  )
+
+  // If the post deploy comment logic completes successfully, return true
+  return true
 }
 
 ;// CONCATENATED MODULE: ./src/functions/prechecks.js
 
 
 // Runs precheck logic before the branch deployment can proceed
+// :param comment: The comment body of the event
+// :param trigger: The trigger word to check for
+// :param noop_trigger: The trigger word to check for if the deployment is a noop
+// :param stable_branch: The "stable" or "base" branch to deploy to (e.g. master|main)
+// :param issue_number: The issue number of the event
+// :param context: The context of the event
+// :param octokit: The octokit client
+// :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
 async function prechecks(
   comment,
   trigger,
@@ -8878,13 +9068,10 @@ async function prechecks(
   context,
   octokit
 ) {
-  // Add a reaction to the comment that triggered this workflow
-  const reactionRes = await octokit.rest.reactions.createForIssueComment({
-    ...context.repo,
-    comment_id: context.payload.comment.id,
-    content: 'eyes'
-  })
-  core.setOutput('eyes', reactionRes.data.id)
+  // Setup the message variable
+  var message
+
+  // Get the permissions of the user who made the comment
   const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(
     {
       ...context.repo,
@@ -8892,13 +9079,12 @@ async function prechecks(
     }
   )
 
-  var message
-
+  // Check permission API call status code
   if (permissionRes.status !== 200) {
     message = 'Permission check returns non-200 status: ${permissionRes.status}'
-    core.setOutput('error', message)
-    throw new Error(message)
+    return {message: message, status: false}
   }
+
   // Check to ensure the user has at least write permission on the repo
   const actorPermission = permissionRes.data.permission
   if (!['admin', 'write'].includes(actorPermission)) {
@@ -8906,9 +9092,9 @@ async function prechecks(
       '👋  __' +
       context.actor +
       '__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: ${actorPermission}'
-    core.setOutput('error', message)
-    throw new Error(message)
+    return {message: message, status: false}
   }
+
   // Get the PR data
   const pr = await octokit.rest.pulls.get({
     ...context.repo,
@@ -8916,31 +9102,44 @@ async function prechecks(
   })
   if (pr.status !== 200) {
     message = 'Could not retrieve PR info: ${permissionRes.status}'
-    core.setOutput('error', message)
-    throw new Error(message)
+    return {message: message, status: false}
   }
+
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref
   var noopMode = false
-  const regexCommandWithMain = /^\.deploy\s*(main)$/
-  const regexCommandWithNoop = /^\.deploy\s*(noop)$/
-  const regexCommandWithoutParameters = /^\.deploy\s*$/
-  if (regexCommandWithMain.test(comment)) {
+
+  // Regex statements for checking the trigger message
+  const regexCommandWithStableBranch = new RegExp(
+    `^\\${trigger}\\s*(${stable_branch})$`,
+    'i'
+  )
+  const regexCommandWithNoop = new RegExp(
+    `^\\${trigger}\\s*(${noop_trigger})$`,
+    'i'
+  )
+  const regexCommandWithoutParameters = new RegExp(`^\\${trigger}\\s*$`, 'i')
+
+  // Check to see if the "stable" branch was used as the deployment target
+  if (regexCommandWithStableBranch.test(comment)) {
     ref = stable_branch
     core.info(
       `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
     )
+    // Check to see if the IssueOps command requested noop mode
   } else if (regexCommandWithNoop.test(comment)) {
     ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch with noop mode - setting ref to ${ref}`
     )
     noopMode = true
+    // Check to see if the IssueOps command was used in a basic form with no other params
   } else if (regexCommandWithoutParameters.test(comment)) {
     ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch - setting ref to ${ref}`
     )
+    // If no regex patterns matched, the IssueOps command was used in an unsupported way
   } else {
     ref = pr.data.head.ref
     message = `\
@@ -8953,9 +9152,9 @@ async function prechecks(
               - \`${trigger} ${stable_branch}\` - deploy the \`${stable_branch}\` branch
               > Note: \`${trigger} ${stable_branch}\` is often used for rolling back a change or getting back to a known working state
               `
-    core.setOutput('error', message)
-    throw new Error(message)
+    return {message: message, status: false}
   }
+
   // Check to ensure PR CI checks are passing and the PR has been reviewed
   // mergeStateStatus is in the query below but not used at this time
   const query = `query($owner:String!, $name:String!, $number:Int!) {
@@ -8996,22 +9195,23 @@ async function prechecks(
       result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup
         .state
   } catch (e) {
-    core.info(`Could not retrieve PR commit status: ${e}`)
+    core.info(`Could not retrieve PR commit status: ${e} - Handled: OK`)
     core.info('Skipping commit status check and proceeding...')
     commitStatus = null
   }
+
   // If everything is OK, print a nice message
   if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
-    const message = '✔️ PR is approved and all CI checks passed - OK'
+    message = '✔️ PR is approved and all CI checks passed - OK'
     core.info(message)
     // CI checks have not been defined AND required reviewers have not been defined
   } else if (reviewDecision === null && commitStatus === null) {
-    const message =
+    message =
       '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
     core.info(message)
     // CI checks have been defined BUT required reviewers have not been defined
   } else if (reviewDecision === null && commitStatus === 'SUCCESS') {
-    const message =
+    message =
       '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
     core.info(message)
     // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
@@ -9020,29 +9220,46 @@ async function prechecks(
     commitStatus === 'SUCCESS' &&
     noopMode
   ) {
-    const message = '✔️ All CI checks passed and **noop** requested - OK'
+    message = '✔️ All CI checks passed and **noop** requested - OK'
     core.info(message)
+    core.info('note: noop deployments do not require pr review')
+    // If CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy
+  } else if (
+    reviewDecision === 'REVIEW_REQUIRED' &&
+    commitStatus === null &&
+    noopMode
+  ) {
+    message = '✔️ CI checks have not been defined and **noop** requested - OK'
+    core.info(message)
+    core.info('note: noop deployments do not require pr review')
     // If CI is passing but the PR is missing an approval, let the user know
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
     commitStatus === 'SUCCESS'
   ) {
-    const message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks are passing but an approval is required before you can proceed with deployment`
-    core.setOutput('error', message)
-    throw new Error(message)
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks are passing but an approval is required before you can proceed with deployment`
+    return {message: message, status: false}
     // If the PR is approved but CI is failing
   } else if (reviewDecision === 'APPROVED' && commitStatus === 'FAILURE') {
-    const message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is approved but CI checks are failing`
-    core.setOutput('error', message)
-    throw new Error(message)
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is approved but CI checks are failing`
+    return {message: message, status: false}
+    // If the PR is NOT reviewed and CI checks have NOT been defined and NOT a noop deploy
+  } else if (
+    reviewDecision === 'REVIEW_REQUIRED' &&
+    commitStatus === null &&
+    !noopMode
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is missing required approvals`
+    core.info(
+      'note: CI checks have not been defined so they will not be evaluated'
+    )
+    return {message: message, status: false}
     // If there are any other errors blocking deployment, let the user know
   } else {
-    const message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`
-    core.setOutput('error', message)
-    throw new Error(message)
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`
+    return {message: message, status: false}
   }
-  // Export the value of noopMode for later steps
-  core.setOutput('noop', noopMode)
+
   // Format the PR comment message based on deployment mode
   var deploymentType
   if (noopMode) {
@@ -9050,23 +9267,31 @@ async function prechecks(
   } else {
     deploymentType = 'branch'
   }
-  core.setOutput('ref', ref)
+
+  // Format the success message
   const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
   const commentBody = `\
-            🚀 __${context.actor}__, starting a ${deploymentType} deployment 
-            - Branch: __${ref}__
-            You can watch the progress [here](${log_url})
-            `
+  __${context.actor}__, started a __${deploymentType}__ deployment 🚀
+  - Branch: __${ref}__
+  You can watch the progress [here](${log_url})
+  `
+
+  // Make a comment on the pr with the successful results
   await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: context.issue.number,
     body: commentBody
   })
+
+  // Return a success message
+  return {message: message, status: true, ref: ref, noopMode: noopMode}
 }
 
 // EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
 var github = __nccwpck_require__(5438);
 ;// CONCATENATED MODULE: ./src/main.js
+
+
 
 
 
@@ -9085,6 +9310,13 @@ async function run() {
     const environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
+    // Get the inputs for the alternate Action to post a post-deployment comment
+    const post_deploy = core.getInput('post_deploy')
+    const deployment_comment_id = core.getInput('deployment_comment_id')
+    const deployment_status = core.getInput('deployment_status')
+    const deployment_message = core.getInput('deployment_message')
+    const deployment_result_ref = core.getInput('deployment_result_ref')
+    const deployment_mode_noop = core.getInput('deployment_mode_noop')
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(github.context))) {
@@ -9095,19 +9327,36 @@ async function run() {
     const body = github.context.payload.comment.body
     const issue_number = github.context.payload.issue.number
 
+    // Create an octokit client
+    const octokit = github.getOctokit(token)
+
+    // Execute post-deployment comment logic if the action is running under that context
+    if (
+      (await postDeployComment(
+        github.context,
+        octokit,
+        post_deploy,
+        deployment_comment_id,
+        deployment_status,
+        deployment_message,
+        deployment_result_ref,
+        deployment_mode_noop
+      )) === true
+    ) {
+      core.info('post_deploy logic completed')
+      return
+    }
+
     // Check if the comment body contains the trigger, exit if it doesn't return true
     if (!(await triggerCheck(prefixOnly, body, trigger))) {
       return
     }
 
-    // Create an octokit client
-    const octokit = github.getOctokit(token)
-
     // Add the reaction to the issue_comment as we begin to start the deployment
-    await reactEmote(reaction, github.context, octokit)
+    const reactRes = await reactEmote(reaction, github.context, octokit)
 
     // Execute prechecks to ensure the deployment can proceed
-    await prechecks(
+    const precheckResults = await prechecks(
       body,
       trigger,
       noop_trigger,
@@ -9116,6 +9365,32 @@ async function run() {
       github.context,
       octokit
     )
+
+    // If the prechecks failed, run the actionFailed function and return
+    if (!precheckResults.status) {
+      await actionStatus(
+        github.context,
+        octokit,
+        reactRes.data.id,
+        precheckResults.message
+      )
+      core.setFailed(precheckResults.message)
+      return
+    }
+
+    // Set the output of the ref
+    core.setOutput('ref', precheckResults.ref)
+    // Set the output of the comment id which triggered this action
+    core.setOutput('comment_id', reactRes.data.id)
+
+    // If the operation is a noop deployment, return
+    if (precheckResults.noopMode) {
+      core.setOutput('noop', 'true')
+      core.info('noop mode detected')
+      return
+    } else {
+      core.setOutput('noop', 'false')
+    }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }

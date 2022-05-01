@@ -1,8 +1,10 @@
 import * as core from '@actions/core'
 
 // A simple function that checks the body of the message against the trigger
-// Returns true if a message trips the trigger
-// Returns false if a message does not trip the trigger
+// :param prefixOnly: Input that determines if the whole comment should be checked for the trigger or just check if the trigger is the prefix of the message
+// :param body: The content body of the message being checked (String)
+// :param trigger: The "trigger" phrase which is searched for in the body of the message
+// :returns: true if a message activates the trigger, false otherwise
 export async function triggerCheck(prefixOnly, body, trigger) {
   // Set the output of the comment body for later use with other actions
   core.setOutput('comment_body', body)

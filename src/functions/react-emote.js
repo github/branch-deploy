@@ -11,6 +11,10 @@ const presets = [
 ]
 
 // Helper function to add a reaction to an issue_comment
+// :param reaction: A string which determines the reaction to use (String)
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :returns: The reactRes object which contains the reaction ID among other things. Returns nil if no reaction was specified, or throws an error if it fails
 export async function reactEmote(reaction, context, octokit) {
   // Get the owner and repo from the context
   const {owner, repo} = context.repo
@@ -27,10 +31,13 @@ export async function reactEmote(reaction, context, octokit) {
   }
 
   // Add the reaction to the issue_comment
-  await octokit.rest.reactions.createForIssueComment({
+  const reactRes = await octokit.rest.reactions.createForIssueComment({
     owner,
     repo,
     comment_id: context.payload.comment.id,
     content: preset
   })
+
+  // Return the reactRes which contains the id for reference later
+  return reactRes
 }
