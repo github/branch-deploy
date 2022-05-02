@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import {actionStatus} from './action-status'
+import {createDeploymentStatus} from './deployment'
 
 // Helper function to help facilitate the process of completing a deployment
 // :param context: The GitHub Actions event context
@@ -11,7 +12,7 @@ import {actionStatus} from './action-status'
 // :param deployment_result_ref: The ref (branch) which is being used for deployment (String)
 // :param deployment_mode_noop: Indicates whether the deployment is a noop or not (String)
 // :returns: true if the function completed successfully, false if the context is not a post deploy workflow, error if anything goes wrong
-export async function postDeployComment(
+export async function postDeploy(
   context,
   octokit,
   post_deploy,
@@ -20,7 +21,9 @@ export async function postDeployComment(
   deployment_status,
   deployment_message,
   deployment_result_ref,
-  deployment_mode_noop
+  deployment_mode_noop,
+  deployment_id,
+  environment
 ) {
   // Check if this action is requesting the post_deploy workflow
   if (post_deploy === 'true' || post_deploy === true) {
@@ -36,6 +39,8 @@ export async function postDeployComment(
     deployment_mode_noop = data.noop
     deployment_comment_id = data.comment_id
     deployment_result_ref = data.ref
+    deployment_id = data.deployment_id
+    environment = data.environment
   }
 
   // Check the inputs to ensure they are valid
@@ -55,6 +60,13 @@ export async function postDeployComment(
     throw new Error('no deployment_message provided')
   } else if (!deployment_result_ref || deployment_result_ref.length === 0) {
     throw new Error('no deployment_result_ref provided')
+  } else if (deployment_mode_noop !== 'true') {
+    if (!deployment_id || deployment_id.length === 0) {
+      throw new Error('no deployment_id provided')
+    }
+    if (!environment || environment.length === 0) {
+      throw new Error('no environment provided')
+    }
   } else {
     throw new Error(
       'An unhandled condition was encountered while processing post-deployment logic'
@@ -120,7 +132,30 @@ export async function postDeployComment(
     octokit,
     parseInt(deployment_comment_id),
     deployment_message_fmt,
-    success
+    success,
+    deployment_result_ref
+  )
+
+  // Update the deployment status of the branch-deploy
+  var deploymentStatus
+  if (success) {
+    deploymentStatus = 'success'
+  } else {
+    deploymentStatus = 'failure'
+  }
+
+  // If the deployment mode is noop, return here
+  if (deployment_mode_noop === 'true') {
+    return true
+  }
+
+  await createDeploymentStatus(
+    octokit,
+    context,
+    deployment_result_ref,
+    deploymentStatus,
+    deployment_id,
+    environment
   )
 
   // If the post deploy comment logic completes successfully, return true
