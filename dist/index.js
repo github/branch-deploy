@@ -8946,8 +8946,6 @@ async function createDeploymentStatus(
 ) {
   // Get the owner and the repo from the context
   const {owner, repo} = context.repo
-  // Get the run id from the context
-  const {id: runId} = context.run
 
   const {data: result} = await octokit.rest.repos.createDeploymentStatus({
     owner: owner,
@@ -8955,7 +8953,7 @@ async function createDeploymentStatus(
     ref: ref,
     deployment_id: deploymentId,
     state: state,
-    INPUT_LOG_URL: `https://github.com/${owner}/${repo}/actions/runs/${runId}`,
+    INPUT_LOG_URL: `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`,
     environment: environment
   })
 
