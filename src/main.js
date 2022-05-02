@@ -4,7 +4,7 @@ import {contextCheck} from './functions/context-check'
 import {reactEmote} from './functions/react-emote'
 import {actionStatus} from './functions/action-status'
 import {postDeploy} from './functions/post-deploy'
-import {deployment} from './functions/deployment'
+import {createDeploymentStatus} from './functions/deployment'
 import {prechecks} from './functions/prechecks'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
@@ -129,7 +129,7 @@ async function run() {
     core.info(`createDeploy: ${createDeploy.id}`)
 
     // Set the deployment status to in_progress
-    await deployment(
+    await createDeploymentStatus(
       octokit,
       context,
       precheckResults.ref,

@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import {actionStatus} from './action-status'
-import {deployment} from './deployment'
+import {createDeploymentStatus} from './deployment'
 
 // Helper function to help facilitate the process of completing a deployment
 // :param context: The GitHub Actions event context
@@ -143,7 +143,7 @@ export async function postDeploy(
   } else {
     deploymentStatus = 'failure'
   }
-  await deployment(
+  await createDeploymentStatus(
     octokit,
     context,
     deployment_result_ref,

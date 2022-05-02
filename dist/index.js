@@ -8774,10 +8774,6 @@ var __webpack_exports__ = {};
 // ESM COMPAT FLAG
 __nccwpck_require__.r(__webpack_exports__);
 
-// NAMESPACE OBJECT: ./src/functions/deployment.js
-var deployment_namespaceObject = {};
-__nccwpck_require__.r(deployment_namespaceObject);
-
 // EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
 var core = __nccwpck_require__(2186);
 ;// CONCATENATED MODULE: ./src/functions/trigger-check.js
@@ -9112,7 +9108,7 @@ async function postDeploy(
   } else {
     deploymentStatus = 'failure'
   }
-  await (0,deployment_namespaceObject.deployment)(
+  await createDeploymentStatus(
     octokit,
     context,
     deployment_result_ref,
@@ -9499,7 +9495,7 @@ async function run() {
     core.info(`createDeploy: ${createDeploy.id}`)
 
     // Set the deployment status to in_progress
-    await (0,deployment_namespaceObject.deployment)(
+    await createDeploymentStatus(
       octokit,
       github.context,
       precheckResults.ref,
