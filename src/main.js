@@ -27,7 +27,19 @@ async function run() {
     const deployment_result_ref = core.getInput('deployment_result_ref')
     const deployment_mode_noop = core.getInput('deployment_mode_noop')
     const deployment_id = core.getInput('deployment_id')
+    const bypass = core.getInput('bypass')
     const dataRaw = core.getInput('data')
+
+    // If the bypass param is used, exit the workflow
+    if (bypass) {
+      return
+    }
+    if (dataRaw) {
+      const data = JSON.parse(dataRaw)
+      if (data.bypass) {
+        return
+      }
+    }
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(context))) {
@@ -111,7 +123,7 @@ async function run() {
 
     // If noopMode is true, exit
     if (precheckResults.noopMode) {
-      // Outout the data object used for the post deploy step
+      // Output the data object used for the post deploy step
       core.setOutput('data', {
         ref: precheckResults.ref,
         comment_id: reactRes.data.id,
@@ -129,15 +141,23 @@ async function run() {
 
     // If a merge to the base branch is required, let the user know and exit
     if (createDeploy.message.includes('Auto-merged')) {
-      const mergeMessage = `
-      ### ⚠️ Deployment Warning
+      const mergeMessage = `\
+                          ### ⚠️ Deployment Warning
 
-      Message: ${createDeploy.message}
+                          Message: ${createDeploy.message}
 
-      > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
-      `
+                          > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
+                          `
       await actionStatus(context, octokit, reactRes.data.id, mergeMessage)
       core.warning(mergeMessage)
+      // Output the data object to bypass the post deploy step since the deployment is not complete
+      core.setOutput('data', {
+        ref: precheckResults.ref,
+        comment_id: reactRes.data.id,
+        noop: noop,
+        bypass: 'true',
+        environment: environment
+      })
       return
     }
 
@@ -151,7 +171,7 @@ async function run() {
       environment
     )
 
-    // Outout the data object used for the post deploy step
+    // Output the data object used for the post deploy step
     core.setOutput('data', {
       ref: precheckResults.ref,
       comment_id: reactRes.data.id,
