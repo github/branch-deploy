@@ -9491,6 +9491,7 @@ async function run() {
     }
 
     // Create a new deployment
+    core.info('creating deployment')
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
       repo: repo,
