@@ -7,6 +7,7 @@ on:
 permissions:
   pull-requests: write
   contents: read
+  deployments: read
 
 jobs:
   test: # make sure the action works on a clean machine without building
