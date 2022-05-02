@@ -146,7 +146,7 @@ export async function postDeploy(
 
   // If the deployment mode is noop, return here
   if (deployment_mode_noop === 'true') {
-    return
+    return true
   }
 
   await createDeploymentStatus(
