@@ -130,14 +130,14 @@ async function run() {
     // If a merge to the base branch is required, let the user know and exit
     if (createDeploy.message.includes('Auto-merged')) {
       const mergeMessage = `
-        ### ⚠️ Deployment Warning
+      ### ⚠️ Deployment Warning
 
-        Message: ${createDeploy.message}
+      Message: ${createDeploy.message}
 
-        > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
-        `
+      > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
+      `
       await actionStatus(context, octokit, reactRes.data.id, mergeMessage)
-      core.warn(mergeMessage)
+      core.warning(mergeMessage)
       return
     }
 
