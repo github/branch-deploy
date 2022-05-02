@@ -1,5 +1,6 @@
 // Default failure reaction
 const thumbsDown = '-1'
+// Default success reaction
 const rocket = 'rocket'
 
 // Helper function to add a status update for the action that is running a branch deployment

@@ -3,7 +3,8 @@ import {triggerCheck} from './functions/trigger-check'
 import {contextCheck} from './functions/context-check'
 import {reactEmote} from './functions/react-emote'
 import {actionStatus} from './functions/action-status'
-import {postDeployComment} from './functions/post-deploy-comment'
+import {postDeploy} from './functions/post-deploy'
+import {deployment} from './functions/deployment'
 import {prechecks} from './functions/prechecks'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
@@ -25,6 +26,7 @@ async function run() {
     const deployment_message = core.getInput('deployment_message')
     const deployment_result_ref = core.getInput('deployment_result_ref')
     const deployment_mode_noop = core.getInput('deployment_mode_noop')
+    const deployment_id = core.getInput('deployment_id')
     const dataRaw = core.getInput('data')
 
     // Check the context of the event to ensure it is valid, return if it is not
@@ -35,13 +37,14 @@ async function run() {
     // Get variables from the event context
     const body = context.payload.comment.body
     const issue_number = context.payload.issue.number
+    const {owner, repo} = context.repo
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
 
     // Execute post-deployment comment logic if the action is running under that context
     if (
-      (await postDeployComment(
+      (await postDeploy(
         context,
         octokit,
         post_deploy,
@@ -50,7 +53,9 @@ async function run() {
         deployment_status,
         deployment_message,
         deployment_result_ref,
-        deployment_mode_noop
+        deployment_mode_noop,
+        deployment_id,
+        environment
       )) === true
     ) {
       core.info('post_deploy logic completed')
@@ -104,17 +109,43 @@ async function run() {
       core.setOutput('noop', noop)
     }
 
+    // If noopMode is true, exit
+    if (precheckResults.noopMode) {
+      // Outout the data object used for the post deploy step
+      core.setOutput('data', {
+        ref: precheckResults.ref,
+        comment_id: reactRes.data.id,
+        noop: noop
+      })
+      return
+    }
+
+    // Create a new deployment
+    const {data: createDeploy} = await octokit.rest.repos.createDeployment({
+      owner: owner,
+      repo: repo,
+      ref: precheckResults.ref
+    })
+    core.info(`createDeploy: ${createDeploy.id}`)
+
+    // Set the deployment status to in_progress
+    await deployment(
+      octokit,
+      context,
+      precheckResults.ref,
+      'in_progress',
+      createDeploy.id,
+      environment
+    )
+
     // Outout the data object used for the post deploy step
     core.setOutput('data', {
       ref: precheckResults.ref,
       comment_id: reactRes.data.id,
-      noop: noop
+      noop: noop,
+      deployment_id: createDeploy.id,
+      environment: environment
     })
-
-    // If noopMode is true, exit
-    if (precheckResults.noopMode) {
-      return
-    }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }

@@ -8774,6 +8774,10 @@ var __webpack_exports__ = {};
 // ESM COMPAT FLAG
 __nccwpck_require__.r(__webpack_exports__);
 
+// NAMESPACE OBJECT: ./src/functions/deployment.js
+var deployment_namespaceObject = {};
+__nccwpck_require__.r(deployment_namespaceObject);
+
 // EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
 var core = __nccwpck_require__(2186);
 ;// CONCATENATED MODULE: ./src/functions/trigger-check.js
@@ -8879,6 +8883,7 @@ async function reactEmote(reaction, context, octokit) {
 ;// CONCATENATED MODULE: ./src/functions/action-status.js
 // Default failure reaction
 const thumbsDown = '-1'
+// Default success reaction
 const rocket = 'rocket'
 
 // Helper function to add a status update for the action that is running a branch deployment
@@ -8926,7 +8931,43 @@ async function actionStatus(
   })
 }
 
-;// CONCATENATED MODULE: ./src/functions/post-deploy-comment.js
+;// CONCATENATED MODULE: ./src/functions/deployment.js
+// Helper function to add deployment statuses to a PR / ref
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param ref: The ref to add the deployment status to
+// :param state: The state of the deployment
+// :param deploymentId: The id of the deployment
+// :param environment: The environment of the deployment
+// :returns: The result of the deployment status creation (Object)
+async function createDeploymentStatus(
+  octokit,
+  context,
+  ref,
+  state,
+  deploymentId,
+  environment
+) {
+  // Get the owner and the repo from the context
+  const {owner, repo} = context.repo
+  // Get the run id from the context
+  const {id: runId} = context.run
+
+  const {data: result} = await octokit.rest.repos.createDeploymentStatus({
+    owner: owner,
+    repo: repo,
+    ref: ref,
+    deployment_id: deploymentId,
+    state: state,
+    INPUT_LOG_URL: `https://github.com/${owner}/${repo}/actions/runs/${runId}`,
+    environment: environment
+  })
+
+  return result
+}
+
+;// CONCATENATED MODULE: ./src/functions/post-deploy.js
+
 
 
 
@@ -8940,7 +8981,7 @@ async function actionStatus(
 // :param deployment_result_ref: The ref (branch) which is being used for deployment (String)
 // :param deployment_mode_noop: Indicates whether the deployment is a noop or not (String)
 // :returns: true if the function completed successfully, false if the context is not a post deploy workflow, error if anything goes wrong
-async function postDeployComment(
+async function postDeploy(
   context,
   octokit,
   post_deploy,
@@ -8949,7 +8990,9 @@ async function postDeployComment(
   deployment_status,
   deployment_message,
   deployment_result_ref,
-  deployment_mode_noop
+  deployment_mode_noop,
+  deployment_id,
+  environment
 ) {
   // Check if this action is requesting the post_deploy workflow
   if (post_deploy === 'true' || post_deploy === true) {
@@ -8965,6 +9008,8 @@ async function postDeployComment(
     deployment_mode_noop = data.noop
     deployment_comment_id = data.comment_id
     deployment_result_ref = data.ref
+    deployment_id = data.deployment_id
+    environment = data.environment
   }
 
   // Check the inputs to ensure they are valid
@@ -8973,7 +9018,9 @@ async function postDeployComment(
     deployment_status &&
     deployment_message &&
     deployment_result_ref &&
-    deployment_mode_noop
+    deployment_mode_noop &&
+    deployment_id &&
+    environment
   ) {
     core.debug('post_deploy inputs passed initial check')
   } else if (!deployment_comment_id || deployment_comment_id.length === 0) {
@@ -8984,6 +9031,10 @@ async function postDeployComment(
     throw new Error('no deployment_message provided')
   } else if (!deployment_result_ref || deployment_result_ref.length === 0) {
     throw new Error('no deployment_result_ref provided')
+  } else if (!deployment_id || deployment_id.length === 0) {
+    throw new Error('no deployment_id provided')
+  } else if (!environment || environment.length === 0) {
+    throw new Error('no environment provided')
   } else {
     throw new Error(
       'An unhandled condition was encountered while processing post-deployment logic'
@@ -9049,7 +9100,24 @@ async function postDeployComment(
     octokit,
     parseInt(deployment_comment_id),
     deployment_message_fmt,
-    success
+    success,
+    deployment_result_ref
+  )
+
+  // Update the deployment status of the branch-deploy
+  var deploymentStatus
+  if (success) {
+    deploymentStatus = 'success'
+  } else {
+    deploymentStatus = 'failure'
+  }
+  await (0,deployment_namespaceObject.deployment)(
+    octokit,
+    context,
+    deployment_result_ref,
+    deploymentStatus,
+    deployment_id,
+    environment
   )
 
   // If the post deploy comment logic completes successfully, return true
@@ -9309,6 +9377,7 @@ var github = __nccwpck_require__(5438);
 
 
 
+
 async function run() {
   try {
     // Get the inputs for the branch-deploy Action
@@ -9326,6 +9395,7 @@ async function run() {
     const deployment_message = core.getInput('deployment_message')
     const deployment_result_ref = core.getInput('deployment_result_ref')
     const deployment_mode_noop = core.getInput('deployment_mode_noop')
+    const deployment_id = core.getInput('deployment_id')
     const dataRaw = core.getInput('data')
 
     // Check the context of the event to ensure it is valid, return if it is not
@@ -9336,13 +9406,14 @@ async function run() {
     // Get variables from the event context
     const body = github.context.payload.comment.body
     const issue_number = github.context.payload.issue.number
+    const {owner, repo} = github.context.repo
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
 
     // Execute post-deployment comment logic if the action is running under that context
     if (
-      (await postDeployComment(
+      (await postDeploy(
         github.context,
         octokit,
         post_deploy,
@@ -9351,7 +9422,9 @@ async function run() {
         deployment_status,
         deployment_message,
         deployment_result_ref,
-        deployment_mode_noop
+        deployment_mode_noop,
+        deployment_id,
+        environment
       )) === true
     ) {
       core.info('post_deploy logic completed')
@@ -9405,17 +9478,43 @@ async function run() {
       core.setOutput('noop', noop)
     }
 
+    // If noopMode is true, exit
+    if (precheckResults.noopMode) {
+      // Outout the data object used for the post deploy step
+      core.setOutput('data', {
+        ref: precheckResults.ref,
+        comment_id: reactRes.data.id,
+        noop: noop
+      })
+      return
+    }
+
+    // Create a new deployment
+    const {data: createDeploy} = await octokit.rest.repos.createDeployment({
+      owner: owner,
+      repo: repo,
+      ref: precheckResults.ref
+    })
+    core.info(`createDeploy: ${createDeploy.id}`)
+
+    // Set the deployment status to in_progress
+    await (0,deployment_namespaceObject.deployment)(
+      octokit,
+      github.context,
+      precheckResults.ref,
+      'in_progress',
+      createDeploy.id,
+      environment
+    )
+
     // Outout the data object used for the post deploy step
     core.setOutput('data', {
       ref: precheckResults.ref,
       comment_id: reactRes.data.id,
-      noop: noop
+      noop: noop,
+      deployment_id: createDeploy.id,
+      environment: environment
     })
-
-    // If noopMode is true, exit
-    if (precheckResults.noopMode) {
-      return
-    }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }
