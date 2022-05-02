@@ -54,6 +54,7 @@ inputs:
     default: "false"
   data:
     description: 'If this is a post deploy action, you can provide the deployed data all in one param using the "data" variable. It contains all necessary outputs needed to configure post-deploy logic'
+    required: false
 outputs:
   triggered:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
