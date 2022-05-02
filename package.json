@@ -27,7 +27,8 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.6.0",
-    "@actions/github": "^5.0.1"
+    "@actions/github": "^5.0.1",
+    "dedent-js": "^1.0.1"
   },
   "devDependencies": {
     "@types/node": "^16.10.5",

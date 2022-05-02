@@ -8,6 +8,7 @@ import {createDeploymentStatus} from './functions/deployment'
 import {prechecks} from './functions/prechecks'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
+import dedent from 'dedent-js'
 
 async function run() {
   try {
@@ -141,13 +142,13 @@ async function run() {
 
     // If a merge to the base branch is required, let the user know and exit
     if (createDeploy.message.includes('Auto-merged')) {
-      const mergeMessage = `\
-                          ### ⚠️ Deployment Warning
+      const mergeMessage = dedent(`
+        ### ⚠️ Deployment Warning
 
-                          Message: ${createDeploy.message}
+        Message: ${createDeploy.message}
 
-                          > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
-                          `
+        > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
+        `)
       await actionStatus(context, octokit, reactRes.data.id, mergeMessage)
       core.warning(mergeMessage)
       // Output the data object to bypass the post deploy step since the deployment is not complete

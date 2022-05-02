@@ -4254,6 +4254,46 @@ function removeHook(state, name, method) {
 
 /***/ }),
 
+/***/ 3159:
+/***/ ((module) => {
+
+module.exports = function dedent(templateStrings) {
+    var values = [];
+    for (var _i = 1; _i < arguments.length; _i++) {
+        values[_i - 1] = arguments[_i];
+    }
+    var matches = [];
+    var strings = typeof templateStrings === 'string' ? [templateStrings] : templateStrings.slice();
+    // 1. Remove trailing whitespace.
+    strings[strings.length - 1] = strings[strings.length - 1].replace(/\r?\n([\t ]*)$/, '');
+    // 2. Find all line breaks to determine the highest common indentation level.
+    for (var i = 0; i < strings.length; i++) {
+        var match = void 0;
+        if (match = strings[i].match(/\n[\t ]+/g)) {
+            matches.push.apply(matches, match);
+        }
+    }
+    // 3. Remove the common indentation from all strings.
+    if (matches.length) {
+        var size = Math.min.apply(Math, matches.map(function (value) { return value.length - 1; }));
+        var pattern = new RegExp("\n[\t ]{" + size + "}", 'g');
+        for (var i = 0; i < strings.length; i++) {
+            strings[i] = strings[i].replace(pattern, '\n');
+        }
+    }
+    // 4. Remove leading whitespace.
+    strings[0] = strings[0].replace(/^\r?\n/, '');
+    // 5. Perform interpolation.
+    var string = strings[0];
+    for (var i = 0; i < values.length; i++) {
+        string += values[i] + strings[i + 1];
+    }
+    return string;
+};
+//# sourceMappingURL=index.js.map
+
+/***/ }),
+
 /***/ 8932:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -8751,6 +8791,35 @@ module.exports = require("zlib");
 /******/ 	}
 /******/ 	
 /************************************************************************/
+/******/ 	/* webpack/runtime/compat get default export */
+/******/ 	(() => {
+/******/ 		// getDefaultExport function for compatibility with non-harmony modules
+/******/ 		__nccwpck_require__.n = (module) => {
+/******/ 			var getter = module && module.__esModule ?
+/******/ 				() => (module['default']) :
+/******/ 				() => (module);
+/******/ 			__nccwpck_require__.d(getter, { a: getter });
+/******/ 			return getter;
+/******/ 		};
+/******/ 	})();
+/******/ 	
+/******/ 	/* webpack/runtime/define property getters */
+/******/ 	(() => {
+/******/ 		// define getter functions for harmony exports
+/******/ 		__nccwpck_require__.d = (exports, definition) => {
+/******/ 			for(var key in definition) {
+/******/ 				if(__nccwpck_require__.o(definition, key) && !__nccwpck_require__.o(exports, key)) {
+/******/ 					Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
+/******/ 				}
+/******/ 			}
+/******/ 		};
+/******/ 	})();
+/******/ 	
+/******/ 	/* webpack/runtime/hasOwnProperty shorthand */
+/******/ 	(() => {
+/******/ 		__nccwpck_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
+/******/ 	})();
+/******/ 	
 /******/ 	/* webpack/runtime/make namespace object */
 /******/ 	(() => {
 /******/ 		// define __esModule on exports
@@ -9367,7 +9436,11 @@ async function prechecks(
 
 // EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
 var github = __nccwpck_require__(5438);
+// EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
+var lib = __nccwpck_require__(3159);
+var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 ;// CONCATENATED MODULE: ./src/main.js
+
 
 
 
@@ -9511,13 +9584,13 @@ async function run() {
 
     // If a merge to the base branch is required, let the user know and exit
     if (createDeploy.message.includes('Auto-merged')) {
-      const mergeMessage = `\
-                          ### ⚠️ Deployment Warning
+      const mergeMessage = lib_default()(`
+        ### ⚠️ Deployment Warning
 
-                          Message: ${createDeploy.message}
+        Message: ${createDeploy.message}
 
-                          > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
-                          `
+        > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
+        `)
       await actionStatus(github.context, octokit, reactRes.data.id, mergeMessage)
       core.warning(mergeMessage)
       // Output the data object to bypass the post deploy step since the deployment is not complete
