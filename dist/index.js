@@ -9475,11 +9475,13 @@ async function run() {
 
     // If the bypass param is used, exit the workflow
     if (bypass) {
+      core.warning('bypass set, exiting')
       return
     }
     if (dataRaw) {
       const data = JSON.parse(dataRaw)
       if (data.bypass) {
+        core.warning('bypass set, exiting')
         return
       }
     }
