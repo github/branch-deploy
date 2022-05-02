@@ -9106,6 +9106,12 @@ async function postDeploy(
   } else {
     deploymentStatus = 'failure'
   }
+
+  // If the deployment mode is noop, return here
+  if (deployment_mode_noop === 'true') {
+    return
+  }
+
   await createDeploymentStatus(
     octokit,
     context,
