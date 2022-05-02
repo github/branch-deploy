@@ -49,9 +49,7 @@ export async function postDeploy(
     deployment_status &&
     deployment_message &&
     deployment_result_ref &&
-    deployment_mode_noop &&
-    deployment_id &&
-    environment
+    deployment_mode_noop
   ) {
     core.debug('post_deploy inputs passed initial check')
   } else if (!deployment_comment_id || deployment_comment_id.length === 0) {
