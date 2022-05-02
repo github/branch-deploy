@@ -127,6 +127,7 @@ async function run() {
       repo: repo,
       ref: precheckResults.ref
     })
+    core.info(JSON.stringify(createDeploy))
     core.info(`createDeploy: ${createDeploy.id}`)
 
     // Set the deployment status to in_progress
