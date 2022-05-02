@@ -24,7 +24,8 @@ jobs:
       # Do some fake deployment logic here
       - name: fake deploy
         id: deployment
-        run: echo "fake deploy"
+        run: exit 1
+        continue-on-error: true
 
       # Post the deployments results back to the PR as a comment and complete the deployment
       - uses: ./
