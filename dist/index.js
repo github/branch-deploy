@@ -9491,14 +9491,25 @@ async function run() {
     }
 
     // Create a new deployment
-    core.info('creating deployment')
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
       repo: repo,
       ref: precheckResults.ref
     })
-    core.info(JSON.stringify(createDeploy))
-    core.info(`createDeploy: ${createDeploy.id}`)
+
+    // If a merge to the base branch is required, let the user know and exit
+    if (createDeploy.message.includes('Auto-merged')) {
+      const mergeMessage = `
+        ### ⚠️ Deployment Warning
+
+        Message: ${createDeploy.message}
+
+        > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
+        `
+      await actionStatus(github.context, octokit, reactRes.data.id, mergeMessage)
+      core.warn(mergeMessage)
+      return
+    }
 
     // Set the deployment status to in_progress
     await createDeploymentStatus(
