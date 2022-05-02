@@ -6,6 +6,10 @@ inputs:
     description: 'The name of the environment to deploy to. Example, "production"'
     required: true
     default: "production"
+  github_token:
+    description: The GitHub token used to create an authenticated client
+    default: ${{ github.token }}
+    required: true
   reaction:
     description: 'If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes"'
     required: false
@@ -26,10 +30,6 @@ inputs:
     description: 'If "false", the trigger can match anywhere in the comment'
     required: false
     default: "true"
-  github_token:
-    description: The GitHub token used to create an authenticated client
-    default: ${{ github.token }}
-    required: true
   post_deploy:
     description: 'If "true", post deployment logic is run'
     required: false

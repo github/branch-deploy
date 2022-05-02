@@ -193,6 +193,36 @@ Let's go through each of the variables we are using in the post deploy action:
 - `deployment_message: ${{ steps.deployment.outcome }}` - A custom message you want included on your deployment status comment. This can be any string
 - `github_token: ${{ secrets.GITHUB_TOKEN }}` - The standard GitHub token available in all workflows which allows this Action permissions to comment on your PR with results
 
+## Inputs ➡️⚙️
+
+| Input | Required? | Default | Description |
+| ----- | --------- | ------- | ----------- |
+| environment | yes | production | The name of the environment to deploy to. Example, "production" |
+| github_token | yes | - | The GitHub token used to create an authenticated client |
+| reaction | no | eyes | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
+| trigger | no | .deploy | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
+| noop_trigger | no | noop | The string to look for in comments as an IssueOps noop trigger. Example: "noop" |
+| environment | no | production | The name of the environment to deploy to. Example, "production" |
+| stable_branch | no | main | The name of a stable branch to deploy to (rollbacks). Example: "main" |
+| prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
+| post_deploy | no | false | If "true", post deployment logic is run |
+| deployment_comment_id | no | - | The ID of the comment which triggered the original deployment |
+| deployment_status | no | success | The status of the deployment. Example: "success|failure" |
+| deployment_message | no | - | An optional and alternate workflow that posts a comment with the deployment results back on the pr that triggered the initial deployment. Example: "successfully noop deployed to production - I would have changed 1 server" |
+| deployment_result_ref | no | main | The ref used in the noop deployment. Example: "main" |
+| deployment_mode_noop | no | false | If the mode used for deployment was "noop", set this to "true" |
+| data | no | - | If this is a post deploy action, you can provide the deployed data all in one param using the "data" variable. It contains all necessary outputs needed to configure post-deploy logic |
+
+## Outputs ⚙️➡️
+
+| Output | Description |
+| ------ | ----------- |
+| triggered | The string "true" if the trigger was found, otherwise the string "false" |
+| noop | The string "true" if the noop trigger was found, otherwise the string "false" |
+| ref | The comment body |
+| comment_id | The comment id which triggered this deployment |
+| data | A JSON object containing all outputs in one variable from the initial branch deployment. Used to pass in necessary variables to the post deploy workflow with one param |
+
 ## Testing Locally 🔨
 
 Test with [act](https://github.com/nektos/act) locally to simulate a GitHub Actions event
