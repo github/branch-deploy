@@ -1,6 +1,9 @@
 name: "branch-deploy"
 description: "Enabling Branch Deployments through IssueOps with GitHub Actions"
 author: "Grant Birkinbine"
+branding:
+  icon: 'git-branch'
+  color: 'green'
 inputs:
   environment:
     description: 'The name of the environment to deploy to. Example, "production"'
