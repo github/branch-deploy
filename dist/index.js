@@ -9031,10 +9031,13 @@ async function postDeploy(
     throw new Error('no deployment_message provided')
   } else if (!deployment_result_ref || deployment_result_ref.length === 0) {
     throw new Error('no deployment_result_ref provided')
-  } else if (!deployment_id || deployment_id.length === 0) {
-    throw new Error('no deployment_id provided')
-  } else if (!environment || environment.length === 0) {
-    throw new Error('no environment provided')
+  } else if (deployment_mode_noop !== 'true') {
+    if (!deployment_id || deployment_id.length === 0) {
+      throw new Error('no deployment_id provided')
+    }
+    if (!environment || environment.length === 0) {
+      throw new Error('no environment provided')
+    }
   } else {
     throw new Error(
       'An unhandled condition was encountered while processing post-deployment logic'
