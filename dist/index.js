@@ -9583,7 +9583,10 @@ async function run() {
     })
 
     // If a merge to the base branch is required, let the user know and exit
-    if (createDeploy.message.includes('Auto-merged')) {
+    if (
+      createDeploy.id === undefined &&
+      createDeploy.message.includes('Auto-merged')
+    ) {
       const mergeMessage = lib_default()(`
         ### ⚠️ Deployment Warning
 
