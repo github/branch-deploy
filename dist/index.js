@@ -9428,7 +9428,7 @@ async function post() {
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
-    const deployMessage = process.env('DEPLOY_MESSAGE')
+    const deployMessage = process.env.DEPLOY_MESSAGE
 
     // testing
     core.info(deployMessage)
