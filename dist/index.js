@@ -9395,6 +9395,7 @@ async function postDeploy(
     return
   }
 
+  // Update the final deployment status with either success or failure
   await createDeploymentStatus(
     octokit,
     context,
@@ -9494,6 +9495,7 @@ async function run() {
     // Set the state so that the post run logic will trigger
     core.saveState('isPost', 'true')
     core.saveState('actionsToken', token)
+    core.saveState('environment', environment)
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(github.context))) {
@@ -9516,6 +9518,7 @@ async function run() {
     // Add the reaction to the issue_comment as we begin to start the deployment
     const reactRes = await reactEmote(reaction, github.context, octokit)
     core.setOutput('comment_id', reactRes.data.id)
+    core.saveState('comment_id', reactRes.data.id)
 
     // Execute prechecks to ensure the deployment can proceed
     const precheckResults = await prechecks(
@@ -9528,6 +9531,7 @@ async function run() {
       octokit
     )
     core.setOutput('ref', precheckResults.ref)
+    core.saveState('ref', precheckResults.ref)
 
     // If the prechecks failed, run the actionFailed function and return
     if (!precheckResults.status) {
@@ -9546,12 +9550,14 @@ async function run() {
     if (precheckResults.noopMode) {
       noop = 'true'
       core.setOutput('noop', noop)
+      core.saveState('noop', noop)
       core.info('noop mode detected')
       // If noop mode is enabled, return
       return
     } else {
       noop = 'false'
       core.setOutput('noop', noop)
+      core.saveState('noop', noop)
     }
 
     // Create a new deployment
@@ -9560,6 +9566,7 @@ async function run() {
       repo: repo,
       ref: precheckResults.ref
     })
+    core.saveState('deployment_id', createDeploy.id)
 
     // If a merge to the base branch is required, let the user know and exit
     if (
@@ -9589,13 +9596,6 @@ async function run() {
       createDeploy.id,
       environment
     )
-
-    // Save the state for post run actions
-    core.saveState('ref', precheckResults.ref)
-    core.saveState('comment_id', reactRes.data.id)
-    core.saveState('noop', noop)
-    core.saveState('deployment_id', createDeploy.id)
-    core.saveState('environment', environment)
 
     return
   } catch (error) {

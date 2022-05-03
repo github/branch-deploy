@@ -123,6 +123,7 @@ export async function postDeploy(
     return
   }
 
+  // Update the final deployment status with either success or failure
   await createDeploymentStatus(
     octokit,
     context,
