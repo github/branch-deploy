@@ -9269,7 +9269,11 @@ async function prechecks(
   return {message: message, status: true, ref: ref, noopMode: noopMode}
 }
 
+// EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
+var lib = __nccwpck_require__(3159);
+var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 ;// CONCATENATED MODULE: ./src/functions/post-deploy.js
+
 
 
 
@@ -9353,7 +9357,7 @@ async function postDeploy(
   // Conditionally format the message body
   var message_fmt
   if (customMessage && customMessage.length > 0) {
-    message_fmt = `
+    message_fmt = lib_default()(`
     ### Deployment Results - ${banner}
   
     - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
@@ -9370,9 +9374,9 @@ async function postDeploy(
     > Pusher: @${context.actor}, Action: \`${
       context.eventName
     }\`, Workflow: \`${context.workflow}\`
-    `
+    `)
   } else {
-    message_fmt = `
+    message_fmt = lib_default()(`
     ### Deployment Results - ${banner}
   
     - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
@@ -9383,7 +9387,7 @@ async function postDeploy(
     > Pusher: @${context.actor}, Action: \`${
       context.eventName
     }\`, Workflow: \`${context.workflow}\`
-    `
+    `)
   }
 
   // Update the action status to indicate the result of the deployment as a comment
@@ -9476,9 +9480,6 @@ async function post() {
   }
 }
 
-// EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
-var lib = __nccwpck_require__(3159);
-var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 ;// CONCATENATED MODULE: ./src/main.js
 
 
