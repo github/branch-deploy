@@ -9357,6 +9357,7 @@ async function postDeploy(
   // Conditionally format the message body
   var message_fmt
   if (customMessage && customMessage.length > 0) {
+    const customMessageFmt = customMessage.replace(/\n/g, '\n')
     message_fmt = lib_default()(`
     ### Deployment Results - ${banner}
   
@@ -9365,7 +9366,7 @@ async function postDeploy(
   
     <details><summary>Show Results</summary>
   
-    ${customMessage}
+    ${customMessageFmt}
   
     </details>
   
