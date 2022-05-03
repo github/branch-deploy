@@ -3,9 +3,9 @@ import {triggerCheck} from './functions/trigger-check'
 import {contextCheck} from './functions/context-check'
 import {reactEmote} from './functions/react-emote'
 import {actionStatus} from './functions/action-status'
-import {postDeploy} from './functions/post-deploy'
 import {createDeploymentStatus} from './functions/deployment'
 import {prechecks} from './functions/prechecks'
+import {post} from './functions/post'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 import dedent from 'dedent-js'
@@ -20,29 +20,10 @@ async function run() {
     const environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
-    // Get the inputs for the alternate Action to post a post-deployment comment
-    const post_deploy = core.getInput('post_deploy')
-    const deployment_comment_id = core.getInput('deployment_comment_id')
-    const deployment_status = core.getInput('deployment_status')
-    const deployment_message = core.getInput('deployment_message')
-    const deployment_result_ref = core.getInput('deployment_result_ref')
-    const deployment_mode_noop = core.getInput('deployment_mode_noop')
-    const deployment_id = core.getInput('deployment_id')
-    const bypass = core.getInput('bypass')
-    const dataRaw = core.getInput('data')
 
-    // If the bypass param is used, exit the workflow
-    if (bypass) {
-      core.warning('bypass set, exiting')
-      return
-    }
-    if (dataRaw) {
-      const data = JSON.parse(dataRaw)
-      if (data.bypass) {
-        core.warning('bypass set, exiting')
-        return
-      }
-    }
+    // Set the state so that the post run logic will trigger
+    core.saveState('isPost', 'true')
+    core.saveState('actionsToken', token)
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(context))) {
@@ -57,26 +38,6 @@ async function run() {
     // Create an octokit client
     const octokit = github.getOctokit(token)
 
-    // Execute post-deployment comment logic if the action is running under that context
-    if (
-      (await postDeploy(
-        context,
-        octokit,
-        post_deploy,
-        dataRaw,
-        deployment_comment_id,
-        deployment_status,
-        deployment_message,
-        deployment_result_ref,
-        deployment_mode_noop,
-        deployment_id,
-        environment
-      )) === true
-    ) {
-      core.info('post_deploy logic completed')
-      return
-    }
-
     // Check if the comment body contains the trigger, exit if it doesn't return true
     if (!(await triggerCheck(prefixOnly, body, trigger))) {
       return
@@ -84,6 +45,7 @@ async function run() {
 
     // Add the reaction to the issue_comment as we begin to start the deployment
     const reactRes = await reactEmote(reaction, context, octokit)
+    core.setOutput('comment_id', reactRes.data.id)
 
     // Execute prechecks to ensure the deployment can proceed
     const precheckResults = await prechecks(
@@ -95,6 +57,7 @@ async function run() {
       context,
       octokit
     )
+    core.setOutput('ref', precheckResults.ref)
 
     // If the prechecks failed, run the actionFailed function and return
     if (!precheckResults.status) {
@@ -108,31 +71,17 @@ async function run() {
       return
     }
 
-    // Set the output of the ref (branch)
-    core.setOutput('ref', precheckResults.ref)
-    // Set the output of the comment id which triggered this action
-    core.setOutput('comment_id', reactRes.data.id)
-
     // Set outputs for noopMode
     var noop
     if (precheckResults.noopMode) {
       noop = 'true'
       core.setOutput('noop', noop)
       core.info('noop mode detected')
+      // If noop mode is enabled, return
+      return
     } else {
       noop = 'false'
       core.setOutput('noop', noop)
-    }
-
-    // If noopMode is true, exit
-    if (precheckResults.noopMode) {
-      // Output the data object used for the post deploy step
-      core.setOutput('data', {
-        ref: precheckResults.ref,
-        comment_id: reactRes.data.id,
-        noop: noop
-      })
-      return
     }
 
     // Create a new deployment
@@ -156,14 +105,8 @@ async function run() {
         `)
       await actionStatus(context, octokit, reactRes.data.id, mergeMessage)
       core.warning(mergeMessage)
-      // Output the data object to bypass the post deploy step since the deployment is not complete
-      core.setOutput('data', {
-        ref: precheckResults.ref,
-        comment_id: reactRes.data.id,
-        noop: noop,
-        bypass: 'true',
-        environment: environment
-      })
+      // Enable bypass for the post deploy step since the deployment is not complete
+      core.saveState('bypass', 'true')
       return
     }
 
@@ -177,19 +120,21 @@ async function run() {
       environment
     )
 
-    // Output the data object used for the post deploy step
-    core.setOutput('data', {
-      ref: precheckResults.ref,
-      comment_id: reactRes.data.id,
-      noop: noop,
-      deployment_id: createDeploy.id,
-      environment: environment
-    })
+    // Save the state for post run actions
+    core.saveState('ref', precheckResults.ref)
+    core.saveState('comment_id', reactRes.data.id)
+    core.saveState('noop', noop)
+    core.saveState('deployment_id', createDeploy.id)
+    core.saveState('environment', environment)
+
+    return
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }
 }
 
-run()
-
-// core.info(`context: ${JSON.stringify(context)}`)
+if (core.getState('isPost') === 'true') {
+  post()
+} else {
+  run()
+}

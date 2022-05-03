@@ -9029,171 +9029,6 @@ async function createDeploymentStatus(
   return result
 }
 
-;// CONCATENATED MODULE: ./src/functions/post-deploy.js
-
-
-
-
-// Helper function to help facilitate the process of completing a deployment
-// :param context: The GitHub Actions event context
-// :param octokit: The octokit client
-// :param post_deploy: A boolean that is used to check if this function should run
-// :param deployment_comment_id: The comment_id which initially triggered the deployment Action
-// :param deployment_status: The status of the deployment (String)
-// :param deployment_message: A custom string to add as the deployment status message (String)
-// :param deployment_result_ref: The ref (branch) which is being used for deployment (String)
-// :param deployment_mode_noop: Indicates whether the deployment is a noop or not (String)
-// :returns: true if the function completed successfully, false if the context is not a post deploy workflow, error if anything goes wrong
-async function postDeploy(
-  context,
-  octokit,
-  post_deploy,
-  dataRaw,
-  deployment_comment_id,
-  deployment_status,
-  deployment_message,
-  deployment_result_ref,
-  deployment_mode_noop,
-  deployment_id,
-  environment
-) {
-  // Check if this action is requesting the post_deploy workflow
-  if (post_deploy === 'true' || post_deploy === true) {
-    core.info('post_deploy logic triggered... executing')
-  } else {
-    // Exit out of this function if this action is not requesting the post_deploy workflow
-    return false
-  }
-
-  // If the stage one deployment result object was provided, use that instead of individual variables
-  if (dataRaw) {
-    const data = JSON.parse(dataRaw)
-    deployment_mode_noop = data.noop
-    deployment_comment_id = data.comment_id
-    deployment_result_ref = data.ref
-    deployment_id = data.deployment_id
-    environment = data.environment
-  }
-
-  // Check the inputs to ensure they are valid
-  if (
-    deployment_comment_id &&
-    deployment_status &&
-    deployment_message &&
-    deployment_result_ref &&
-    deployment_mode_noop
-  ) {
-    core.debug('post_deploy inputs passed initial check')
-  } else if (!deployment_comment_id || deployment_comment_id.length === 0) {
-    throw new Error('no deployment_comment_id provided')
-  } else if (!deployment_status || deployment_status.length === 0) {
-    throw new Error('no deployment_status provided')
-  } else if (!deployment_message || deployment_message.length === 0) {
-    throw new Error('no deployment_message provided')
-  } else if (!deployment_result_ref || deployment_result_ref.length === 0) {
-    throw new Error('no deployment_result_ref provided')
-  } else if (deployment_mode_noop !== 'true') {
-    if (!deployment_id || deployment_id.length === 0) {
-      throw new Error('no deployment_id provided')
-    }
-    if (!environment || environment.length === 0) {
-      throw new Error('no environment provided')
-    }
-  } else {
-    throw new Error(
-      'An unhandled condition was encountered while processing post-deployment logic'
-    )
-  }
-
-  // Check the deployment status
-  var success
-  if (deployment_status === 'success') {
-    success = true
-  } else {
-    success = false
-  }
-
-  var banner
-  var deployTypeString = ' ' // a single space as a default
-
-  // Set the message banner and deploy type based on the deployment mode
-  if (deployment_mode_noop === 'true') {
-    banner = 'noop 🧪'
-    deployTypeString = ' noop '
-  } else {
-    banner = 'production 🪐'
-  }
-
-  // Dynamically set the message text depending if the deployment succeeded or failed
-  var message
-  var deployStatus
-  if (deployment_status === 'success') {
-    message = `Successfully${deployTypeString}deployed branch **${deployment_result_ref}**`
-    deployStatus = `\`${deployment_status}\` ✔️`
-  } else if (deployment_status === 'failure') {
-    message = `Failure when${deployTypeString}deploying branch **${deployment_result_ref}**`
-    deployStatus = `\`${deployment_status}\` ❌`
-  } else {
-    message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
-    deployStatus = `\`${deployment_status}\` ⚠️`
-  }
-
-  // Format the message body
-  const deployment_message_fmt = `
-  ### Deployment Results - ${banner}
-
-  - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
-  - Branch: \`${deployment_result_ref}\`
-
-  <details><summary>Show Results</summary>
-
-  \`\`\`${deployment_message}\`\`\`
-
-  </details>
-
-  ${message}
-
-  > Pusher: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
-    context.workflow
-  }\`
-  `
-
-  // Update the action status to indicate the result of the deployment as a comment
-  await actionStatus(
-    context,
-    octokit,
-    parseInt(deployment_comment_id),
-    deployment_message_fmt,
-    success,
-    deployment_result_ref
-  )
-
-  // Update the deployment status of the branch-deploy
-  var deploymentStatus
-  if (success) {
-    deploymentStatus = 'success'
-  } else {
-    deploymentStatus = 'failure'
-  }
-
-  // If the deployment mode is noop, return here
-  if (deployment_mode_noop === 'true') {
-    return true
-  }
-
-  await createDeploymentStatus(
-    octokit,
-    context,
-    deployment_result_ref,
-    deploymentStatus,
-    deployment_id,
-    environment
-  )
-
-  // If the post deploy comment logic completes successfully, return true
-  return true
-}
-
 ;// CONCATENATED MODULE: ./src/functions/prechecks.js
 
 
@@ -9434,8 +9269,196 @@ async function prechecks(
   return {message: message, status: true, ref: ref, noopMode: noopMode}
 }
 
+;// CONCATENATED MODULE: ./src/functions/post-deploy.js
+
+
+
+
+// Helper function to help facilitate the process of completing a deployment
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :param post_deploy: A boolean that is used to check if this function should run
+// :param comment_id: The comment_id which initially triggered the deployment Action
+// :param status: The status of the deployment (String)
+// :param message: A custom string to add as the deployment status message (String)
+// :param ref: The ref (branch) which is being used for deployment (String)
+// :param noop: Indicates whether the deployment is a noop or not (String)
+// :returns: nothing, error if anything goes wrong
+async function postDeploy(
+  context,
+  octokit,
+  comment_id,
+  status,
+  customMessage,
+  ref,
+  noop,
+  deployment_id,
+  environment
+) {
+  // Check the inputs to ensure they are valid
+  if (comment_id && status && customMessage && ref && noop) {
+    core.debug('post_deploy inputs passed initial check')
+  } else if (!comment_id || comment_id.length === 0) {
+    throw new Error('no comment_id provided')
+  } else if (!status || status.length === 0) {
+    throw new Error('no status provided')
+  } else if (!customMessage || customMessage.length === 0) {
+    throw new Error('no message provided')
+  } else if (!ref || ref.length === 0) {
+    throw new Error('no ref provided')
+  } else if (noop !== 'true') {
+    if (!deployment_id || deployment_id.length === 0) {
+      throw new Error('no deployment_id provided')
+    }
+    if (!environment || environment.length === 0) {
+      throw new Error('no environment provided')
+    }
+  } else {
+    throw new Error(
+      'An unhandled condition was encountered while processing post-deployment logic'
+    )
+  }
+
+  // Check the deployment status
+  var success
+  if (status === 'success') {
+    success = true
+  } else {
+    success = false
+  }
+
+  var banner
+  var deployTypeString = ' ' // a single space as a default
+
+  // Set the message banner and deploy type based on the deployment mode
+  if (noop === 'true') {
+    banner = 'noop 🧪'
+    deployTypeString = ' noop '
+  } else {
+    banner = 'production 🪐'
+  }
+
+  // Dynamically set the message text depending if the deployment succeeded or failed
+  var message
+  var deployStatus
+  if (status === 'success') {
+    message = `Successfully${deployTypeString}deployed branch **${ref}**`
+    deployStatus = `\`${status}\` ✔️`
+  } else if (status === 'failure') {
+    message = `Failure when${deployTypeString}deploying branch **${ref}**`
+    deployStatus = `\`${status}\` ❌`
+  } else {
+    message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
+    deployStatus = `\`${status}\` ⚠️`
+  }
+
+  // Format the message body
+  const message_fmt = `
+  ### Deployment Results - ${banner}
+
+  - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
+  - Branch: \`${ref}\`
+
+  <details><summary>Show Results</summary>
+
+  \`\`\`${customMessage}\`\`\`
+
+  </details>
+
+  ${message}
+
+  > Pusher: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
+    context.workflow
+  }\`
+  `
+
+  // Update the action status to indicate the result of the deployment as a comment
+  await actionStatus(
+    context,
+    octokit,
+    parseInt(comment_id),
+    message_fmt,
+    success,
+    ref
+  )
+
+  // Update the deployment status of the branch-deploy
+  var deploymentStatus
+  if (success) {
+    deploymentStatus = 'success'
+  } else {
+    deploymentStatus = 'failure'
+  }
+
+  // If the deployment mode is noop, return here
+  if (noop === 'true') {
+    return
+  }
+
+  await createDeploymentStatus(
+    octokit,
+    context,
+    ref,
+    deploymentStatus,
+    deployment_id,
+    environment
+  )
+
+  // If the post deploy comment logic completes successfully, return
+  return
+}
+
 // EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
 var github = __nccwpck_require__(5438);
+;// CONCATENATED MODULE: ./src/functions/post.js
+
+
+
+
+
+
+async function post() {
+  try {
+    const ref = core.getState('ref')
+    const comment_id = core.getState('comment_id')
+    const noop = core.getState('noop')
+    const deployment_id = core.getState('deployment_id')
+    const environment = core.getState('environment')
+    const token = core.getState('actionsToken')
+    const bypass = core.getState('bypass')
+
+    // If bypass is set, exit the workflow
+    if (bypass === 'true') {
+      core.warning('bypass set, exiting')
+      return
+    }
+
+    // Check the context of the event to ensure it is valid, return if it is not
+    if (!(await contextCheck(github.context))) {
+      return
+    }
+
+    // Create an octokit client
+    const octokit = github.getOctokit(token)
+
+    await postDeploy(
+      github.context,
+      octokit,
+      comment_id,
+      'success', // hardcoded for now
+      'success', // hardcoded for now
+      ref,
+      noop,
+      deployment_id,
+      environment
+    )
+
+    return
+  } catch (error) {
+    if (error instanceof Error) core.setFailed(error.message)
+  }
+}
+
 // EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
 var lib = __nccwpck_require__(3159);
 var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
@@ -9462,29 +9485,10 @@ async function run() {
     const environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
-    // Get the inputs for the alternate Action to post a post-deployment comment
-    const post_deploy = core.getInput('post_deploy')
-    const deployment_comment_id = core.getInput('deployment_comment_id')
-    const deployment_status = core.getInput('deployment_status')
-    const deployment_message = core.getInput('deployment_message')
-    const deployment_result_ref = core.getInput('deployment_result_ref')
-    const deployment_mode_noop = core.getInput('deployment_mode_noop')
-    const deployment_id = core.getInput('deployment_id')
-    const bypass = core.getInput('bypass')
-    const dataRaw = core.getInput('data')
 
-    // If the bypass param is used, exit the workflow
-    if (bypass) {
-      core.warning('bypass set, exiting')
-      return
-    }
-    if (dataRaw) {
-      const data = JSON.parse(dataRaw)
-      if (data.bypass) {
-        core.warning('bypass set, exiting')
-        return
-      }
-    }
+    // Set the state so that the post run logic will trigger
+    core.saveState('isPost', 'true')
+    core.saveState('actionsToken', token)
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(github.context))) {
@@ -9499,26 +9503,6 @@ async function run() {
     // Create an octokit client
     const octokit = github.getOctokit(token)
 
-    // Execute post-deployment comment logic if the action is running under that context
-    if (
-      (await postDeploy(
-        github.context,
-        octokit,
-        post_deploy,
-        dataRaw,
-        deployment_comment_id,
-        deployment_status,
-        deployment_message,
-        deployment_result_ref,
-        deployment_mode_noop,
-        deployment_id,
-        environment
-      )) === true
-    ) {
-      core.info('post_deploy logic completed')
-      return
-    }
-
     // Check if the comment body contains the trigger, exit if it doesn't return true
     if (!(await triggerCheck(prefixOnly, body, trigger))) {
       return
@@ -9526,6 +9510,7 @@ async function run() {
 
     // Add the reaction to the issue_comment as we begin to start the deployment
     const reactRes = await reactEmote(reaction, github.context, octokit)
+    core.setOutput('comment_id', reactRes.data.id)
 
     // Execute prechecks to ensure the deployment can proceed
     const precheckResults = await prechecks(
@@ -9537,6 +9522,7 @@ async function run() {
       github.context,
       octokit
     )
+    core.setOutput('ref', precheckResults.ref)
 
     // If the prechecks failed, run the actionFailed function and return
     if (!precheckResults.status) {
@@ -9550,31 +9536,17 @@ async function run() {
       return
     }
 
-    // Set the output of the ref (branch)
-    core.setOutput('ref', precheckResults.ref)
-    // Set the output of the comment id which triggered this action
-    core.setOutput('comment_id', reactRes.data.id)
-
     // Set outputs for noopMode
     var noop
     if (precheckResults.noopMode) {
       noop = 'true'
       core.setOutput('noop', noop)
       core.info('noop mode detected')
+      // If noop mode is enabled, return
+      return
     } else {
       noop = 'false'
       core.setOutput('noop', noop)
-    }
-
-    // If noopMode is true, exit
-    if (precheckResults.noopMode) {
-      // Output the data object used for the post deploy step
-      core.setOutput('data', {
-        ref: precheckResults.ref,
-        comment_id: reactRes.data.id,
-        noop: noop
-      })
-      return
     }
 
     // Create a new deployment
@@ -9598,14 +9570,8 @@ async function run() {
         `)
       await actionStatus(github.context, octokit, reactRes.data.id, mergeMessage)
       core.warning(mergeMessage)
-      // Output the data object to bypass the post deploy step since the deployment is not complete
-      core.setOutput('data', {
-        ref: precheckResults.ref,
-        comment_id: reactRes.data.id,
-        noop: noop,
-        bypass: 'true',
-        environment: environment
-      })
+      // Enable bypass for the post deploy step since the deployment is not complete
+      core.saveState('bypass', 'true')
       return
     }
 
@@ -9619,22 +9585,24 @@ async function run() {
       environment
     )
 
-    // Output the data object used for the post deploy step
-    core.setOutput('data', {
-      ref: precheckResults.ref,
-      comment_id: reactRes.data.id,
-      noop: noop,
-      deployment_id: createDeploy.id,
-      environment: environment
-    })
+    // Save the state for post run actions
+    core.saveState('ref', precheckResults.ref)
+    core.saveState('comment_id', reactRes.data.id)
+    core.saveState('noop', noop)
+    core.saveState('deployment_id', createDeploy.id)
+    core.saveState('environment', environment)
+
+    return
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }
 }
 
-run()
-
-// core.info(`context: ${JSON.stringify(context)}`)
+if (core.getState('isPost') === 'true') {
+  post()
+} else {
+  run()
+}
 
 })();
 

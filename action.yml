@@ -7,12 +7,8 @@ branding:
 inputs:
   environment:
     description: 'The name of the environment to deploy to. Example, "production"'
-    required: true
+    required: false
     default: "production"
-  github_token:
-    description: The GitHub token used to create an authenticated client
-    default: ${{ github.token }}
-    required: true
   reaction:
     description: 'If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes"'
     required: false
@@ -33,31 +29,6 @@ inputs:
     description: 'If "false", the trigger can match anywhere in the comment'
     required: false
     default: "true"
-  post_deploy:
-    description: 'If "true", post deployment logic is run'
-    required: false
-    default: "false"
-  deployment_comment_id:
-    description: The ID of the comment which triggered the original deployment
-    required: false
-  deployment_status:
-    description: 'The status of the deployment. Example: "success|failure"'
-    default: "success"
-    required: false
-  deployment_message:
-    description: 'An optional and alternate workflow that posts a comment with the deployment results back on the pr that triggered the initial deployment. Example: "successfully noop deployed to production - I would have changed 1 server"'
-    required: false
-  deployment_result_ref:
-    description: 'The ref used in the noop deployment. Example: "main"'
-    required: false
-    default: "main"
-  deployment_mode_noop:
-    description: 'If the mode used for deployment was "noop", set this to "true"'
-    required: false
-    default: "false"
-  data:
-    description: 'If this is a post deploy action, you can provide the deployed data all in one param using the "data" variable. It contains all necessary outputs needed to configure post-deploy logic'
-    required: false
 outputs:
   triggered:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
@@ -66,11 +37,10 @@ outputs:
   noop:
     description: 'The string "true" if the noop trigger was found, otherwise the string "false"'
   ref:
-    description: The branch to use with deployments
+    description: The branch to use with deployment
   comment_id:
     description: The comment id which triggered this deployment
-  data:
-    description: A JSON object containing all outputs in one variable from the initial branch deployment. Used to pass in necessary variables to the post deploy workflow with one param
 runs:
   using: "node16"
   main: "dist/index.js"
+  post: "dist/post.js"

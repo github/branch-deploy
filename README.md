@@ -205,13 +205,8 @@ Let's go through each of the variables we are using in the post deploy action:
 | environment | no | production | The name of the environment to deploy to. Example, "production" |
 | stable_branch | no | main | The name of a stable branch to deploy to (rollbacks). Example: "main" |
 | prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
-| post_deploy | no | false | If "true", post deployment logic is run |
-| deployment_comment_id | no | - | The ID of the comment which triggered the original deployment |
 | deployment_status | no | success | The status of the deployment. Example: "success|failure" |
 | deployment_message | no | - | An optional and alternate workflow that posts a comment with the deployment results back on the pr that triggered the initial deployment. Example: "successfully noop deployed to production - I would have changed 1 server" |
-| deployment_result_ref | no | main | The ref used in the noop deployment. Example: "main" |
-| deployment_mode_noop | no | false | If the mode used for deployment was "noop", set this to "true" |
-| data | no | - | If this is a post deploy action, you can provide the deployed data all in one param using the "data" variable. It contains all necessary outputs needed to configure post-deploy logic |
 
 ## Outputs ⚙️➡️
 
@@ -221,7 +216,6 @@ Let's go through each of the variables we are using in the post deploy action:
 | noop | The string "true" if the noop trigger was found, otherwise the string "false" |
 | ref | The comment body |
 | comment_id | The comment id which triggered this deployment |
-| data | A JSON object containing all outputs in one variable from the initial branch deployment. Used to pass in necessary variables to the post deploy workflow with one param |
 
 ## Testing Locally 🔨
 
