@@ -14,6 +14,10 @@ export async function post() {
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
+    const deployMessage = process.env('DEPLOY_MESSAGE')
+
+    // testing
+    core.info(deployMessage)
 
     // If bypass is set, exit the workflow
     if (bypass === 'true') {
@@ -34,7 +38,7 @@ export async function post() {
       octokit,
       comment_id,
       status,
-      status, // change this to a custom message rather than the status in the future
+      deployMessage,
       ref,
       noop,
       deployment_id,
