@@ -20,4 +20,4 @@ jobs:
 
       # Do some fake deployment logic here
       - name: fake deploy
-        run: exit 1
+        run: echo "fake deploy"

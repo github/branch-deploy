@@ -9,7 +9,7 @@ inputs:
     description: The GitHub token used to create an authenticated client
     default: ${{ github.token }}
     required: true
-  step_context:
+  job_status:
     description: The step context from the GitHub Action
     default: ${{ job.status }}
     required: true
