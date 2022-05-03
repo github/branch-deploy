@@ -16,9 +16,6 @@ export async function post() {
     const status = core.getInput('status')
     const deployMessage = process.env.DEPLOY_MESSAGE
 
-    // testing
-    core.info(deployMessage)
-
     // If bypass is set, exit the workflow
     if (bypass === 'true') {
       core.warning('bypass set, exiting')
