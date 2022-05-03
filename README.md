@@ -32,9 +32,6 @@ jobs:
   demo:
     runs-on: ubuntu-latest
     steps:
-      # Checkout your projects repository
-      - uses: actions/checkout@3.0.2
-  
       # Execute IssueOps branch deployment logic, hooray!
       # This will be used to "gate" all future steps below and conditionally trigger steps/deployments
       - uses: GrantBirki/branch-deploy@vX.X.X
@@ -43,6 +40,11 @@ jobs:
           trigger: ".deploy"
 
       # Run your deployment logic for your project here - examples seen below
+
+      # Checkout your projects repository based on the ref provided by the branch-deploy step
+      - uses: actions/checkout@3.0.2
+        with:
+          ref: ${{ steps.branch-deploy.outputs.ref }}
 
       # Do some fake "noop" deployment logic here
       # conditionally run a noop deployment
