@@ -8,7 +8,7 @@ This Action does the heavy lifting for you to enable branch deployments:
 - ✏️ Configurable - Choose your command syntax, environment, noop trigger, base branch, reaction, and more
 - ✔️ Respects your branch protection settings configured for the repo
 - 🗨️ Comments and reacts to your IssueOps commands
-- 🚀 Triggers GitHub deployments for you with zero config
+- 🚀 Triggers GitHub deployments for you with simple configuration
 
 ## Turbo Quickstart ⚡
 
