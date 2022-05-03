@@ -27,6 +27,4 @@ jobs:
       # Do some fake "regular" deployment logic here
       - name: fake regular deploy
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
-        run: |
-          echo "DEPLOY_MESSAGE=hello" >> $GITHUB_ENV
-          echo "I am doing a fake regular deploy"
+        run: echo "I am doing a fake regular deploy"

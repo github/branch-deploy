@@ -9357,6 +9357,9 @@ async function postDeploy(
   // Conditionally format the message body
   var message_fmt
   if (customMessage && customMessage.length > 0) {
+    const customMessageFmt = customMessage
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
     message_fmt = lib_default()(`
     ### Deployment Results - ${banner}
   
@@ -9365,15 +9368,15 @@ async function postDeploy(
   
     <details><summary>Show Results</summary>
   
-    \`\`\`${customMessage}\`\`\`
+    ${customMessageFmt}
   
     </details>
   
     ${message}
   
-    > Pusher: @${context.actor}, Action: \`${
-      context.eventName
-    }\`, Workflow: \`${context.workflow}\`
+    > Actor: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
+      context.workflow
+    }\`
     `)
   } else {
     message_fmt = lib_default()(`
@@ -9384,9 +9387,9 @@ async function postDeploy(
   
     ${message}
   
-    > Pusher: @${context.actor}, Action: \`${
-      context.eventName
-    }\`, Workflow: \`${context.workflow}\`
+    > Actor: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
+      context.workflow
+    }\`
     `)
   }
 
