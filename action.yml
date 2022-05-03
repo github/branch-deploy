@@ -6,11 +6,11 @@ branding:
   color: 'green'
 inputs:
   github_token:
-    description: The GitHub token used to create an authenticated client
+    description: The GitHub token used to create an authenticated client - Provided for you by default!
     default: ${{ github.token }}
     required: true
   status:
-    description: The status of the GitHub Actions - For use in the post run workflow
+    description: The status of the GitHub Actions - For use in the post run workflow - Provided for you by default!
     default: ${{ job.status }}
     required: true
   environment:
