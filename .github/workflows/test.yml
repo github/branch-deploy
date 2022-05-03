@@ -17,9 +17,6 @@ jobs:
   
       # Start the branch deployment
       - uses: ./
-        id: branch-deploy-start
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       # Do some fake deployment logic here
       - name: fake deploy
