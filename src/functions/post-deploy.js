@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import {actionStatus} from './action-status'
 import {createDeploymentStatus} from './deployment'
+import dedent from 'dedent-js'
 
 // Helper function to help facilitate the process of completing a deployment
 // :param context: The GitHub Actions event context
@@ -81,7 +82,7 @@ export async function postDeploy(
   // Conditionally format the message body
   var message_fmt
   if (customMessage && customMessage.length > 0) {
-    message_fmt = `
+    message_fmt = dedent(`
     ### Deployment Results - ${banner}
   
     - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
@@ -98,9 +99,9 @@ export async function postDeploy(
     > Pusher: @${context.actor}, Action: \`${
       context.eventName
     }\`, Workflow: \`${context.workflow}\`
-    `
+    `)
   } else {
-    message_fmt = `
+    message_fmt = dedent(`
     ### Deployment Results - ${banner}
   
     - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
@@ -111,7 +112,7 @@ export async function postDeploy(
     > Pusher: @${context.actor}, Action: \`${
       context.eventName
     }\`, Workflow: \`${context.workflow}\`
-    `
+    `)
   }
 
   // Update the action status to indicate the result of the deployment as a comment
