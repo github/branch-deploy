@@ -21,10 +21,10 @@ jobs:
 
       # Do some fake "noop" deployment logic here
       - name: fake noop deploy
-        if: ${{ steps.branch-deploy.outputs.continue === "true" }} && ${{ steps.branch-deploy.outputs.noop === "true" }}
+        if: ${{ steps.branch-deploy.outputs.continue }} === "true" && ${{ steps.branch-deploy.outputs.noop }} === "true"
         run: echo "I am doing a fake noop deploy"
 
       # Do some fake deployment logic here
       - name: fake regular deploy
-        if: ${{ steps.branch-deploy.outputs.continue === "true" }} && ${{ steps.branch-deploy.outputs.noop !== "true" }}
+        if: ${{ steps.branch-deploy.outputs.continue }} === "true" && ${{ steps.branch-deploy.outputs.noop }} !== "true"
         run: echo "I am doing a fake noop deploy"
