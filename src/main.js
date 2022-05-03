@@ -79,6 +79,7 @@ async function run() {
     if (precheckResults.noopMode) {
       noop = 'true'
       core.setOutput('noop', noop)
+      core.setOutput('continue', 'true')
       core.saveState('noop', noop)
       core.info('noop mode detected')
       // If noop mode is enabled, return
@@ -125,6 +126,8 @@ async function run() {
       createDeploy.id,
       environment
     )
+
+    core.setOutput('continue', 'true')
 
     return
   } catch (error) {

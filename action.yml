@@ -9,8 +9,8 @@ inputs:
     description: The GitHub token used to create an authenticated client
     default: ${{ github.token }}
     required: true
-  job_status:
-    description: The step context from the GitHub Action
+  status:
+    description: The status of the GitHub Actions - For use in the post run workflow
     default: ${{ job.status }}
     required: true
   environment:
@@ -43,11 +43,13 @@ outputs:
   comment_body:
     description: The comment body
   noop:
-    description: 'The string "true" if the noop trigger was found, otherwise the string "false"'
+    description: 'The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not'
   ref:
-    description: The branch to use with deployment
+    description: The branch (ref) to use with deployment
   comment_id:
     description: The comment id which triggered this deployment
+  continue:
+    description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
 runs:
   using: "node16"
   main: "dist/index.js"
