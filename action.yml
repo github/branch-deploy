@@ -5,6 +5,10 @@ branding:
   icon: 'git-branch'
   color: 'green'
 inputs:
+  github_token:
+    description: The GitHub token used to create an authenticated client
+    default: ${{ github.token }}
+    required: true
   environment:
     description: 'The name of the environment to deploy to. Example, "production"'
     required: false
