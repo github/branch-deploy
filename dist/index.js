@@ -9427,10 +9427,7 @@ async function post() {
     const environment = core.getState('environment')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
-    const job_status = core.getInput('job_status')
-
-    // debug
-    core.info(`job_status: ${job_status}`)
+    const status = core.getInput('status')
 
     // If bypass is set, exit the workflow
     if (bypass === 'true') {
@@ -9450,7 +9447,7 @@ async function post() {
       github.context,
       octokit,
       comment_id,
-      'success', // hardcoded for now
+      status,
       'success', // hardcoded for now
       ref,
       noop,
@@ -9549,6 +9546,7 @@ async function run() {
     if (precheckResults.noopMode) {
       noop = 'true'
       core.setOutput('noop', noop)
+      core.setOutput('continue', 'true')
       core.saveState('noop', noop)
       core.info('noop mode detected')
       // If noop mode is enabled, return
@@ -9595,6 +9593,8 @@ async function run() {
       createDeploy.id,
       environment
     )
+
+    core.setOutput('continue', 'true')
 
     return
   } catch (error) {
