@@ -1,5 +1,7 @@
 # Branch Deploy Action 🚀
 
+[![CodeQL](https://github.com/GrantBirki/branch-deploy/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/GrantBirki/branch-deploy/actions/workflows/codeql-analysis.yml)
+
 A GitHub Action to enable branch deployments using IssueOps!
 
 This Action does the heavy lifting for you to enable branch deployments:
