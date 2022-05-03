@@ -14,6 +14,11 @@ export async function post() {
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
 
+    // debug
+    core.info(
+      `ref: ${ref}, comment_id: ${comment_id}, noop: ${noop}, deployment_id: ${deployment_id}, environment: ${environment}, bypass: ${bypass}`
+    )
+
     // If bypass is set, exit the workflow
     if (bypass === 'true') {
       core.warning('bypass set, exiting')

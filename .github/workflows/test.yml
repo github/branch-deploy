@@ -25,12 +25,3 @@ jobs:
       - name: fake deploy
         id: deployment
         run: echo "fake deploy"
-
-      # Post the deployments results back to the PR as a comment and complete the deployment
-      - uses: ./
-        with:
-          post_deploy: true
-          data: ${{steps.branch-deploy-start.outputs.data}}
-          deployment_status: ${{ steps.deployment.outcome }}
-          deployment_message: ${{ steps.deployment.outcome }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
