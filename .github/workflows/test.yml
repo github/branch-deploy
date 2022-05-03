@@ -12,12 +12,15 @@ permissions:
 jobs:
   test: # make sure the action works on a clean machine without building
     runs-on: ubuntu-latest
-    steps:  
+    steps:
+      # Need to checkout for testing in this repo
+      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
+
       # Start the branch deployment
       - uses: ./
         id: branch-deploy
 
-      # Check out the ref from the output of the IssueOps command
+      # Check out the ref from the output of the IssueOps commandZ
       - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
