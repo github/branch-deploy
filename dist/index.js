@@ -9296,14 +9296,12 @@ async function postDeploy(
   environment
 ) {
   // Check the inputs to ensure they are valid
-  if (comment_id && status && customMessage && ref && noop) {
+  if (comment_id && status && ref && noop) {
     core.debug('post_deploy inputs passed initial check')
   } else if (!comment_id || comment_id.length === 0) {
     throw new Error('no comment_id provided')
   } else if (!status || status.length === 0) {
     throw new Error('no status provided')
-  } else if (!customMessage || customMessage.length === 0) {
-    throw new Error('no message provided')
   } else if (!ref || ref.length === 0) {
     throw new Error('no ref provided')
   } else if (noop !== 'true') {
@@ -9352,25 +9350,41 @@ async function postDeploy(
     deployStatus = `\`${status}\` ⚠️`
   }
 
-  // Format the message body
-  const message_fmt = `
-  ### Deployment Results - ${banner}
-
-  - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
-  - Branch: \`${ref}\`
-
-  <details><summary>Show Results</summary>
-
-  \`\`\`${customMessage}\`\`\`
-
-  </details>
-
-  ${message}
-
-  > Pusher: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
-    context.workflow
-  }\`
-  `
+  // Conditionally format the message body
+  var message_fmt
+  if (customMessage && customMessage.length > 0) {
+    message_fmt = `
+    ### Deployment Results - ${banner}
+  
+    - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
+    - Branch: \`${ref}\`
+  
+    <details><summary>Show Results</summary>
+  
+    \`\`\`${customMessage}\`\`\`
+  
+    </details>
+  
+    ${message}
+  
+    > Pusher: @${context.actor}, Action: \`${
+      context.eventName
+    }\`, Workflow: \`${context.workflow}\`
+    `
+  } else {
+    message_fmt = `
+    ### Deployment Results - ${banner}
+  
+    - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
+    - Branch: \`${ref}\`
+  
+    ${message}
+  
+    > Pusher: @${context.actor}, Action: \`${
+      context.eventName
+    }\`, Workflow: \`${context.workflow}\`
+    `
+  }
 
   // Update the action status to indicate the result of the deployment as a comment
   await actionStatus(
@@ -9429,9 +9443,6 @@ async function post() {
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
     const deployMessage = process.env.DEPLOY_MESSAGE
-
-    // testing
-    core.info(deployMessage)
 
     // If bypass is set, exit the workflow
     if (bypass === 'true') {
