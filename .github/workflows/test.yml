@@ -23,7 +23,7 @@ jobs:
       - name: fake noop deploy
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
         run: |
-          echo "DEPLOY_MESSAGE=noop changes:\nI would have **updated** 1 server" >> $GITHUB_ENV
+          echo "DEPLOY_MESSAGE=noop changes:\n```I would have **updated** 1 server```" >> $GITHUB_ENV
           echo "I am doing a fake noop deploy"
 
       # Do some fake "regular" deployment logic here
