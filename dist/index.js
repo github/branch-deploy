@@ -9365,7 +9365,7 @@ async function postDeploy(
   
     <details><summary>Show Results</summary>
   
-    \`\`\`${customMessage}\`\`\`
+    ${customMessage}
   
     </details>
   
