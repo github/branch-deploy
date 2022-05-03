@@ -17,8 +17,6 @@ jobs:
   
       # Start the branch deployment
       - uses: ./
-        with:
-          step_context: ${{ toJSON(steps) }}
 
       # Do some fake deployment logic here
       - name: fake deploy
