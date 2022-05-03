@@ -231,13 +231,23 @@ Actions Workflow Example:
 
 ### Additional Custom Message Examples 📚
 
-Adding newlines to your message:
+#### Adding newlines to your message
 
 ```bash
 echo "DEPLOY_MESSAGE=NOOP Result:\nI would have **updated** 1 server" >> $GITHUB_ENV
 ```
 
-Adding a code block to your message:
+#### Multi-line strings ([reference](https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#example-2))
+
+```bash
+echo 'DEPLOY_MESSAGE<<EOF' >> $GITHUB_ENV
+echo "$SOME_MULTI_LINE_STRING_HERE" >> $GITHUB_ENV
+echo 'EOF' >> $GITHUB_ENV
+```
+
+> Where `$SOME_MULTI_LINE_STRING_HERE` is a bash variable containing a multi-line string
+
+#### Adding a code block to your message
 
 ```bash
 echo "DEPLOY_MESSAGE=\`\`\`yaml\nname: value\n\`\`\`" >> $GITHUB_ENV
