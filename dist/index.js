@@ -9371,9 +9371,9 @@ async function postDeploy(
   
     ${message}
   
-    > Pusher: @${context.actor}, Action: \`${
-      context.eventName
-    }\`, Workflow: \`${context.workflow}\`
+    > Actor: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
+      context.workflow
+    }\`
     `)
   } else {
     message_fmt = lib_default()(`
@@ -9384,9 +9384,9 @@ async function postDeploy(
   
     ${message}
   
-    > Pusher: @${context.actor}, Action: \`${
-      context.eventName
-    }\`, Workflow: \`${context.workflow}\`
+    > Actor: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
+      context.workflow
+    }\`
     `)
   }
 

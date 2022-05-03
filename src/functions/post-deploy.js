@@ -96,9 +96,9 @@ export async function postDeploy(
   
     ${message}
   
-    > Pusher: @${context.actor}, Action: \`${
-      context.eventName
-    }\`, Workflow: \`${context.workflow}\`
+    > Actor: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
+      context.workflow
+    }\`
     `)
   } else {
     message_fmt = dedent(`
@@ -109,9 +109,9 @@ export async function postDeploy(
   
     ${message}
   
-    > Pusher: @${context.actor}, Action: \`${
-      context.eventName
-    }\`, Workflow: \`${context.workflow}\`
+    > Actor: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
+      context.workflow
+    }\`
     `)
   }
 
