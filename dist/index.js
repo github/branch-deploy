@@ -9448,7 +9448,7 @@ async function post() {
       octokit,
       comment_id,
       status,
-      'success', // hardcoded for now
+      status, // change this to a custom message rather than the status in the future
       ref,
       noop,
       deployment_id,
