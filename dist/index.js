@@ -9427,6 +9427,10 @@ async function post() {
     const environment = core.getState('environment')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
+    const step_context = core.getInput('step_context')
+
+    // debug
+    core.info(`step_context: ${step_context}`)
 
     // If bypass is set, exit the workflow
     if (bypass === 'true') {

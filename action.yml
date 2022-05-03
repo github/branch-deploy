@@ -9,6 +9,9 @@ inputs:
     description: The GitHub token used to create an authenticated client
     default: ${{ github.token }}
     required: true
+  step_context:
+    description: The step context from the GitHub Action
+    required: true
   environment:
     description: 'The name of the environment to deploy to. Example, "production"'
     required: false
