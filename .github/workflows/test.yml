@@ -21,7 +21,7 @@ jobs:
 
       # Do some fake "noop" deployment logic here
       - name: fake noop deploy
-        if: ${{ steps.branch-deploy.outputs.continue }} === "true" && ${{ steps.branch-deploy.outputs.noop }} === "true"
+        if: steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true'
         run: |
           echo "${{ steps.branch-deploy.outputs.continue }}"
           echo "${{ steps.branch-deploy.outputs.noop }}"
