@@ -36,26 +36,25 @@ jobs:
       - uses: actions/checkout@3.0.2
   
       # Execute IssueOps branch deployment logic, hooray!
-      - uses: GrantBirki/branch-deploy@main
-        id: branch-deploy-start
+      # This will be used to "gate" all future steps below and conditionally trigger steps/deployments
+      - uses: GrantBirki/branch-deploy@vX.X.X
+        id: branch-deploy
         with:
           trigger: ".deploy"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Run your deployment logic for your project here
-      # Examples: terraform apply, kubectl apply, heroku push
-      - name: deployment
-        id: deployment # use an id to export the results for post-deployment
-        run: echo "I am running a deployment! - (Add your own logic here)"
+      # Run your deployment logic for your project here - examples seen below
 
-      # Wrap up the deployment and post a comment with deployment details
-      - uses: GrantBirki/branch-deploy@main
-        with:
-          post_deploy: true # activates post deployment logic
-          data: ${{steps.branch-deploy-start.outputs.data}} # required deployment data
-          deployment_status: ${{ steps.deployment.outcome }} # id related to the deployment to report status
-          deployment_message: ${{ steps.deployment.outcome }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      # Do some fake "noop" deployment logic here
+      # conditionally run a noop deployment
+      - name: fake noop deploy
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
+        run: echo "I am doing a fake noop deploy"
+
+      # Do some fake "regular" deployment logic here
+      # conditionally run a regular deployment
+      - name: fake regular deploy
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
+        run: echo "I am doing a fake regular deploy"
 ```
 
 > Keep reading to learn more about this Action! Even further details about how this Action works can be found below as well
@@ -140,11 +139,12 @@ Sets up your `demo` job, uses an ubuntu runner, and checks out your repo - Just 
 ```yaml
       # Execute IssueOps branch deployment logic, hooray!
       - uses: GrantBirki/branch-deploy@main
-        id: branch-deploy-start
+        id: branch-deploy
         with:
           trigger: ".deploy"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+> Note: It is important to set an `id:` for this job so we can reference its outputs in subsequent steps
 
 The core of this Action takes place here. This block of code will trigger the branch deploy action to run. It will do the following:
 
@@ -156,68 +156,53 @@ The core of this Action takes place here. This block of code will trigger the br
 1. Outputs will be exported by this job for later reference in other jobs as well
 
 ```yaml
-      # Run your deployment logic for your project here
-      # Examples: terraform apply, kubectl apply, heroku push
-      - name: deployment
-        id: deployment
-        run: echo "I am running a deployment! - (Add your own logic here)"
+      # Do some fake "noop" deployment logic here
+      # conditionally run a noop deployment
+      - name: fake noop deploy
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
+        run: echo "I am doing a fake noop deploy"
+
+      # Do some fake "regular" deployment logic here
+      # conditionally run a regular deployment
+      - name: fake regular deploy
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
+        run: echo "I am doing a fake regular deploy"
 ```
 
-Now that your deployment has be triggered by your IssueOps command, you are ready to run whatever logic your heart desires to deploy your changes! Here are some examples of ways you might deploy your changes:
+As seen above, we have two steps. One for a noop deploy, and one for a regular deploy. For example, the noop deploy could trigger a `terraform plan` and the regular deploy could be a `terraform apply`. These steps are conditionally gated by two variables:
 
-- `terraform apply`
-- `kubectl apply`
-- `heroku push`
-- etc
+- `steps.branch-deploy.outputs.continue == 'true'` - The `continue` variable is only set to true when a deployment should continue
+- `steps.branch-deploy.outputs.noop == 'true'` - The `noop` variable is only set to true when a noop deployment should be run
 
-It is important to note that you set an `id:` for the job that ultimately handles your deployment. This is critical because we need to reference the status of that job later on to wrap up our deployment as "failed" or "successful". By default, GitHub Actions will set the `steps.<name>.outcome` output to `success` if your steps completes with an exit code of `0`
-
-```yaml
-      # Wrap up the deployment and post a comment with deployment details
-      - uses: GrantBirki/branch-deploy@main
-        with:
-          post_deploy: true # activates post deployment logic
-          data: ${{steps.branch-deploy-start.outputs.data}}
-          deployment_status: ${{ steps.deployment.outcome }}
-          deployment_message: ${{ steps.deployment.outcome }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-```
-
-In this last step, we wrap up our deployment now that our previous step has finished. Depending on whether your deployment step exited successfully or not, it will reflect the result of your deployment
-
-Let's go through each of the variables we are using in the post deploy action:
-
-- `post_deploy: true` - Signals to the Action that post deployment logic should be activated
-- `data: ${{steps.branch-deploy-start.outputs.data}}` - Uses data payload that was an output from our initial deploy stage to complete said deployment
-- `deployment_status: ${{ steps.deployment.outcome }}` - Uses the outcome (derived from the exit code) of your custom deployment job to determine if the deployment should be set to "success" or "failure"
-- `deployment_message: ${{ steps.deployment.outcome }}` - A custom message you want included on your deployment status comment. This can be any string
-- `github_token: ${{ secrets.GITHUB_TOKEN }}` - The standard GitHub token available in all workflows which allows this Action permissions to comment on your PR with results
+> Example: You comment `.deploy noop` on a pull request. A noop deployment is detected so this action outputs the `noop` variable to `true`. You also have the correct permissions to execute the IssueOps command so the action also outputs the `continue` variable to `true`. This will allow the "fake noop deploy" step seen above to run and the "fake regular deploy" step will be skipped
 
 ## Inputs ➡️⚙️
 
 | Input | Required? | Default | Description |
 | ----- | --------- | ------- | ----------- |
 | environment | yes | production | The name of the environment to deploy to. Example, "production" |
-| github_token | yes | - | The GitHub token used to create an authenticated client |
+| github_token | yes | ${{ github.token }} | The GitHub token used to create an authenticated client - Provided for you by default! |
+| status | yes | ${{ job.status }} | The status of the GitHub Actions - For use in the post run workflow - Provided for you by default! |
 | reaction | no | eyes | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
 | trigger | no | .deploy | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
 | noop_trigger | no | noop | The string to look for in comments as an IssueOps noop trigger. Example: "noop" |
 | environment | no | production | The name of the environment to deploy to. Example, "production" |
 | stable_branch | no | main | The name of a stable branch to deploy to (rollbacks). Example: "main" |
 | prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
-| deployment_status | no | success | The status of the deployment. Example: "success|failure" |
-| deployment_message | no | - | An optional and alternate workflow that posts a comment with the deployment results back on the pr that triggered the initial deployment. Example: "successfully noop deployed to production - I would have changed 1 server" |
 
 ## Outputs ⚙️➡️
 
 | Output | Description |
 | ------ | ----------- |
 | triggered | The string "true" if the trigger was found, otherwise the string "false" |
-| noop | The string "true" if the noop trigger was found, otherwise the string "false" |
+| noop | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
 | ref | The comment body |
 | comment_id | The comment id which triggered this deployment |
+| continue | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not |
 
 ## Testing Locally 🔨
+
+> This is a not fully supported
 
 Test with [act](https://github.com/nektos/act) locally to simulate a GitHub Actions event
 
