@@ -1,4 +1,5 @@
 import * as core from '@actions/core'
+import dedent from 'dedent-js'
 
 // Runs precheck logic before the branch deployment can proceed
 // :param comment: The comment body of the event
@@ -92,7 +93,7 @@ export async function prechecks(
     // If no regex patterns matched, the IssueOps command was used in an unsupported way
   } else {
     ref = pr.data.head.ref
-    message = `\
+    message = dedent(`\
               ### ⚠️ Invalid command
               
               Please use one of the following:
@@ -101,7 +102,7 @@ export async function prechecks(
               - \`${trigger} ${noop_trigger}\` - deploy **this** branch in **noop** mode (\`${ref}\`)
               - \`${trigger} ${stable_branch}\` - deploy the \`${stable_branch}\` branch
               > Note: \`${trigger} ${stable_branch}\` is often used for rolling back a change or getting back to a known working state
-              `
+              `)
     return {message: message, status: false}
   }
 

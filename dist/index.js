@@ -9029,7 +9029,11 @@ async function createDeploymentStatus(
   return result
 }
 
+// EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
+var lib = __nccwpck_require__(3159);
+var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 ;// CONCATENATED MODULE: ./src/functions/prechecks.js
+
 
 
 // Runs precheck logic before the branch deployment can proceed
@@ -9124,7 +9128,7 @@ async function prechecks(
     // If no regex patterns matched, the IssueOps command was used in an unsupported way
   } else {
     ref = pr.data.head.ref
-    message = `\
+    message = lib_default()(`\
               ### ⚠️ Invalid command
               
               Please use one of the following:
@@ -9133,7 +9137,7 @@ async function prechecks(
               - \`${trigger} ${noop_trigger}\` - deploy **this** branch in **noop** mode (\`${ref}\`)
               - \`${trigger} ${stable_branch}\` - deploy the \`${stable_branch}\` branch
               > Note: \`${trigger} ${stable_branch}\` is often used for rolling back a change or getting back to a known working state
-              `
+              `)
     return {message: message, status: false}
   }
 
@@ -9280,9 +9284,6 @@ async function prechecks(
   return {message: message, status: true, ref: ref, noopMode: noopMode}
 }
 
-// EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
-var lib = __nccwpck_require__(3159);
-var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 ;// CONCATENATED MODULE: ./src/functions/post-deploy.js
 
 
