@@ -22,7 +22,36 @@ https://user-images.githubusercontent.com/23362539/166625510-50a80738-a7a2-486d-
 
 ## Turbo Quickstart ⚡
 
-Check out a super simple workflow using this Action to quickly get up and running with branch deployments
+A quick section to get you started with this Action
+
+### Usage 📝
+
+Basic usage assuming all defaults:
+
+```yaml
+- name: branch-deploy
+  id: branch-deploy
+  uses: GrantBirki/branch-deploy@vX.X.X
+```
+
+Advanced usage with custom configuration:
+
+```yaml
+- name: branch-deploy
+  id: branch-deploy
+  uses: GrantBirki/branch-deploy@vX.X.X
+  with:
+    trigger: ".deploy"
+    reaction: "eyes"
+    environment: "production"
+    noop_trigger: "noop"
+    stable_branch: "main"
+    prefix_only: "true"
+```
+
+### Example 📚
+
+Check out a super simple workflow example using this Action to quickly get up and running with branch deployments
 
 ```yaml
 name: "branch deploy demo"
