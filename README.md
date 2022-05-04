@@ -12,6 +12,14 @@ This Action does the heavy lifting for you to enable branch deployments:
 - 🗨️ Comments and reacts to your IssueOps commands
 - 🚀 Triggers GitHub deployments for you with simple configuration
 
+## Demo 🎥
+
+A video demo showing how IssueOps on a pull request works using this Action
+
+https://user-images.githubusercontent.com/23362539/166625510-50a80738-a7a2-486d-9d74-8dda5b95ec8d.mp4
+
+> View the pull request that created this demo [here](https://github.com/GrantBirki/branch-deploy/pull/17)
+
 ## Turbo Quickstart ⚡
 
 Check out a super simple workflow using this Action to quickly get up and running with branch deployments
