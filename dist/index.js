@@ -9580,7 +9580,8 @@ async function run() {
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
       repo: repo,
-      ref: precheckResults.ref
+      ref: precheckResults.ref,
+      required_contexts: null
     })
     core.saveState('deployment_id', createDeploy.id)
 
