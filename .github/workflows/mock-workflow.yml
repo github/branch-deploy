@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: on pull request
-        run: echo "I did on a thing on a pull request"
+        run: exit 1
   on-main:
     runs-on: ubuntu-latest
     if: github.ref_name == 'main'
