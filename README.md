@@ -373,3 +373,11 @@ Test with [act](https://github.com/nektos/act) locally to simulate a GitHub Acti
 ```bash
 act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test
 ```
+
+---
+
+## Contributing 💻
+
+All contributions are welcome from all!
+
+Check out the [contributing guide](CONTRIBUTING.md) to learn more
