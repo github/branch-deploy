@@ -93,7 +93,7 @@ export async function prechecks(
     // If no regex patterns matched, the IssueOps command was used in an unsupported way
   } else {
     ref = pr.data.head.ref
-    message = dedent(`\
+    message = dedent(`
               ### ⚠️ Invalid command
               
               Please use one of the following:
