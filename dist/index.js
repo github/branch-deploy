@@ -9232,6 +9232,10 @@ async function prechecks(
   } else if (reviewDecision === 'APPROVED' && commitStatus === 'FAILURE') {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is approved but CI checks are failing`
     return {message: message, status: false}
+    // If the PR does not require approval but CI is failing
+  } else if (reviewDecision === null && commitStatus === 'FAILURE') {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request does not require approvals but CI checks are failing`
+    return {message: message, status: false}
     // If the PR is NOT reviewed and CI checks have NOT been defined and NOT a noop deploy
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
