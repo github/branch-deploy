@@ -1,0 +1,26 @@
+name: mock-workflow
+
+on:
+  pull_request:
+    branches:
+      - main
+  
+  push:
+    branches:
+      - main
+
+jobs:
+  on-pr:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: on pull request
+        run: echo "I did on a thing on a pull request"
+  on-main:
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'main'
+
+    steps:
+      - name: on main
+        run: echo "I did on a thing on main"
