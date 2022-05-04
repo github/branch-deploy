@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   test:
-    environment: production
+    environment: production-secrets
     runs-on: ubuntu-latest
     steps:
       # Need to checkout for testing the Action in this repo

@@ -156,7 +156,7 @@ Sets up your `demo` job, uses an ubuntu runner, and checks out your repo - Just 
 
 ```yaml
       # Execute IssueOps branch deployment logic, hooray!
-      - uses: GrantBirki/branch-deploy@main
+      - uses: GrantBirki/branch-deploy@vX.X.X
         id: branch-deploy
         with:
           trigger: ".deploy"
@@ -271,6 +271,74 @@ echo "DEPLOY_MESSAGE=\`\`\`yaml\nname: value\n\`\`\`" >> $GITHUB_ENV
 ### How does this work? 🤔
 
 To add custom messages to our final deployment message we need to use the GitHub Actions environment. This is so that we can dynamically pass data into the post action workflow that leaves a comment on our PR. The post action workflow will look to see if this environment variable is set (`DEPLOY_MESSAGE`). If the variable is set, it adds to to the PR comment. Otherwise, it will use a simple comment body that doesn't include the custom message.
+
+## About Environments 🌎
+
+> If you are using environment rather than repo secrets, this section will be of interest to you
+
+For those familiar with GitHub Actions, you have probably used environments before to store secrets and trigger deployments. The syntax for doing so is very simple and usually looks like this:
+
+```yaml
+jobs:
+  deploy:
+    environment: production # right here we use an environment
+    runs-on: ubuntu-latest
+    steps:
+      - name: deployment
+        run: terraform apply -auto-approve
+```
+
+However, this has a few limitations:
+
+- When workflows finish, so does the deployment to that environment - This means that the little green rocket doesn't "stick" to your pull request
+- It is tricky to tune in environment protection rules with a single environment when using IssueOps + branch-deployments
+
+To get around these limitations with this branch-deploy action and IssueOps, we can use two different environments. One to store our environement secrets and another to use in our branch deployments.
+
+> Yes this isn't the most elegant solution, but it works and is very easy to accomplish
+
+Here is a proper example for using two environments with this action:
+
+```yaml
+jobs:
+  deploy:
+    environment: production-secrets # custom enviroment for storing secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: GrantBirki/branch-deploy@vX.X.X
+        id: branch-deploy
+        with:
+          trigger: ".deploy"
+          environment: production # the environment for the actual deployment
+
+      # Your deployment steps go here...
+```
+
+This allows you to achieve the following:
+
+- Fine grained control over your environment secrets in the `production-secrets` environment
+- A "sticky" green rocket to your PR that doesn't disappear when the workflow finishes
+
+## Security 🔒
+
+The IssueOps + branch-deploy model is significantly more secure than a traditional "deploy on merge" or "run on commit" model. Let's reference the workflow trigger that the branch-deploy model uses:
+
+```yaml
+on:
+  issue_comment:
+    types: [created]
+```
+
+Unlike the `on: pull_request` trigger, the `on: issue_comment` trigger only uses Actions workflow files from the default branch in GitHub. This means that a bad actor cannot open a PR with a malicious workflow edit and dump secrets, trigger bad deployments, or cause other issues. This means that any changes to the workflow files can be protected with branch protection rules to ensure only verified changes make it into your default branch.
+
+To further harden your workflow files, it is strongly suggested to include the base permissions that this Action needs to run:
+
+```yaml
+permissions:
+  pull-requests: write
+  deployments: write
+  contents: read
+```
 
 ## Testing Locally 🔨
 
