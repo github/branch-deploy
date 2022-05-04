@@ -312,6 +312,7 @@ This allows you to achieve the following:
 
 - Fine grained control over your environment secrets in the `production-secrets` environment
 - A "sticky" green rocket to your PR that doesn't disappear when the workflow finishes
+- Access to all the environment secrets stored in the `production-secrets` environment
 
 ## Security 🔒
 
