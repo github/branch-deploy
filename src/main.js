@@ -20,6 +20,7 @@ async function run() {
     const environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
+    const required_contexts = core.getInput('required_contexts')
 
     // Set the state so that the post run logic will trigger
     core.saveState('isPost', 'true')
@@ -90,12 +91,24 @@ async function run() {
       core.saveState('noop', noop)
     }
 
+    // Get required_contexts for the deployment
+    var requiredContexts = []
+    if (
+      required_contexts &&
+      required_contexts !== '' &&
+      required_contexts !== 'false'
+    ) {
+      requiredContexts = required_contexts.split(',').map(function (item) {
+        return item.trim()
+      })
+    }
+
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
       repo: repo,
       ref: precheckResults.ref,
-      required_contexts: null
+      required_contexts: requiredContexts
     })
     core.saveState('deployment_id', createDeploy.id)
 

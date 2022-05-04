@@ -205,6 +205,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | environment | no | production | The name of the environment to deploy to. Example, "production" |
 | stable_branch | no | main | The name of a stable branch to deploy to (rollbacks). Example: "main" |
 | prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
+| required_contexts | no | false | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" |
 
 ## Outputs ⚙️➡️
 

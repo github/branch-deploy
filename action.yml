@@ -37,6 +37,10 @@ inputs:
     description: 'If "false", the trigger can match anywhere in the comment'
     required: false
     default: "true"
+  required_contexts:
+    description: 'Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false"'
+    required: false
+    default: "false"
 outputs:
   triggered:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
