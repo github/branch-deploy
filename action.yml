@@ -38,7 +38,7 @@ inputs:
     required: false
     default: "true"
   required_contexts:
-    description: 'Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false - Example value: "context1,context2,context3"'
+    description: 'Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false - Example value: "context1,context2,context3" - In most cases you will not need to touch this option'
     required: false
     default: "false"
 outputs:
