@@ -364,6 +364,38 @@ permissions:
   contents: read
 ```
 
+## Actions Stability 🔧
+
+In order to ensure your usage of this action is stable, it is highly recommended that you use either pin your action to a SHA or use a specific release tag
+
+### Actions Tag Pinning
+
+You can easily select the exact version you want on the GitHub Actions marketplace seen in the screenshot below:
+
+![Screenshot from 2022-05-09 12-12-06](https://user-images.githubusercontent.com/23362539/167471509-71ca2cf9-7b8f-4709-acee-67a679869fa6.png)
+
+### Actions SHA Pinning
+
+You can also pin to an exact commit SHA as well using a third party tool such as [mheap/pin-github-action](https://github.com/mheap/pin-github-action)
+
+> GitHub Actions security hardening and stability docs availabe here: [docs](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions)
+
+## Actions Concurrency and Locking 🔓
+
+> Only run one deployment at a time
+
+If your workflows need some level of concurrency or locking, you can leverage the native GitHub Actions concurrency feature ([documentation](https://docs.github.com/en/actions/using-jobs/using-concurrency)) to enable this.
+
+For example, if you have two users run `.deploy` on two seperate PRs at the same time, it will trigger two deployments. In some cases, this will break things and you may not want this. By using Actions concurrency, you can prevent multiple workflows from running at once
+
+The default behavior for Actions is to run the first job that was triggered and to set the other one as `pending`. If you want to cancel the other job, that can be configured as well. Below you will see an example where we setup a concurrency group which only allows one deployment at a time and cancels all other workflows triggered while our deployment is running:
+
+```yaml
+concurrency: 
+  group: production
+  cancel-in-progress: true
+```
+
 ## Testing Locally 🔨
 
 > This is a not fully supported
