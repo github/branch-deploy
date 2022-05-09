@@ -8864,6 +8864,8 @@ async function triggerCheck(prefixOnly, body, trigger) {
     } else {
       core.info(`Trigger "${trigger}" not found in the comment body`)
     }
+    // Set the bypass state to false so the post action does not run
+    core.saveState('bypass', 'true')
     core.setOutput('triggered', 'false')
     return false
   }
