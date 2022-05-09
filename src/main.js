@@ -71,6 +71,8 @@ async function run() {
         reactRes.data.id,
         precheckResults.message
       )
+      // Set the bypass state to true so that the post run logic will not run
+      core.saveState('bypass', 'true')
       core.setFailed(precheckResults.message)
       return
     }
