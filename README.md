@@ -66,6 +66,7 @@ permissions:
   pull-requests: write
   deployments: write
   contents: read
+  issues: write
 
 jobs:
   demo:
