@@ -54,15 +54,15 @@ export async function postDeploy(
     success = false
   }
 
-  var banner
+  var mode
   var deployTypeString = ' ' // a single space as a default
 
-  // Set the message banner and deploy type based on the deployment mode
+  // Set the mode and deploy type based on the deployment mode
   if (noop === 'true') {
-    banner = 'noop 🧪'
+    mode = 'noop 🧪'
     deployTypeString = ' noop '
   } else {
-    banner = 'production 🪐'
+    mode = 'branch 🚀'
   }
 
   // Dynamically set the message text depending if the deployment succeeded or failed
@@ -86,9 +86,10 @@ export async function postDeploy(
       .replace(/\\n/g, '\n')
       .replace(/\\t/g, '\t')
     message_fmt = dedent(`
-    ### Deployment Results - ${banner}
+    ### Deployment Results
   
-    - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
+    - Status: ${deployStatus}
+    - Mode: ${mode}
     - Branch: \`${ref}\`
   
     <details><summary>Show Results</summary>
@@ -99,22 +100,19 @@ export async function postDeploy(
   
     ${message}
   
-    > Actor: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
-      context.workflow
-    }\`
+    > Actor: ${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${context.workflow}\`
     `)
   } else {
     message_fmt = dedent(`
-    ### Deployment Results - ${banner}
+    ### Deployment Results
   
-    - Deployment${' ' + deployTypeString.trim()}: ${deployStatus}
+    - Status: ${deployStatus}
+    - Mode: ${mode}
     - Branch: \`${ref}\`
   
     ${message}
   
-    > Actor: @${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${
-      context.workflow
-    }\`
+    > Actor: ${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${context.workflow}\`
     `)
   }
 
