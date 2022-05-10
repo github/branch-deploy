@@ -174,6 +174,18 @@ export async function prechecks(
     message = '✔️ All CI checks passed and **noop** requested - OK'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
+    // If CI is pending and the PR has not been reviewed BUT it is a noop deploy
+  } else if (
+    reviewDecision === 'REVIEW_REQUIRED' &&
+    commitStatus === 'PENDING' &&
+    noopMode
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Reviews are not required for a noop deployment but CI checks must be passing in order to continue`
+    return {message: message, status: false}
+    // If CI is pending and reviewers have not been defined
+  } else if (reviewDecision === null && commitStatus === 'PENDING') {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
+    return {message: message, status: false}
     // If CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
@@ -190,6 +202,22 @@ export async function prechecks(
     core.info(
       'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
     )
+    // If CI checks are pending, the PR has not been reviewed, and it is not a noop deploy
+  } else if (
+    reviewDecision === 'REVIEW_REQUIRED' &&
+    commitStatus === 'PENDING' &&
+    !noopMode
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing and the PR must be reviewed in order to continue`
+    return {message: message, status: false}
+    // If the PR has been approved but CI checks are pending and it is not a noop deploy
+  } else if (
+    reviewDecision === 'APPROVED' &&
+    commitStatus === 'PENDING' &&
+    !noopMode
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
+    return {message: message, status: false}
     // If CI is passing but the PR is missing an approval, let the user know
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
@@ -232,11 +260,16 @@ export async function prechecks(
 
   // Format the success message
   const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
-  const commentBody = `\
-  __${context.actor}__, started a __${deploymentType}__ deployment 🚀
-  - Branch: __${ref}__
-  You can watch the progress [here](${log_url})
-  `
+  const commentBody = dedent(`
+    ### Deployment Triggered
+
+    __${context.actor}__, started a __${deploymentType}__ deployment 🚀
+
+    - __Branch__: \`${ref}\`
+    - __Mode__: \`${deploymentType}\`
+
+    You can watch the progress [here](${log_url}) 🔗
+  `)
 
   // Make a comment on the pr with the successful results
   await octokit.rest.issues.createComment({
