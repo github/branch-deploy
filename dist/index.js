@@ -9381,10 +9381,10 @@ async function postDeploy(
 
   // Set the mode and deploy type based on the deployment mode
   if (noop === 'true') {
-    mode = 'noop 🧪'
+    mode = '`noop` 🧪'
     deployTypeString = ' noop '
   } else {
-    mode = 'branch 🚀'
+    mode = '`branch` 🚀'
   }
 
   // Dynamically set the message text depending if the deployment succeeded or failed
@@ -9400,6 +9400,8 @@ async function postDeploy(
     message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
     deployStatus = `\`${status}\` ⚠️`
   }
+
+  const footer = `Actor: **${context.actor}**, Action: \`${context.eventName}\`, Workflow: \`${context.workflow}\``
 
   // Conditionally format the message body
   var message_fmt
@@ -9422,7 +9424,7 @@ async function postDeploy(
   
     ${message}
   
-    > Actor: ${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${context.workflow}\`
+    > ${footer}
     `)
   } else {
     message_fmt = lib_default()(`
@@ -9434,7 +9436,7 @@ async function postDeploy(
   
     ${message}
   
-    > Actor: ${context.actor}, Action: \`${context.eventName}\`, Workflow: \`${context.workflow}\`
+    > ${footer}
     `)
   }
 
