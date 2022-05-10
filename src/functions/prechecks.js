@@ -253,7 +253,7 @@ export async function prechecks(
   // Format the PR comment message based on deployment mode
   var deploymentType
   if (noopMode) {
-    deploymentType = '**noop** branch'
+    deploymentType = 'noop'
   } else {
     deploymentType = 'branch'
   }
