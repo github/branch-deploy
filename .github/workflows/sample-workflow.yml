@@ -1,4 +1,4 @@
-name: "test"
+name: "sample-workflow"
 
 on:
   issue_comment:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  sample:
     environment: production-secrets
     runs-on: ubuntu-latest
     steps:
