@@ -1,6 +1,10 @@
 import { contextCheck } from '../../src/functions/context-check'
 import * as core from '@actions/core'
 
+beforeEach(() => {
+  jest.spyOn(core, 'setFailed').mockImplementation(() => {})
+});
+
 const goodContext = {
   eventName: 'issue_comment',
   payload: {
