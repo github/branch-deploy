@@ -1,5 +1,6 @@
 import {prechecks} from '../../src/functions/prechecks'
 import * as core from '@actions/core'
+import dedent from 'dedent-js'
 
 beforeEach(() => {
   jest.spyOn(core, 'info').mockImplementation(() => {})
@@ -112,6 +113,30 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
     noopMode: true,
     ref: 'test-ref',
     status: true
+  })
+})
+
+test('runs prechecks and does not find any matching command', async () => {
+  expect(
+    await prechecks(
+      'I have questions about this PR',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octokit
+    )
+  ).toStrictEqual({
+    message: dedent(`### ⚠️ Invalid command
+
+    Please use one of the following:
+    
+    - \`.deploy\` - deploy **this** branch (\`test-ref\`)
+    - \`.deploy noop\` - deploy **this** branch in **noop** mode (\`test-ref\`)
+    - \`.deploy main\` - deploy the \`main\` branch
+    > Note: \`.deploy main\` is often used for rolling back a change or getting back to a known working state`),
+    status: false
   })
 })
 
