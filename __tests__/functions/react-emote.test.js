@@ -1,4 +1,4 @@
-import { reactEmote } from '../../src/functions/react-emote'
+import {reactEmote} from '../../src/functions/react-emote'
 
 const context = {
   repo: {
@@ -25,7 +25,9 @@ const octokit = {
 }
 
 test('adds a reaction emote to a comment', async () => {
-  expect(await reactEmote('eyes', context, octokit)).toStrictEqual({"data": {"id": "1"}})
+  expect(await reactEmote('eyes', context, octokit)).toStrictEqual({
+    data: {id: '1'}
+  })
 })
 
 test('returns if no reaction is specified', async () => {
