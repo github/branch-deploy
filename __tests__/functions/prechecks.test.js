@@ -2,6 +2,7 @@ import {prechecks} from '../../src/functions/prechecks'
 
 // Globals for testing
 const context = {
+  actor: 'monalisa',
   repo: {
     owner: 'corp',
     repo: 'test'
@@ -87,6 +88,28 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
     )
   ).toStrictEqual({
     message: 'Permission check returns non-200 status: 500',
+    status: false
+  })
+})
+
+test('runs prechecks and fails due to bad user permissions', async () => {
+  var octobadperms = octokit
+  octobadperms['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'read'}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octokit
+    )
+  ).toStrictEqual({
+    message:
+      '👋  __monalisa__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: read',
     status: false
   })
 })
