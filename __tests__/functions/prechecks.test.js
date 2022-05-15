@@ -84,7 +84,7 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
       'main',
       '123',
       context,
-      octokit
+      octobadres
     )
   ).toStrictEqual({
     message: 'Permission check returns non-200 status: 500',
@@ -105,11 +105,35 @@ test('runs prechecks and fails due to bad user permissions', async () => {
       'main',
       '123',
       context,
-      octokit
+      octobadperms
     )
   ).toStrictEqual({
     message:
       '👋  __monalisa__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: read',
+    status: false
+  })
+})
+
+test('runs prechecks and fails due to a bad pull request', async () => {
+  var octobadpull = octokit
+  octobadpull['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValueOnce({status: 500})
+  octobadpull['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octobadpull
+    )
+  ).toStrictEqual({
+    message: 'Could not retrieve PR info: 500',
     status: false
   })
 })
