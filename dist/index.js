@@ -9188,8 +9188,16 @@ async function prechecks(
     commitStatus = null
   }
 
+  // Always allow deployments to the "stable" branch regardless of CI checks or PR review
+  if (regexCommandWithStableBranch.test(comment)) {
+    message = '✔️ Deployment to the **stable** branch requested - OK'
+    core.info(message)
+    core.info(
+      'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
+    )
+  }
   // If everything is OK, print a nice message
-  if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
+  else if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
     message = '✔️ PR is approved and all CI checks passed - OK'
     core.info(message)
     // CI checks have not been defined AND required reviewers have not been defined
@@ -9232,13 +9240,6 @@ async function prechecks(
     message = '✔️ CI checks have not been defined and **noop** requested - OK'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
-    // Always allow deployments to the "stable" branch regardless of CI checks or PR review
-  } else if (regexCommandWithStableBranch.test(comment)) {
-    message = '✔️ Deployment to the **stable** branch requested - OK'
-    core.info(message)
-    core.info(
-      'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
-    )
     // If CI checks are pending, the PR has not been reviewed, and it is not a noop deploy
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&

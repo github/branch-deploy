@@ -238,3 +238,310 @@ test('runs prechecks and fails due to a bad pull request', async () => {
     status: false
   })
 })
+
+// Review checks and CI checks
+
+test('runs prechecks and finds that reviews and CI checks have not been defined', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValueOnce({
+    repository: {
+      pullRequest: {
+        reviewDecision: null
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK',
+    status: true,
+    noopMode: false,
+    ref: 'test-ref'
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    'Skipping commit status check and proceeding...'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
+  )
+})
+
+test('runs prechecks and finds CI checks pass but reviews are not defined', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: null,
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK',
+    status: true,
+    noopMode: false,
+    ref: 'test-ref'
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    'Skipping commit status check and proceeding...'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+  )
+})
+
+test('runs prechecks and finds CI is passing and the PR has not been reviewed BUT it is a noop deploy', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ All CI checks passed and **noop** requested - OK',
+    status: true,
+    noopMode: true,
+    ref: 'test-ref'
+  })
+})
+
+test('runs prechecks and finds CI is pending and the PR has not been reviewed BUT it is a noop deploy', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'PENDING'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `PENDING`\n\n> Reviews are not required for a noop deployment but CI checks must be passing in order to continue',
+    status: false,
+  })
+})
+
+test('runs prechecks and finds CI checks are pending, the PR has not been reviewed, and it is not a noop deploy', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'PENDING'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `PENDING`\n\n> CI checks must be passing and the PR must be reviewed in order to continue',
+    status: false,
+  })
+})
+
+test('runs prechecks and finds CI is pending and reviewers have not been defined', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: null,
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'PENDING'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+    '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `null`\n- commitStatus: `PENDING`\n\n> CI checks must be passing in order to continue',
+    status: false,
+  })
+})
+
+test('runs prechecks and finds CI is pending and reviewers have not been defined', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED'
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+    '✔️ CI checks have not been defined and **noop** requested - OK',
+    status: true,
+    noopMode: true,
+    ref: 'test-ref'
+  })
+})
