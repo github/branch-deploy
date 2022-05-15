@@ -90,7 +90,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ PR is approved and all CI checks passed - OK',
+    message: '✔️ Deployment to the **stable** branch requested - OK',
     noopMode: false,
     ref: 'main',
     status: true
@@ -375,8 +375,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       octonocommitchecks
     )
   ).toStrictEqual({
-    message:
-      '✔️ All CI checks passed and **noop** requested - OK',
+    message: '✔️ All CI checks passed and **noop** requested - OK',
     status: true,
     noopMode: true,
     ref: 'test-ref'
@@ -422,7 +421,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
   ).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `PENDING`\n\n> Reviews are not required for a noop deployment but CI checks must be passing in order to continue',
-    status: false,
+    status: false
   })
 })
 
@@ -465,7 +464,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
   ).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `PENDING`\n\n> CI checks must be passing and the PR must be reviewed in order to continue',
-    status: false,
+    status: false
   })
 })
 
@@ -507,12 +506,12 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
     )
   ).toStrictEqual({
     message:
-    '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `null`\n- commitStatus: `PENDING`\n\n> CI checks must be passing in order to continue',
-    status: false,
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `null`\n- commitStatus: `PENDING`\n\n> CI checks must be passing in order to continue',
+    status: false
   })
 })
 
-test('runs prechecks and finds CI is pending and reviewers have not been defined', async () => {
+test('runs prechecks and finds CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy', async () => {
   var octonocommitchecks = octokit
   octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
     repository: {
@@ -538,10 +537,42 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       octonocommitchecks
     )
   ).toStrictEqual({
-    message:
-    '✔️ CI checks have not been defined and **noop** requested - OK',
+    message: '✔️ CI checks have not been defined and **noop** requested - OK',
     status: true,
     noopMode: true,
     ref: 'test-ref'
+  })
+})
+
+test('runs prechecks and deploys to the stable branch', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: null
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy main',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message: '✔️ Deployment to the **stable** branch requested - OK',
+    status: true,
+    noopMode: false,
+    ref: 'main'
   })
 })
