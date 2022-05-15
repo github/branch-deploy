@@ -2,7 +2,7 @@ import {prechecks} from '../../src/functions/prechecks'
 import * as core from '@actions/core'
 
 beforeEach(() => {
-    jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(core, 'info').mockImplementation(() => {})
 })
 
 // Globals for testing
@@ -77,24 +77,43 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   })
 })
 
-test('runs prechecks and finds that the IssueOps command is valid for a noop deployment', async () => {
-    expect(
-      await prechecks(
-        '.deploy noop',
-        '.deploy',
-        'noop',
-        'main',
-        '123',
-        context,
-        octokit
-      )
-    ).toStrictEqual({
-      message: '✔️ PR is approved and all CI checks passed - OK',
-      noopMode: true,
-      ref: 'test-ref',
-      status: true
-    })
+test('runs prechecks and finds that the IssueOps command is valid for a rollback deployment', async () => {
+  expect(
+    await prechecks(
+      '.deploy main',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octokit
+    )
+  ).toStrictEqual({
+    message: '✔️ PR is approved and all CI checks passed - OK',
+    noopMode: false,
+    ref: 'main',
+    status: true
   })
+})
+
+test('runs prechecks and finds that the IssueOps command is valid for a noop deployment', async () => {
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      'main',
+      '123',
+      context,
+      octokit
+    )
+  ).toStrictEqual({
+    message: '✔️ PR is approved and all CI checks passed - OK',
+    noopMode: true,
+    ref: 'test-ref',
+    status: true
+  })
+})
 
 test('runs prechecks and finds that the IssueOps command is valid without defined CI checks', async () => {
   var octonocommitchecks = octokit
@@ -116,11 +135,12 @@ test('runs prechecks and finds that the IssueOps command is valid without define
       octonocommitchecks
     )
   ).toStrictEqual({
-    message: '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `null`\n\n> This is usually caused by missing PR approvals or CI checks failing',
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `null`\n\n> This is usually caused by missing PR approvals or CI checks failing',
     status: false
   })
   expect(infoMock).toHaveBeenCalledWith(
-    'Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading \'nodes\') - Handled: OK'
+    "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
   )
   expect(infoMock).toHaveBeenCalledWith(
     'Skipping commit status check and proceeding...'
