@@ -52,7 +52,7 @@ export async function prechecks(
     pull_number: context.issue.number
   })
   if (pr.status !== 200) {
-    message = 'Could not retrieve PR info: ${permissionRes.status}'
+    message = `Could not retrieve PR info: ${pr.status}`
     return {message: message, status: false}
   }
 
