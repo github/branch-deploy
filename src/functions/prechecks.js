@@ -32,7 +32,7 @@ export async function prechecks(
 
   // Check permission API call status code
   if (permissionRes.status !== 200) {
-    message = 'Permission check returns non-200 status: ${permissionRes.status}'
+    message = `Permission check returns non-200 status: ${permissionRes.status}`
     return {message: message, status: false}
   }
 
