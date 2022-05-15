@@ -77,6 +77,25 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   })
 })
 
+test('runs prechecks and finds that the IssueOps command is valid for a noop deployment', async () => {
+    expect(
+      await prechecks(
+        '.deploy noop',
+        '.deploy',
+        'noop',
+        'main',
+        '123',
+        context,
+        octokit
+      )
+    ).toStrictEqual({
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: true,
+      ref: 'test-ref',
+      status: true
+    })
+  })
+
 test('runs prechecks and finds that the IssueOps command is valid without defined CI checks', async () => {
   var octonocommitchecks = octokit
   octonocommitchecks['graphql'] = jest.fn().mockReturnValueOnce({
