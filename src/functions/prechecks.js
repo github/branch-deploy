@@ -42,7 +42,7 @@ export async function prechecks(
     message =
       '👋  __' +
       context.actor +
-      '__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: ${actorPermission}'
+      `__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: ${actorPermission}`
     return {message: message, status: false}
   }
 
