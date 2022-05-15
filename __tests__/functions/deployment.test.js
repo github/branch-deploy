@@ -22,6 +22,6 @@ const octokit = {
     }
 }
 
-test('checks a message and does not find prefix trigger', async () => {
+test('creates an in_progress deployment status', async () => {
     expect(await createDeploymentStatus(octokit, context, 'test-ref', 'in_progress', 123, 'production')).toStrictEqual({})
 })
