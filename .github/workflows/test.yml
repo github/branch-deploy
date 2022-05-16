@@ -20,4 +20,4 @@ jobs:
             ${{ runner.os }}-node-
 
       - run: npm ci
-      - run: npm test
+      - run: npm run ci-test
