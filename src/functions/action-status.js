@@ -5,6 +5,12 @@ const rocket = 'rocket'
 
 // Helper function to add a status update for the action that is running a branch deployment
 // It also updates the original comment with a reaction depending on the status of the deployment
+// :param context: The context of the action
+// :param octokit: The octokit object
+// :param reactionId: The id of the original reaction added to our trigger comment (Integer)
+// :param message: The message to be added to the action status (String)
+// :param success: Boolean indicating whether the deployment was successful (Boolean)
+// :returns: Nothing
 export async function actionStatus(
   context,
   octokit,
@@ -18,7 +24,7 @@ export async function actionStatus(
     message = 'Unknown error, [check logs](' + log_url + ') for more details.'
   }
 
-  // add a comment to the issue with the error message
+  // add a comment to the issue with the message
   await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: context.issue.number,
@@ -33,7 +39,7 @@ export async function actionStatus(
     reaction = thumbsDown
   }
 
-  // add a reaction to the issue_comment to indicate failure
+  // add a reaction to the issue_comment to indicate success or failure
   await octokit.rest.reactions.createForIssueComment({
     ...context.repo,
     comment_id: context.payload.comment.id,

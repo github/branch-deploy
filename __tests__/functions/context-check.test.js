@@ -2,6 +2,7 @@ import {contextCheck} from '../../src/functions/context-check'
 import * as core from '@actions/core'
 
 beforeEach(() => {
+  jest.resetAllMocks()
   jest.spyOn(core, 'setFailed').mockImplementation(() => {})
 })
 

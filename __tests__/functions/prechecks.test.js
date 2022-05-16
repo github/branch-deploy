@@ -3,6 +3,7 @@ import * as core from '@actions/core'
 import dedent from 'dedent-js'
 
 beforeEach(() => {
+  // jest.resetAllMocks()
   jest.spyOn(core, 'info').mockImplementation(() => {})
 })
 
