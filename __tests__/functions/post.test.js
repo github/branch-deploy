@@ -14,6 +14,9 @@ const validInputs = {
   status: 'success'  
 }
 
+const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation(() => {})
+const setWarningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
+
 beforeEach(() => {
   jest.resetAllMocks()
   jest.spyOn(core, 'getState').mockImplementation((name) => {
@@ -55,4 +58,17 @@ test('exits due to a bypass being set', async () => {
   expect(
     await post()
   ).toBeUndefined()
+  expect(setWarningMock).toHaveBeenCalledWith('bypass set, exiting')
+})
+
+test('throws an error', async () => {
+  try {
+    jest.spyOn(github, 'getOctokit').mockImplementation(() => {
+      throw new Error('test error')
+    })
+    await post()
+  } catch (e) {
+    expect(e.message).toBe('test error')
+    expect(setFailedMock).toHaveBeenCalledWith('test error')
+  }
 })
