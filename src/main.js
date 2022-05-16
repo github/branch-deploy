@@ -10,7 +10,8 @@ import * as github from '@actions/github'
 import {context} from '@actions/github'
 import dedent from 'dedent-js'
 
-async function run() {
+// :returns: 'success', 'success - noop', 'failure', 'safe-exit', or raises an error
+export async function run() {
   try {
     // Get the inputs for the branch-deploy Action
     const trigger = core.getInput('trigger')
@@ -29,7 +30,7 @@ async function run() {
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(context))) {
-      return
+      return 'safe-exit'
     }
 
     // Get variables from the event context
@@ -42,7 +43,7 @@ async function run() {
 
     // Check if the comment body contains the trigger, exit if it doesn't return true
     if (!(await triggerCheck(prefixOnly, body, trigger))) {
-      return
+      return 'safe-exit'
     }
 
     // Add the reaction to the issue_comment as we begin to start the deployment
@@ -74,7 +75,7 @@ async function run() {
       // Set the bypass state to true so that the post run logic will not run
       core.saveState('bypass', 'true')
       core.setFailed(precheckResults.message)
-      return
+      return 'failure'
     }
 
     // Set outputs for noopMode
@@ -86,7 +87,7 @@ async function run() {
       core.saveState('noop', noop)
       core.info('noop mode detected')
       // If noop mode is enabled, return
-      return
+      return 'success - noop'
     } else {
       noop = 'false'
       core.setOutput('noop', noop)
@@ -130,7 +131,7 @@ async function run() {
       core.warning(mergeMessage)
       // Enable bypass for the post deploy step since the deployment is not complete
       core.saveState('bypass', 'true')
-      return
+      return 'safe-exit'
     }
 
     // Set the deployment status to in_progress
@@ -145,14 +146,17 @@ async function run() {
 
     core.setOutput('continue', 'true')
 
-    return
+    return 'success'
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }
 }
 
+/* istanbul ignore next */
 if (core.getState('isPost') === 'true') {
   post()
 } else {
-  run()
+  if (process.env.CI === 'true') {
+    run()
+  }
 }

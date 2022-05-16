@@ -1,37 +1,23 @@
-name: "test"
-
+name: test
 on:
-  issue_comment:
-    types: [created]
-
-permissions:
-  pull-requests: write
-  deployments: write
-  contents: read
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'releases/*'
 
 jobs:
   test:
-    environment: production-secrets
     runs-on: ubuntu-latest
     steps:
-      # Need to checkout for testing the Action in this repo
       - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
 
-      # Start the branch deployment
-      - uses: ./
-        id: branch-deploy
-
-      # Check out the ref from the output of the IssueOps commandZ
-      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
+      - uses: actions/cache@48af2dc4a9e8278b89d7fa154b955c30c6aaab09 # pin@v3
         with:
-          ref: ${{ steps.branch-deploy.outputs.ref }}
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
-      # Do some fake "noop" deployment logic here
-      - name: fake noop deploy
-        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
-        run: echo "I am doing a fake noop deploy"
-
-      # Do some fake "regular" deployment logic here
-      - name: fake regular deploy
-        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
-        run: echo "I am doing a fake regular deploy"
+      - run: npm ci
+      - run: npm run ci-test
