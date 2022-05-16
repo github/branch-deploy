@@ -113,6 +113,23 @@ test('successfully runs the action in noop mode', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('noop', 'true')
 })
 
+test('successfully runs the action with required contexts', async () => {
+    process.env.INPUT_REQUIRED_CONTEXTS = 'lint,test,build'
+    expect(await run()).toBe('success')
+    expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
+    expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+    expect(setOutputMock).toHaveBeenCalledWith('comment_id', '123')
+    expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
+    expect(setOutputMock).toHaveBeenCalledWith('noop', 'false')
+    expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
+    expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+    expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+    expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+    expect(saveStateMock).toHaveBeenCalledWith('comment_id', '123')
+    expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
+    expect(saveStateMock).toHaveBeenCalledWith('noop', 'false')
+  })
+
 test('fails due to a bad context', async () => {
   jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
     return false
