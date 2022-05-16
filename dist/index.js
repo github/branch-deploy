@@ -8843,6 +8843,11 @@ var __webpack_exports__ = {};
 // ESM COMPAT FLAG
 __nccwpck_require__.r(__webpack_exports__);
 
+// EXPORTS
+__nccwpck_require__.d(__webpack_exports__, {
+  "run": () => (/* binding */ run)
+});
+
 // EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
 var core = __nccwpck_require__(2186);
 ;// CONCATENATED MODULE: ./src/functions/trigger-check.js
@@ -8955,6 +8960,12 @@ const rocket = 'rocket'
 
 // Helper function to add a status update for the action that is running a branch deployment
 // It also updates the original comment with a reaction depending on the status of the deployment
+// :param context: The context of the action
+// :param octokit: The octokit object
+// :param reactionId: The id of the original reaction added to our trigger comment (Integer)
+// :param message: The message to be added to the action status (String)
+// :param success: Boolean indicating whether the deployment was successful (Boolean)
+// :returns: Nothing
 async function actionStatus(
   context,
   octokit,
@@ -8968,7 +8979,7 @@ async function actionStatus(
     message = 'Unknown error, [check logs](' + log_url + ') for more details.'
   }
 
-  // add a comment to the issue with the error message
+  // add a comment to the issue with the message
   await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: context.issue.number,
@@ -8983,7 +8994,7 @@ async function actionStatus(
     reaction = thumbsDown
   }
 
-  // add a reaction to the issue_comment to indicate failure
+  // add a reaction to the issue_comment to indicate success or failure
   await octokit.rest.reactions.createForIssueComment({
     ...context.repo,
     comment_id: context.payload.comment.id,
@@ -9069,7 +9080,7 @@ async function prechecks(
 
   // Check permission API call status code
   if (permissionRes.status !== 200) {
-    message = 'Permission check returns non-200 status: ${permissionRes.status}'
+    message = `Permission check returns non-200 status: ${permissionRes.status}`
     return {message: message, status: false}
   }
 
@@ -9079,7 +9090,7 @@ async function prechecks(
     message =
       '👋  __' +
       context.actor +
-      '__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: ${actorPermission}'
+      `__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: ${actorPermission}`
     return {message: message, status: false}
   }
 
@@ -9089,7 +9100,7 @@ async function prechecks(
     pull_number: context.issue.number
   })
   if (pr.status !== 200) {
-    message = 'Could not retrieve PR info: ${permissionRes.status}'
+    message = `Could not retrieve PR info: ${pr.status}`
     return {message: message, status: false}
   }
 
@@ -9188,8 +9199,16 @@ async function prechecks(
     commitStatus = null
   }
 
+  // Always allow deployments to the "stable" branch regardless of CI checks or PR review
+  if (regexCommandWithStableBranch.test(comment)) {
+    message = '✔️ Deployment to the **stable** branch requested - OK'
+    core.info(message)
+    core.info(
+      'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
+    )
+  }
   // If everything is OK, print a nice message
-  if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
+  else if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
     message = '✔️ PR is approved and all CI checks passed - OK'
     core.info(message)
     // CI checks have not been defined AND required reviewers have not been defined
@@ -9232,13 +9251,6 @@ async function prechecks(
     message = '✔️ CI checks have not been defined and **noop** requested - OK'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
-    // Always allow deployments to the "stable" branch regardless of CI checks or PR review
-  } else if (regexCommandWithStableBranch.test(comment)) {
-    message = '✔️ Deployment to the **stable** branch requested - OK'
-    core.info(message)
-    core.info(
-      'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
-    )
     // If CI checks are pending, the PR has not been reviewed, and it is not a noop deploy
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
@@ -9324,17 +9336,15 @@ async function prechecks(
 
 
 
-
 // Helper function to help facilitate the process of completing a deployment
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
-// :param post_deploy: A boolean that is used to check if this function should run
 // :param comment_id: The comment_id which initially triggered the deployment Action
 // :param status: The status of the deployment (String)
 // :param message: A custom string to add as the deployment status message (String)
 // :param ref: The ref (branch) which is being used for deployment (String)
 // :param noop: Indicates whether the deployment is a noop or not (String)
-// :returns: nothing, error if anything goes wrong
+// :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 async function postDeploy(
   context,
   octokit,
@@ -9347,14 +9357,14 @@ async function postDeploy(
   environment
 ) {
   // Check the inputs to ensure they are valid
-  if (comment_id && status && ref && noop) {
-    core.debug('post_deploy inputs passed initial check')
-  } else if (!comment_id || comment_id.length === 0) {
+  if (!comment_id || comment_id.length === 0) {
     throw new Error('no comment_id provided')
   } else if (!status || status.length === 0) {
     throw new Error('no status provided')
   } else if (!ref || ref.length === 0) {
     throw new Error('no ref provided')
+  } else if (!noop || noop.length === 0) {
+    throw new Error('no noop value provided')
   } else if (noop !== 'true') {
     if (!deployment_id || deployment_id.length === 0) {
       throw new Error('no deployment_id provided')
@@ -9362,10 +9372,6 @@ async function postDeploy(
     if (!environment || environment.length === 0) {
       throw new Error('no environment provided')
     }
-  } else {
-    throw new Error(
-      'An unhandled condition was encountered while processing post-deployment logic'
-    )
   }
 
   // Check the deployment status
@@ -9460,7 +9466,7 @@ async function postDeploy(
 
   // If the deployment mode is noop, return here
   if (noop === 'true') {
-    return
+    return 'success - noop'
   }
 
   // Update the final deployment status with either success or failure
@@ -9474,7 +9480,7 @@ async function postDeploy(
   )
 
   // If the post deploy comment logic completes successfully, return
-  return
+  return 'success'
 }
 
 // EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
@@ -9543,6 +9549,7 @@ async function post() {
 
 
 
+// :returns: 'success', 'success - noop', 'failure', 'safe-exit', or raises an error
 async function run() {
   try {
     // Get the inputs for the branch-deploy Action
@@ -9562,7 +9569,7 @@ async function run() {
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(github.context))) {
-      return
+      return 'safe-exit'
     }
 
     // Get variables from the event context
@@ -9575,7 +9582,7 @@ async function run() {
 
     // Check if the comment body contains the trigger, exit if it doesn't return true
     if (!(await triggerCheck(prefixOnly, body, trigger))) {
-      return
+      return 'safe-exit'
     }
 
     // Add the reaction to the issue_comment as we begin to start the deployment
@@ -9607,7 +9614,7 @@ async function run() {
       // Set the bypass state to true so that the post run logic will not run
       core.saveState('bypass', 'true')
       core.setFailed(precheckResults.message)
-      return
+      return 'failure'
     }
 
     // Set outputs for noopMode
@@ -9619,7 +9626,7 @@ async function run() {
       core.saveState('noop', noop)
       core.info('noop mode detected')
       // If noop mode is enabled, return
-      return
+      return 'success - noop'
     } else {
       noop = 'false'
       core.setOutput('noop', noop)
@@ -9663,7 +9670,7 @@ async function run() {
       core.warning(mergeMessage)
       // Enable bypass for the post deploy step since the deployment is not complete
       core.saveState('bypass', 'true')
-      return
+      return 'safe-exit'
     }
 
     // Set the deployment status to in_progress
@@ -9678,16 +9685,19 @@ async function run() {
 
     core.setOutput('continue', 'true')
 
-    return
+    return 'success'
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }
 }
 
+/* istanbul ignore next */
 if (core.getState('isPost') === 'true') {
   post()
 } else {
-  run()
+  if (process.env.CI === 'true') {
+    run()
+  }
 }
 
 })();

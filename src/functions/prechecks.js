@@ -32,7 +32,7 @@ export async function prechecks(
 
   // Check permission API call status code
   if (permissionRes.status !== 200) {
-    message = 'Permission check returns non-200 status: ${permissionRes.status}'
+    message = `Permission check returns non-200 status: ${permissionRes.status}`
     return {message: message, status: false}
   }
 
@@ -42,7 +42,7 @@ export async function prechecks(
     message =
       '👋  __' +
       context.actor +
-      '__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: ${actorPermission}'
+      `__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: ${actorPermission}`
     return {message: message, status: false}
   }
 
@@ -52,7 +52,7 @@ export async function prechecks(
     pull_number: context.issue.number
   })
   if (pr.status !== 200) {
-    message = 'Could not retrieve PR info: ${permissionRes.status}'
+    message = `Could not retrieve PR info: ${pr.status}`
     return {message: message, status: false}
   }
 
@@ -151,8 +151,16 @@ export async function prechecks(
     commitStatus = null
   }
 
+  // Always allow deployments to the "stable" branch regardless of CI checks or PR review
+  if (regexCommandWithStableBranch.test(comment)) {
+    message = '✔️ Deployment to the **stable** branch requested - OK'
+    core.info(message)
+    core.info(
+      'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
+    )
+  }
   // If everything is OK, print a nice message
-  if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
+  else if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
     message = '✔️ PR is approved and all CI checks passed - OK'
     core.info(message)
     // CI checks have not been defined AND required reviewers have not been defined
@@ -195,13 +203,6 @@ export async function prechecks(
     message = '✔️ CI checks have not been defined and **noop** requested - OK'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
-    // Always allow deployments to the "stable" branch regardless of CI checks or PR review
-  } else if (regexCommandWithStableBranch.test(comment)) {
-    message = '✔️ Deployment to the **stable** branch requested - OK'
-    core.info(message)
-    core.info(
-      'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
-    )
     // If CI checks are pending, the PR has not been reviewed, and it is not a noop deploy
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&

@@ -1,4 +1,3 @@
-import * as core from '@actions/core'
 import {actionStatus} from './action-status'
 import {createDeploymentStatus} from './deployment'
 import dedent from 'dedent-js'
@@ -6,13 +5,12 @@ import dedent from 'dedent-js'
 // Helper function to help facilitate the process of completing a deployment
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
-// :param post_deploy: A boolean that is used to check if this function should run
 // :param comment_id: The comment_id which initially triggered the deployment Action
 // :param status: The status of the deployment (String)
 // :param message: A custom string to add as the deployment status message (String)
 // :param ref: The ref (branch) which is being used for deployment (String)
 // :param noop: Indicates whether the deployment is a noop or not (String)
-// :returns: nothing, error if anything goes wrong
+// :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(
   context,
   octokit,
@@ -25,14 +23,14 @@ export async function postDeploy(
   environment
 ) {
   // Check the inputs to ensure they are valid
-  if (comment_id && status && ref && noop) {
-    core.debug('post_deploy inputs passed initial check')
-  } else if (!comment_id || comment_id.length === 0) {
+  if (!comment_id || comment_id.length === 0) {
     throw new Error('no comment_id provided')
   } else if (!status || status.length === 0) {
     throw new Error('no status provided')
   } else if (!ref || ref.length === 0) {
     throw new Error('no ref provided')
+  } else if (!noop || noop.length === 0) {
+    throw new Error('no noop value provided')
   } else if (noop !== 'true') {
     if (!deployment_id || deployment_id.length === 0) {
       throw new Error('no deployment_id provided')
@@ -40,10 +38,6 @@ export async function postDeploy(
     if (!environment || environment.length === 0) {
       throw new Error('no environment provided')
     }
-  } else {
-    throw new Error(
-      'An unhandled condition was encountered while processing post-deployment logic'
-    )
   }
 
   // Check the deployment status
@@ -138,7 +132,7 @@ export async function postDeploy(
 
   // If the deployment mode is noop, return here
   if (noop === 'true') {
-    return
+    return 'success - noop'
   }
 
   // Update the final deployment status with either success or failure
@@ -152,5 +146,5 @@ export async function postDeploy(
   )
 
   // If the post deploy comment logic completes successfully, return
-  return
+  return 'success'
 }
