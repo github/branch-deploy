@@ -41,6 +41,7 @@ const octokit = {
 
 test('successfully completes a production branch deployment', async () => {
   const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
+  const createDeploymentStatusSpy = jest.spyOn(createDeploymentStatus, 'createDeploymentStatus')
   expect(
     await postDeploy(
       context,
@@ -57,6 +58,12 @@ test('successfully completes a production branch deployment', async () => {
 
   expect(actionStatusSpy).toHaveBeenCalled()
   expect(actionStatusSpy).toHaveBeenCalledWith({"actor": "monalisa", "eventName": "issue_comment", "payload": {"comment": {"id": "1"}}, "repo": {"owner": "corp", "repo": "test"}, "workflow": "test-workflow"}, {"rest": {"repos": {"createDeploymentStatus": octokit.rest.repos.createDeploymentStatus}}}, 123, "  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `branch` 🚀\n  - Branch: `test-ref`\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>\n\n  Successfully deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`", true, "test-ref")
+  expect(createDeploymentStatusSpy).toHaveBeenCalled()
+  expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
+    {"rest": {"repos": {"createDeploymentStatus": octokit.rest.repos.createDeploymentStatus}}},
+    {"actor": "monalisa", "eventName": "issue_comment", "payload": {"comment": {"id": "1"}}, "repo": {"owner": "corp", "repo": "test"}, "workflow": "test-workflow"},
+    "test-ref", "success", 456, "production"
+  )
 })
 
 test('successfully completes a production branch deployment with no custom message', async () => {
