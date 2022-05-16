@@ -10,7 +10,7 @@ import * as github from '@actions/github'
 import {context} from '@actions/github'
 import dedent from 'dedent-js'
 
-async function run() {
+export async function run() {
   try {
     // Get the inputs for the branch-deploy Action
     const trigger = core.getInput('trigger')
