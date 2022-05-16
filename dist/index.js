@@ -9694,7 +9694,9 @@ async function run() {
 if (core.getState('isPost') === 'true') {
   post()
 } else {
-  run()
+  if (process.env.CI === 'true') {
+    run()
+  }
 }
 
 })();
