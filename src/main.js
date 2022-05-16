@@ -152,6 +152,7 @@ export async function run() {
   }
 }
 
+/* istanbul ignore next */
 if (core.getState('isPost') === 'true') {
   post()
 } else {
