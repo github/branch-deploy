@@ -17,18 +17,11 @@ export async function run() {
     const trigger = core.getInput('trigger')
     const reaction = core.getInput('reaction')
     const prefixOnly = core.getInput('prefix_only') === 'true'
-    const token = core.getInput('github_token')
-    const environment = core.getInput('environment')
+    const token = core.getInput('github_token', {required: true})
+    const environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const required_contexts = core.getInput('required_contexts')
-
-    // Check the required inputs
-    if (!token || token.length === 0) {
-      core.setFailed('the "github_token" input is required')
-    } else if (!environment || environment.length === 0) {
-      core.setFailed('the "environment" input is required')
-    }
 
     // Set the state so that the post run logic will trigger
     core.saveState('isPost', 'true')
