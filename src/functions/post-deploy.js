@@ -1,4 +1,3 @@
-import * as core from '@actions/core'
 import {actionStatus} from './action-status'
 import {createDeploymentStatus} from './deployment'
 import dedent from 'dedent-js'
@@ -24,14 +23,14 @@ export async function postDeploy(
   environment
 ) {
   // Check the inputs to ensure they are valid
-  if (comment_id && status && ref && noop) {
-    core.debug('post_deploy inputs passed initial check')
-  } else if (!comment_id || comment_id.length === 0) {
+  if (!comment_id || comment_id.length === 0) {
     throw new Error('no comment_id provided')
   } else if (!status || status.length === 0) {
     throw new Error('no status provided')
   } else if (!ref || ref.length === 0) {
     throw new Error('no ref provided')
+  } else if (!noop || noop.length === 0) {
+    throw new Error('no noop value provided')
   } else if (noop !== 'true') {
     if (!deployment_id || deployment_id.length === 0) {
       throw new Error('no deployment_id provided')
@@ -39,10 +38,6 @@ export async function postDeploy(
     if (!environment || environment.length === 0) {
       throw new Error('no environment provided')
     }
-  } else {
-    throw new Error(
-      'An unhandled condition was encountered while processing post-deployment logic'
-    )
   }
 
   // Check the deployment status

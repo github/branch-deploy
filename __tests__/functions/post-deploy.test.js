@@ -110,9 +110,119 @@ test('updates with a failure for a production branch deployment', async () => {
       'failure',
       'Deployment has failed to create 1 new server',
       'test-ref',
-      'true',
+      'false',
       456,
       'production'
     )
-  ).toBe('success - noop')
+  ).toBe('success')
+})
+
+test('updates with an unknown for a production branch deployment', async () => {
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      'unknown',
+      'Deployment has failed to create 1 new server',
+      'test-ref',
+      'false',
+      456,
+      'production'
+    )
+  ).toBe('success')
+})
+
+test('fails due to no comment_id', async () => {
+  try {
+    await postDeploy(
+      context,
+      octokit,
+      '',
+    )
+  } catch (e) {
+    expect(e.message).toBe('no comment_id provided')
+  }
+})
+
+test('fails due to no status', async () => {
+  try {
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      ''
+    )
+  } catch (e) {
+    expect(e.message).toBe('no status provided')
+  }
+})
+
+test('fails due to no ref', async () => {
+  try {
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      'success',
+      'Deployment has created 1 new server',
+      ''
+    )
+  } catch (e) {
+    expect(e.message).toBe('no ref provided')
+  }
+})
+
+test('fails due to no deployment_id', async () => {
+  jest.resetAllMocks()
+  try {
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      'success',
+      'Deployment has created 1 new server',
+      'test-ref',
+      'false',
+      ''
+    )
+  } catch (e) {
+    expect(e.message).toBe('no deployment_id provided')
+  }
+})
+
+test('fails due to no environment', async () => {
+  jest.resetAllMocks()
+  try {
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      'success',
+      'Deployment has created 1 new server',
+      'test-ref',
+      'false',
+      456,
+      ''
+    )
+  } catch (e) {
+    expect(e.message).toBe('no environment provided')
+  }
+})
+
+test('fails due to no noop', async () => {
+  jest.resetAllMocks()
+  try {
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      'success',
+      'Deployment has created 1 new server',
+      'test-ref',
+      '',
+    )
+  } catch (e) {
+    expect(e.message).toBe('no noop value provided')
+  }
 })
