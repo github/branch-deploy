@@ -8,9 +8,11 @@ beforeEach(() => {
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
   })
-  jest.spyOn(createDeploymentStatus, 'createDeploymentStatus').mockImplementation(() => {
-    return undefined
-  })
+  jest
+    .spyOn(createDeploymentStatus, 'createDeploymentStatus')
+    .mockImplementation(() => {
+      return undefined
+    })
   jest.spyOn(core, 'debug').mockImplementation(() => {})
 })
 
@@ -41,7 +43,10 @@ const octokit = {
 
 test('successfully completes a production branch deployment', async () => {
   const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
-  const createDeploymentStatusSpy = jest.spyOn(createDeploymentStatus, 'createDeploymentStatus')
+  const createDeploymentStatusSpy = jest.spyOn(
+    createDeploymentStatus,
+    'createDeploymentStatus'
+  )
   expect(
     await postDeploy(
       context,
@@ -57,12 +62,46 @@ test('successfully completes a production branch deployment', async () => {
   ).toBe('success')
 
   expect(actionStatusSpy).toHaveBeenCalled()
-  expect(actionStatusSpy).toHaveBeenCalledWith({"actor": "monalisa", "eventName": "issue_comment", "payload": {"comment": {"id": "1"}}, "repo": {"owner": "corp", "repo": "test"}, "workflow": "test-workflow"}, {"rest": {"repos": {"createDeploymentStatus": octokit.rest.repos.createDeploymentStatus}}}, 123, "  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `branch` 🚀\n  - Branch: `test-ref`\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>\n\n  Successfully deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`", true, "test-ref")
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    123,
+    '  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `branch` 🚀\n  - Branch: `test-ref`\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>\n\n  Successfully deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`',
+    true,
+    'test-ref'
+  )
   expect(createDeploymentStatusSpy).toHaveBeenCalled()
   expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
-    {"rest": {"repos": {"createDeploymentStatus": octokit.rest.repos.createDeploymentStatus}}},
-    {"actor": "monalisa", "eventName": "issue_comment", "payload": {"comment": {"id": "1"}}, "repo": {"owner": "corp", "repo": "test"}, "workflow": "test-workflow"},
-    "test-ref", "success", 456, "production"
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    'test-ref',
+    'success',
+    456,
+    'production'
   )
 })
 
@@ -82,7 +121,26 @@ test('successfully completes a production branch deployment with no custom messa
     )
   ).toBe('success')
   expect(actionStatusSpy).toHaveBeenCalled()
-  expect(actionStatusSpy).toHaveBeenCalledWith({"actor": "monalisa", "eventName": "issue_comment", "payload": {"comment": {"id": "1"}}, "repo": {"owner": "corp", "repo": "test"}, "workflow": "test-workflow"}, {"rest": {"repos": {"createDeploymentStatus": octokit.rest.repos.createDeploymentStatus}}}, 123, "  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `branch` 🚀\n  - Branch: `test-ref`\n\n  Successfully deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`", true, "test-ref")
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    123,
+    '  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `branch` 🚀\n  - Branch: `test-ref`\n\n  Successfully deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`',
+    true,
+    'test-ref'
+  )
 })
 
 test('successfully completes a noop branch deployment', async () => {
@@ -135,11 +193,7 @@ test('updates with an unknown for a production branch deployment', async () => {
 
 test('fails due to no comment_id', async () => {
   try {
-    await postDeploy(
-      context,
-      octokit,
-      '',
-    )
+    await postDeploy(context, octokit, '')
   } catch (e) {
     expect(e.message).toBe('no comment_id provided')
   }
@@ -147,12 +201,7 @@ test('fails due to no comment_id', async () => {
 
 test('fails due to no status', async () => {
   try {
-    await postDeploy(
-      context,
-      octokit,
-      123,
-      ''
-    )
+    await postDeploy(context, octokit, 123, '')
   } catch (e) {
     expect(e.message).toBe('no status provided')
   }
@@ -220,7 +269,7 @@ test('fails due to no noop', async () => {
       'success',
       'Deployment has created 1 new server',
       'test-ref',
-      '',
+      ''
     )
   } catch (e) {
     expect(e.message).toBe('no noop value provided')

@@ -4,14 +4,14 @@ import * as postDeploy from '../../src/functions/post-deploy'
 import * as contextCheck from '../../src/functions/context-check'
 import * as github from '@actions/github'
 
-const validInputs = {
+const validStates = {
   ref: 'test-ref',
   comment_id: '123',
   noop: 'false',
   deployment_id: '456',
   environment: 'production',
   token: 'test-token',
-  status: 'success'  
+  status: 'success'
 }
 
 const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation(() => {})
@@ -19,8 +19,8 @@ const setWarningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
 
 beforeEach(() => {
   jest.resetAllMocks()
-  jest.spyOn(core, 'getState').mockImplementation((name) => {
-    return validInputs[name]
+  jest.spyOn(core, 'getState').mockImplementation(name => {
+    return validStates[name]
   })
   jest.spyOn(postDeploy, 'postDeploy').mockImplementation(() => {
     return undefined
@@ -34,30 +34,24 @@ beforeEach(() => {
 })
 
 test('successfully runs post() Action logic', async () => {
-  expect(
-    await post()
-  ).toBeUndefined()
+  expect(await post()).toBeUndefined()
 })
 
 test('exits due to an invalid Actions context', async () => {
   jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
     return false
   })
-  expect(
-    await post()
-  ).toBeUndefined()
+  expect(await post()).toBeUndefined()
 })
 
 test('exits due to a bypass being set', async () => {
   const bypassed = {
     bypass: 'true'
   }
-  jest.spyOn(core, 'getState').mockImplementation((name) => {
+  jest.spyOn(core, 'getState').mockImplementation(name => {
     return bypassed[name]
   })
-  expect(
-    await post()
-  ).toBeUndefined()
+  expect(await post()).toBeUndefined()
   expect(setWarningMock).toHaveBeenCalledWith('bypass set, exiting')
 })
 
