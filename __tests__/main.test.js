@@ -5,6 +5,7 @@ import * as core from '@actions/core'
 import * as reactEmote from '../src/functions/react-emote'
 import * as github from '@actions/github'
 import * as contextCheck from '../src/functions/context-check'
+import * as prechecks from '../src/functions/prechecks'
 
 
 describe('branch-deploy action', () => {
@@ -28,7 +29,10 @@ describe('branch-deploy action', () => {
             return true
         })
         jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
-            return true
+            return {data: {id: '123'}}
+        })
+        jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
+            return {ref: 'test-ref', status: true, message: '✔️ PR is approved and all CI checks passed - OK', noopMode: false}
         })
         jest.spyOn(core, 'info').mockImplementation(() => { })
     })
