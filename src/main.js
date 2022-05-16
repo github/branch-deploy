@@ -134,7 +134,7 @@ export async function run() {
       return 'safe-exit'
     }
 
-    // Set the deployment status to in_progress
+    // Set the deployment status to in_progresss
     await createDeploymentStatus(
       octokit,
       context,
