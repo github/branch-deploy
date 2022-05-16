@@ -9,7 +9,7 @@
     "format-check": "prettier --check '**/*.js'",
     "lint": "eslint src/**/*.js",
     "package": "ncc build src/main.js -o dist --source-map --license licenses.txt",
-    "test": "jest",
+    "test": "(jest && make-coverage-badge --output-path ./badges/coverage.svg) || make-coverage-badge --output-path ./badges/coverage.svg",
     "all": "npm run format && npm run lint && npm run package",
     "bundle": "npm run format && npm run package",
     "act": "npm run format && npm run package && act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test"
@@ -31,11 +31,19 @@
     "@babel/preset-env": "^7.17.10",
     "babel-core": "^6.26.3",
     "babel-jest": "^28.1.0",
-    "dedent-js": "^1.0.1"
+    "dedent-js": "^1.0.1",
+    "make-coverage-badge": "^1.2.0"
   },
   "jest": {
+    "coverageReporters": [
+      "json-summary",
+      "text",
+      "lcov"
+    ],
     "collectCoverage": true,
-    "collectCoverageFrom": ["./src/**"],
+    "collectCoverageFrom": [
+      "./src/**"
+    ],
     "coverageThreshold": {
       "global": {
         "lines": 100
