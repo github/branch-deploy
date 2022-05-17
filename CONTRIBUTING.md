@@ -15,7 +15,19 @@ The maintainers of this repository will create a new release with your changes s
 
 ## Testing 🧪
 
-> This project currently does not have a robust test suite. One day it might and when that day comes, this comment will be removed
+This project requires **100%** test coverage
+
+### Running the test suite (suggested)
+
+Simply run the following command to execute the entire test suite:
+
+```bash
+npm run test
+```
+
+> Note: this requires that you have already run `npm install`
+
+### Testing directly with IssueOps
 
 You can test your changes by doing the following steps:
 
