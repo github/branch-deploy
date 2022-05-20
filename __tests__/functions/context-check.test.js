@@ -3,7 +3,8 @@ import * as core from '@actions/core'
 
 beforeEach(() => {
   jest.resetAllMocks()
-  jest.spyOn(core, 'setFailed').mockImplementation(() => {})
+  jest.spyOn(core, 'warning').mockImplementation(() => {})
+  jest.spyOn(core, 'saveState').mockImplementation(() => {})
 })
 
 const goodContext = {
@@ -32,11 +33,13 @@ test('checks the event context and finds that it is valid', async () => {
 })
 
 test('checks the event context and finds that it is invalid', async () => {
-  const setFailedMock = jest.spyOn(core, 'setFailed')
+  const warningMock = jest.spyOn(core, 'warning')
+  const saveStateMock = jest.spyOn(core, 'saveState')
   expect(await contextCheck(badContext)).toBe(false)
-  expect(setFailedMock).toHaveBeenCalledWith(
+  expect(warningMock).toHaveBeenCalledWith(
     'This Action can only be run in the context of a pull request comment'
   )
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })
 
 test('checks the event context and throws an error', async () => {
@@ -44,7 +47,7 @@ test('checks the event context and throws an error', async () => {
     await contextCheck('evil')
   } catch (e) {
     expect(e.message).toBe(
-      "Could not get PR event context: TypeError: Cannot read properties of undefined (reading 'issue')"
+      "Could not get PR event context: TypeError: Cannot read property 'issue' of undefined"
     )
   }
 })
