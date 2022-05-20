@@ -47,7 +47,7 @@ test('checks the event context and throws an error', async () => {
     await contextCheck('evil')
   } catch (e) {
     expect(e.message).toBe(
-      "Could not get PR event context: TypeError: Cannot read property 'issue' of undefined"
+      "Could not get PR event context: TypeError: Cannot read properties of undefined (reading 'issue')"
     )
   }
 })
