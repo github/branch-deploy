@@ -68,10 +68,10 @@ permissions:
   pull-requests: write
   deployments: write
   contents: read
-  issues: write
 
 jobs:
   demo:
+    if: ${{ github.event.issue.pull_request }} # only run on pull request comments
     runs-on: ubuntu-latest
     steps:
       # Execute IssueOps branch deployment logic, hooray!
@@ -172,13 +172,16 @@ These are the minimum permissions you need to run this Action
 ```yaml
 jobs:
   demo:
+    if: ${{ github.event.issue.pull_request }} # only run on pull request comments
     runs-on: ubuntu-latest
     steps:
       # Checkout your projects repository
       - uses: actions/checkout@3.0.2
 ```
 
-Sets up your `demo` job, uses an ubuntu runner, and checks out your repo - Just some standard setup for a general Action
+Sets up your `demo` job, uses an ubuntu runner, and checks out your repo - Just some standard setup for a general Action. We also add an `if:` statement here to only run this workflow on pull request comments to make it a little cleaner
+
+> Note: The Action will check the context for us anyways but this can save us a bit of CI time by using the `if:` condition
 
 ```yaml
       # Execute IssueOps branch deployment logic, hooray!
@@ -328,6 +331,7 @@ Here is a proper example for using two environments with this action:
 ```yaml
 jobs:
   deploy:
+    if: ${{ github.event.issue.pull_request }} # only run on pull request comments
     environment: production-secrets # custom environment for storing secrets
     runs-on: ubuntu-latest
     steps:

@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   sample:
+    if: ${{ github.event.issue.pull_request }} # only run on pull request comments
     environment: production-secrets
     runs-on: ubuntu-latest
     steps:
@@ -21,8 +22,9 @@ jobs:
       - uses: ./
         id: branch-deploy
 
-      # Check out the ref from the output of the IssueOps commandZ
+      # Check out the ref from the output of the IssueOps command
       - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
