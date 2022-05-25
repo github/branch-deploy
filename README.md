@@ -403,6 +403,16 @@ concurrency:
 
 ## Testing Locally 🔨
 
+Steps for testing the Action locally for development
+
+### Using NPM
+
+```console
+npm run test
+```
+
+### Using Act
+
 > This is a not fully supported
 
 Test with [act](https://github.com/nektos/act) locally to simulate a GitHub Actions event
