@@ -115,7 +115,7 @@ test('successfully runs the action in noop mode', async () => {
 })
 
 test('successfully runs the action after trimming the body', async () => {
-  jest.spyOn(prechecks, 'prechecks').mockImplementation((comment) => {
+  jest.spyOn(prechecks, 'prechecks').mockImplementation(comment => {
     expect(comment).toBe('.deploy noop')
 
     return {
