@@ -34,7 +34,7 @@ export async function run() {
     }
 
     // Get variables from the event context
-    const body = context.payload.comment.body
+    const body = context.payload.comment.body.trim()
     const issue_number = context.payload.issue.number
     const {owner, repo} = context.repo
 
