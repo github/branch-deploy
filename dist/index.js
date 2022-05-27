@@ -9574,7 +9574,7 @@ async function run() {
     }
 
     // Get variables from the event context
-    const body = github.context.payload.comment.body
+    const body = github.context.payload.comment.body.trim()
     const issue_number = github.context.payload.issue.number
     const {owner, repo} = github.context.repo
 
