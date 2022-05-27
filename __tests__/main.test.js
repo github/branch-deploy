@@ -114,6 +114,29 @@ test('successfully runs the action in noop mode', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('noop', 'true')
 })
 
+test('successfully runs the action after trimming the body', async () => {
+  jest.spyOn(prechecks, 'prechecks').mockImplementation((comment) => {
+    expect(comment).toBe('.deploy noop')
+
+    return {
+      ref: 'test-ref',
+      status: true,
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: true
+    }
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.deploy noop    \n\t\n   '
+    }
+  }
+  expect(await run()).toBe('success - noop')
+  // other expects are similar to previous tests.
+})
+
 test('successfully runs the action with required contexts', async () => {
   process.env.INPUT_REQUIRED_CONTEXTS = 'lint,test,build'
   expect(await run()).toBe('success')
