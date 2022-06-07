@@ -165,6 +165,32 @@ export async function prechecks(
       'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
     )
 
+    // If the request is a noop and noop_strict_update is true, check the mergeStateStatus
+  } else if (noopMode === true && noop_strict_update === 'true') {
+    // If the mergeStateStatus is BEHIND, update the PR with the stable_branch and exit
+    if (mergeStateStatus === 'BEHIND') {
+      // Make an API call to update the PR branch
+      const result = await octokit.rest.pulls.updateBranch({
+        ...context.repo,
+        pull_number: context.issue.number
+      })
+
+      // If the result is not a 202, return an error message and exit
+      if (result.status !== 202) {
+        message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: \`${result.status}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
+        return {message: message, status: false}
+      }
+
+      // If the result is a 202, let the user know the branch was updated and exit so they can retry
+      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
+      return {message: message, status: false}
+
+      // If the mergeStateStatus is not CLEAN, return an error message and exit
+    } else if (mergeStateStatus !== 'CLEAN') {
+      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Your branch is not clean and \`noop_strict_update\` is set - Please commit your changes and try again`
+      return {message: message, status: false}
+    }
+
     // If everything is OK, print a nice message
   } else if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
     message = '✔️ PR is approved and all CI checks passed - OK'
@@ -191,32 +217,6 @@ export async function prechecks(
     message = '✔️ All CI checks passed and **noop** requested - OK'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
-
-    // If the request is a noop and noop_strict_update is true, check the mergeStateStatus
-  } else if (noopMode === true && noop_strict_update === 'true') {
-    // If the mergeStateStatus is BEHIND, update the PR with the stable_branch and exit
-    if (mergeStateStatus === 'BEHIND') {
-      // Make an API call to update the PR branch
-      const result = await octokit.rest.pulls.updateBranch({
-        ...context.repo,
-        pull_number: context.issue.number
-      })
-
-      // If the result is not a 202, return an error message and exit
-      if (result.status !== 202) {
-        message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: \`${result.status}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
-        return {message: message, status: false}
-      }
-
-      // If the result is a 202, let the user know the branch was updated and exit so they can retry
-      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
-      return {message: message, status: false}
-
-      // If the mergeStateStatus is not CLEAN, return an error message and exit
-    } else if (mergeStateStatus !== 'CLEAN') {
-      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Your branch is not clean and \`noop_strict_update\` is set - Please commit your changes and try again`
-      return {message: message, status: false}
-    }
 
     // If CI is pending and the PR has not been reviewed BUT it is a noop deploy
   } else if (
