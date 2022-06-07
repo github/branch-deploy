@@ -3,7 +3,7 @@ description: "Enabling Branch Deployments through IssueOps with GitHub Actions"
 author: "Grant Birkinbine"
 branding:
   icon: 'git-branch'
-  color: 'green'
+  color: 'gray-dark'
 inputs:
   github_token:
     description: The GitHub token used to create an authenticated client - Provided for you by default!
@@ -35,6 +35,10 @@ inputs:
     default: "main"
   prefix_only:
     description: 'If "false", the trigger can match anywhere in the comment'
+    required: false
+    default: "true"
+  noop_strict_update:
+    description: 'If set, the noop trigger will require that the branch is up-to-date with the stable branch before proceeding'
     required: false
     default: "true"
   required_contexts:
