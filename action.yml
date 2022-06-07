@@ -3,7 +3,7 @@ description: "Enabling Branch Deployments through IssueOps with GitHub Actions"
 author: "Grant Birkinbine"
 branding:
   icon: 'git-branch'
-  color: 'green'
+  color: 'gray-dark'
 inputs:
   github_token:
     description: The GitHub token used to create an authenticated client - Provided for you by default!
