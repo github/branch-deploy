@@ -810,7 +810,18 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
-        mergeStateStatus: 'BEHIND'
+        mergeStateStatus: 'BEHIND',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
       }
     }
   })
@@ -853,7 +864,18 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
-        mergeStateStatus: 'DIRTY'
+        mergeStateStatus: 'DIRTY',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
       }
     }
   })
@@ -887,7 +909,18 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
-        mergeStateStatus: 'BEHIND'
+        mergeStateStatus: 'BEHIND',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
       }
     }
   })
@@ -930,7 +963,18 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
-        mergeStateStatus: 'BEHIND'
+        mergeStateStatus: 'BEHIND',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
       }
     }
   })
