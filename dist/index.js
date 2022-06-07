@@ -9194,8 +9194,31 @@ async function prechecks(
   // Grab the mergeStateStatus from the GraphQL result
   const mergeStateStatus = result.repository.pullRequest.mergeStateStatus
 
-  // If the request is a noop and noop_strict_update is true, check the mergeStateStatus
-  if (noopMode === true && noop_strict_update === 'true') {
+  // Grab the statusCheckRollup state from the GraphQL result
+  var commitStatus
+  try {
+    commitStatus =
+      result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup
+        .state
+  } catch (e) {
+    core.info(`Could not retrieve PR commit status: ${e} - Handled: OK`)
+    core.info('Skipping commit status check and proceeding...')
+    commitStatus = null
+  }
+
+  // Always allow deployments to the "stable" branch regardless of CI checks or PR review
+  if (regexCommandWithStableBranch.test(comment)) {
+    message = '✔️ Deployment to the **stable** branch requested - OK'
+    core.info(message)
+    core.info(
+      'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
+    )
+    // If everything is OK, print a nice message
+  } else if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
+    message = '✔️ PR is approved and all CI checks passed - OK'
+    core.info(message)
+    // If the request is a noop and noop_strict_update is true, check the mergeStateStatus
+  } else if (noopMode === true && noop_strict_update === 'true') {
     // If the mergeStateStatus is BEHIND, update the PR with the stable_branch and exit
     if (mergeStateStatus === 'BEHIND') {
       // Make an API call to update the PR branch
@@ -9218,32 +9241,6 @@ async function prechecks(
       message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Your branch is not clean and \`noop_strict_update\` is set - Please commit your changes and try again`
       return {message: message, status: false}
     }
-  }
-
-  // Grab the statusCheckRollup state from the GraphQL result
-  var commitStatus
-  try {
-    commitStatus =
-      result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup
-        .state
-  } catch (e) {
-    core.info(`Could not retrieve PR commit status: ${e} - Handled: OK`)
-    core.info('Skipping commit status check and proceeding...')
-    commitStatus = null
-  }
-
-  // Always allow deployments to the "stable" branch regardless of CI checks or PR review
-  if (regexCommandWithStableBranch.test(comment)) {
-    message = '✔️ Deployment to the **stable** branch requested - OK'
-    core.info(message)
-    core.info(
-      'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
-    )
-  }
-  // If everything is OK, print a nice message
-  else if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
-    message = '✔️ PR is approved and all CI checks passed - OK'
-    core.info(message)
     // CI checks have not been defined AND required reviewers have not been defined
   } else if (reviewDecision === null && commitStatus === null) {
     message =
