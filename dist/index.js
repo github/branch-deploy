@@ -9215,7 +9215,11 @@ async function prechecks(
     )
 
     // If the request is a noop and noop_strict_update is true, check the mergeStateStatus
-  } else if (noopMode === true && noop_strict_update === true) {
+  } else if (
+    commitStatus === 'SUCCESS' &&
+    noopMode === true &&
+    noop_strict_update === true
+  ) {
     // If the mergeStateStatus is BEHIND, update the PR with the stable_branch and exit
     if (mergeStateStatus === 'BEHIND') {
       // Make an API call to update the PR branch
