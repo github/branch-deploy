@@ -14,6 +14,7 @@ export async function prechecks(
   comment,
   trigger,
   noop_trigger,
+  noop_strict_update,
   stable_branch,
   issue_number,
   context,
@@ -136,8 +137,21 @@ export async function prechecks(
   }
   // Make the GraphQL query
   const result = await octokit.graphql(query, variables)
+
   // Grab the reviewDecision from the GraphQL result
   const reviewDecision = result.repository.pullRequest.reviewDecision
+
+  // Grab the mergeStateStatus from the GraphQL result
+  const mergeStateStatus = result.repository.pullRequest.mergeStateStatus
+
+  // If the request is a noop and noop_strict_update is true, check the mergeStateStatus
+  if (noopMode === true && noop_strict_update === "true") {
+    // If the mergeStateStatus is BEHIND, update the PR with the stable_branch and exit
+    if (mergeStateStatus === 'BEHIND' && noopMode === true) {
+      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noopMode}\`\n\n> I went ahead and updated your branch with ${stable_branch} - Please try again once this operation is complete`
+      return {message: message, status: false}
+    }
+  }
 
   // Grab the statusCheckRollup state from the GraphQL result
   var commitStatus
