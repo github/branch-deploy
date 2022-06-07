@@ -224,7 +224,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 
 > Example: You comment `.deploy noop` on a pull request. A noop deployment is detected so this action outputs the `noop` variable to `true`. You also have the correct permissions to execute the IssueOps command so the action also outputs the `continue` variable to `true`. This will allow the "fake noop deploy" step seen above to run and the "fake regular deploy" step will be skipped
 
-## Inputs ➡️⚙️
+## Inputs 📥
 
 | Input | Required? | Default | Description |
 | ----- | --------- | ------- | ----------- |
@@ -240,7 +240,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | noop_strict_update | no | true | If set, the noop trigger will require that the branch is up-to-date with the stable branch before proceeding  |
 | required_contexts | no | false | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option |
 
-## Outputs ⚙️➡️
+## Outputs 📤
 
 | Output | Description |
 | ------ | ----------- |
