@@ -9219,6 +9219,28 @@ async function prechecks(
     message = '✔️ PR is approved and all CI checks passed - OK'
     core.info(message)
 
+    // CI checks have not been defined AND required reviewers have not been defined
+  } else if (reviewDecision === null && commitStatus === null) {
+    message =
+      '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
+    core.info(message)
+
+    // CI checks have been defined BUT required reviewers have not been defined
+  } else if (reviewDecision === null && commitStatus === 'SUCCESS') {
+    message =
+      '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+    core.info(message)
+
+    // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
+  } else if (
+    reviewDecision === 'REVIEW_REQUIRED' &&
+    commitStatus === 'SUCCESS' &&
+    noopMode
+  ) {
+    message = '✔️ All CI checks passed and **noop** requested - OK'
+    core.info(message)
+    core.info('note: noop deployments do not require pr review')
+
     // If the request is a noop and noop_strict_update is true, check the mergeStateStatus
   } else if (noopMode === true && noop_strict_update === 'true') {
     // If the mergeStateStatus is BEHIND, update the PR with the stable_branch and exit
@@ -9244,28 +9266,6 @@ async function prechecks(
       message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Your branch is not clean and \`noop_strict_update\` is set - Please commit your changes and try again`
       return {message: message, status: false}
     }
-
-    // CI checks have not been defined AND required reviewers have not been defined
-  } else if (reviewDecision === null && commitStatus === null) {
-    message =
-      '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
-    core.info(message)
-
-    // CI checks have been defined BUT required reviewers have not been defined
-  } else if (reviewDecision === null && commitStatus === 'SUCCESS') {
-    message =
-      '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
-    core.info(message)
-
-    // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
-  } else if (
-    reviewDecision === 'REVIEW_REQUIRED' &&
-    commitStatus === 'SUCCESS' &&
-    noopMode
-  ) {
-    message = '✔️ All CI checks passed and **noop** requested - OK'
-    core.info(message)
-    core.info('note: noop deployments do not require pr review')
 
     // If CI is pending and the PR has not been reviewed BUT it is a noop deploy
   } else if (
