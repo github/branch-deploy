@@ -30,7 +30,7 @@ const graphQLOK = jest.fn().mockReturnValue({
   repository: {
     pullRequest: {
       reviewDecision: 'APPROVED',
-      mergeStateStatus: "CLEAN",
+      mergeStateStatus: 'CLEAN',
       commits: {
         nodes: [
           {
@@ -822,7 +822,13 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
     .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
   octonocommitchecks['rest']['pulls']['updateBranch'] = jest
     .fn()
-    .mockReturnValue({data: {message: "Updating pull request branch.", url: "https://api.github.com/repos/foo/bar/pulls/123"}, status: 202})
+    .mockReturnValue({
+      data: {
+        message: 'Updating pull request branch.',
+        url: 'https://api.github.com/repos/foo/bar/pulls/123'
+      },
+      status: 202
+    })
   expect(
     await prechecks(
       '.deploy noop',
@@ -836,7 +842,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
     )
   ).toStrictEqual({
     message:
-    '### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: `BEHIND`\n- noop_strict_update: `true`\n\n> I went ahead and updated your branch with `main` - Please try again once this operation is complete',
+      '### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: `BEHIND`\n- noop_strict_update: `true`\n\n> I went ahead and updated your branch with `main` - Please try again once this operation is complete',
     status: false
   })
 })
@@ -870,7 +876,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
     )
   ).toStrictEqual({
     message:
-    '### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: `DIRTY`\n- noop_strict_update: `true`\n\n> Your branch is not clean and `noop_strict_update` is set - Please commit your changes and try again',
+      '### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: `DIRTY`\n- noop_strict_update: `true`\n\n> Your branch is not clean and `noop_strict_update` is set - Please commit your changes and try again',
     status: false
   })
 })
@@ -893,7 +899,13 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
     .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
   octonocommitchecks['rest']['pulls']['updateBranch'] = jest
     .fn()
-    .mockReturnValue({data: {message: "merge conflict between base and head", url: "https://api.github.com/repos/foo/bar/pulls/123"}, status: 422})
+    .mockReturnValue({
+      data: {
+        message: 'merge conflict between base and head',
+        url: 'https://api.github.com/repos/foo/bar/pulls/123'
+      },
+      status: 422
+    })
   expect(
     await prechecks(
       '.deploy noop',
@@ -907,7 +919,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
     )
   ).toStrictEqual({
     message:
-    '### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: `422`\n- noop_strict_update: `true`\n\n> Failed to update pull request branch with `main`',
+      '### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: `422`\n- noop_strict_update: `true`\n\n> Failed to update pull request branch with `main`',
     status: false
   })
 })

@@ -146,10 +146,9 @@ export async function prechecks(
   const mergeStateStatus = result.repository.pullRequest.mergeStateStatus
 
   // If the request is a noop and noop_strict_update is true, check the mergeStateStatus
-  if (noopMode === true && noop_strict_update === "true") {
+  if (noopMode === true && noop_strict_update === 'true') {
     // If the mergeStateStatus is BEHIND, update the PR with the stable_branch and exit
     if (mergeStateStatus === 'BEHIND') {
-
       // Make an API call to update the PR branch
       const result = await octokit.rest.pulls.updateBranch({
         ...context.repo,
@@ -165,7 +164,7 @@ export async function prechecks(
       // If the result is a 202, let the user know the branch was updated and exit so they can retry
       message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
       return {message: message, status: false}
-    // If the mergeStateStatus is not CLEAN, return an error message and exit
+      // If the mergeStateStatus is not CLEAN, return an error message and exit
     } else if (mergeStateStatus !== 'CLEAN') {
       message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Your branch is not clean and \`noop_strict_update\` is set - Please commit your changes and try again`
       return {message: message, status: false}

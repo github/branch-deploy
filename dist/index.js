@@ -9054,6 +9054,7 @@ var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 // :param comment: The comment body of the event
 // :param trigger: The trigger word to check for
 // :param noop_trigger: The trigger word to check for if the deployment is a noop
+// :param noop_strict_update: Whether the noop deployment should be strict or not regarding branch merge status
 // :param stable_branch: The "stable" or "base" branch to deploy to (e.g. master|main)
 // :param issue_number: The issue number of the event
 // :param context: The context of the event
@@ -9063,6 +9064,7 @@ async function prechecks(
   comment,
   trigger,
   noop_trigger,
+  noop_strict_update,
   stable_branch,
   issue_number,
   context,
@@ -9185,8 +9187,38 @@ async function prechecks(
   }
   // Make the GraphQL query
   const result = await octokit.graphql(query, variables)
+
   // Grab the reviewDecision from the GraphQL result
   const reviewDecision = result.repository.pullRequest.reviewDecision
+
+  // Grab the mergeStateStatus from the GraphQL result
+  const mergeStateStatus = result.repository.pullRequest.mergeStateStatus
+
+  // If the request is a noop and noop_strict_update is true, check the mergeStateStatus
+  if (noopMode === true && noop_strict_update === 'true') {
+    // If the mergeStateStatus is BEHIND, update the PR with the stable_branch and exit
+    if (mergeStateStatus === 'BEHIND') {
+      // Make an API call to update the PR branch
+      const result = await octokit.rest.pulls.updateBranch({
+        ...context.repo,
+        pull_number: context.issue.number
+      })
+
+      // If the result is not a 202, return an error message and exit
+      if (result.status !== 202) {
+        message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: \`${result.status}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
+        return {message: message, status: false}
+      }
+
+      // If the result is a 202, let the user know the branch was updated and exit so they can retry
+      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
+      return {message: message, status: false}
+      // If the mergeStateStatus is not CLEAN, return an error message and exit
+    } else if (mergeStateStatus !== 'CLEAN') {
+      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Your branch is not clean and \`noop_strict_update\` is set - Please commit your changes and try again`
+      return {message: message, status: false}
+    }
+  }
 
   // Grab the statusCheckRollup state from the GraphQL result
   var commitStatus
@@ -9561,6 +9593,7 @@ async function run() {
     const environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
+    const noop_strict_update = core.getInput('noop_strict_update') === 'true'
     const required_contexts = core.getInput('required_contexts')
 
     // Set the state so that the post run logic will trigger
@@ -9596,6 +9629,7 @@ async function run() {
       body,
       trigger,
       noop_trigger,
+      noop_strict_update,
       stable_branch,
       issue_number,
       github.context,
