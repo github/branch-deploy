@@ -956,7 +956,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
     )
   ).toStrictEqual({
     message:
-      "### ⚠️ Cannot proceed with **noop** deployment\n\n```text\nCannot read property 'status' of null\n```",
+      "### ⚠️ Cannot proceed with **noop** deployment\n\n```text\nCannot read properties of null (reading 'status')\n```",
     status: false
   })
 })
