@@ -9219,20 +9219,25 @@ async function prechecks(
     // If the mergeStateStatus is BEHIND, update the PR with the stable_branch and exit
     if (mergeStateStatus === 'BEHIND') {
       // Make an API call to update the PR branch
-      const result = await octokit.rest.pulls.updateBranch({
-        ...context.repo,
-        pull_number: context.issue.number
-      })
+      try {
+        const result = await octokit.rest.pulls.updateBranch({
+          ...context.repo,
+          pull_number: context.issue.number
+        })
 
-      // If the result is not a 202, return an error message and exit
-      if (result.status !== 202) {
-        message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: \`${result.status}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
+        // If the result is not a 202, return an error message and exit
+        if (result.status !== 202) {
+          message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: \`${result.status}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
+          return {message: message, status: false}
+        }
+
+        // If the result is a 202, let the user know the branch was updated and exit so they can retry
+        message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
+        return {message: message, status: false}
+      } catch (error) {
+        message = `### ⚠️ Cannot proceed with **noop** deployment\n\n\`\`\`text\n${error.message}\n\`\`\``
         return {message: message, status: false}
       }
-
-      // If the result is a 202, let the user know the branch was updated and exit so they can retry
-      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
-      return {message: message, status: false}
 
       // If the mergeStateStatus is not CLEAN, return an error message and exit
     } else if (mergeStateStatus !== 'CLEAN') {

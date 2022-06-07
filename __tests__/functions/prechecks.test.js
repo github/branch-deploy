@@ -923,3 +923,40 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
     status: false
   })
 })
+
+test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an error', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'BEHIND'
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  octonocommitchecks['rest']['pulls']['updateBranch'] = jest
+    .fn()
+    .mockReturnValue(null)
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      true,
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      "### ⚠️ Cannot proceed with **noop** deployment\n\n```text\nCannot read property 'status' of null\n```",
+    status: false
+  })
+})
