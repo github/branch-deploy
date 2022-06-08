@@ -1163,7 +1163,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
     )
   ).toStrictEqual({
     message:
-    '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILED`\n\n> This is usually caused by missing PR approvals or CI checks failing',
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILED`\n\n> This is usually caused by missing PR approvals or CI checks failing',
     status: false
   })
 })
