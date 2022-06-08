@@ -22,6 +22,8 @@ export async function run() {
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const noop_strict_update = core.getInput('noop_strict_update') === 'true'
+    const noop_strict_update_force =
+      core.getInput('noop_strict_update_force') === 'true'
     const required_contexts = core.getInput('required_contexts')
 
     // Set the state so that the post run logic will trigger
@@ -58,6 +60,7 @@ export async function run() {
       trigger,
       noop_trigger,
       noop_strict_update,
+      noop_strict_update_force,
       stable_branch,
       issue_number,
       context,
