@@ -128,7 +128,8 @@ export async function run() {
       const mergeMessage = dedent(`
         ### ⚠️ Deployment Warning
 
-        Message: ${createDeploy.message}
+        - Message: ${createDeploy.message}
+        - Note: If you have required CI checks, you may need to manually push a commit to re-run them
 
         > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
         `)
