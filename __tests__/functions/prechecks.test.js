@@ -68,6 +68,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       '.deploy',
       'noop',
       'false',
+      'false',
       'main',
       '123',
       context,
@@ -87,6 +88,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
       '.deploy main',
       '.deploy',
       'noop',
+      'false',
       'false',
       'main',
       '123',
@@ -108,6 +110,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
       '.deploy',
       'noop',
       'false',
+      'false',
       'main',
       '123',
       context,
@@ -127,6 +130,7 @@ test('runs prechecks and does not find any matching command', async () => {
       'I have questions about this PR',
       '.deploy',
       'noop',
+      'false',
       'false',
       'main',
       '123',
@@ -161,6 +165,7 @@ test('runs prechecks and finds that the IssueOps command is valid without define
       '.deploy',
       'noop',
       'false',
+      'false',
       'main',
       '123',
       context,
@@ -190,6 +195,7 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
       '.deploy',
       'noop',
       'false',
+      'false',
       'main',
       '123',
       context,
@@ -211,6 +217,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
       '.deploy',
       '.deploy',
       'noop',
+      'false',
       'false',
       'main',
       '123',
@@ -237,6 +244,7 @@ test('runs prechecks and fails due to a bad pull request', async () => {
       '.deploy',
       '.deploy',
       'noop',
+      'false',
       'false',
       'main',
       '123',
@@ -271,6 +279,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
       '.deploy',
       '.deploy',
       'noop',
+      'false',
       'false',
       'main',
       '123',
@@ -327,6 +336,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       '.deploy',
       'noop',
       'false',
+      'false',
       'main',
       '123',
       context,
@@ -382,6 +392,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       '.deploy',
       'noop',
       'false',
+      'false',
       'main',
       '123',
       context,
@@ -427,6 +438,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       '.deploy',
       'noop',
       'false',
+      'false',
       'main',
       '123',
       context,
@@ -470,6 +482,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
       '.deploy',
       '.deploy',
       'noop',
+      'false',
       'false',
       'main',
       '123',
@@ -515,6 +528,7 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       '.deploy',
       'noop',
       'false',
+      'false',
       'main',
       '123',
       context,
@@ -547,6 +561,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       '.deploy noop',
       '.deploy',
       'noop',
+      'false',
       'false',
       'main',
       '123',
@@ -581,6 +596,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
       '.deploy main',
       '.deploy',
       'noop',
+      'false',
       'false',
       'main',
       '123',
@@ -627,6 +643,7 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       '.deploy',
       'noop',
       'false',
+      'false',
       'main',
       '123',
       context,
@@ -670,6 +687,7 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
       '.deploy',
       '.deploy',
       'noop',
+      'false',
       'false',
       'main',
       '123',
@@ -715,6 +733,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       '.deploy',
       'noop',
       'false',
+      'false',
       'main',
       '123',
       context,
@@ -759,6 +778,7 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
       '.deploy',
       'noop',
       'false',
+      'false',
       'main',
       '123',
       context,
@@ -791,6 +811,7 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
       '.deploy',
       '.deploy',
       'noop',
+      'false',
       'false',
       'main',
       '123',
@@ -846,6 +867,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
       '.deploy',
       'noop',
       true,
+      true,
       'main',
       '123',
       context,
@@ -891,6 +913,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
       '.deploy',
       'noop',
       true,
+      true,
       'main',
       '123',
       context,
@@ -898,7 +921,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
     )
   ).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: `DIRTY`\n- noop_strict_update: `true`\n\n> Your branch is not clean and `noop_strict_update` is set - Please commit your changes and try again',
+      '### ⚠️ Cannot proceed with deployment\n- mergeStateStatus: `DIRTY`\n\n> A merge commit cannot be cleanly created',
     status: false
   })
 })
@@ -944,6 +967,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
       '.deploy noop',
       '.deploy',
       'noop',
+      true,
       true,
       'main',
       '123',
@@ -993,6 +1017,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       '.deploy',
       'noop',
       true,
+      true,
       'main',
       '123',
       context,
@@ -1001,6 +1026,144 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
   ).toStrictEqual({
     message:
       "### ⚠️ Cannot proceed with **noop** deployment\n\n```text\nCannot read properties of null (reading 'status')\n```",
+    status: false
+  })
+})
+
+test('runs prechecks and finds the PR is BEHIND and a noop deploy and noop_strict_update_force is not set', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'BEHIND',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      true,
+      false,
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: `BEHIND`\n- noop_strict_update: `true`\n- noop_strict_update_force: `false`\n\n> Please ensure your branch is up to date with the `main` and try again',
+    status: false
+  })
+})
+
+test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'DRAFT',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      true,
+      false,
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state',
+    status: false
+  })
+})
+
+test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit status is null', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'BEHIND',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'FAILED'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      true,
+      false,
+      'main',
+      '123',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+    '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILED`\n\n> This is usually caused by missing PR approvals or CI checks failing',
     status: false
   })
 })
