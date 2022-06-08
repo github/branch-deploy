@@ -235,6 +235,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | stable_branch | no | main | The name of a stable branch to deploy to (rollbacks). Example: "main" |
 | prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
 | noop_strict_update | no | true | If set, the noop trigger will require that the branch is up-to-date with the stable branch before proceeding  |
+| noop_strict_update_force | no | false | If set, the noop trigger will force update branches if they are out of date with the stable branch. Warning: GitHub Actions will not re-run CI jobs on self-updates. If you have required CI jobs, you should not enable this feature  |
 | required_contexts | no | false | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option |
 
 ## Outputs 📤

@@ -9065,6 +9065,7 @@ async function prechecks(
   trigger,
   noop_trigger,
   noop_strict_update,
+  noop_strict_update_force,
   stable_branch,
   issue_number,
   context,
@@ -9214,40 +9215,52 @@ async function prechecks(
       'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
     )
 
-    // If the request is a noop and noop_strict_update is true, check the mergeStateStatus
+    // If the request is a noop and noop_strict_update is true, check the mergeStateStatus to see if it is BEHIND
   } else if (
-    commitStatus === 'SUCCESS' &&
+    (commitStatus === 'SUCCESS' || commitStatus === null) &&
     noopMode === true &&
-    noop_strict_update === true
+    noop_strict_update === true &&
+    mergeStateStatus === 'BEHIND'
   ) {
-    // If the mergeStateStatus is BEHIND, update the PR with the stable_branch and exit
-    if (mergeStateStatus === 'BEHIND') {
-      // Make an API call to update the PR branch
-      try {
-        const result = await octokit.rest.pulls.updateBranch({
-          ...context.repo,
-          pull_number: context.issue.number
-        })
+    // If the strict update force param is not set, alert and exit
+    if (noop_strict_update_force === false) {
+      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n- noop_strict_update_force: \`${noop_strict_update_force}\`\n\n> Please ensure your branch is up to date with the \`${stable_branch}\` and try again`
+      return {message: message, status: false}
+    }
 
-        // If the result is not a 202, return an error message and exit
-        if (result.status !== 202) {
-          message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: \`${result.status}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
-          return {message: message, status: false}
-        }
+    // Execute the logic below only if noop_strict_update_force is true
+    core.info('noop_strict_update_force is set - proceeding...')
 
-        // If the result is a 202, let the user know the branch was updated and exit so they can retry
-        message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
-        return {message: message, status: false}
-      } catch (error) {
-        message = `### ⚠️ Cannot proceed with **noop** deployment\n\n\`\`\`text\n${error.message}\n\`\`\``
+    // Make an API call to update the PR branch
+    try {
+      const result = await octokit.rest.pulls.updateBranch({
+        ...context.repo,
+        pull_number: context.issue.number
+      })
+
+      // If the result is not a 202, return an error message and exit
+      if (result.status !== 202) {
+        message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: \`${result.status}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
         return {message: message, status: false}
       }
 
-      // If the mergeStateStatus is not CLEAN, return an error message and exit
-    } else if (mergeStateStatus !== 'CLEAN') {
-      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Your branch is not clean and \`noop_strict_update\` is set - Please commit your changes and try again`
+      // If the result is a 202, let the user know the branch was updated and exit so they can retry
+      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
+      return {message: message, status: false}
+    } catch (error) {
+      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n\`\`\`text\n${error.message}\n\`\`\``
       return {message: message, status: false}
     }
+
+    // If the mergeStateStatus is in DRAFT, alert and exit
+  } else if (mergeStateStatus === 'DRAFT') {
+    message = `### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state`
+    return {message: message, status: false}
+
+    // If the mergeStateStatus is in DIRTY, alert and exit
+  } else if (mergeStateStatus === 'DIRTY') {
+    message = `### ⚠️ Cannot proceed with deployment\n- mergeStateStatus: \`${mergeStateStatus}\`\n\n> A merge commit cannot be cleanly created`
+    return {message: message, status: false}
 
     // If everything is OK, print a nice message
   } else if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
@@ -9616,6 +9629,8 @@ async function run() {
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const noop_strict_update = core.getInput('noop_strict_update') === 'true'
+    const noop_strict_update_force =
+      core.getInput('noop_strict_update_force') === 'true'
     const required_contexts = core.getInput('required_contexts')
 
     // Set the state so that the post run logic will trigger
@@ -9652,6 +9667,7 @@ async function run() {
       trigger,
       noop_trigger,
       noop_strict_update,
+      noop_strict_update_force,
       stable_branch,
       issue_number,
       github.context,
