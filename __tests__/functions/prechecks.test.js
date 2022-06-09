@@ -853,7 +853,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
     )
   ).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `force`\n\n> I went ahead and updated your branch with `main` - Please try again once this operation is complete',
+      '### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `force`\n\n> I went ahead and updated your branch with `main` - Please try again once this operation is complete',
     status: false
   })
 })
@@ -952,7 +952,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
     )
   ).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: `422`\n- update_branch: `force`\n\n> Failed to update pull request branch with `main`',
+      '### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: `422`\n- update_branch: `force`\n\n> Failed to update pull request branch with `main`',
     status: false
   })
 })
@@ -1000,7 +1000,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
     )
   ).toStrictEqual({
     message:
-      "### ⚠️ Cannot proceed with **noop** deployment\n\n```text\nCannot read properties of null (reading 'status')\n```",
+      "### ⚠️ Cannot proceed with deployment\n\n```text\nCannot read properties of null (reading 'status')\n```",
     status: false
   })
 })
@@ -1045,7 +1045,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
     )
   ).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` and try again',
+      '### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` and try again',
     status: false
   })
 })
