@@ -402,6 +402,16 @@ concurrency:
   cancel-in-progress: true
 ```
 
+## Suggestions 🌟
+
+This section will cover a few suggestions that will help you when using this Action
+
+1. Suggest Updating Pull Request Branches - You should absolutely use this option when using the `branch-deploy` Action. This option can be found in your repository's `/settings` page
+
+    ![branch-setting](https://user-images.githubusercontent.com/23362539/172939811-a8816db8-8e7c-404a-b12a-11ec5bc6e93d.png)
+
+2. Enable Branch Protection Settings - It is always a good idea to enable branch protection settings for your repo, especially when using this Action
+
 ## Testing Locally 🔨
 
 Steps for testing the Action locally for development
