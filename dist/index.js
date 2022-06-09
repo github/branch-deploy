@@ -9213,16 +9213,15 @@ async function prechecks(
       'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
     )
 
-    // If the request is a noop and update_branch is not "disabled", check the mergeStateStatus to see if it is BEHIND
+    // If update_branch is not "disabled", check the mergeStateStatus to see if it is BEHIND
   } else if (
     (commitStatus === 'SUCCESS' || commitStatus === null) &&
-    noopMode === true &&
     update_branch !== 'disabled' &&
     mergeStateStatus === 'BEHIND'
   ) {
     // If the update_branch param is set to "warn", warn and exit
     if (update_branch === 'warn') {
-      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${update_branch}\`\n\n> Please ensure your branch is up to date with the \`${stable_branch}\` and try again`
+      message = `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${update_branch}\`\n\n> Please ensure your branch is up to date with the \`${stable_branch}\` and try again`
       return {message: message, status: false}
     }
 
@@ -9238,15 +9237,15 @@ async function prechecks(
 
       // If the result is not a 202, return an error message and exit
       if (result.status !== 202) {
-        message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${update_branch}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
+        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${update_branch}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
         return {message: message, status: false}
       }
 
       // If the result is a 202, let the user know the branch was updated and exit so they can retry
-      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${update_branch}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
+      message = `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${update_branch}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
       return {message: message, status: false}
     } catch (error) {
-      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n\`\`\`text\n${error.message}\n\`\`\``
+      message = `### ⚠️ Cannot proceed with deployment\n\n\`\`\`text\n${error.message}\n\`\`\``
       return {message: message, status: false}
     }
 
