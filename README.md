@@ -422,6 +422,8 @@ Steps for testing the Action locally for development
 npm run test
 ```
 
+> Note: This has been tested on node 16.x and npm 8.x
+
 ### Using Act
 
 > This is a not fully supported
