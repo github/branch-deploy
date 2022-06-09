@@ -21,8 +21,6 @@ jobs:
       # Start the branch deployment
       - uses: ./
         id: branch-deploy
-        with:
-          update_branch: force
 
       # Check out the ref from the output of the IssueOps command
       - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
