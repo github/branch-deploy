@@ -234,8 +234,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | environment | no | production | The name of the environment to deploy to. Example, "production" |
 | stable_branch | no | main | The name of a stable branch to deploy to (rollbacks). Example: "main" |
 | prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
-| noop_strict_update | no | true | If set, the noop trigger will require that the branch is up-to-date with the stable branch before proceeding  |
-| noop_strict_update_force | no | false | If set, the noop trigger will force update branches if they are out of date with the stable branch. Warning: GitHub Actions will not re-run CI jobs on self-updates. If you have required CI jobs, you should not enable this feature  |
+| update_branch | no | warn | Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself |
 | required_contexts | no | false | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option |
 
 ## Outputs 📤
