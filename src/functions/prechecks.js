@@ -4,8 +4,7 @@ import dedent from 'dedent-js'
 // Runs precheck logic before the branch deployment can proceed
 // :param comment: The comment body of the event
 // :param trigger: The trigger word to check for
-// :param noop_trigger: The trigger word to check for if the deployment is a noop
-// :param noop_strict_update: Whether the noop deployment should be strict or not regarding branch merge status
+// :param update_branch: Defines the action to take if the branch is out-of-date
 // :param stable_branch: The "stable" or "base" branch to deploy to (e.g. master|main)
 // :param issue_number: The issue number of the event
 // :param context: The context of the event
@@ -15,8 +14,7 @@ export async function prechecks(
   comment,
   trigger,
   noop_trigger,
-  noop_strict_update,
-  noop_strict_update_force,
+  update_branch,
   stable_branch,
   issue_number,
   context,
@@ -166,21 +164,20 @@ export async function prechecks(
       'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
     )
 
-    // If the request is a noop and noop_strict_update is true, check the mergeStateStatus to see if it is BEHIND
+    // If update_branch is not "disabled", check the mergeStateStatus to see if it is BEHIND
   } else if (
     (commitStatus === 'SUCCESS' || commitStatus === null) &&
-    noopMode === true &&
-    noop_strict_update === true &&
+    update_branch !== 'disabled' &&
     mergeStateStatus === 'BEHIND'
   ) {
-    // If the strict update force param is not set, alert and exit
-    if (noop_strict_update_force === false) {
-      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n- noop_strict_update_force: \`${noop_strict_update_force}\`\n\n> Please ensure your branch is up to date with the \`${stable_branch}\` and try again`
+    // If the update_branch param is set to "warn", warn and exit
+    if (update_branch === 'warn') {
+      message = `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${update_branch}\`\n\n> Please ensure your branch is up to date with the \`${stable_branch}\` and try again`
       return {message: message, status: false}
     }
 
-    // Execute the logic below only if noop_strict_update_force is true
-    core.info('noop_strict_update_force is set - proceeding...')
+    // Execute the logic below only if update_branch is set to "force"
+    core.info(`update_branch is set to ${update_branch} - proceeding...`)
 
     // Make an API call to update the PR branch
     try {
@@ -191,15 +188,15 @@ export async function prechecks(
 
       // If the result is not a 202, return an error message and exit
       if (result.status !== 202) {
-        message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- update_branch http code: \`${result.status}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
+        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${update_branch}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
         return {message: message, status: false}
       }
 
       // If the result is a 202, let the user know the branch was updated and exit so they can retry
-      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- noop_strict_update: \`${noop_strict_update}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
+      message = `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${update_branch}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
       return {message: message, status: false}
     } catch (error) {
-      message = `### ⚠️ Cannot proceed with **noop** deployment\n\n\`\`\`text\n${error.message}\n\`\`\``
+      message = `### ⚠️ Cannot proceed with deployment\n\n\`\`\`text\n${error.message}\n\`\`\``
       return {message: message, status: false}
     }
 
