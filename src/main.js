@@ -56,7 +56,9 @@ export async function run() {
     } else if (isDeploy && isLock) {
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
-      core.setFailed('IssueOps message contains multiple commands, only one is allowed')
+      core.setFailed(
+        'IssueOps message contains multiple commands, only one is allowed'
+      )
       return 'failure'
     } else if (isDeploy) {
       core.setOutput('triggered', 'true')

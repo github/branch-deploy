@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
-import { actionStatus } from './action-status'
+import {actionStatus} from './action-status'
 
 // Constants for the lock file
 const LOCK_BRANCH = 'branch-deploy-lock'
@@ -17,7 +17,7 @@ const BASE_URL = 'https://github.com'
 // :returns: The result of the createOrUpdateFileContents API call
 async function createLock(octokit, context, ref, reason, sticky) {
   // Deconstruct the context to obtain the owner and repo
-  const { owner, repo } = context.repo
+  const {owner, repo} = context.repo
 
   // Construct the file contents for the lock file
   // Use the 'sticky' flag to determine whether the lock is sticky or not
@@ -39,13 +39,12 @@ async function createLock(octokit, context, ref, reason, sticky) {
     message: LOCK_COMMIT_MSG,
     content: Buffer.from(JSON.stringify(lockData)).toString('base64'),
     branch: LOCK_BRANCH
-  });
+  })
 
   // Write a log message stating the lock has been claimed
   core.info('deployment lock obtained')
   // If the lock is sticky, always leave a comment
   if (sticky) {
-
     core.info('deployment lock is sticky')
 
     const comment = dedent(`
@@ -70,7 +69,7 @@ async function createLock(octokit, context, ref, reason, sticky) {
 // Helper function to find a --reason flag in the comment body for a lock request
 // :param context: The GitHub Actions event context
 // :returns: The reason for the lock request - either a string of text or null if no reason was provided
-async function findReason(context){
+async function findReason(context) {
   // Get the body of the comment
   const body = context.payload.comment.body.trim()
 
@@ -101,13 +100,7 @@ async function findReason(context){
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is already claimed)
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :returns: true if the lock was successfully claimed, false otherwise
-export async function lock(
-  octokit,
-  context,
-  ref,
-  reactionId,
-  sticky
-) {
+export async function lock(octokit, context, ref, reactionId, sticky) {
   // Attempt to obtain a reason from the context for the lock - either a string or null
   const reason = findReason(context)
 
@@ -115,8 +108,8 @@ export async function lock(
   try {
     await octokit.rest.repos.getBranch({
       ...context.repo,
-      branch: LOCK_BRANCH,
-    });
+      branch: LOCK_BRANCH
+    })
   } catch (error) {
     // Create the lock branch if it doesn't exist
     if (error.status === 404) {
@@ -128,15 +121,15 @@ export async function lock(
       // Fetch the base branch's to use its SHA as the parent
       const baseBranch = await octokit.rest.repos.getBranch({
         ...context.repo,
-        branch: repoData.data.default_branch,
-      });
+        branch: repoData.data.default_branch
+      })
 
       // Create the lock branch
       await octokit.rest.git.createRef({
         ...context.repo,
         ref: `refs/heads/${LOCK_BRANCH}`,
         sha: baseBranch.data.commit.sha
-      });
+      })
 
       core.info(`Created lock branch: ${LOCK_BRANCH}`)
 
@@ -153,13 +146,15 @@ export async function lock(
       ...context.repo,
       path: LOCK_FILE,
       ref: LOCK_BRANCH
-    });
+    })
 
     // Decode the file contents to json
-    const lockData = JSON.parse(Buffer.from(response.data.content, 'base64').toString())
+    const lockData = JSON.parse(
+      Buffer.from(response.data.content, 'base64').toString()
+    )
 
     // Deconstruct the context to obtain the owner and repo
-    const { owner, repo } = context.repo
+    const {owner, repo} = context.repo
 
     // Construct the comment to add to the issue, alerting that the lock is already claimed
     const comment = dedent(`
@@ -180,12 +175,7 @@ export async function lock(
     `)
 
     // Set the action status with the comment
-    await actionStatus(
-      context,
-      octokit,
-      reactionId,
-      comment
-    )
+    await actionStatus(context, octokit, reactionId, comment)
 
     // Set the bypass state to true so that the post run logic will not run
     core.saveState('bypass', 'true')
