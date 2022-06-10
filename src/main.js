@@ -96,7 +96,8 @@ export async function run() {
       })
 
       // Send the lock request
-      await lock(octokit, context, pr.data.head.ref, reactRes.data.id, true)
+      const sticky = true
+      await lock(octokit, context, pr.data.head.ref, reactRes.data.id, sticky)
       core.saveState('bypass', 'true')
       return 'safe-exit'
     }
