@@ -7,6 +7,7 @@ import {createDeploymentStatus} from './functions/deployment'
 import {prechecks} from './functions/prechecks'
 import {validPermissions} from './functions/valid-permissions'
 import {lock} from './functions/lock'
+import {unlock} from './functions/unlock'
 import {post} from './functions/post'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
@@ -120,7 +121,9 @@ export async function run() {
       }
 
       // If the request is an unlock request, attempt to release the lock
-      if (isUnlock) {core.info('not implemented')}
+      if (isUnlock) {
+        unlock(octokit, context, reactRes.data.id)
+      }
     }
 
     // Execute prechecks to ensure the Action can proceed
