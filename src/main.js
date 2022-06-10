@@ -86,8 +86,8 @@ export async function run() {
     core.setOutput('comment_id', context.payload.comment.id)
     core.saveState('comment_id', context.payload.comment.id)
 
-    // If the command is a lock request, attempt to claim the lock - using a sticky lock
-    if (isLock) {
+    // If the command is a lock/unlock request
+    if (isLock || isUnlock) {
       // Check to ensure the user has valid permissions
       const validPermissionsRes = await validPermissions(context, octokit)
       // If the user doesn't have valid permissions, return an error
@@ -104,17 +104,23 @@ export async function run() {
         return 'failure'
       }
 
-      // Get the ref to use with the lock request
-      const pr = await octokit.rest.pulls.get({
-        ...context.repo,
-        pull_number: context.issue.number
-      })
+      // If the request is a lock request, attempt to claim the lock with a sticky request
+      if (isLock) {
+        // Get the ref to use with the lock request
+        const pr = await octokit.rest.pulls.get({
+          ...context.repo,
+          pull_number: context.issue.number
+        })
 
-      // Send the lock request
-      const sticky = true
-      await lock(octokit, context, pr.data.head.ref, reactRes.data.id, sticky)
-      core.saveState('bypass', 'true')
-      return 'safe-exit'
+        // Send the lock request
+        const sticky = true
+        await lock(octokit, context, pr.data.head.ref, reactRes.data.id, sticky)
+        core.saveState('bypass', 'true')
+        return 'safe-exit'
+      }
+
+      // If the request is an unlock request, attempt to release the lock
+      if (isUnlock) {core.info('not implemented')}
     }
 
     // Execute prechecks to ensure the Action can proceed

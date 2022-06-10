@@ -9892,6 +9892,7 @@ async function run() {
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
       return 'safe-exit'
+      // If multiple triggers are activated, exit (this is not allowed)
     } else if (
       (isDeploy && isLock) ||
       (isDeploy && isUnlock) ||
@@ -9900,25 +9901,29 @@ async function run() {
     ) {
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
+      core.info(`body: ${body}`)
       core.setFailed(
         'IssueOps message contains multiple commands, only one is allowed'
       )
       return 'failure'
     } else if (isDeploy) {
-      core.setOutput('triggered', 'true')
       core.setOutput('type', 'deploy')
     } else if (isLock) {
-      core.setOutput('triggered', 'true')
       core.setOutput('type', 'lock')
+    } else if (isUnlock) {
+      core.setOutput('type', 'unlock')
     }
+
+    // If we made it this far, the action has been triggered in one manner or another
+    core.setOutput('triggered', 'true')
 
     // Add the reaction to the issue_comment which triggered the Action
     const reactRes = await reactEmote(reaction, github.context, octokit)
     core.setOutput('comment_id', github.context.payload.comment.id)
     core.saveState('comment_id', github.context.payload.comment.id)
 
-    // If the command is a lock request, attempt to claim the lock - using a sticky lock
-    if (isLock) {
+    // If the command is a lock/unlock request
+    if (isLock || isUnlock) {
       // Check to ensure the user has valid permissions
       const validPermissionsRes = await validPermissions(github.context, octokit)
       // If the user doesn't have valid permissions, return an error
@@ -9935,17 +9940,20 @@ async function run() {
         return 'failure'
       }
 
-      // Get the ref to use with the lock request
-      const pr = await octokit.rest.pulls.get({
-        ...github.context.repo,
-        pull_number: github.context.issue.number
-      })
+      // If the request is a lock request, attempt to claim the lock with a sticky request
+      if (isLock) {
+        // Get the ref to use with the lock request
+        const pr = await octokit.rest.pulls.get({
+          ...github.context.repo,
+          pull_number: github.context.issue.number
+        })
 
-      // Send the lock request
-      const sticky = true
-      await lock(octokit, github.context, pr.data.head.ref, reactRes.data.id, sticky)
-      core.saveState('bypass', 'true')
-      return 'safe-exit'
+        // Send the lock request
+        const sticky = true
+        await lock(octokit, github.context, pr.data.head.ref, reactRes.data.id, sticky)
+        core.saveState('bypass', 'true')
+        return 'safe-exit'
+      }
     }
 
     // Execute prechecks to ensure the Action can proceed
