@@ -1,4 +1,5 @@
 import * as core from '@actions/core'
+import {actionStatus} from './action-status'
 import dedent from 'dedent-js'
 
 // Constants for the lock file
@@ -7,10 +8,12 @@ const LOCK_BRANCH = 'branch-deploy-lock'
 // Helper function for releasing a deployment lock
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
+// :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is successfully released)
 // :returns: true if the lock was successfully released, false otherwise
 export async function unlock(
   octokit,
   context,
+  reactionId
 ) {
   try {
     // Delete the lock branch
@@ -30,12 +33,8 @@ export async function unlock(
       The deployment lock for this branch has been successfully removed
       `)
 
-      // Comment on the PR letting the user know the deployment lock was removed
-      await octokit.rest.issues.createComment({
-        ...context.repo,
-        issue_number: context.issue.number,
-        body: comment
-      })
+      // Set the action status with the comment
+      await actionStatus(context, octokit, reactionId, comment, true, true)
 
       // Return true
       return true
@@ -56,6 +55,8 @@ export async function unlock(
       // Return true since there is no lock to release
       return true
     }
+
+    await actionStatus(context, octokit, reactionId, error.message, false)
 
     throw new Error(error)
   }
