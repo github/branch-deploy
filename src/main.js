@@ -153,7 +153,10 @@ export async function run() {
 
     return 'success'
   } catch (error) {
-    if (error instanceof Error) core.setFailed(error.message)
+    if (error instanceof Error) {
+      core.saveState('bypass', 'true')
+      core.setFailed(error.message)
+    }
   }
 }
 
