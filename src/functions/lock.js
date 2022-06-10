@@ -100,7 +100,7 @@ async function findReason(context) {
 // :param ref: The branch which requested the lock / deployment
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is already claimed)
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
-// :returns: true if the lock was successfully claimed, false otherwise
+// :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock
 export async function lock(octokit, context, ref, reactionId, sticky) {
   // Attempt to obtain a reason from the context for the lock - either a string or null
   const reason = findReason(context)
@@ -153,6 +153,12 @@ export async function lock(octokit, context, ref, reactionId, sticky) {
     const lockData = JSON.parse(
       Buffer.from(response.data.content, 'base64').toString()
     )
+
+    // If the requestor is the one who owns the lock, return 'owner'
+    if (lockData.created_by === context.actor) {
+      core.info(`${context.actor} is the owner of the lock`)
+      return 'owner'
+    }
 
     // Deconstruct the context to obtain the owner and repo
     const {owner, repo} = context.repo
