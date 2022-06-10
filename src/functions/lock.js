@@ -13,17 +13,22 @@ const BASE_URL = 'https://github.com'
 // :param context: The GitHub Actions event context
 // :param ref: The branch which requested the lock / deployment
 // :param reason: The reason for the deployment lock
+// :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :returns: The result of the createOrUpdateFileContents API call
-async function createLock(octokit, context, ref, reason) {
+async function createLock(octokit, context, ref, reason, sticky) {
   // Deconstruct the context to obtain the owner and repo
   const { owner, repo } = context.repo
 
   // Construct the file contents for the lock file
+  // Use the 'sticky' flag to determine whether the lock is sticky or not
+  // Sticky locks will persist forever
+  // Non-sticky locks will be removed if the branch that claimed the lock is deleted / merged
   const lockData = {
     reason: reason,
     branch: ref,
     created_at: new Date().toISOString(),
     created_by: context.actor,
+    sticky: sticky,
     link: `${BASE_URL}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
   }
 
@@ -36,7 +41,27 @@ async function createLock(octokit, context, ref, reason) {
     branch: LOCK_BRANCH
   });
 
+  // Write a log message stating the lock has been claimed
   core.info('deployment lock obtained')
+  // If the lock is sticky, always leave a comment
+  if (sticky) {
+
+    core.info('deployment lock is sticky')
+
+    const comment = dedent(`
+    ### 🔒 Deployment Lock Claimed
+
+    This branch now has a deployment lock and is the only branch that can be deployed until the lock is removed
+
+    > This lock will persist until someone runs \`.unlock\`
+    `)
+
+    await octokit.rest.issues.createComment({
+      ...context.repo,
+      issue_number: context.issue.number,
+      body: comment
+    })
+  }
 
   // Return the result of the lock file creation
   return result
@@ -48,13 +73,15 @@ async function createLock(octokit, context, ref, reason) {
 // :param ref: The branch which requested the lock / deployment
 // :param reason: The reason for the deployment lock
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is already claimed)
+// :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :returns: true if the lock was successfully claimed, false otherwise
 export async function lock(
   octokit,
   context,
   ref,
   reason,
-  reactionId
+  reactionId,
+  sticky
 ) {
   // Check if the lock branch already exists
   try {
@@ -86,7 +113,7 @@ export async function lock(
       core.info(`Created lock branch: ${LOCK_BRANCH}`)
 
       // Create the lock file
-      await createLock(octokit, context, ref, reason)
+      await createLock(octokit, context, ref, reason, sticky)
       return true
     }
   }
@@ -141,7 +168,7 @@ export async function lock(
   } catch (error) {
     // If the lock file doesn't exist, create it
     if (error.status === 404) {
-      await createLock(octokit, context, ref, reason)
+      await createLock(octokit, context, ref, reason, sticky)
       return true
     }
 
