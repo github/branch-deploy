@@ -49,8 +49,8 @@ export async function run() {
 
     // Add the reaction to the issue_comment as we begin to start the deployment
     const reactRes = await reactEmote(reaction, context, octokit)
-    core.setOutput('comment_id', reactRes.data.id)
-    core.saveState('comment_id', reactRes.data.id)
+    core.setOutput('comment_id', context.payload.comment.id)
+    core.saveState('comment_id', context.payload.comment.id)
 
     // Execute prechecks to ensure the deployment can proceed
     const precheckResults = await prechecks(
@@ -79,6 +79,8 @@ export async function run() {
       core.setFailed(precheckResults.message)
       return 'failure'
     }
+
+    // Aquire the branch-deploy lock
 
     // Set outputs for noopMode
     var noop
