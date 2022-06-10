@@ -20,12 +20,3 @@ export async function timeDiff(
     
     return `${days}d:${hours}h:${minutes}m:${seconds}s`;
   }
-  
-
-
-
-
-
-
-
-
