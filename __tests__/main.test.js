@@ -2,6 +2,7 @@ import {run} from '../src/main'
 import * as reactEmote from '../src/functions/react-emote'
 import * as contextCheck from '../src/functions/context-check'
 import * as prechecks from '../src/functions/prechecks'
+import * as validPermissions from '../src/functions/valid-permissions'
 import * as actionStatus from '../src/functions/action-status'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
@@ -24,7 +25,7 @@ beforeEach(() => {
   process.env.INPUT_ENVIRONMENT = 'production'
   process.env.INPUT_STABLE_BRANCH = 'main'
   process.env.INPUT_NOOP_TRIGGER = 'noop'
-  process.env.INPUT_LOCK_TRIGGER = 'lock'
+  process.env.INPUT_LOCK_TRIGGER = '.lock'
   process.env.INPUT_REQUIRED_CONTEXTS = 'false'
   process.env.GITHUB_REPOSITORY = 'corp/test'
   github.context.payload = {
@@ -81,6 +82,7 @@ test('successfully runs the action', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
   expect(saveStateMock).toHaveBeenCalledWith('noop', 'false')
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
   expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
 })
 
@@ -101,6 +103,7 @@ test('fails due to multiple commands in one message', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  expect(setFailedMock).toHaveBeenCalledWith('IssueOps message contains multiple commands, only one is allowed')
 })
 
 test('successfully runs the action in noop mode', async () => {
@@ -128,12 +131,40 @@ test('successfully runs the action in noop mode', async () => {
   expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
   expect(setOutputMock).toHaveBeenCalledWith('noop', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
   expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
   expect(saveStateMock).toHaveBeenCalledWith('noop', 'true')
+})
+
+test('runs the action in lock mode and fails due to bad permissions', async () => {
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return '👋 __monalisa__, seems as if you have not admin/write permission in this repo, permissions: read'
+  })
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.lock',
+      id: 123
+    }
+  }
+  expect(await run()).toBe('failure')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
 })
 
 test('successfully runs the action after trimming the body', async () => {
@@ -168,6 +199,7 @@ test('successfully runs the action with required contexts', async () => {
   expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
   expect(setOutputMock).toHaveBeenCalledWith('noop', 'false')
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
   expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
@@ -200,6 +232,7 @@ test('detects an out of date branch and exits', async () => {
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
   expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
   expect(setOutputMock).toHaveBeenCalledWith('noop', 'false')
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
   expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
