@@ -9,7 +9,6 @@ beforeEach(() => {
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')
-const saveStateMock = jest.spyOn(core, 'saveState')
 
 test('checks a message and finds a prefix trigger', async () => {
   const prefixOnly = true
