@@ -58,6 +58,9 @@ beforeEach(() => {
       }
     }
   })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return true
+  })
   jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
     return true
   })
@@ -207,6 +210,20 @@ test('successfully runs the action in lock mode', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
+test('fails to aquire the lock on a deploy so it exits', async () => {
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return false
+  })
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
 })
 
 test('successfully runs the action after trimming the body', async () => {
