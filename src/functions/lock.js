@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {actionStatus} from './action-status'
+import {timeDiff} from './time-diff'
 
 // Constants for the lock file
 const LOCK_BRANCH = 'branch-deploy-lock'
@@ -156,6 +157,9 @@ export async function lock(octokit, context, ref, reactionId, sticky) {
     // Deconstruct the context to obtain the owner and repo
     const {owner, repo} = context.repo
 
+    // Find the total time since the lock was created
+    const totalTime = timeDiff(lockData.created_at, new Date().toISOString())
+
     // Construct the comment to add to the issue, alerting that the lock is already claimed
     const comment = dedent(`
     ### ⚠️ Cannot proceed with deployment
@@ -170,6 +174,8 @@ export async function lock(octokit, context, ref, reactionId, sticky) {
     - __Created By__: \`${lockData.created_by}\`
     - __Comment Link__: [click here](${lockData.link})
     - __Lock Link__: [click here](${BASE_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
+
+    The current lock has been active for \`${totalTime}\`
 
     > If you need to unlock, please comment \`.unlock\`
     `)
