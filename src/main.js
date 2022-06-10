@@ -133,6 +133,11 @@ export async function run() {
     }
 
     // Aquire the branch-deploy lock for non-sticky requests
+    // If the lock request fails, exit the Action
+    const sticky = false
+    if (!await lock(octokit, context, precheckResults.ref, reactRes.data.id, sticky)) {
+      return 'safe-exit'
+    }
 
     // Set outputs for noopMode
     var noop
