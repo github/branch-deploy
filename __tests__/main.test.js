@@ -3,6 +3,7 @@ import * as reactEmote from '../src/functions/react-emote'
 import * as contextCheck from '../src/functions/context-check'
 import * as prechecks from '../src/functions/prechecks'
 import * as validPermissions from '../src/functions/valid-permissions'
+import * as lock from '../src/functions/lock'
 import * as actionStatus from '../src/functions/action-status'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
@@ -47,6 +48,11 @@ beforeEach(() => {
           }),
           createDeploymentStatus: jest.fn().mockImplementation(() => {
             return {data: {}}
+          })
+        },
+        pulls: {
+          get: jest.fn().mockImplementation(() => {
+            return {data: {head: {ref: 'test-ref'}}, status: 200}
           })
         }
       }
@@ -103,7 +109,9 @@ test('fails due to multiple commands in one message', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  expect(setFailedMock).toHaveBeenCalledWith('IssueOps message contains multiple commands, only one is allowed')
+  expect(setFailedMock).toHaveBeenCalledWith(
+    'IssueOps message contains multiple commands, only one is allowed'
+  )
 })
 
 test('successfully runs the action in noop mode', async () => {
@@ -141,8 +149,10 @@ test('successfully runs the action in noop mode', async () => {
 })
 
 test('runs the action in lock mode and fails due to bad permissions', async () => {
+  const permissionsMsg =
+    '👋 __monalisa__, seems as if you have not admin/write permission in this repo, permissions: read'
   jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
-    return '👋 __monalisa__, seems as if you have not admin/write permission in this repo, permissions: read'
+    return permissionsMsg
   })
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
@@ -165,6 +175,38 @@ test('runs the action in lock mode and fails due to bad permissions', async () =
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setFailedMock).toHaveBeenCalledWith(permissionsMsg)
+})
+
+test('successfully runs the action in lock mode', async () => {
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return true
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.lock --reason testing a new feature',
+      id: 123
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    '.lock --reason testing a new feature'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })
 
 test('successfully runs the action after trimming the body', async () => {
