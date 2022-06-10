@@ -150,7 +150,7 @@ test('successfully runs the action in noop mode', async () => {
 
 test('runs the action in lock mode and fails due to bad permissions', async () => {
   const permissionsMsg =
-    '👋 __monalisa__, seems as if you have not admin/write permission in this repo, permissions: read'
+    '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
   jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
     return permissionsMsg
   })
