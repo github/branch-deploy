@@ -67,11 +67,37 @@ async function createLock(octokit, context, ref, reason, sticky) {
   return result
 }
 
+// Helper function to find a --reason flag in the comment body for a lock request
+// :param context: The GitHub Actions event context
+// :returns: The reason for the lock request - either a string of text or null if no reason was provided
+async function findReason(context){
+  // Get the body of the comment
+  const body = context.payload.comment.body.trim()
+
+  // Find the --reason flag in the body
+  const reasonRaw = body.split('--reason')[1]
+
+  // If the --reason flag is not present, return null
+  if (reasonRaw === undefined) {
+    return null
+  }
+
+  // Remove whitespace
+  const reason = reasonRaw.trim()
+
+  // If the reason is empty, return null
+  if (reason === '') {
+    return null
+  }
+
+  // Return the reason for the lock request
+  return reason
+}
+
 // Helper function for claiming a deployment lock
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
 // :param ref: The branch which requested the lock / deployment
-// :param reason: The reason for the deployment lock
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is already claimed)
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :returns: true if the lock was successfully claimed, false otherwise
@@ -79,10 +105,12 @@ export async function lock(
   octokit,
   context,
   ref,
-  reason,
   reactionId,
   sticky
 ) {
+  // Attempt to obtain a reason from the context for the lock - either a string or null
+  const reason = findReason(context)
+
   // Check if the lock branch already exists
   try {
     await octokit.rest.repos.getBranch({
