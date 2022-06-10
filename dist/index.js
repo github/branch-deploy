@@ -9063,7 +9063,7 @@ async function validPermissions(octokit, context) {
   // Check to ensure the user has at least write permission on the repo
   const actorPermission = permissionRes.data.permission
   if (!['admin', 'write'].includes(actorPermission)) {
-    return `👋 __${context.actor}__, seems as if you have not admin/write permission in this repo, permissions: ${actorPermission}`
+    return `👋 __${context.actor}__, seems as if you have not admin/write permissions in this repo, permissions: ${actorPermission}`
   }
 
   // Return true if the user has permissions
@@ -9403,7 +9403,29 @@ async function prechecks(
   return {message: message, status: true, ref: ref, noopMode: noopMode}
 }
 
+;// CONCATENATED MODULE: ./src/functions/time-diff.js
+// Helper function to calculate the time difference between two dates
+// :param firstDate: ISO 8601 formatted date string
+// :param secondDate: ISO 8601 formatted date string
+// :returns: A string in the following format: `${days}d:${hours}h:${minutes}m:${seconds}s`
+async function timeDiff(firstDate, secondDate) {
+  const firstDateFmt = new Date(firstDate)
+  const secondDateFmt = new Date(secondDate)
+
+  var seconds = Math.floor((secondDateFmt - firstDateFmt) / 1000)
+  var minutes = Math.floor(seconds / 60)
+  var hours = Math.floor(minutes / 60)
+  var days = Math.floor(hours / 24)
+
+  hours = hours - days * 24
+  minutes = minutes - days * 24 * 60 - hours * 60
+  seconds = seconds - days * 24 * 60 * 60 - hours * 60 * 60 - minutes * 60
+
+  return `${days}d:${hours}h:${minutes}m:${seconds}s`
+}
+
 ;// CONCATENATED MODULE: ./src/functions/lock.js
+
 
 
 
@@ -9562,6 +9584,9 @@ async function lock(octokit, context, ref, reactionId, sticky) {
     // Deconstruct the context to obtain the owner and repo
     const {owner, repo} = context.repo
 
+    // Find the total time since the lock was created
+    const totalTime = timeDiff(lockData.created_at, new Date().toISOString())
+
     // Construct the comment to add to the issue, alerting that the lock is already claimed
     const comment = lib_default()(`
     ### ⚠️ Cannot proceed with deployment
@@ -9576,6 +9601,8 @@ async function lock(octokit, context, ref, reactionId, sticky) {
     - __Created By__: \`${lockData.created_by}\`
     - __Comment Link__: [click here](${lockData.link})
     - __Lock Link__: [click here](${BASE_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
+
+    The current lock has been active for \`${totalTime}\`
 
     > If you need to unlock, please comment \`.unlock\`
     `)
@@ -9833,6 +9860,7 @@ async function run() {
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
+    const unlock_trigger = core.getInput('unlock_trigger')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
 
@@ -9857,12 +9885,19 @@ async function run() {
     // Check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(prefixOnly, body, trigger)
     const isLock = await triggerCheck(prefixOnly, body, lock_trigger)
+    const isUnlock = await triggerCheck(prefixOnly, body, unlock_trigger)
 
-    if (!isDeploy && !isLock) {
+    if (!isDeploy && !isLock && !isUnlock) {
+      // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
       return 'safe-exit'
-    } else if (isDeploy && isLock) {
+    } else if (
+      (isDeploy && isLock) ||
+      (isDeploy && isUnlock) ||
+      (isLock && isUnlock) ||
+      (isDeploy && isLock && isUnlock)
+    ) {
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
       core.setFailed(
@@ -9942,6 +9977,19 @@ async function run() {
     }
 
     // Aquire the branch-deploy lock for non-sticky requests
+    // If the lock request fails, exit the Action
+    const sticky = false
+    if (
+      !(await lock(
+        octokit,
+        github.context,
+        precheckResults.ref,
+        reactRes.data.id,
+        sticky
+      ))
+    ) {
+      return 'safe-exit'
+    }
 
     // Set outputs for noopMode
     var noop
