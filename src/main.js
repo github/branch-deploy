@@ -24,6 +24,7 @@ export async function run() {
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
+    const unlock_trigger = core.getInput('unlock_trigger')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
 
@@ -48,25 +49,37 @@ export async function run() {
     // Check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(prefixOnly, body, trigger)
     const isLock = await triggerCheck(prefixOnly, body, lock_trigger)
+    const isUnlock = await triggerCheck(prefixOnly, body, unlock_trigger)
 
-    if (!isDeploy && !isLock) {
+    if (!isDeploy && !isLock && !isUnlock) {
+      // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
       return 'safe-exit'
-    } else if (isDeploy && isLock) {
+      // If multiple triggers are activated, exit (this is not allowed)
+    } else if (
+      (isDeploy && isLock) ||
+      (isDeploy && isUnlock) ||
+      (isLock && isUnlock) ||
+      (isDeploy && isLock && isUnlock)
+    ) {
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
+      core.info(`body: ${body}`)
       core.setFailed(
         'IssueOps message contains multiple commands, only one is allowed'
       )
       return 'failure'
     } else if (isDeploy) {
-      core.setOutput('triggered', 'true')
       core.setOutput('type', 'deploy')
     } else if (isLock) {
-      core.setOutput('triggered', 'true')
       core.setOutput('type', 'lock')
+    } else if (isUnlock) {
+      core.setOutput('type', 'unlock')
     }
+
+    // If we made it this far, the action has been triggered in one manner or another
+    core.setOutput('triggered', 'true')
 
     // Add the reaction to the issue_comment which triggered the Action
     const reactRes = await reactEmote(reaction, context, octokit)
@@ -135,7 +148,15 @@ export async function run() {
     // Aquire the branch-deploy lock for non-sticky requests
     // If the lock request fails, exit the Action
     const sticky = false
-    if (!(await lock(octokit, context, precheckResults.ref, reactRes.data.id, sticky))) {
+    if (
+      !(await lock(
+        octokit,
+        context,
+        precheckResults.ref,
+        reactRes.data.id,
+        sticky
+      ))
+    ) {
       return 'safe-exit'
     }
 
