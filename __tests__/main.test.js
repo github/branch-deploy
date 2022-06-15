@@ -4,6 +4,7 @@ import * as contextCheck from '../src/functions/context-check'
 import * as prechecks from '../src/functions/prechecks'
 import * as validPermissions from '../src/functions/valid-permissions'
 import * as lock from '../src/functions/lock'
+import * as unlock from '../src/functions/unlock'
 import * as actionStatus from '../src/functions/action-status'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
@@ -221,6 +222,29 @@ test('fails to aquire the lock on a deploy so it exits', async () => {
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
   expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+})
+
+test('runs with the unlock trigger', async () => {
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.unlock',
+      id: 123
+    }
+  }
+  jest.spyOn(unlock, 'unlock').mockImplementation(() => {
+    return true
+  })
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'unlock')
   expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
