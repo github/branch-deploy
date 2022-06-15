@@ -238,6 +238,8 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | reaction | no | eyes | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
 | trigger | no | .deploy | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
 | noop_trigger | no | noop | The string to look for in comments as an IssueOps noop trigger. Example: "noop" |
+| lock_trigger | no | lock | The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: "lock" |
+| unlock_trigger | no | unlock | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: "unlock" |
 | environment | no | production | The name of the environment to deploy to. Example, "production" |
 | stable_branch | no | main | The name of a stable branch to deploy to (rollbacks). Example: "main" |
 | prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
@@ -252,6 +254,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | noop | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
 | ref | The comment body |
 | comment_id | The comment id which triggered this deployment |
+| type | The type of trigger that was detected (examples: deploy, lock, unlock) |
 | continue | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not |
 
 ## Custom Deployment Messages ✏️
@@ -409,6 +412,16 @@ concurrency:
   cancel-in-progress: true
 ```
 
+## Suggestions 🌟
+
+This section will cover a few suggestions that will help you when using this Action
+
+1. Suggest Updating Pull Request Branches - You should absolutely use this option when using the `branch-deploy` Action. This option can be found in your repository's `/settings` page
+
+    ![branch-setting](https://user-images.githubusercontent.com/23362539/172939811-a8816db8-8e7c-404a-b12a-11ec5bc6e93d.png)
+
+2. Enable Branch Protection Settings - It is always a good idea to enable branch protection settings for your repo, especially when using this Action
+
 ## Testing Locally 🔨
 
 Steps for testing the Action locally for development
@@ -418,6 +431,8 @@ Steps for testing the Action locally for development
 ```console
 npm run test
 ```
+
+> Note: This has been tested on node 16.x and npm 8.x
 
 ### Using Act
 

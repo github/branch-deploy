@@ -219,7 +219,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
     )
   ).toStrictEqual({
     message:
-      '👋  __monalisa__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: read',
+      '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read',
     status: false
   })
 })
