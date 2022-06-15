@@ -10,21 +10,17 @@ const LOCK_BRANCH = 'branch-deploy-lock'
 // :param context: The GitHub Actions event context
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is successfully released) (Integer)
 // :returns: true if the lock was successfully released, false otherwise
-export async function unlock(
-  octokit,
-  context,
-  reactionId
-) {
+export async function unlock(octokit, context, reactionId) {
   try {
     // Delete the lock branch
     const result = await octokit.rest.git.deleteRef({
       ...context.repo,
-      ref: `heads/${LOCK_BRANCH}`,
-    });
+      ref: `heads/${LOCK_BRANCH}`
+    })
 
     // If the lock was successfully released, return true
     if (result.status === 204) {
-      core.info(`successfully removed lock`);
+      core.info(`successfully removed lock`)
 
       // Construct the message to add to the issue comment
       const comment = dedent(`
@@ -49,7 +45,14 @@ export async function unlock(
     // The the error caught was a 422 - Reference does not exist, this is OK - It means the lock branch does not exist
     if (error.status === 422 && error.message === 'Reference does not exist') {
       // Leave a comment letting the user know there is no lock to release
-      await actionStatus(context, octokit, reactionId, '🔓 There is currently no deployment lock set', true, true)
+      await actionStatus(
+        context,
+        octokit,
+        reactionId,
+        '🔓 There is currently no deployment lock set',
+        true,
+        true
+      )
 
       // Return true since there is no lock to release
       return true

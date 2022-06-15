@@ -8953,6 +8953,8 @@ async function reactEmote(reaction, context, octokit) {
 const thumbsDown = '-1'
 // Default success reaction
 const rocket = 'rocket'
+// Alt success reaction
+const thumbsUp = '+1'
 
 // Helper function to add a status update for the action that is running a branch deployment
 // It also updates the original comment with a reaction depending on the status of the deployment
@@ -8961,13 +8963,15 @@ const rocket = 'rocket'
 // :param reactionId: The id of the original reaction added to our trigger comment (Integer)
 // :param message: The message to be added to the action status (String)
 // :param success: Boolean indicating whether the deployment was successful (Boolean)
+// :param altSuccessReaction: Boolean indicating whether to use the alternate success reaction (Boolean)
 // :returns: Nothing
 async function actionStatus(
   context,
   octokit,
   reactionId,
   message,
-  success
+  success,
+  altSuccessReaction
 ) {
   // check if message is null or empty
   if (!message || message.length === 0) {
@@ -8985,7 +8989,11 @@ async function actionStatus(
   // Select the reaction to add to the issue_comment
   var reaction
   if (success) {
-    reaction = rocket
+    if (altSuccessReaction) {
+      reaction = thumbsUp
+    } else {
+      reaction = rocket
+    }
   } else {
     reaction = thumbsDown
   }
@@ -9527,7 +9535,7 @@ async function findReason(context) {
 // :param ref: The branch which requested the lock / deployment
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is already claimed)
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
-// :returns: true if the lock was successfully claimed, false otherwise
+// :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock
 async function lock(octokit, context, ref, reactionId, sticky) {
   // Attempt to obtain a reason from the context for the lock - either a string or null
   const reason = findReason(context)
@@ -9581,11 +9589,20 @@ async function lock(octokit, context, ref, reactionId, sticky) {
       Buffer.from(response.data.content, 'base64').toString()
     )
 
+    // If the requestor is the one who owns the lock, return 'owner'
+    if (lockData.created_by === context.actor) {
+      core.info(`${context.actor} is the owner of the lock`)
+      return 'owner'
+    }
+
     // Deconstruct the context to obtain the owner and repo
     const {owner, repo} = context.repo
 
     // Find the total time since the lock was created
-    const totalTime = timeDiff(lockData.created_at, new Date().toISOString())
+    const totalTime = await timeDiff(
+      lockData.created_at,
+      new Date().toISOString()
+    )
 
     // Construct the comment to add to the issue, alerting that the lock is already claimed
     const comment = lib_default()(`
@@ -9624,6 +9641,74 @@ async function lock(octokit, context, ref, reactionId, sticky) {
     }
 
     // If some other error occurred, throw it
+    throw new Error(error)
+  }
+}
+
+;// CONCATENATED MODULE: ./src/functions/unlock.js
+
+
+
+
+// Constants for the lock file
+const unlock_LOCK_BRANCH = 'branch-deploy-lock'
+
+// Helper function for releasing a deployment lock
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is successfully released) (Integer)
+// :returns: true if the lock was successfully released, false otherwise
+async function unlock(octokit, context, reactionId) {
+  try {
+    // Delete the lock branch
+    const result = await octokit.rest.git.deleteRef({
+      ...context.repo,
+      ref: `heads/${unlock_LOCK_BRANCH}`
+    })
+
+    // If the lock was successfully released, return true
+    if (result.status === 204) {
+      core.info(`successfully removed lock`)
+
+      // Construct the message to add to the issue comment
+      const comment = lib_default()(`
+      ### 🔓 Deployment Lock Removed
+
+      The deployment lock for this branch has been successfully removed
+      `)
+
+      // Set the action status with the comment
+      await actionStatus(context, octokit, reactionId, comment, true, true)
+
+      // Return true
+      return true
+    } else {
+      // If the lock was not successfully released, return false and log the HTTP code
+      const comment = `failed to delete lock branch: ${unlock_LOCK_BRANCH} - HTTP: ${result.status}`
+      core.info(comment)
+      await actionStatus(context, octokit, reactionId, comment, false)
+      return false
+    }
+  } catch (error) {
+    // The the error caught was a 422 - Reference does not exist, this is OK - It means the lock branch does not exist
+    if (error.status === 422 && error.message === 'Reference does not exist') {
+      // Leave a comment letting the user know there is no lock to release
+      await actionStatus(
+        context,
+        octokit,
+        reactionId,
+        '🔓 There is currently no deployment lock set',
+        true,
+        true
+      )
+
+      // Return true since there is no lock to release
+      return true
+    }
+
+    // Update the PR with the error
+    await actionStatus(context, octokit, reactionId, error.message, false)
+
     throw new Error(error)
   }
 }
@@ -9848,6 +9933,7 @@ async function post() {
 
 
 
+
 // :returns: 'success', 'success - noop', 'failure', 'safe-exit', or raises an error
 async function run() {
   try {
@@ -9952,6 +10038,12 @@ async function run() {
         const sticky = true
         await lock(octokit, github.context, pr.data.head.ref, reactRes.data.id, sticky)
         core.saveState('bypass', 'true')
+        return 'safe-exit'
+      }
+
+      // If the request is an unlock request, attempt to release the lock
+      if (isUnlock) {
+        unlock(octokit, github.context, reactRes.data.id)
         return 'safe-exit'
       }
     }

@@ -164,7 +164,10 @@ export async function lock(octokit, context, ref, reactionId, sticky) {
     const {owner, repo} = context.repo
 
     // Find the total time since the lock was created
-    const totalTime = await timeDiff(lockData.created_at, new Date().toISOString())
+    const totalTime = await timeDiff(
+      lockData.created_at,
+      new Date().toISOString()
+    )
 
     // Construct the comment to add to the issue, alerting that the lock is already claimed
     const comment = dedent(`
