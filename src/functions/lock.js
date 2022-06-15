@@ -51,9 +51,9 @@ async function createLock(octokit, context, ref, reason, sticky) {
     const comment = dedent(`
     ### 🔒 Deployment Lock Claimed
 
-    This branch now has a deployment lock and is the only branch that can be deployed until the lock is removed
+    You are now the only user that can trigger deployments until the deployment lock is removed
 
-    > This lock will persist until someone runs \`.unlock\`
+    > This lock is _sticky_ and will persist until someone runs \`.unlock\`
     `)
 
     await octokit.rest.issues.createComment({
@@ -74,13 +74,14 @@ async function findReason(context) {
   // Get the body of the comment
   const body = context.payload.comment.body.trim()
 
+  // Check if --reason was provided
+  if (body.includes("--reason") === false) {
+    // If no reason was provided, return null
+    return null
+  } 
+
   // Find the --reason flag in the body
   const reasonRaw = body.split('--reason')[1]
-
-  // If the --reason flag is not present, return null
-  if (reasonRaw === undefined) {
-    return null
-  }
 
   // Remove whitespace
   const reason = reasonRaw.trim()
