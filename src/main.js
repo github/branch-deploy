@@ -90,7 +90,7 @@ export async function run() {
     // If the command is a lock/unlock request
     if (isLock || isUnlock) {
       // Check to ensure the user has valid permissions
-      const validPermissionsRes = await validPermissions(context, octokit)
+      const validPermissionsRes = await validPermissions(octokit, context)
       // If the user doesn't have valid permissions, return an error
       if (validPermissionsRes !== true) {
         await actionStatus(
