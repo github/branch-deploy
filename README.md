@@ -237,9 +237,9 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | status | yes | ${{ job.status }} | The status of the GitHub Actions - For use in the post run workflow - Provided for you by default! |
 | reaction | no | eyes | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
 | trigger | no | .deploy | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
-| noop_trigger | no | noop | The string to look for in comments as an IssueOps noop trigger. Example: "noop" |
-| lock_trigger | no | lock | The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: "lock" |
-| unlock_trigger | no | unlock | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: "unlock" |
+| noop_trigger | no | noop | The string to look for in comments as an IssueOps noop trigger. Example: "noop" - The usage would then be ".deploy noop" |
+| lock_trigger | no | .lock | The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: "lock" |
+| unlock_trigger | no | .unlock | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: "unlock" |
 | environment | no | production | The name of the environment to deploy to. Example, "production" |
 | stable_branch | no | main | The name of a stable branch to deploy to (rollbacks). Example: "main" |
 | prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
