@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
+import {validPermissions} from './valid-permissions'
 
 // Runs precheck logic before the branch deployment can proceed
 // :param comment: The comment body of the event
@@ -23,28 +24,10 @@ export async function prechecks(
   // Setup the message variable
   var message
 
-  // Get the permissions of the user who made the comment
-  const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(
-    {
-      ...context.repo,
-      username: context.actor
-    }
-  )
-
-  // Check permission API call status code
-  if (permissionRes.status !== 200) {
-    message = `Permission check returns non-200 status: ${permissionRes.status}`
-    return {message: message, status: false}
-  }
-
-  // Check to ensure the user has at least write permission on the repo
-  const actorPermission = permissionRes.data.permission
-  if (!['admin', 'write'].includes(actorPermission)) {
-    message =
-      '👋  __' +
-      context.actor +
-      `__, seems as if you have not admin/write permission to branch-deploy this PR, permissions: ${actorPermission}`
-    return {message: message, status: false}
+  // Check if the user has valid permissions
+  const validPermissionsRes = await validPermissions(octokit, context)
+  if (validPermissionsRes !== true) {
+    return {message: validPermissionsRes, status: false}
   }
 
   // Get the PR data

@@ -2,6 +2,8 @@
 const thumbsDown = '-1'
 // Default success reaction
 const rocket = 'rocket'
+// Alt success reaction
+const thumbsUp = '+1'
 
 // Helper function to add a status update for the action that is running a branch deployment
 // It also updates the original comment with a reaction depending on the status of the deployment
@@ -10,13 +12,15 @@ const rocket = 'rocket'
 // :param reactionId: The id of the original reaction added to our trigger comment (Integer)
 // :param message: The message to be added to the action status (String)
 // :param success: Boolean indicating whether the deployment was successful (Boolean)
+// :param altSuccessReaction: Boolean indicating whether to use the alternate success reaction (Boolean)
 // :returns: Nothing
 export async function actionStatus(
   context,
   octokit,
   reactionId,
   message,
-  success
+  success,
+  altSuccessReaction
 ) {
   // check if message is null or empty
   if (!message || message.length === 0) {
@@ -34,7 +38,11 @@ export async function actionStatus(
   // Select the reaction to add to the issue_comment
   var reaction
   if (success) {
-    reaction = rocket
+    if (altSuccessReaction) {
+      reaction = thumbsUp
+    } else {
+      reaction = rocket
+    }
   } else {
     reaction = thumbsDown
   }

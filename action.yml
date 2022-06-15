@@ -29,6 +29,14 @@ inputs:
     description: 'The string to look for in comments as an IssueOps noop trigger. Example: "noop"'
     required: false
     default: "noop"
+  lock_trigger:
+    description: 'The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: "lock"'
+    required: false
+    default: "lock"
+  unlock_trigger:
+    description: 'The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: "unlock"'
+    required: false
+    default: "unlock"
   stable_branch:
     description: 'The name of a stable branch to deploy to (rollbacks). Example: "main"'
     required: false
@@ -56,6 +64,8 @@ outputs:
     description: The branch (ref) to use with deployment
   comment_id:
     description: The comment id which triggered this deployment
+  type:
+    description: "The type of trigger that was detected (examples: deploy, lock, unlock)"
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
 runs:

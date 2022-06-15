@@ -5,6 +5,9 @@ import {reactEmote} from './functions/react-emote'
 import {actionStatus} from './functions/action-status'
 import {createDeploymentStatus} from './functions/deployment'
 import {prechecks} from './functions/prechecks'
+import {validPermissions} from './functions/valid-permissions'
+import {lock} from './functions/lock'
+import {unlock} from './functions/unlock'
 import {post} from './functions/post'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
@@ -21,6 +24,8 @@ export async function run() {
     const environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
+    const lock_trigger = core.getInput('lock_trigger')
+    const unlock_trigger = core.getInput('unlock_trigger')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
 
@@ -42,17 +47,87 @@ export async function run() {
     // Create an octokit client
     const octokit = github.getOctokit(token)
 
-    // Check if the comment body contains the trigger, exit if it doesn't return true
-    if (!(await triggerCheck(prefixOnly, body, trigger))) {
+    // Check if the comment is a trigger and what type of trigger it is
+    const isDeploy = await triggerCheck(prefixOnly, body, trigger)
+    const isLock = await triggerCheck(prefixOnly, body, lock_trigger)
+    const isUnlock = await triggerCheck(prefixOnly, body, unlock_trigger)
+
+    if (!isDeploy && !isLock && !isUnlock) {
+      // If the comment does not activate any triggers, exit
+      core.saveState('bypass', 'true')
+      core.setOutput('triggered', 'false')
       return 'safe-exit'
+      // If multiple triggers are activated, exit (this is not allowed)
+    } else if (
+      (isDeploy && isLock) ||
+      (isDeploy && isUnlock) ||
+      (isLock && isUnlock) ||
+      (isDeploy && isLock && isUnlock)
+    ) {
+      core.saveState('bypass', 'true')
+      core.setOutput('triggered', 'false')
+      core.info(`body: ${body}`)
+      core.setFailed(
+        'IssueOps message contains multiple commands, only one is allowed'
+      )
+      return 'failure'
+    } else if (isDeploy) {
+      core.setOutput('type', 'deploy')
+    } else if (isLock) {
+      core.setOutput('type', 'lock')
+    } else if (isUnlock) {
+      core.setOutput('type', 'unlock')
     }
 
-    // Add the reaction to the issue_comment as we begin to start the deployment
-    const reactRes = await reactEmote(reaction, context, octokit)
-    core.setOutput('comment_id', reactRes.data.id)
-    core.saveState('comment_id', reactRes.data.id)
+    // If we made it this far, the action has been triggered in one manner or another
+    core.setOutput('triggered', 'true')
 
-    // Execute prechecks to ensure the deployment can proceed
+    // Add the reaction to the issue_comment which triggered the Action
+    const reactRes = await reactEmote(reaction, context, octokit)
+    core.setOutput('comment_id', context.payload.comment.id)
+    core.saveState('comment_id', context.payload.comment.id)
+
+    // If the command is a lock/unlock request
+    if (isLock || isUnlock) {
+      // Check to ensure the user has valid permissions
+      const validPermissionsRes = await validPermissions(context, octokit)
+      // If the user doesn't have valid permissions, return an error
+      if (validPermissionsRes !== true) {
+        await actionStatus(
+          context,
+          octokit,
+          reactRes.data.id,
+          validPermissionsRes
+        )
+        // Set the bypass state to true so that the post run logic will not run
+        core.saveState('bypass', 'true')
+        core.setFailed(validPermissionsRes)
+        return 'failure'
+      }
+
+      // If the request is a lock request, attempt to claim the lock with a sticky request
+      if (isLock) {
+        // Get the ref to use with the lock request
+        const pr = await octokit.rest.pulls.get({
+          ...context.repo,
+          pull_number: context.issue.number
+        })
+
+        // Send the lock request
+        const sticky = true
+        await lock(octokit, context, pr.data.head.ref, reactRes.data.id, sticky)
+        core.saveState('bypass', 'true')
+        return 'safe-exit'
+      }
+
+      // If the request is an unlock request, attempt to release the lock
+      if (isUnlock) {
+        unlock(octokit, context, reactRes.data.id)
+        return 'safe-exit'
+      }
+    }
+
+    // Execute prechecks to ensure the Action can proceed
     const precheckResults = await prechecks(
       body,
       trigger,
@@ -78,6 +153,21 @@ export async function run() {
       core.saveState('bypass', 'true')
       core.setFailed(precheckResults.message)
       return 'failure'
+    }
+
+    // Aquire the branch-deploy lock for non-sticky requests
+    // If the lock request fails, exit the Action
+    const sticky = false
+    if (
+      !(await lock(
+        octokit,
+        context,
+        precheckResults.ref,
+        reactRes.data.id,
+        sticky
+      ))
+    ) {
+      return 'safe-exit'
     }
 
     // Set outputs for noopMode
@@ -151,7 +241,10 @@ export async function run() {
 
     return 'success'
   } catch (error) {
-    if (error instanceof Error) core.setFailed(error.message)
+    if (error instanceof Error) {
+      core.saveState('bypass', 'true')
+      core.setFailed(error.message)
+    }
   }
 }
 
