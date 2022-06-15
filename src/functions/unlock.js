@@ -8,7 +8,7 @@ const LOCK_BRANCH = 'branch-deploy-lock'
 // Helper function for releasing a deployment lock
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
-// :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is successfully released)
+// :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is successfully released) (Integer)
 // :returns: true if the lock was successfully released, false otherwise
 export async function unlock(
   octokit,
