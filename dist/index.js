@@ -9616,6 +9616,7 @@ async function lock(octokit, context, ref, reactionId, sticky) {
     - __Branch__: \`${lockData.branch}\`
     - __Created At__: \`${lockData.created_at}\`
     - __Created By__: \`${lockData.created_by}\`
+    - __Sticky__: \`${lockData.sticky}\`
     - __Comment Link__: [click here](${lockData.link})
     - __Lock Link__: [click here](${BASE_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
 
