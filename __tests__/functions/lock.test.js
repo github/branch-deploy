@@ -78,12 +78,6 @@ test('Determines that another user has the lock and exits', async () => {
                     .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
                 get: jest.fn().mockReturnValue({ data: { default_branch: "main" } }),
                 getContent: jest.fn().mockReturnValue({data: {content: lockBase64Octocat}})
-            },
-            git: {
-                createRef: jest.fn().mockReturnValue({ status: 201 })
-            },
-            issues: {
-                createComment: jest.fn().mockReturnValue({})
             }
         }
     }
@@ -102,17 +96,31 @@ test('Determines that the lock request is coming from current owner of the lock 
                     .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
                 get: jest.fn().mockReturnValue({ data: { default_branch: "main" } }),
                 getContent: jest.fn().mockReturnValue({data: {content: lockBase64Monalisa}})
-            },
-            git: {
-                createRef: jest.fn().mockReturnValue({ status: 201 })
+            }
+        }
+    }
+    expect(await lock(octokit, context, ref, 123, false)).toBe('owner')
+    expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
+})
+
+test('Creates a lock when the lock branch exists but no lock file exists', async () => {
+    const octokit = {
+        rest: {
+            repos: {
+                getBranch: jest
+                    .fn()
+                    .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+                get: jest.fn().mockReturnValue({ data: { default_branch: "main" } }),
+                getContent: jest.fn().mockRejectedValue(new NotFoundError('file not found')),
+                createOrUpdateFileContents: jest.fn().mockReturnValue({})
             },
             issues: {
                 createComment: jest.fn().mockReturnValue({})
             }
         }
     }
-    expect(await lock(octokit, context, ref, 123, false)).toBe('owner')
-    expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
+    expect(await lock(octokit, context, ref, 123, false)).toBe(true)
+    expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
 })
 
 // test('fails to release a deployment lock due to a bad HTTP code from the GitHub API', async () => {
