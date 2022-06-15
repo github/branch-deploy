@@ -35,7 +35,7 @@ const context = {
     },
     payload: {
         comment: {
-            body: '.deploy',
+            body: '.lock',
             id: 123
         }
     }
@@ -50,7 +50,7 @@ test('successfully obtains a deployment lock (non-sticky) by creating the branch
                 getBranch: jest
                     .fn()
                     .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
-                    .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+                    .mockReturnValueOnce({ data: { commit: { sha: 'abc123' } } }),
                 get: jest.fn().mockReturnValue({ data: { default_branch: "main" } }),
                 createOrUpdateFileContents: jest.fn().mockReturnValue({})
             },
@@ -75,9 +75,9 @@ test('Determines that another user has the lock and exits', async () => {
             repos: {
                 getBranch: jest
                     .fn()
-                    .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+                    .mockReturnValueOnce({ data: { commit: { sha: 'abc123' } } }),
                 get: jest.fn().mockReturnValue({ data: { default_branch: "main" } }),
-                getContent: jest.fn().mockReturnValue({data: {content: lockBase64Octocat}})
+                getContent: jest.fn().mockReturnValue({ data: { content: lockBase64Octocat } })
             }
         }
     }
@@ -93,9 +93,9 @@ test('Determines that the lock request is coming from current owner of the lock 
             repos: {
                 getBranch: jest
                     .fn()
-                    .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+                    .mockReturnValueOnce({ data: { commit: { sha: 'abc123' } } }),
                 get: jest.fn().mockReturnValue({ data: { default_branch: "main" } }),
-                getContent: jest.fn().mockReturnValue({data: {content: lockBase64Monalisa}})
+                getContent: jest.fn().mockReturnValue({ data: { content: lockBase64Monalisa } })
             }
         }
     }
@@ -109,7 +109,7 @@ test('Creates a lock when the lock branch exists but no lock file exists', async
             repos: {
                 getBranch: jest
                     .fn()
-                    .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+                    .mockReturnValueOnce({ data: { commit: { sha: 'abc123' } } }),
                 get: jest.fn().mockReturnValue({ data: { default_branch: "main" } }),
                 getContent: jest.fn().mockRejectedValue(new NotFoundError('file not found')),
                 createOrUpdateFileContents: jest.fn().mockReturnValue({})
@@ -123,49 +123,102 @@ test('Creates a lock when the lock branch exists but no lock file exists', async
     expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
 })
 
-// test('fails to release a deployment lock due to a bad HTTP code from the GitHub API', async () => {
-//     const badHttpOctokitMock = {
-//         rest: {
-//             git: {
-//                 deleteRef: jest.fn().mockReturnValue({ status: 500 })
-//             }
-//         }
-//     }
-//     expect(await unlock(badHttpOctokitMock, context, 123)).toBe(false)
-//     expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
-//         owner: 'corp',
-//         repo: 'test',
-//         ref: 'heads/branch-deploy-lock'
-//     })
-// })
+test('successfully obtains a deployment lock (sticky) by creating the branch and lock file - with a --reason', async () => {
+    const context = {
+        actor: 'monalisa',
+        repo: {
+            owner: 'corp',
+            repo: 'test'
+        },
+        issue: {
+            number: 1
+        },
+        payload: {
+            comment: {
+                body: '.lock --reason testing a super cool new feature',
+                id: 123
+            }
+        }
+    }
+    const octokit = {
+        rest: {
+            repos: {
+                getBranch: jest
+                    .fn()
+                    .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
+                    .mockReturnValueOnce({ data: { commit: { sha: 'abc123' } } }),
+                get: jest.fn().mockReturnValue({ data: { default_branch: "main" } }),
+                createOrUpdateFileContents: jest.fn().mockReturnValue({})
+            },
+            git: {
+                createRef: jest.fn().mockReturnValue({ status: 201 })
+            },
+            issues: {
+                createComment: jest.fn().mockReturnValue({})
+            }
+        }
+    }
+    expect(await lock(octokit, context, ref, 123, true)).toBe(true)
+    expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
+    expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+    expect(infoMock).toHaveBeenCalledWith('Created lock branch: branch-deploy-lock')
+})
 
-// test('Does not find a deployment lock branch so it lets the user know', async () => {
-//     const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
-//         return undefined
-//     })
-//     const noBranchOctokitMock = {
-//         rest: {
-//             git: {
-//                 deleteRef: jest.fn().mockRejectedValue(new NotFoundError('Reference does not exist'))
-//             }
-//         }
-//     }
-//     expect(await unlock(noBranchOctokitMock, context, 123)).toBe(true)
-//     expect(actionStatusSpy).toHaveBeenCalledWith(context, noBranchOctokitMock, 123, '🔓 There is currently no deployment lock set', true, true)
-// })
+test('successfully obtains a deployment lock (sticky) by creating the branch and lock file - with an empty --reason', async () => {
+    const context = {
+        actor: 'monalisa',
+        repo: {
+            owner: 'corp',
+            repo: 'test'
+        },
+        issue: {
+            number: 1
+        },
+        payload: {
+            comment: {
+                body: '.lock --reason ',
+                id: 123
+            }
+        }
+    }
+    const octokit = {
+        rest: {
+            repos: {
+                getBranch: jest
+                    .fn()
+                    .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
+                    .mockReturnValueOnce({ data: { commit: { sha: 'abc123' } } }),
+                get: jest.fn().mockReturnValue({ data: { default_branch: "main" } }),
+                createOrUpdateFileContents: jest.fn().mockReturnValue({})
+            },
+            git: {
+                createRef: jest.fn().mockReturnValue({ status: 201 })
+            },
+            issues: {
+                createComment: jest.fn().mockReturnValue({})
+            }
+        }
+    }
+    expect(await lock(octokit, context, ref, 123, true)).toBe(true)
+    expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
+    expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+    expect(infoMock).toHaveBeenCalledWith('Created lock branch: branch-deploy-lock')
+})
 
-// test('throws an error if an unhandled exception occurs', async () => {
-//     const errorOctokitMock = {
-//         rest: {
-//             git: {
-//                 deleteRef: jest.fn().mockRejectedValue(new Error('oh no'))
-//             }
-//         }
-//     }
-//     try {
-//         await unlock(errorOctokitMock, context, 123)
-//     } catch (e) {
-//         expect(e.message).toBe('Error: oh no')
-//     }
-// })
-
+test('throws an error if an unhandled exception occurs', async () => {
+    const octokit = {
+        rest: {
+            repos: {
+                getBranch: jest
+                    .fn()
+                    .mockRejectedValueOnce(new Error('oh no')),
+                getContent: jest.fn().mockRejectedValue(new Error('oh no')),
+            }
+        }
+    }
+    try {
+        await lock(octokit, context, ref, 123, true)
+    } catch (e) {
+        expect(e.message).toBe('Error: oh no')
+    }
+})
