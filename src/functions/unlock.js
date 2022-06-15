@@ -40,22 +40,22 @@ export async function unlock(
       return true
     } else {
       // If the lock was not successfully released, return false and log the HTTP code
-      core.info(`failed to delete lock branch: ${LOCK_BRANCH} - HTTP: ${result.status}`)
+      const comment = `failed to delete lock branch: ${LOCK_BRANCH} - HTTP: ${result.status}`
+      core.info(comment)
+      await actionStatus(context, octokit, reactionId, comment, false)
       return false
     }
   } catch (error) {
     // The the error caught was a 422 - Reference does not exist, this is OK - It means the lock branch does not exist
     if (error.status === 422 && error.message === 'Reference does not exist') {
       // Leave a comment letting the user know there is no lock to release
-      await octokit.rest.issues.createComment({
-        ...context.repo,
-        issue_number: context.issue.number,
-        body: '🔓 There is currently no deployment lock set'
-      })
+      await actionStatus(context, octokit, reactionId, '🔓 There is currently no deployment lock set', true, true)
+
       // Return true since there is no lock to release
       return true
     }
 
+    // Update the PR with the error
     await actionStatus(context, octokit, reactionId, error.message, false)
 
     throw new Error(error)
