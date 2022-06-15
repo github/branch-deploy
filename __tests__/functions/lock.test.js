@@ -95,13 +95,13 @@ test('Determines that another user has the lock and exits', async () => {
     octokit,
     123,
     expect.stringMatching(
-      /Sorry __monalisa__, the deployment lock has already been claimed/
+      /Sorry __monalisa__, the deployment lock is currently claimed by __octocat__/
     )
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
   expect(setFailedMock).toHaveBeenCalledWith(
     expect.stringMatching(
-      /Sorry __monalisa__, the deployment lock has already been claimed/
+      /Sorry __monalisa__, the deployment lock is currently claimed by __octocat__/
     )
   )
 })

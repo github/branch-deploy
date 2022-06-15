@@ -69,8 +69,14 @@ async function createLock(octokit, context, ref, reason, sticky) {
 
 // Helper function to find a --reason flag in the comment body for a lock request
 // :param context: The GitHub Actions event context
+// :param type: The type of lock invocation 'direct' or 'indirect'
 // :returns: The reason for the lock request - either a string of text or null if no reason was provided
-async function findReason(context) {
+async function findReason(context, type) {
+  // If the type is 'indirect' return
+  if (type === 'indirect') {
+    return 'deployment'
+  }
+
   // Get the body of the comment
   const body = context.payload.comment.body.trim()
 
@@ -101,10 +107,11 @@ async function findReason(context) {
 // :param ref: The branch which requested the lock / deployment
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is already claimed)
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
+// :param type: Indicates whether the lock type is for a 'direct' or 'indirect' lock (ie .lock or .deploy)
 // :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock
-export async function lock(octokit, context, ref, reactionId, sticky) {
+export async function lock(octokit, context, ref, reactionId, sticky, type) {
   // Attempt to obtain a reason from the context for the lock - either a string or null
-  const reason = findReason(context)
+  const reason = findReason(context, type)
 
   // Check if the lock branch already exists
   try {
@@ -170,11 +177,19 @@ export async function lock(octokit, context, ref, reactionId, sticky) {
       new Date().toISOString()
     )
 
+    // Set the header based on the type
+    var header = ''
+    if (type === 'direct') {
+      header = 'claim deployment lock'
+    } else if (type === 'indirect') {
+      header = 'proceed with deployment'
+    }
+
     // Construct the comment to add to the issue, alerting that the lock is already claimed
     const comment = dedent(`
-    ### ⚠️ Cannot proceed with deployment
+    ### ⚠️ Cannot ${header}
 
-    Sorry __${context.actor}__, the deployment lock has already been claimed so your deployment cannot proceed
+    Sorry __${context.actor}__, the deployment lock is currently claimed by __${lockData.created_by}__
 
     #### Lock Details 🔒
 
