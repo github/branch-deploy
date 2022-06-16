@@ -1,12 +1,17 @@
 import {postDeploy} from '../../src/functions/post-deploy'
 import * as actionStatus from '../../src/functions/action-status'
+import * as lock from '../../src/functions/lock'
 import * as createDeploymentStatus from '../../src/functions/deployment'
 import * as core from '@actions/core'
 
 beforeEach(() => {
   jest.resetAllMocks()
+  jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
+  })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {sticky: true}
   })
   jest
     .spyOn(createDeploymentStatus, 'createDeploymentStatus')
