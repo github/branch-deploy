@@ -8,6 +8,7 @@ export async function post() {
   try {
     const ref = core.getState('ref')
     const comment_id = core.getState('comment_id')
+    const reaction_id = core.getState('reaction_id')
     const noop = core.getState('noop')
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
@@ -34,6 +35,7 @@ export async function post() {
       context,
       octokit,
       comment_id,
+      reaction_id,
       status,
       deployMessage,
       ref,

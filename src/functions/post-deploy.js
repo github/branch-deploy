@@ -6,6 +6,7 @@ import dedent from 'dedent-js'
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
 // :param comment_id: The comment_id which initially triggered the deployment Action
+// :param reaction_id: The reaction_id which was initially added to the comment that triggered the Action
 // :param status: The status of the deployment (String)
 // :param message: A custom string to add as the deployment status message (String)
 // :param ref: The ref (branch) which is being used for deployment (String)
@@ -15,6 +16,7 @@ export async function postDeploy(
   context,
   octokit,
   comment_id,
+  reaction_id,
   status,
   customMessage,
   ref,
@@ -116,7 +118,7 @@ export async function postDeploy(
   await actionStatus(
     context,
     octokit,
-    parseInt(comment_id),
+    parseInt(reaction_id),
     message_fmt,
     success
   )
