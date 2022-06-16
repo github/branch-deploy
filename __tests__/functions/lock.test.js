@@ -140,7 +140,7 @@ test('Determines that another user has the lock and exits - during a direct lock
   )
 })
 
-test('Determines that the lock request is coming from current owner of the lock and exits', async () => {
+test('Determines that the lock request is coming from current owner of the lock and exits - non-sticky', async () => {
   const octokit = {
     rest: {
       repos: {
@@ -155,6 +155,24 @@ test('Determines that the lock request is coming from current owner of the lock 
     }
   }
   expect(await lock(octokit, context, ref, 123, false)).toBe('owner')
+  expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
+})
+
+test('Determines that the lock request is coming from current owner of the lock and exits - sticky', async () => {
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockReturnValue({data: {content: lockBase64Monalisa}})
+      }
+    }
+  }
+  expect(await lock(octokit, context, ref, 123, true)).toBe('owner')
   expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
 })
 
