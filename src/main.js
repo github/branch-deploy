@@ -134,7 +134,7 @@ export async function run() {
             )
 
             // Format the lock details message
-            const lockMessage = dedent`
+            const lockMessage = dedent(`
             ### Lock Details 🔒
 
             The deployment lock is currently claimed by __${lockData.created_by}__
@@ -150,14 +150,14 @@ export async function run() {
             The current lock has been active for \`${totalTime}\`
         
             > If you need to release the lock, please comment \`${unlock_trigger}\`
-            `
+            `)
 
             // Update the issue comment with the lock details
             await actionStatus(
               context,
               octokit,
               reactRes.data.id,
-              lockMessage,
+              lockMessage.replace('\t', ''),
               true,
               true
             )
@@ -165,19 +165,19 @@ export async function run() {
               `the deployment lock is currently claimed by __${lockData.created_by}__`
             )
           } else if (lockData === null) {
-            const lockMessage = dedent`
+            const lockMessage = dedent(`
             ### Lock Details 🔒
         
             No active deployment locks found for the \`${owner}/${repo}\` repository
         
             > If you need to create a lock, please comment \`${lock_trigger}\`
-            `
+            `)
 
             await actionStatus(
               context,
               octokit,
               reactRes.data.id,
-              lockMessage,
+              lockMessage.replace('\t', ''),
               true,
               true
             )
