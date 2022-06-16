@@ -107,7 +107,14 @@ async function findReason(context, sticky) {
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :param detailsOnly: A bool indicating whether to only return the details of the lock and not alter its state
 // :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock, or null if this is a detailsOnly request and the lock was not found
-export async function lock(octokit, context, ref, reactionId, sticky, detailsOnly = false) {
+export async function lock(
+  octokit,
+  context,
+  ref,
+  reactionId,
+  sticky,
+  detailsOnly = false
+) {
   // Attempt to obtain a reason from the context for the lock - either a string or null
   const reason = await findReason(context, sticky)
 

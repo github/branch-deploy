@@ -44,7 +44,9 @@ test('successfully releases a deployment lock with the unlock function', async (
 })
 
 test('successfully releases a deployment lock with the unlock function - silent mode', async () => {
-  expect(await unlock(octokit, context, 123, true)).toBe('removed lock - silent')
+  expect(await unlock(octokit, context, 123, true)).toBe(
+    'removed lock - silent'
+  )
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',
@@ -60,7 +62,9 @@ test('fails to release a deployment lock due to a bad HTTP code from the GitHub 
       }
     }
   }
-  expect(await unlock(badHttpOctokitMock, context, 123, true)).toBe('failed to delete lock (bad status code) - silent')
+  expect(await unlock(badHttpOctokitMock, context, 123, true)).toBe(
+    'failed to delete lock (bad status code) - silent'
+  )
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',
@@ -93,7 +97,9 @@ test('Does not find a deployment lock branch so it lets the user know - silent m
       }
     }
   }
-  expect(await unlock(noBranchOctokitMock, context, 123, true)).toBe('no deployment lock currently set - silent')
+  expect(await unlock(noBranchOctokitMock, context, 123, true)).toBe(
+    'no deployment lock currently set - silent'
+  )
 })
 
 test('fails to release a deployment lock due to a bad HTTP code from the GitHub API', async () => {

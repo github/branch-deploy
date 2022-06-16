@@ -154,7 +154,14 @@ test('Request detailsOnly on the lock file and gets lock file data successfully'
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, null, true)).toStrictEqual({"branch": "octocats-everywhere", "created_at": "2022-06-14T21:12:14.041Z", "created_by": "octocat", "link": "https://github.com/test-org/test-repo/pull/2#issuecomment-456", "reason": "Testing my new feature with lots of cats", "sticky": true})
+  expect(await lock(octokit, context, ref, 123, null, true)).toStrictEqual({
+    branch: 'octocats-everywhere',
+    created_at: '2022-06-14T21:12:14.041Z',
+    created_by: 'octocat',
+    link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+    reason: 'Testing my new feature with lots of cats',
+    sticky: true
+  })
 })
 
 test('Request detailsOnly on the lock file when the lock branch exists but no lock file exists', async () => {
