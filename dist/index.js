@@ -10020,6 +10020,11 @@ async function post() {
 
 
 
+
+const main_LOCK_BRANCH = 'branch-deploy-lock'
+const main_LOCK_FILE = 'lock.json'
+const main_BASE_URL = 'https://github.com'
+
 // :returns: 'success', 'success - noop', 'failure', 'safe-exit', or raises an error
 async function run() {
   try {
@@ -10113,8 +10118,86 @@ async function run() {
         return 'failure'
       }
 
-      // If the request is a lock request, attempt to claim the lock with a sticky request
+      // If it is a lock releated request
       if (isLock) {
+        // If the lock request is only for details
+        if (body.includes('--details') === true) {
+          // Get the lock details from the lock file
+          const lockData = await lock(
+            octokit,
+            github.context,
+            null,
+            reactRes.data.id,
+            null,
+            true
+          )
+
+          // If a lock was found
+          if (lockData !== null) {
+            // Find the total time since the lock was created
+            const totalTime = await timeDiff(
+              lockData.created_at,
+              new Date().toISOString()
+            )
+
+            // Format the lock details message
+            const lockMessage = lib_default()(`
+            ### Lock Details 🔒
+
+            The deployment lock is currently claimed by __${lockData.created_by}__
+        
+            - __Reason__: \`${lockData.reason}\`
+            - __Branch__: \`${lockData.branch}\`
+            - __Created At__: \`${lockData.created_at}\`
+            - __Created By__: \`${lockData.created_by}\`
+            - __Sticky__: \`${lockData.sticky}\`
+            - __Comment Link__: [click here](${lockData.link})
+            - __Lock Link__: [click here](${main_BASE_URL}/${owner}/${repo}/blob/${main_LOCK_BRANCH}/${main_LOCK_FILE})
+        
+            The current lock has been active for \`${totalTime}\`
+        
+            > If you need to release the lock, please comment \`${unlock_trigger}\`
+            `)
+
+            // Update the issue comment with the lock details
+            await actionStatus(
+              github.context,
+              octokit,
+              reactRes.data.id,
+              lockMessage,
+              true,
+              true
+            )
+            core.info(
+              `the deployment lock is currently claimed by __${lockData.created_by}__`
+            )
+          } else if (lockData === null) {
+            const lockMessage = lib_default()(`
+            ### Lock Details 🔒
+        
+            No active deployment locks found for the \`${owner}/${repo}\` repository
+        
+            > If you need to create a lock, please comment \`${lock_trigger}\`
+            `)
+
+            await actionStatus(
+              github.context,
+              octokit,
+              reactRes.data.id,
+              lockMessage,
+              true,
+              true
+            )
+            core.info('no active deployment locks found')
+          }
+
+          // Exit the action since we are done after obtaining only the lock details with --details
+          core.saveState('bypass', 'true')
+          return 'safe-exit'
+        }
+
+        // If the request is a lock request, attempt to claim the lock with a sticky request with the logic below
+
         // Get the ref to use with the lock request
         const pr = await octokit.rest.pulls.get({
           ...github.context.repo,
