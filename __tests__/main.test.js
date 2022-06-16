@@ -45,6 +45,11 @@ beforeEach(() => {
   jest.spyOn(github, 'getOctokit').mockImplementation(() => {
     return {
       rest: {
+        issues: {
+          createComment: jest.fn().mockReturnValueOnce({
+            data: {}
+          })
+        },
         repos: {
           createDeployment: jest.fn().mockImplementation(() => {
             return {data: {id: 123}}
@@ -215,6 +220,81 @@ test('successfully runs the action in lock mode', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })
 
+test('successfully runs the action in lock mode - details only', async () => {
+  const infoSpy = jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {
+      branch: 'octocats-everywhere',
+      created_at: '2022-06-14T21:12:14.041Z',
+      created_by: 'octocat',
+      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+      reason: 'Testing my new feature with lots of cats',
+      sticky: true
+    }
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.lock --details',
+      id: 123
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --details')
+  expect(infoSpy).toHaveBeenCalledWith(
+    'the deployment lock is currently claimed by __octocat__'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
+test('successfully runs the action in lock mode and finds no lock - details only', async () => {
+  const infoSpy = jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return null
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.lock --details',
+      id: 123
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --details')
+  expect(infoSpy).toHaveBeenCalledWith('no active deployment locks found')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
 test('fails to aquire the lock on a deploy so it exits', async () => {
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return false
@@ -297,6 +377,11 @@ test('detects an out of date branch and exits', async () => {
   jest.spyOn(github, 'getOctokit').mockImplementation(() => {
     return {
       rest: {
+        issues: {
+          createComment: jest.fn().mockReturnValueOnce({
+            data: {}
+          })
+        },
         repos: {
           createDeployment: jest.fn().mockImplementation(() => {
             return {data: {id: undefined, message: 'Auto-merged'}}

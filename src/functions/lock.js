@@ -105,8 +105,16 @@ async function findReason(context, sticky) {
 // :param ref: The branch which requested the lock / deployment
 // :param reactionId: The ID of the reaction to add to the issue comment (use if the lock is already claimed or if we claimed it with 'sticky')
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
-// :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock
-export async function lock(octokit, context, ref, reactionId, sticky) {
+// :param detailsOnly: A bool indicating whether to only return the details of the lock and not alter its state
+// :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock, or null if this is a detailsOnly request and the lock was not found
+export async function lock(
+  octokit,
+  context,
+  ref,
+  reactionId,
+  sticky,
+  detailsOnly = false
+) {
   // Attempt to obtain a reason from the context for the lock - either a string or null
   const reason = await findReason(context, sticky)
 
@@ -119,6 +127,11 @@ export async function lock(octokit, context, ref, reactionId, sticky) {
   } catch (error) {
     // Create the lock branch if it doesn't exist
     if (error.status === 404) {
+      // Exit if this is a detailsOnly request
+      if (detailsOnly) {
+        return null
+      }
+
       // Determine the default branch for the repo
       const repoData = await octokit.rest.repos.get({
         ...context.repo
@@ -158,6 +171,10 @@ export async function lock(octokit, context, ref, reactionId, sticky) {
     const lockData = JSON.parse(
       Buffer.from(response.data.content, 'base64').toString()
     )
+
+    if (detailsOnly) {
+      return lockData
+    }
 
     // If the requestor is the one who owns the lock, return 'owner'
     if (lockData.created_by === context.actor) {
@@ -244,6 +261,11 @@ export async function lock(octokit, context, ref, reactionId, sticky) {
   } catch (error) {
     // If the lock file doesn't exist, create it
     if (error.status === 404) {
+      // Exit if this is a detailsOnly request
+      if (detailsOnly) {
+        return null
+      }
+
       await createLock(octokit, context, ref, reason, sticky, reactionId)
       return true
     }

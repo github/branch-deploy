@@ -1,12 +1,18 @@
 import {postDeploy} from '../../src/functions/post-deploy'
 import * as actionStatus from '../../src/functions/action-status'
+import * as lock from '../../src/functions/lock'
+import * as unlock from '../../src/functions/unlock'
 import * as createDeploymentStatus from '../../src/functions/deployment'
 import * as core from '@actions/core'
 
 beforeEach(() => {
   jest.resetAllMocks()
+  jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
+  })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {sticky: true}
   })
   jest
     .spyOn(createDeploymentStatus, 'createDeploymentStatus')
@@ -102,6 +108,123 @@ test('successfully completes a production branch deployment', async () => {
     'success',
     456,
     'production'
+  )
+})
+
+test('successfully completes a production branch deployment and removes a non-sticky lock', async () => {
+  const lockSpy = jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {sticky: false}
+  })
+  jest.spyOn(unlock, 'unlock').mockImplementation(() => {
+    return true
+  })
+  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
+  const createDeploymentStatusSpy = jest.spyOn(
+    createDeploymentStatus,
+    'createDeploymentStatus'
+  )
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'success',
+      'Deployment has created 1 new server',
+      'test-ref',
+      'false',
+      456,
+      'production'
+    )
+  ).toBe('success')
+
+  expect(lockSpy).toHaveBeenCalled()
+  expect(actionStatusSpy).toHaveBeenCalled()
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    12345,
+    '  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `branch` 🚀\n  - Branch: `test-ref`\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>\n\n  Successfully deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`',
+    true
+  )
+  expect(createDeploymentStatusSpy).toHaveBeenCalled()
+  expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    'test-ref',
+    'success',
+    456,
+    'production'
+  )
+})
+
+test('successfully completes a noop branch deployment and removes a non-sticky lock', async () => {
+  const lockSpy = jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {sticky: false}
+  })
+  jest.spyOn(unlock, 'unlock').mockImplementation(() => {
+    return true
+  })
+  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'success',
+      'Deployment has created 1 new server',
+      'test-ref',
+      'true',
+      456,
+      'production'
+    )
+  ).toBe('success - noop')
+
+  expect(lockSpy).toHaveBeenCalled()
+  expect(actionStatusSpy).toHaveBeenCalled()
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    12345,
+    '  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `noop` 🧪\n  - Branch: `test-ref`\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>\n\n  Successfully noop deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`',
+    true
   )
 })
 

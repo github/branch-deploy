@@ -1,5 +1,8 @@
+import * as core from '@actions/core'
 import {actionStatus} from './action-status'
 import {createDeploymentStatus} from './deployment'
+import {unlock} from './unlock'
+import {lock} from './lock'
 import dedent from 'dedent-js'
 
 // Helper function to help facilitate the process of completing a deployment
@@ -133,6 +136,16 @@ export async function postDeploy(
 
   // If the deployment mode is noop, return here
   if (noop === 'true') {
+    // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
+    const lockData = await lock(octokit, context, null, null, false, true)
+    // If the lock is sticky, we will not remove it
+    if (lockData.sticky) {
+      core.info('sticky lock detected, will not remove lock')
+    } else if (lockData.sticky === false) {
+      // Remove the lock - use silent mode
+      await unlock(octokit, context, null, true)
+    }
+
     return 'success - noop'
   }
 
@@ -145,6 +158,16 @@ export async function postDeploy(
     deployment_id,
     environment
   )
+
+  // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
+  const lockData = await lock(octokit, context, null, null, false, true)
+  // If the lock is sticky, we will not remove it
+  if (lockData.sticky) {
+    core.info('sticky lock detected, will not remove lock')
+  } else if (lockData.sticky === false) {
+    // Remove the lock - use silent mode
+    await unlock(octokit, context, null, true)
+  }
 
   // If the post deploy comment logic completes successfully, return
   return 'success'

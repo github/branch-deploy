@@ -9379,34 +9379,6 @@ async function prechecks(
     return {message: message, status: false}
   }
 
-  // Format the PR comment message based on deployment mode
-  var deploymentType
-  if (noopMode) {
-    deploymentType = 'noop'
-  } else {
-    deploymentType = 'branch'
-  }
-
-  // Format the success message
-  const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
-  const commentBody = lib_default()(`
-    ### Deployment Triggered
-
-    __${context.actor}__, started a __${deploymentType}__ deployment 🚀
-
-    - __Branch__: \`${ref}\`
-    - __Mode__: \`${deploymentType}\`
-
-    You can watch the progress [here](${log_url}) 🔗
-  `)
-
-  // Make a comment on the pr with the successful results
-  await octokit.rest.issues.createComment({
-    ...context.repo,
-    issue_number: context.issue.number,
-    body: commentBody
-  })
-
   // Return a success message
   return {message: message, status: true, ref: ref, noopMode: noopMode}
 }
@@ -9540,8 +9512,16 @@ async function findReason(context, sticky) {
 // :param ref: The branch which requested the lock / deployment
 // :param reactionId: The ID of the reaction to add to the issue comment (use if the lock is already claimed or if we claimed it with 'sticky')
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
-// :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock
-async function lock(octokit, context, ref, reactionId, sticky) {
+// :param detailsOnly: A bool indicating whether to only return the details of the lock and not alter its state
+// :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock, or null if this is a detailsOnly request and the lock was not found
+async function lock(
+  octokit,
+  context,
+  ref,
+  reactionId,
+  sticky,
+  detailsOnly = false
+) {
   // Attempt to obtain a reason from the context for the lock - either a string or null
   const reason = await findReason(context, sticky)
 
@@ -9554,6 +9534,11 @@ async function lock(octokit, context, ref, reactionId, sticky) {
   } catch (error) {
     // Create the lock branch if it doesn't exist
     if (error.status === 404) {
+      // Exit if this is a detailsOnly request
+      if (detailsOnly) {
+        return null
+      }
+
       // Determine the default branch for the repo
       const repoData = await octokit.rest.repos.get({
         ...context.repo
@@ -9593,6 +9578,10 @@ async function lock(octokit, context, ref, reactionId, sticky) {
     const lockData = JSON.parse(
       Buffer.from(response.data.content, 'base64').toString()
     )
+
+    if (detailsOnly) {
+      return lockData
+    }
 
     // If the requestor is the one who owns the lock, return 'owner'
     if (lockData.created_by === context.actor) {
@@ -9679,6 +9668,11 @@ async function lock(octokit, context, ref, reactionId, sticky) {
   } catch (error) {
     // If the lock file doesn't exist, create it
     if (error.status === 404) {
+      // Exit if this is a detailsOnly request
+      if (detailsOnly) {
+        return null
+      }
+
       await createLock(octokit, context, ref, reason, sticky, reactionId)
       return true
     }
@@ -9700,8 +9694,9 @@ const unlock_LOCK_BRANCH = 'branch-deploy-lock'
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is successfully released) (Integer)
-// :returns: true if the lock was successfully released, false otherwise
-async function unlock(octokit, context, reactionId) {
+// :param silent: A bool indicating whether to add a comment to the issue or not (Boolean)
+// :returns: true if the lock was successfully released, a string with some details if silent was used, false otherwise
+async function unlock(octokit, context, reactionId, silent = false) {
   try {
     // Delete the lock branch
     const result = await octokit.rest.git.deleteRef({
@@ -9712,6 +9707,11 @@ async function unlock(octokit, context, reactionId) {
     // If the lock was successfully released, return true
     if (result.status === 204) {
       core.info(`successfully removed lock`)
+
+      // If silent, exit here
+      if (silent) {
+        return 'removed lock - silent'
+      }
 
       // Construct the message to add to the issue comment
       const comment = lib_default()(`
@@ -9729,12 +9729,23 @@ async function unlock(octokit, context, reactionId) {
       // If the lock was not successfully released, return false and log the HTTP code
       const comment = `failed to delete lock branch: ${unlock_LOCK_BRANCH} - HTTP: ${result.status}`
       core.info(comment)
+
+      // If silent, exit here
+      if (silent) {
+        return 'failed to delete lock (bad status code) - silent'
+      }
+
       await actionStatus(context, octokit, reactionId, comment, false)
       return false
     }
   } catch (error) {
     // The the error caught was a 422 - Reference does not exist, this is OK - It means the lock branch does not exist
     if (error.status === 422 && error.message === 'Reference does not exist') {
+      // If silent, exit here
+      if (silent) {
+        return 'no deployment lock currently set - silent'
+      }
+
       // Leave a comment letting the user know there is no lock to release
       await actionStatus(
         context,
@@ -9749,6 +9760,11 @@ async function unlock(octokit, context, reactionId) {
       return true
     }
 
+    // If silent, exit here
+    if (silent) {
+      throw new Error(error)
+    }
+
     // Update the PR with the error
     await actionStatus(context, octokit, reactionId, error.message, false)
 
@@ -9757,6 +9773,9 @@ async function unlock(octokit, context, reactionId) {
 }
 
 ;// CONCATENATED MODULE: ./src/functions/post-deploy.js
+
+
+
 
 
 
@@ -9892,6 +9911,16 @@ async function postDeploy(
 
   // If the deployment mode is noop, return here
   if (noop === 'true') {
+    // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
+    const lockData = await lock(octokit, context, null, null, false, true)
+    // If the lock is sticky, we will not remove it
+    if (lockData.sticky) {
+      core.info('sticky lock detected, will not remove lock')
+    } else if (lockData.sticky === false) {
+      // Remove the lock - use silent mode
+      await unlock(octokit, context, null, true)
+    }
+
     return 'success - noop'
   }
 
@@ -9904,6 +9933,16 @@ async function postDeploy(
     deployment_id,
     environment
   )
+
+  // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
+  const lockData = await lock(octokit, context, null, null, false, true)
+  // If the lock is sticky, we will not remove it
+  if (lockData.sticky) {
+    core.info('sticky lock detected, will not remove lock')
+  } else if (lockData.sticky === false) {
+    // Remove the lock - use silent mode
+    await unlock(octokit, context, null, true)
+  }
 
   // If the post deploy comment logic completes successfully, return
   return 'success'
@@ -9980,6 +10019,11 @@ async function post() {
 
 
 
+
+
+const main_LOCK_BRANCH = 'branch-deploy-lock'
+const main_LOCK_FILE = 'lock.json'
+const main_BASE_URL = 'https://github.com'
 
 // :returns: 'success', 'success - noop', 'failure', 'safe-exit', or raises an error
 async function run() {
@@ -10074,8 +10118,86 @@ async function run() {
         return 'failure'
       }
 
-      // If the request is a lock request, attempt to claim the lock with a sticky request
+      // If it is a lock releated request
       if (isLock) {
+        // If the lock request is only for details
+        if (body.includes('--details') === true) {
+          // Get the lock details from the lock file
+          const lockData = await lock(
+            octokit,
+            github.context,
+            null,
+            reactRes.data.id,
+            null,
+            true
+          )
+
+          // If a lock was found
+          if (lockData !== null) {
+            // Find the total time since the lock was created
+            const totalTime = await timeDiff(
+              lockData.created_at,
+              new Date().toISOString()
+            )
+
+            // Format the lock details message
+            const lockMessage = lib_default()(`
+            ### Lock Details 🔒
+
+            The deployment lock is currently claimed by __${lockData.created_by}__
+        
+            - __Reason__: \`${lockData.reason}\`
+            - __Branch__: \`${lockData.branch}\`
+            - __Created At__: \`${lockData.created_at}\`
+            - __Created By__: \`${lockData.created_by}\`
+            - __Sticky__: \`${lockData.sticky}\`
+            - __Comment Link__: [click here](${lockData.link})
+            - __Lock Link__: [click here](${main_BASE_URL}/${owner}/${repo}/blob/${main_LOCK_BRANCH}/${main_LOCK_FILE})
+        
+            The current lock has been active for \`${totalTime}\`
+        
+            > If you need to release the lock, please comment \`${unlock_trigger}\`
+            `)
+
+            // Update the issue comment with the lock details
+            await actionStatus(
+              github.context,
+              octokit,
+              reactRes.data.id,
+              lockMessage,
+              true,
+              true
+            )
+            core.info(
+              `the deployment lock is currently claimed by __${lockData.created_by}__`
+            )
+          } else if (lockData === null) {
+            const lockMessage = lib_default()(`
+            ### Lock Details 🔒
+        
+            No active deployment locks found for the \`${owner}/${repo}\` repository
+        
+            > If you need to create a lock, please comment \`${lock_trigger}\`
+            `)
+
+            await actionStatus(
+              github.context,
+              octokit,
+              reactRes.data.id,
+              lockMessage,
+              true,
+              true
+            )
+            core.info('no active deployment locks found')
+          }
+
+          // Exit the action since we are done after obtaining only the lock details with --details
+          core.saveState('bypass', 'true')
+          return 'safe-exit'
+        }
+
+        // If the request is a lock request, attempt to claim the lock with a sticky request with the logic below
+
         // Get the ref to use with the lock request
         const pr = await octokit.rest.pulls.get({
           ...github.context.repo,
@@ -10091,7 +10213,7 @@ async function run() {
 
       // If the request is an unlock request, attempt to release the lock
       if (isUnlock) {
-        unlock(octokit, github.context, reactRes.data.id)
+        await unlock(octokit, github.context, reactRes.data.id)
         core.saveState('bypass', 'true')
         return 'safe-exit'
       }
@@ -10139,6 +10261,33 @@ async function run() {
     ) {
       return 'safe-exit'
     }
+
+    // Add a comment to the PR letting the user know that a deployment has been started
+    // Format the success message
+    var deploymentType
+    if (precheckResults.noopMode) {
+      deploymentType = 'noop'
+    } else {
+      deploymentType = 'branch'
+    }
+    const log_url = `${process.env.GITHUB_SERVER_URL}/${github.context.repo.owner}/${github.context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+    const commentBody = lib_default()(`
+      ### Deployment Triggered
+
+      __${github.context.actor}__, started a __${deploymentType}__ deployment 🚀
+
+      - __Branch__: \`${precheckResults.ref}\`
+      - __Mode__: \`${deploymentType}\`
+
+      You can watch the progress [here](${log_url}) 🔗
+    `)
+
+    // Make a comment on the PR
+    await octokit.rest.issues.createComment({
+      ...github.context.repo,
+      issue_number: github.context.issue.number,
+      body: commentBody
+    })
 
     // Set outputs for noopMode
     var noop
