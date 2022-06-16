@@ -450,6 +450,18 @@ This Action uses GitHub branches to create a deployment lock. When you run `.loc
 
 Now when new deployments are run, they will check if a lock exists. If it does and it doesn't belong to you, your deployment is rejected. If the lock does belong to you, the deployment will continue.
 
+#### Deployment Lock Examples 📸
+
+Here are a few examples of deployment locks in action!
+
+Lock Example:
+
+![lock](https://user-images.githubusercontent.com/23362539/174189284-e3207acb-e647-4467-9cf0-676a811b32f1.png)
+
+Unlock Example:
+
+![unlock](https://user-images.githubusercontent.com/23362539/174189384-6faadd57-9512-4056-91d7-c15c3032e1e6.png)
+
 ### Actions Concurrency
 
 > Note: Using the locking mechanism included in this Action (above) is highly recommended over Actions concurreny. The section below will be included anyways should you have a valid reason to use it instead of the deploy lock features this Action provides
