@@ -10164,7 +10164,8 @@ async function run() {
               github.context,
               octokit,
               reactRes.data.id,
-              lockMessage.replace('    ', ''),
+              // eslint-disable-next-line no-regex-spaces
+              lockMessage.replace(new RegExp('    ', 'g'), ''),
               true,
               true
             )
@@ -10184,7 +10185,8 @@ async function run() {
               github.context,
               octokit,
               reactRes.data.id,
-              lockMessage.replace('    ', ''),
+              // eslint-disable-next-line no-regex-spaces
+              lockMessage.replace(new RegExp('    ', 'g'), ''),
               true,
               true
             )

@@ -157,7 +157,8 @@ export async function run() {
               context,
               octokit,
               reactRes.data.id,
-              lockMessage.replace('    ', ''),
+              // eslint-disable-next-line no-regex-spaces
+              lockMessage.replace(new RegExp('    ', 'g'), ''),
               true,
               true
             )
@@ -177,7 +178,8 @@ export async function run() {
               context,
               octokit,
               reactRes.data.id,
-              lockMessage.replace('    ', ''),
+              // eslint-disable-next-line no-regex-spaces
+              lockMessage.replace(new RegExp('    ', 'g'), ''),
               true,
               true
             )
