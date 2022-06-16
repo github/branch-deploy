@@ -11,6 +11,7 @@ This Action does the heavy lifting for you to enable branch deployments:
 - ✔️ Respects your branch protection settings configured for the repo
 - 🗨️ Comments and reacts to your IssueOps commands
 - 🚀 Triggers GitHub deployments for you with simple configuration
+- 🔓 Deploy locks to prevent multiple deployments from clashing
 
 ## Demo 🎥
 
@@ -372,6 +373,8 @@ permissions:
   deployments: write
   contents: read
 ```
+
+It should also be noted that this Action has built in functions to check the permissions of a user who invokes a IssueOps command. If the user does not have `write` or greater permissions to the repository, their command will be rejected
 
 ## Actions Stability 🔧
 
