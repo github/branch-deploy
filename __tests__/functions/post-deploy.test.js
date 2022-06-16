@@ -79,8 +79,7 @@ test('successfully completes a production branch deployment', async () => {
     },
     123,
     '  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `branch` 🚀\n  - Branch: `test-ref`\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>\n\n  Successfully deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`',
-    true,
-    'test-ref'
+    true
   )
   expect(createDeploymentStatusSpy).toHaveBeenCalled()
   expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
@@ -138,8 +137,7 @@ test('successfully completes a production branch deployment with no custom messa
     },
     123,
     '  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `branch` 🚀\n  - Branch: `test-ref`\n\n  Successfully deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`',
-    true,
-    'test-ref'
+    true
   )
 })
 
