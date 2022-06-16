@@ -203,7 +203,7 @@ export async function lock(octokit, context, ref, reactionId, sticky, type) {
 
     The current lock has been active for \`${totalTime}\`
 
-    > If you need to unlock, please comment \`.unlock\`
+    > If you need to release the lock, please comment \`.unlock\`
     `)
 
     // Set the action status with the comment
