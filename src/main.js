@@ -116,7 +116,14 @@ export async function run() {
         // Send the lock request
         const sticky = true
         const type = 'direct'
-        await lock(octokit, context, pr.data.head.ref, reactRes.data.id, sticky, type)
+        await lock(
+          octokit,
+          context,
+          pr.data.head.ref,
+          reactRes.data.id,
+          sticky,
+          type
+        )
         core.saveState('bypass', 'true')
         return 'safe-exit'
       }
@@ -244,10 +251,9 @@ export async function run() {
 
     return 'success'
   } catch (error) {
-    if (error instanceof Error) {
-      core.saveState('bypass', 'true')
-      core.setFailed(error.message)
-    }
+    core.saveState('bypass', 'true')
+    core.error(error.stack)
+    core.setFailed(error.message)
   }
 }
 

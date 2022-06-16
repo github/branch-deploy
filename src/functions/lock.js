@@ -81,10 +81,10 @@ async function findReason(context, type) {
   const body = context.payload.comment.body.trim()
 
   // Check if --reason was provided
-  if (body.includes("--reason") === false) {
+  if (body.includes('--reason') === false) {
     // If no reason was provided, return null
     return null
-  } 
+  }
 
   // Find the --reason flag in the body
   const reasonRaw = body.split('--reason')[1]
