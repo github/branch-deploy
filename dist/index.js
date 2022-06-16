@@ -9543,7 +9543,7 @@ async function findReason(context, sticky) {
 // :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock
 async function lock(octokit, context, ref, reactionId, sticky) {
   // Attempt to obtain a reason from the context for the lock - either a string or null
-  const reason = findReason(context, sticky)
+  const reason = await findReason(context, sticky)
 
   // Check if the lock branch already exists
   try {
@@ -9848,8 +9848,7 @@ async function postDeploy(
     octokit,
     parseInt(comment_id),
     message_fmt,
-    success,
-    ref
+    success
   )
 
   // Update the deployment status of the branch-deploy
