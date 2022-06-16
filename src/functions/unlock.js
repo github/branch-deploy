@@ -26,7 +26,7 @@ export async function unlock(octokit, context, reactionId) {
       const comment = dedent(`
       ### 🔓 Deployment Lock Removed
 
-      The deployment lock for this branch has been successfully removed
+      The deployment lock has been successfully removed
       `)
 
       // Set the action status with the comment

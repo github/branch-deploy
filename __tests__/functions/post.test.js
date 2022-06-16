@@ -19,6 +19,7 @@ const setWarningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
 
 beforeEach(() => {
   jest.resetAllMocks()
+  jest.spyOn(core, 'error').mockImplementation(() => {})
   jest.spyOn(core, 'getState').mockImplementation(name => {
     return validStates[name]
   })

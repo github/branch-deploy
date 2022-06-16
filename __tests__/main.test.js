@@ -20,6 +20,7 @@ beforeEach(() => {
   jest.spyOn(core, 'saveState').mockImplementation(() => {})
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'warning').mockImplementation(() => {})
+  jest.spyOn(core, 'error').mockImplementation(() => {})
   process.env.INPUT_GITHUB_TOKEN = 'faketoken'
   process.env.INPUT_TRIGGER = '.deploy'
   process.env.INPUT_REACTION = 'eyes'
