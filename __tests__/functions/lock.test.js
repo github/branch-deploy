@@ -70,7 +70,7 @@ test('successfully obtains a deployment lock (non-sticky) by creating the branch
   )
 })
 
-test('Determines that another user has the lock and exits', async () => {
+test('Determines that another user has the lock and exits - during a lock claim on deployment', async () => {
   const actionStatusSpy = jest
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
@@ -102,6 +102,42 @@ test('Determines that another user has the lock and exits', async () => {
   expect(setFailedMock).toHaveBeenCalledWith(
     expect.stringMatching(
       /Sorry __monalisa__, the deployment lock is currently claimed by __octocat__/
+    )
+  )
+})
+
+test('Determines that another user has the lock and exits - during a direct lock claim with .lock', async () => {
+  const actionStatusSpy = jest
+    .spyOn(actionStatus, 'actionStatus')
+    .mockImplementation(() => {
+      return undefined
+    })
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockReturnValue({data: {content: lockBase64Octocat}})
+      }
+    }
+  }
+  expect(await lock(octokit, context, ref, 123, true)).toBe(false)
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    context,
+    octokit,
+    123,
+    expect.stringMatching(
+      /Sorry __monalisa__, the deployment lock is currently claimed by __octocat__/
+    )
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  expect(setFailedMock).toHaveBeenCalledWith(
+    expect.stringMatching(
+      /Cannot claim deployment lock/
     )
   )
 })
