@@ -10087,6 +10087,7 @@ async function run() {
       // If the request is an unlock request, attempt to release the lock
       if (isUnlock) {
         unlock(octokit, github.context, reactRes.data.id)
+        core.saveState('bypass', 'true')
         return 'safe-exit'
       }
     }
