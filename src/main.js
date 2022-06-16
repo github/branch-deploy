@@ -115,14 +115,12 @@ export async function run() {
 
         // Send the lock request
         const sticky = true
-        const type = 'direct'
         await lock(
           octokit,
           context,
           pr.data.head.ref,
           reactRes.data.id,
-          sticky,
-          type
+          sticky
         )
         core.saveState('bypass', 'true')
         return 'safe-exit'
@@ -166,15 +164,13 @@ export async function run() {
     // Aquire the branch-deploy lock for non-sticky requests
     // If the lock request fails, exit the Action
     const sticky = false
-    const type = 'indirect'
     if (
       !(await lock(
         octokit,
         context,
         precheckResults.ref,
         reactRes.data.id,
-        sticky,
-        type
+        sticky
       ))
     ) {
       return 'safe-exit'
