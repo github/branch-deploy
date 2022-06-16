@@ -13,6 +13,17 @@ This Action does the heavy lifting for you to enable branch deployments:
 - 🚀 Triggers GitHub deployments for you with simple configuration
 - 🔓 Deploy locks to prevent multiple deployments from clashing
 
+## Available Commands 💬
+
+- `.deploy` - Deploy a pull request
+- `.deploy noop` - Deploy a pull request in noop mode
+- `.lock` - Create a deployment lock
+- `.lock --reason` - Create a deployment lock with a custom reason
+- `.lock --details` - View details about a deployment lock
+- `.unlock` - Remove a deployment lock
+
+> These commands are all fully customizable and are just an example using this Action's defaults
+
 ## Demo 🎥
 
 A video demo showing how IssueOps on a pull request works using this Action
