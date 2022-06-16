@@ -10,7 +10,7 @@ const LOCK_BRANCH = 'branch-deploy-lock'
 // :param context: The GitHub Actions event context
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is successfully released) (Integer)
 // :param silent: A bool indicating whether to add a comment to the issue or not (Boolean)
-// :returns: true if the lock was successfully released, false otherwise
+// :returns: true if the lock was successfully released, a string with some details if silent was used, false otherwise
 export async function unlock(octokit, context, reactionId, silent = false) {
   try {
     // Delete the lock branch
@@ -25,7 +25,7 @@ export async function unlock(octokit, context, reactionId, silent = false) {
 
       // If silent, exit here
       if (silent) {
-        return true
+        return 'removed lock - silent'
       }
 
       // Construct the message to add to the issue comment
@@ -47,7 +47,7 @@ export async function unlock(octokit, context, reactionId, silent = false) {
 
       // If silent, exit here
       if (silent) {
-        return false
+        return 'failed to delete lock (bad status code) - silent'
       }
 
       await actionStatus(context, octokit, reactionId, comment, false)
@@ -58,7 +58,7 @@ export async function unlock(octokit, context, reactionId, silent = false) {
     if (error.status === 422 && error.message === 'Reference does not exist') {
       // If silent, exit here
       if (silent) {
-        return false
+        return 'no deployment lock currently set - silent'
       }
 
       // Leave a comment letting the user know there is no lock to release
