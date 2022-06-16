@@ -9486,9 +9486,9 @@ async function createLock(octokit, context, ref, reason, sticky) {
     const comment = lib_default()(`
     ### 🔒 Deployment Lock Claimed
 
-    This branch now has a deployment lock and is the only branch that can be deployed until the lock is removed
+    You are now the only user that can trigger deployments until the deployment lock is removed
 
-    > This lock will persist until someone runs \`.unlock\`
+    > This lock is _sticky_ and will persist until someone runs \`.unlock\`
     `)
 
     await octokit.rest.issues.createComment({
@@ -9504,18 +9504,25 @@ async function createLock(octokit, context, ref, reason, sticky) {
 
 // Helper function to find a --reason flag in the comment body for a lock request
 // :param context: The GitHub Actions event context
+// :param sticky: A bool indicating whether the lock is sticky or not (should persist forever) - non-sticky locks are inherent from deployments
 // :returns: The reason for the lock request - either a string of text or null if no reason was provided
-async function findReason(context) {
+async function findReason(context, sticky) {
+  // If if not sticky, return deployment as the reason
+  if (sticky === false) {
+    return 'deployment'
+  }
+
   // Get the body of the comment
   const body = context.payload.comment.body.trim()
 
-  // Find the --reason flag in the body
-  const reasonRaw = body.split('--reason')[1]
-
-  // If the --reason flag is not present, return null
-  if (reasonRaw === undefined) {
+  // Check if --reason was provided
+  if (body.includes('--reason') === false) {
+    // If no reason was provided, return null
     return null
   }
+
+  // Find the --reason flag in the body
+  const reasonRaw = body.split('--reason')[1]
 
   // Remove whitespace
   const reason = reasonRaw.trim()
@@ -9538,7 +9545,7 @@ async function findReason(context) {
 // :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock
 async function lock(octokit, context, ref, reactionId, sticky) {
   // Attempt to obtain a reason from the context for the lock - either a string or null
-  const reason = findReason(context)
+  const reason = findReason(context, sticky)
 
   // Check if the lock branch already exists
   try {
@@ -9604,11 +9611,19 @@ async function lock(octokit, context, ref, reactionId, sticky) {
       new Date().toISOString()
     )
 
+    // Set the header if it is sticky or not (aka a deployment or a direct invoke of .lock)
+    var header = ''
+    if (sticky === true) {
+      header = 'claim deployment lock'
+    } else if (sticky === false) {
+      header = 'proceed with deployment'
+    }
+
     // Construct the comment to add to the issue, alerting that the lock is already claimed
     const comment = lib_default()(`
-    ### ⚠️ Cannot proceed with deployment
+    ### ⚠️ Cannot ${header}
 
-    Sorry __${context.actor}__, the deployment lock has already been claimed so your deployment cannot proceed
+    Sorry __${context.actor}__, the deployment lock is currently claimed by __${lockData.created_by}__
 
     #### Lock Details 🔒
 
@@ -9622,7 +9637,7 @@ async function lock(octokit, context, ref, reactionId, sticky) {
 
     The current lock has been active for \`${totalTime}\`
 
-    > If you need to unlock, please comment \`.unlock\`
+    > If you need to release the lock, please comment \`.unlock\`
     `)
 
     // Set the action status with the comment
@@ -9675,7 +9690,7 @@ async function unlock(octokit, context, reactionId) {
       const comment = lib_default()(`
       ### 🔓 Deployment Lock Removed
 
-      The deployment lock for this branch has been successfully removed
+      The deployment lock has been successfully removed
       `)
 
       // Set the action status with the comment
@@ -9915,7 +9930,8 @@ async function post() {
 
     return
   } catch (error) {
-    if (error instanceof Error) core.setFailed(error.message)
+    core.error(error.stack)
+    core.setFailed(error.message)
   }
 }
 
@@ -10163,10 +10179,9 @@ async function run() {
 
     return 'success'
   } catch (error) {
-    if (error instanceof Error) {
-      core.saveState('bypass', 'true')
-      core.setFailed(error.message)
-    }
+    core.saveState('bypass', 'true')
+    core.error(error.stack)
+    core.setFailed(error.message)
   }
 }
 

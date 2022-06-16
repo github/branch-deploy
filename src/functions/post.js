@@ -44,6 +44,7 @@ export async function post() {
 
     return
   } catch (error) {
-    if (error instanceof Error) core.setFailed(error.message)
+    core.error(error.stack)
+    core.setFailed(error.message)
   }
 }
