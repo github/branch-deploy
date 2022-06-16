@@ -118,8 +118,7 @@ export async function postDeploy(
     octokit,
     parseInt(comment_id),
     message_fmt,
-    success,
-    ref
+    success
   )
 
   // Update the deployment status of the branch-deploy
