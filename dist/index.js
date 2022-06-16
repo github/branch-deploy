@@ -9451,7 +9451,7 @@ const BASE_URL = 'https://github.com'
 // :param reason: The reason for the deployment lock
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :returns: The result of the createOrUpdateFileContents API call
-async function createLock(octokit, context, ref, reason, sticky) {
+async function createLock(octokit, context, ref, reason, sticky, reactionId) {
   // Deconstruct the context to obtain the owner and repo
   const {owner, repo} = context.repo
 
@@ -9491,11 +9491,9 @@ async function createLock(octokit, context, ref, reason, sticky) {
     > This lock is _sticky_ and will persist until someone runs \`.unlock\`
     `)
 
-    await octokit.rest.issues.createComment({
-      ...context.repo,
-      issue_number: context.issue.number,
-      body: comment
-    })
+    // If the lock is sticky, this means that it was invoked with `.lock` and not from a deployment
+    // In this case, we update the actionStatus as we are about to exit
+    await actionStatus(context, octokit, reactionId, comment, true, true)
   }
 
   // Return the result of the lock file creation
@@ -9540,7 +9538,7 @@ async function findReason(context, sticky) {
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
 // :param ref: The branch which requested the lock / deployment
-// :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is already claimed)
+// :param reactionId: The ID of the reaction to add to the issue comment (use if the lock is already claimed or if we claimed it with 'sticky')
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock
 async function lock(octokit, context, ref, reactionId, sticky) {
@@ -9577,7 +9575,7 @@ async function lock(octokit, context, ref, reactionId, sticky) {
       core.info(`Created lock branch: ${LOCK_BRANCH}`)
 
       // Create the lock file
-      await createLock(octokit, context, ref, reason, sticky)
+      await createLock(octokit, context, ref, reason, sticky, reactionId)
       return true
     }
   }
@@ -9652,7 +9650,7 @@ async function lock(octokit, context, ref, reactionId, sticky) {
   } catch (error) {
     // If the lock file doesn't exist, create it
     if (error.status === 404) {
-      await createLock(octokit, context, ref, reason, sticky)
+      await createLock(octokit, context, ref, reason, sticky, reactionId)
       return true
     }
 
