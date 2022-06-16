@@ -45,6 +45,11 @@ beforeEach(() => {
   jest.spyOn(github, 'getOctokit').mockImplementation(() => {
     return {
       rest: {
+        issues: {
+          createComment: jest.fn().mockReturnValueOnce({
+            data: {}
+          })
+        },
         repos: {
           createDeployment: jest.fn().mockImplementation(() => {
             return {data: {id: 123}}
@@ -297,6 +302,11 @@ test('detects an out of date branch and exits', async () => {
   jest.spyOn(github, 'getOctokit').mockImplementation(() => {
     return {
       rest: {
+        issues: {
+          createComment: jest.fn().mockReturnValueOnce({
+            data: {}
+          })
+        },
         repos: {
           createDeployment: jest.fn().mockImplementation(() => {
             return {data: {id: undefined, message: 'Auto-merged'}}

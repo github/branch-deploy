@@ -172,6 +172,33 @@ export async function run() {
       return 'safe-exit'
     }
 
+    // Add a comment to the PR letting the user know that a deployment has been started
+    // Format the success message
+    var deploymentType
+    if (precheckResults.noopMode) {
+      deploymentType = 'noop'
+    } else {
+      deploymentType = 'branch'
+    }
+    const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+    const commentBody = dedent(`
+      ### Deployment Triggered
+
+      __${context.actor}__, started a __${deploymentType}__ deployment 🚀
+
+      - __Branch__: \`${precheckResults.ref}\`
+      - __Mode__: \`${deploymentType}\`
+
+      You can watch the progress [here](${log_url}) 🔗
+    `)
+
+    // Make a comment on the PR
+    await octokit.rest.issues.createComment({
+      ...context.repo,
+      issue_number: context.issue.number,
+      body: commentBody
+    })
+
     // Set outputs for noopMode
     var noop
     if (precheckResults.noopMode) {

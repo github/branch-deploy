@@ -19,7 +19,6 @@ const context = {
     number: 123
   }
 }
-const createComment = jest.fn().mockReturnValue({data: {}})
 const getCollabOK = jest
   .fn()
   .mockReturnValue({data: {permission: 'admin'}, status: 200})
@@ -48,9 +47,6 @@ const graphQLOK = jest.fn().mockReturnValue({
 
 const octokit = {
   rest: {
-    issues: {
-      createComment: createComment
-    },
     repos: {
       getCollaboratorPermissionLevel: getCollabOK
     },
