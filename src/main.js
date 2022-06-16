@@ -157,7 +157,7 @@ export async function run() {
               context,
               octokit,
               reactRes.data.id,
-              lockMessage.replace('\t', ''),
+              lockMessage.replace('    ', ''),
               true,
               true
             )
@@ -177,7 +177,7 @@ export async function run() {
               context,
               octokit,
               reactRes.data.id,
-              lockMessage.replace('\t', ''),
+              lockMessage.replace('    ', ''),
               true,
               true
             )

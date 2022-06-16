@@ -10164,7 +10164,7 @@ async function run() {
               github.context,
               octokit,
               reactRes.data.id,
-              lockMessage.replace('\t', ''),
+              lockMessage.replace('    ', ''),
               true,
               true
             )
@@ -10184,7 +10184,7 @@ async function run() {
               github.context,
               octokit,
               reactRes.data.id,
-              lockMessage.replace('\t', ''),
+              lockMessage.replace('    ', ''),
               true,
               true
             )
