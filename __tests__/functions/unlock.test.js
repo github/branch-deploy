@@ -43,6 +43,65 @@ test('successfully releases a deployment lock with the unlock function', async (
   })
 })
 
+test('successfully releases a deployment lock with the unlock function - silent mode', async () => {
+  expect(await unlock(octokit, context, 123, true)).toBe(
+    'removed lock - silent'
+  )
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/branch-deploy-lock'
+  })
+})
+
+test('fails to release a deployment lock due to a bad HTTP code from the GitHub API - silent mode', async () => {
+  const badHttpOctokitMock = {
+    rest: {
+      git: {
+        deleteRef: jest.fn().mockReturnValue({status: 500})
+      }
+    }
+  }
+  expect(await unlock(badHttpOctokitMock, context, 123, true)).toBe(
+    'failed to delete lock (bad status code) - silent'
+  )
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/branch-deploy-lock'
+  })
+})
+
+test('throws an error if an unhandled exception occurs - silent mode', async () => {
+  const errorOctokitMock = {
+    rest: {
+      git: {
+        deleteRef: jest.fn().mockRejectedValue(new Error('oh no'))
+      }
+    }
+  }
+  try {
+    await unlock(errorOctokitMock, context, 123, true)
+  } catch (e) {
+    expect(e.message).toBe('Error: oh no')
+  }
+})
+
+test('Does not find a deployment lock branch so it lets the user know - silent mode', async () => {
+  const noBranchOctokitMock = {
+    rest: {
+      git: {
+        deleteRef: jest
+          .fn()
+          .mockRejectedValue(new NotFoundError('Reference does not exist'))
+      }
+    }
+  }
+  expect(await unlock(noBranchOctokitMock, context, 123, true)).toBe(
+    'no deployment lock currently set - silent'
+  )
+})
+
 test('fails to release a deployment lock due to a bad HTTP code from the GitHub API', async () => {
   const badHttpOctokitMock = {
     rest: {

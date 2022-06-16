@@ -298,34 +298,6 @@ export async function prechecks(
     return {message: message, status: false}
   }
 
-  // Format the PR comment message based on deployment mode
-  var deploymentType
-  if (noopMode) {
-    deploymentType = 'noop'
-  } else {
-    deploymentType = 'branch'
-  }
-
-  // Format the success message
-  const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
-  const commentBody = dedent(`
-    ### Deployment Triggered
-
-    __${context.actor}__, started a __${deploymentType}__ deployment 🚀
-
-    - __Branch__: \`${ref}\`
-    - __Mode__: \`${deploymentType}\`
-
-    You can watch the progress [here](${log_url}) 🔗
-  `)
-
-  // Make a comment on the pr with the successful results
-  await octokit.rest.issues.createComment({
-    ...context.repo,
-    issue_number: context.issue.number,
-    body: commentBody
-  })
-
   // Return a success message
   return {message: message, status: true, ref: ref, noopMode: noopMode}
 }
