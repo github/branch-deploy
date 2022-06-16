@@ -136,9 +136,7 @@ test('Determines that another user has the lock and exits - during a direct lock
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
   expect(setFailedMock).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /Cannot claim deployment lock/
-    )
+    expect.stringMatching(/Cannot claim deployment lock/)
   )
 })
 
