@@ -172,6 +172,8 @@ export async function lock(octokit, context, ref, reactionId, sticky) {
         )
 
         const youOwnItComment = dedent(`
+          ### 🔒 Deployment Lock Information
+
           __${context.actor}__, you are already the owner of the current deployment lock
 
           The current lock has been active for \`${totalTime}\`
