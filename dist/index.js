@@ -10141,23 +10141,21 @@ async function run() {
             )
 
             // Format the lock details message
-            const lockMessage = lib_default()(`
-          ### Lock Details 🔒
+            const lockMessage = lib_default()(`### Lock Details 🔒
 
-          The deployment lock is currently claimed by __${lockData.created_by}__
-      
-          - __Reason__: \`${lockData.reason}\`
-          - __Branch__: \`${lockData.branch}\`
-          - __Created At__: \`${lockData.created_at}\`
-          - __Created By__: \`${lockData.created_by}\`
-          - __Sticky__: \`${lockData.sticky}\`
-          - __Comment Link__: [click here](${lockData.link})
-          - __Lock Link__: [click here](${main_BASE_URL}/${owner}/${repo}/blob/${main_LOCK_BRANCH}/${main_LOCK_FILE})
-      
-          The current lock has been active for \`${totalTime}\`
-      
-          > If you need to release the lock, please comment \`${unlock_trigger}\`
-            `)
+            The deployment lock is currently claimed by __${lockData.created_by}__
+        
+            - __Reason__: \`${lockData.reason}\`
+            - __Branch__: \`${lockData.branch}\`
+            - __Created At__: \`${lockData.created_at}\`
+            - __Created By__: \`${lockData.created_by}\`
+            - __Sticky__: \`${lockData.sticky}\`
+            - __Comment Link__: [click here](${lockData.link})
+            - __Lock Link__: [click here](${main_BASE_URL}/${owner}/${repo}/blob/${main_LOCK_BRANCH}/${main_LOCK_FILE})
+        
+            The current lock has been active for \`${totalTime}\`
+        
+            > If you need to release the lock, please comment \`${unlock_trigger}\``)
 
             // Update the issue comment with the lock details
             await actionStatus(
@@ -10172,13 +10170,11 @@ async function run() {
               `the deployment lock is currently claimed by __${lockData.created_by}__`
             )
           } else if (lockData === null) {
-            const lockMessage = lib_default()(`
-          ### Lock Details 🔒
-      
-          No active deployment locks found for the \`${owner}/${repo}\` repository
-      
-          > If you need to create a lock, please comment \`${lock_trigger}\`
-            `)
+            const lockMessage = lib_default()(`### Lock Details 🔒
+        
+            No active deployment locks found for the \`${owner}/${repo}\` repository
+        
+            > If you need to create a lock, please comment \`${lock_trigger}\``)
 
             await actionStatus(
               github.context,
