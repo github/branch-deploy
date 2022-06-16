@@ -10141,8 +10141,7 @@ async function run() {
             )
 
             // Format the lock details message
-            const lockMessage = lib_default()(`
-            ### Lock Details 🔒
+            const lockMessage = lib_default()(`### Lock Details 🔒
 
             The deployment lock is currently claimed by __${lockData.created_by}__
         
@@ -10156,8 +10155,7 @@ async function run() {
         
             The current lock has been active for \`${totalTime}\`
         
-            > If you need to release the lock, please comment \`${unlock_trigger}\`
-            `)
+            > If you need to release the lock, please comment \`${unlock_trigger}\``)
 
             // Update the issue comment with the lock details
             await actionStatus(
@@ -10172,13 +10170,11 @@ async function run() {
               `the deployment lock is currently claimed by __${lockData.created_by}__`
             )
           } else if (lockData === null) {
-            const lockMessage = lib_default()(`
-            ### Lock Details 🔒
+            const lockMessage = lib_default()(`### Lock Details 🔒
         
             No active deployment locks found for the \`${owner}/${repo}\` repository
         
-            > If you need to create a lock, please comment \`${lock_trigger}\`
-            `)
+            > If you need to create a lock, please comment \`${lock_trigger}\``)
 
             await actionStatus(
               github.context,
