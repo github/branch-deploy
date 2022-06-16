@@ -123,7 +123,7 @@ export async function run() {
 
       // If the request is an unlock request, attempt to release the lock
       if (isUnlock) {
-        unlock(octokit, context, reactRes.data.id)
+        await unlock(octokit, context, reactRes.data.id)
         core.saveState('bypass', 'true')
         return 'safe-exit'
       }
