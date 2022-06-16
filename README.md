@@ -11,6 +11,18 @@ This Action does the heavy lifting for you to enable branch deployments:
 - ✔️ Respects your branch protection settings configured for the repo
 - 🗨️ Comments and reacts to your IssueOps commands
 - 🚀 Triggers GitHub deployments for you with simple configuration
+- 🔓 Deploy locks to prevent multiple deployments from clashing
+
+## Available Commands 💬
+
+- `.deploy` - Deploy a pull request
+- `.deploy noop` - Deploy a pull request in noop mode
+- `.lock` - Create a deployment lock
+- `.lock --reason` - Create a deployment lock with a custom reason
+- `.lock --details` - View details about a deployment lock
+- `.unlock` - Remove a deployment lock
+
+> These commands are all fully customizable and are just an example using this Action's defaults
 
 ## Demo 🎥
 
@@ -373,6 +385,8 @@ permissions:
   contents: read
 ```
 
+It should also be noted that this Action has built in functions to check the permissions of a user who invokes a IssueOps command. If the user does not have `write` or greater permissions to the repository, their command will be rejected
+
 ## Actions Stability 🔧
 
 In order to ensure your usage of this action is stable, it is highly recommended that you use either pin your action to a SHA or use a specific release tag
@@ -389,9 +403,56 @@ You can also pin to an exact commit SHA as well using a third party tool such as
 
 > GitHub Actions security hardening and stability docs availabe here: [docs](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions)
 
-## Actions Concurrency and Locking 🔓
+## Deployment Locks and Actions Concurrency 🔓
 
 > Only run one deployment at a time
+
+There are multiple ways to leverage this action for deployment locks! Let's take a look at each option
+
+### Deployment Locks
+
+The suggested way to go about deployment locking is to use the built in locking feature in this Action!
+
+Just like how you can comment `.deploy` on a pull request to trigger a deployment, you can also comment `.lock` to lock deployments. This will prevent other users from triggering a deployment. The lock is associated with your GitHub handle, so you will be able to deploy any pull request in the repository and as many times as you want. Any other user who attempts a deployment while your lock is active will get a comment on their PR telling them that a lock is in effect
+
+To release the deployment lock, simply comment `.unlock` on any pull request in the repository at anytime. Please be aware that other users can run this same command to remove the lock (in case you get offline and forget to do so 😉)
+
+These deployment locks come in two flavors:
+
+- `sticky`
+- `non-sticky`
+
+**sticky** locks are locks that presist until you remove them. As seen in the example above, the `.lock` command creates a **sticky** lock that will persist until someone runs `.unlock`
+
+**non-sticky** locks are temporary locks that only exist during a deployment. This action will automatically create a **non-sticky** lock for you when you run `.deploy`. It does this to prevent another user from running `.deploy` in another pull request and creating a deployment conflict
+
+#### Deployment Lock Core Concepts
+
+Let's review the core concepts of deployment locks in a short summary:
+
+- Deployment locks are used to prevent multiple deployments from running at the same time and breaking things
+- Non-sticky locks are created automatically when running `.deploy` or `.deploy noop`
+- Sticky locks are created manually by commenting `.lock` on a pull request - They will presist until you remove them with `.unlock`
+- Locks are associated to a user's GitHub handle - This user can deploy any pull request in the repository and as many times as they want
+- Any user can remove a lock by commenting `.unlock` on any pull request in the repository
+- Details about a lock can be viewed with `.lock --details`
+- Like all the features of this Action, users need `write` permissions or higher to use a command
+
+#### How do Deployment Locks Work?
+
+This Action uses GitHub branches to create a deployment lock. When you run `.lock` the following happens:
+
+1. The Action checks to see if a lock already exists
+2. If a lock does not exists it begins to create one for you
+3. The Action creates a new branch called `branch-deploy-lock`
+4. The Action then creates a lock file called `lock.json` on the new branch
+5. The `lock.json` file contains metadata about the lock
+
+Now when new deployments are run, they will check if a lock exists. If it does and it doesn't belong to you, your deployment is rejected. If the lock does belong to you, the deployment will continue.
+
+### Actions Concurrency
+
+> Note: Using the locking mechanism included in this Action (above) is highly recommended over Actions concurreny. The section below will be included anyways should you have a valid reason to use it instead of the deploy lock features this Action provides
 
 If your workflows need some level of concurrency or locking, you can leverage the native GitHub Actions concurrency feature ([documentation](https://docs.github.com/en/actions/using-jobs/using-concurrency)) to enable this.
 
@@ -404,6 +465,17 @@ concurrency:
   group: production
   cancel-in-progress: true
 ```
+
+## Live Examples 📸
+
+What to see live examples of this Action in use?
+
+Check out some of the links below to see how others are using this Action in their projects:
+
+- [github/entitlements-config](https://github.com/github/entitlements-config/blob/076a1f0f9e8cc1f5acb8a0b8e133b0a1300c8191/.github/workflows/branch-deploy.yml)
+- [the-hideout/cloudflare](https://github.com/the-hideout/cloudflare/blob/f3b189b54f278d7e7844e5cc2fcdbb6f5afd3467/.github/workflows/branch-deploy.yml)
+- [the-hideout/tarkov-api](https://github.com/the-hideout/tarkov-api/blob/be645d7750a0e440794229ce56aefeb4648b8892/.github/workflows/branch-deploy.yml)
+- [the-hideout/stash](https://github.com/the-hideout/stash/blob/4aabf7565fda933f8e40ae9c60cde9f03e549b3b/.github/workflows/branch-deploy.yml)
 
 ## Suggestions 🌟
 
