@@ -466,6 +466,17 @@ concurrency:
   cancel-in-progress: true
 ```
 
+## Live Examples 📸
+
+What to see live examples of this Action in use?
+
+Check out some of the links below to see how others are using this Action in their projects:
+
+- [github/entitlements-config](https://github.com/github/entitlements-config/blob/076a1f0f9e8cc1f5acb8a0b8e133b0a1300c8191/.github/workflows/branch-deploy.yml)
+- [the-hideout/cloudflare](https://github.com/the-hideout/cloudflare/blob/f3b189b54f278d7e7844e5cc2fcdbb6f5afd3467/.github/workflows/branch-deploy.yml)
+- [the-hideout/tarkov-api](https://github.com/the-hideout/tarkov-api/blob/be645d7750a0e440794229ce56aefeb4648b8892/.github/workflows/branch-deploy.yml)
+- [the-hideout/stash](https://github.com/the-hideout/stash/blob/4aabf7565fda933f8e40ae9c60cde9f03e549b3b/.github/workflows/branch-deploy.yml)
+
 ## Suggestions 🌟
 
 This section will cover a few suggestions that will help you when using this Action
