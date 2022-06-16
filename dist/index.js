@@ -9597,6 +9597,33 @@ async function lock(octokit, context, ref, reactionId, sticky) {
     // If the requestor is the one who owns the lock, return 'owner'
     if (lockData.created_by === context.actor) {
       core.info(`${context.actor} is the owner of the lock`)
+
+      // If this is a .lock (sticky) command, update with actionStatus as we are about to exit
+      if (sticky) {
+        // Find the total time since the lock was created
+        const totalTime = await timeDiff(
+          lockData.created_at,
+          new Date().toISOString()
+        )
+
+        const youOwnItComment = lib_default()(`
+          __${context.actor}__, you are already the owner of the current deployment lock
+
+          The current lock has been active for \`${totalTime}\`
+
+          > If you need to release the lock, please comment \`.unlock\`
+          `)
+
+        await actionStatus(
+          context,
+          octokit,
+          reactionId,
+          youOwnItComment,
+          true,
+          true
+        )
+      }
+
       return 'owner'
     }
 
