@@ -86,6 +86,7 @@ export async function run() {
     const reactRes = await reactEmote(reaction, context, octokit)
     core.setOutput('comment_id', context.payload.comment.id)
     core.saveState('comment_id', context.payload.comment.id)
+    core.saveState('reaction_id', reactRes.data.id)
 
     // If the command is a lock/unlock request
     if (isLock || isUnlock) {

@@ -9765,6 +9765,7 @@ async function unlock(octokit, context, reactionId) {
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
 // :param comment_id: The comment_id which initially triggered the deployment Action
+// :param reaction_id: The reaction_id which was initially added to the comment that triggered the Action
 // :param status: The status of the deployment (String)
 // :param message: A custom string to add as the deployment status message (String)
 // :param ref: The ref (branch) which is being used for deployment (String)
@@ -9774,6 +9775,7 @@ async function postDeploy(
   context,
   octokit,
   comment_id,
+  reaction_id,
   status,
   customMessage,
   ref,
@@ -9875,7 +9877,7 @@ async function postDeploy(
   await actionStatus(
     context,
     octokit,
-    parseInt(comment_id),
+    parseInt(reaction_id),
     message_fmt,
     success
   )
@@ -9920,6 +9922,7 @@ async function post() {
   try {
     const ref = core.getState('ref')
     const comment_id = core.getState('comment_id')
+    const reaction_id = core.getState('reaction_id')
     const noop = core.getState('noop')
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
@@ -9946,6 +9949,7 @@ async function post() {
       github.context,
       octokit,
       comment_id,
+      reaction_id,
       status,
       deployMessage,
       ref,
@@ -10050,6 +10054,7 @@ async function run() {
     const reactRes = await reactEmote(reaction, github.context, octokit)
     core.setOutput('comment_id', github.context.payload.comment.id)
     core.saveState('comment_id', github.context.payload.comment.id)
+    core.saveState('reaction_id', reactRes.data.id)
 
     // If the command is a lock/unlock request
     if (isLock || isUnlock) {
