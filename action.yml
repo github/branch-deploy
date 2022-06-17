@@ -37,6 +37,10 @@ inputs:
     description: 'The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: "unlock"'
     required: false
     default: ".unlock"
+  lock_info_alias:
+    description: 'An alias or shortcut to get details about the current lock (if it exists) Example: ".info"'
+    required: false
+    default: ".wcid"
   stable_branch:
     description: 'The name of a stable branch to deploy to (rollbacks). Example: "main"'
     required: false

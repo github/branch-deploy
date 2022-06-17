@@ -14,9 +14,13 @@ import * as github from '@actions/github'
 import {context} from '@actions/github'
 import dedent from 'dedent-js'
 
+// Lock constants
 const LOCK_BRANCH = 'branch-deploy-lock'
 const LOCK_FILE = 'lock.json'
 const BASE_URL = 'https://github.com'
+
+// Lock info flags
+const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d']
 
 // :returns: 'success', 'success - noop', 'failure', 'safe-exit', or raises an error
 export async function run() {
@@ -31,6 +35,7 @@ export async function run() {
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
     const unlock_trigger = core.getInput('unlock_trigger')
+    const lock_info_alias = core.getInput('lock_info_alias')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
 
@@ -56,32 +61,43 @@ export async function run() {
     const isDeploy = await triggerCheck(prefixOnly, body, trigger)
     const isLock = await triggerCheck(prefixOnly, body, lock_trigger)
     const isUnlock = await triggerCheck(prefixOnly, body, unlock_trigger)
+    const isLockInfoAlias = await triggerCheck(
+      prefixOnly,
+      body,
+      lock_info_alias
+    )
 
-    if (!isDeploy && !isLock && !isUnlock) {
+    // Loop through all the triggers and check if there are multiple triggers
+    // If multiple triggers are activated, exit (this is not allowed)
+    var multipleTriggers = false
+    for (const trigger of [isDeploy, isLock, isUnlock, isLockInfoAlias]) {
+      if (trigger) {
+        if (multipleTriggers) {
+          core.saveState('bypass', 'true')
+          core.setOutput('triggered', 'false')
+          core.info(`body: ${body}`)
+          core.setFailed(
+            'IssueOps message contains multiple commands, only one is allowed'
+          )
+          return 'failure'
+        }
+        multipleTriggers = true
+      }
+    }
+
+    if (!isDeploy && !isLock && !isUnlock && !isLockInfoAlias) {
       // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
       return 'safe-exit'
-      // If multiple triggers are activated, exit (this is not allowed)
-    } else if (
-      (isDeploy && isLock) ||
-      (isDeploy && isUnlock) ||
-      (isLock && isUnlock) ||
-      (isDeploy && isLock && isUnlock)
-    ) {
-      core.saveState('bypass', 'true')
-      core.setOutput('triggered', 'false')
-      core.info(`body: ${body}`)
-      core.setFailed(
-        'IssueOps message contains multiple commands, only one is allowed'
-      )
-      return 'failure'
     } else if (isDeploy) {
       core.setOutput('type', 'deploy')
     } else if (isLock) {
       core.setOutput('type', 'lock')
     } else if (isUnlock) {
       core.setOutput('type', 'unlock')
+    } else if (isLockInfoAlias) {
+      core.setOutput('type', 'lock-info-alias')
     }
 
     // If we made it this far, the action has been triggered in one manner or another
@@ -94,7 +110,7 @@ export async function run() {
     core.saveState('reaction_id', reactRes.data.id)
 
     // If the command is a lock/unlock request
-    if (isLock || isUnlock) {
+    if (isLock || isUnlock || isLockInfoAlias) {
       // Check to ensure the user has valid permissions
       const validPermissionsRes = await validPermissions(octokit, context)
       // If the user doesn't have valid permissions, return an error
@@ -111,10 +127,15 @@ export async function run() {
         return 'failure'
       }
 
-      // If it is a lock releated request
-      if (isLock) {
+      // If it is a lock or lock info releated request
+      if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
-        if (body.includes('--details') === true) {
+        if (
+          LOCK_INFO_FLAGS.some(
+            substring => body.includes(substring) === true
+          ) ||
+          isLockInfoAlias === true
+        ) {
           // Get the lock details from the lock file
           const lockData = await lock(
             octokit,
