@@ -77,7 +77,7 @@ on:
 permissions:
   pull-requests: write
   deployments: write
-  contents: read
+  contents: write
 
 jobs:
   demo:
@@ -172,9 +172,9 @@ It is important to note that the workflow we want to run IssueOps on is `issue_c
 ```yaml
 # Permissions needed for reacting and adding comments for IssueOps commands
 permissions:
-  pull-requests: write
-  deployments: write
-  contents: read
+  pull-requests: write # Required for commenting on PRs
+  deployments: write # Required for updating deployment statuses
+  contents: write # Required for reading/writing the lock file
 ```
 
 These are the minimum permissions you need to run this Action
