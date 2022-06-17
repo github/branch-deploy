@@ -1,6 +1,6 @@
 # Branch Deploy Action 🚀
 
-[![CodeQL](https://github.com/GrantBirki/branch-deploy/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/GrantBirki/branch-deploy/actions/workflows/codeql-analysis.yml) [![Check dist/](https://github.com/GrantBirki/branch-deploy/actions/workflows/check-dist.yml/badge.svg)](https://github.com/GrantBirki/branch-deploy/actions/workflows/check-dist.yml) [![test](https://github.com/GrantBirki/branch-deploy/actions/workflows/test.yml/badge.svg)](https://github.com/GrantBirki/branch-deploy/actions/workflows/test.yml) [![coverage](./badges/coverage.svg)](./badges/coverage.svg)
+[![CodeQL](https://github.com/github/branch-deploy/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/codeql-analysis.yml) [![Check dist/](https://github.com/github/branch-deploy/actions/workflows/check-dist.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/check-dist.yml) [![test](https://github.com/github/branch-deploy/actions/workflows/test.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/test.yml) [![coverage](./badges/coverage.svg)](./badges/coverage.svg)
 
 A GitHub Action to enable branch deployments using IssueOps!
 
@@ -30,7 +30,7 @@ A video demo showing how IssueOps on a pull request works using this Action
 
 https://user-images.githubusercontent.com/23362539/166625510-50a80738-a7a2-486d-9d74-8dda5b95ec8d.mp4
 
-> View the pull request that created this demo [here](https://github.com/GrantBirki/branch-deploy/pull/17)
+> View the pull request that created this demo [here](https://github.com/github/branch-deploy/pull/17)
 
 ## Turbo Quickstart ⚡
 
@@ -43,7 +43,7 @@ Basic usage assuming all defaults:
 ```yaml
 - name: branch-deploy
   id: branch-deploy
-  uses: GrantBirki/branch-deploy@vX.X.X
+  uses: github/branch-deploy@vX.X.X
 ```
 
 Advanced usage with custom configuration:
@@ -51,7 +51,7 @@ Advanced usage with custom configuration:
 ```yaml
 - name: branch-deploy
   id: branch-deploy
-  uses: GrantBirki/branch-deploy@vX.X.X
+  uses: github/branch-deploy@vX.X.X
   with:
     trigger: ".deploy"
     reaction: "eyes"
@@ -86,7 +86,7 @@ jobs:
     steps:
       # Execute IssueOps branch deployment logic, hooray!
       # This will be used to "gate" all future steps below and conditionally trigger steps/deployments
-      - uses: GrantBirki/branch-deploy@vX.X.X
+      - uses: github/branch-deploy@vX.X.X
         id: branch-deploy
         with:
           trigger: ".deploy"
@@ -195,7 +195,7 @@ Sets up your `demo` job, uses an ubuntu runner, and checks out your repo - Just 
 
 ```yaml
       # Execute IssueOps branch deployment logic, hooray!
-      - uses: GrantBirki/branch-deploy@vX.X.X
+      - uses: github/branch-deploy@vX.X.X
         id: branch-deploy
         with:
           trigger: ".deploy"
@@ -350,7 +350,7 @@ jobs:
     environment: production-secrets # custom environment for storing secrets
     runs-on: ubuntu-latest
     steps:
-      - uses: GrantBirki/branch-deploy@vX.X.X
+      - uses: github/branch-deploy@vX.X.X
         id: branch-deploy
         with:
           trigger: ".deploy"

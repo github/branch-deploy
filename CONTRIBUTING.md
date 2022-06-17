@@ -42,11 +42,11 @@ Answers to questions you might have around testing
 
 Q: Why do I have to commit my changes to `main`?
 
-A: The `on: issue_comment` workflow only uses workflow files from the `main` branch by design - [learn more](https://github.com/GrantBirki/branch-deploy#security-)
+A: The `on: issue_comment` workflow only uses workflow files from the `main` branch by design - [learn more](https://github.com/github/branch-deploy#security-)
 
 Q: Is there an example PR I can view to see how testing with a pull request works?
 
-A: Yes there is! It sure is a messy PR but here is a good [example](https://github.com/GrantBirki/branch-deploy/pull/18)
+A: Yes there is! It sure is a messy PR but here is a good [example](https://github.com/github/branch-deploy/pull/18)
 
 Q: What workflow is actually running when I do `.deploy` on my testing PR?
 
