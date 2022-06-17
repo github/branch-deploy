@@ -20,7 +20,7 @@ const LOCK_FILE = 'lock.json'
 const BASE_URL = 'https://github.com'
 
 // Lock info flags
-const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d'];
+const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d']
 
 // :returns: 'success', 'success - noop', 'failure', 'safe-exit', or raises an error
 export async function run() {
@@ -61,23 +61,27 @@ export async function run() {
     const isDeploy = await triggerCheck(prefixOnly, body, trigger)
     const isLock = await triggerCheck(prefixOnly, body, lock_trigger)
     const isUnlock = await triggerCheck(prefixOnly, body, unlock_trigger)
-    const isLockInfoAlias = await triggerCheck(prefixOnly, body, lock_info_alias)
+    const isLockInfoAlias = await triggerCheck(
+      prefixOnly,
+      body,
+      lock_info_alias
+    )
 
     // Loop through all the triggers and check if there are multiple triggers
     // If multiple triggers are activated, exit (this is not allowed)
     var multipleTriggers = false
     for (const trigger of [isDeploy, isLock, isUnlock, isLockInfoAlias]) {
       if (trigger) {
-          if (multipleTriggers) {
-            core.saveState('bypass', 'true')
-            core.setOutput('triggered', 'false')
-            core.info(`body: ${body}`)
-            core.setFailed(
-              'IssueOps message contains multiple commands, only one is allowed'
-            )
-            return 'failure'
-          }
-          multipleTriggers = true
+        if (multipleTriggers) {
+          core.saveState('bypass', 'true')
+          core.setOutput('triggered', 'false')
+          core.info(`body: ${body}`)
+          core.setFailed(
+            'IssueOps message contains multiple commands, only one is allowed'
+          )
+          return 'failure'
+        }
+        multipleTriggers = true
       }
     }
 
@@ -126,7 +130,12 @@ export async function run() {
       // If it is a lock or lock info releated request
       if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
-        if ((LOCK_INFO_FLAGS.some(substring=>body.includes(substring) === true)) || isLockInfoAlias === true) {
+        if (
+          LOCK_INFO_FLAGS.some(
+            substring => body.includes(substring) === true
+          ) ||
+          isLockInfoAlias === true
+        ) {
           // Get the lock details from the lock file
           const lockData = await lock(
             octokit,
