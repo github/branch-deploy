@@ -30,6 +30,7 @@ beforeEach(() => {
   process.env.INPUT_NOOP_TRIGGER = 'noop'
   process.env.INPUT_LOCK_TRIGGER = '.lock'
   process.env.INPUT_UNLOCK_TRIGGER = '.unlock'
+  process.env.INPUT_LOCK_INFO_ALIAS = '.wcid'
   process.env.INPUT_REQUIRED_CONTEXTS = 'false'
   process.env.GITHUB_REPOSITORY = 'corp/test'
   github.context.payload = {
@@ -255,6 +256,90 @@ test('successfully runs the action in lock mode - details only', async () => {
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
   expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
+test('successfully runs the action in lock mode - details only - --info flag', async () => {
+  const infoSpy = jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {
+      branch: 'octocats-everywhere',
+      created_at: '2022-06-14T21:12:14.041Z',
+      created_by: 'octocat',
+      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+      reason: 'Testing my new feature with lots of cats',
+      sticky: true
+    }
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.lock --info',
+      id: 123
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --info')
+  expect(infoSpy).toHaveBeenCalledWith(
+    'the deployment lock is currently claimed by __octocat__'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
+test('successfully runs the action in lock mode - details only - lock alias wcid', async () => {
+  const infoSpy = jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {
+      branch: 'octocats-everywhere',
+      created_at: '2022-06-14T21:12:14.041Z',
+      created_by: 'octocat',
+      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+      reason: 'Testing my new feature with lots of cats',
+      sticky: true
+    }
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.wcid',
+      id: 123
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.wcid')
+  expect(infoSpy).toHaveBeenCalledWith(
+    'the deployment lock is currently claimed by __octocat__'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock-info-alias')
   expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
