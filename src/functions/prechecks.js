@@ -44,6 +44,13 @@ export async function prechecks(
   var ref
   var noopMode = false
 
+  // Determine whether to use the ref or sha depending on if the PR is from a fork or not
+  if (pr.data.head.repo?.fork === true) {
+    ref = pr.data.head.sha
+  } else {
+    ref = pr.data.head.ref
+  }
+
   // Regex statements for checking the trigger message
   const regexCommandWithStableBranch = new RegExp(
     `^\\${trigger}\\s*(${stable_branch})$`,
@@ -63,20 +70,17 @@ export async function prechecks(
     )
     // Check to see if the IssueOps command requested noop mode
   } else if (regexCommandWithNoop.test(comment)) {
-    ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch with noop mode - setting ref to ${ref}`
     )
     noopMode = true
     // Check to see if the IssueOps command was used in a basic form with no other params
   } else if (regexCommandWithoutParameters.test(comment)) {
-    ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch - setting ref to ${ref}`
     )
     // If no regex patterns matched, the IssueOps command was used in an unsupported way
   } else {
-    ref = pr.data.head.ref
     message = dedent(`
               ### ⚠️ Invalid command
               
