@@ -267,6 +267,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | fork_ref | The true ref of the fork |
 | fork_label | The API label field returned for the fork |
 | fork_checkout | The console command presented in the GitHub UI to checkout a given fork locally |
+| fork_full_name | The full name of the fork in "org/repo" format |
 
 ## Custom Deployment Messages ✏️
 

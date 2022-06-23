@@ -84,6 +84,8 @@ outputs:
     description: 'The API label field returned for the fork'
   fork_checkout:
     description: 'The console command presented in the GitHub UI to checkout a given fork locally'
+  fork_full_name:
+    description: 'The full name of the fork in "org/repo" format'
 runs:
   using: "node16"
   main: "dist/index.js"
