@@ -76,6 +76,14 @@ outputs:
     description: "The type of trigger that was detected (examples: deploy, lock, unlock)"
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
+  fork:
+    description: 'The string "true" if the pull request is a fork, otherwise "false"'
+  fork_ref:
+    description: 'The true ref of the fork'
+  fork_label:
+    description: 'The API label field returned for the fork'
+  fork_checkout:
+    description: 'The console command presented in the GitHub UI to checkout a given fork locally'
 runs:
   using: "node16"
   main: "dist/index.js"
