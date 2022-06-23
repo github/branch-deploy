@@ -5,6 +5,8 @@ import dedent from 'dedent-js'
 beforeEach(() => {
   // jest.resetAllMocks()
   jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
 })
 
 // Globals for testing
@@ -430,6 +432,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       head: {
         sha: 'abcde12345',
         ref: 'test-ref',
+        label: 'test-repo:test-ref',
         repo: {
           fork: true
         }
