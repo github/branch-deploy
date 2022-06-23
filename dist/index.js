@@ -9142,12 +9142,15 @@ async function prechecks(
     const label = pr.data.head.label
     const forkRef = pr.data.head.ref
     const forkCheckout = `${label.replace(':', '-')} ${forkRef}`
+    const forkFullName = pr.data.head.repo.full_name
     core.setOutput('fork_ref', forkRef)
     core.setOutput('fork_label', label)
     core.setOutput('fork_checkout', forkCheckout)
+    core.setOutput('fork_full_name', forkFullName)
     core.debug(`fork_ref: ${forkRef}`)
     core.debug(`fork_label: ${label}`)
     core.debug(`fork_checkout: ${forkCheckout}`)
+    core.debug(`fork_full_name: ${forkFullName}`)
 
     // If this pull request is a fork, use the exact SHA rather than the branch name
     ref = pr.data.head.sha
