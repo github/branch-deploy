@@ -43,41 +43,8 @@ export async function prechecks(
   }
 
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
-  var ref
+  var ref = pr.data.head.ref
   var noopMode = false
-
-  // Determine whether to use the ref or sha depending on if the PR is from a fork or not
-  if (pr.data.head.repo?.fork === true) {
-    core.info(`PR is from a fork, using sha instead of ref`)
-    core.setOutput('fork', 'true')
-
-    // If this Action's inputs have been configured to explicitly prevent forks, exit
-    if (allowForks === false) {
-      message = `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`
-      return {message: message, status: false}
-    }
-
-    // Set some outputs specific to forks
-    const label = pr.data.head.label
-    const forkRef = pr.data.head.ref
-    const forkCheckout = `${label.replace(':', '-')} ${forkRef}`
-    const forkFullName = pr.data.head.repo.full_name
-    core.setOutput('fork_ref', forkRef)
-    core.setOutput('fork_label', label)
-    core.setOutput('fork_checkout', forkCheckout)
-    core.setOutput('fork_full_name', forkFullName)
-    core.debug(`fork_ref: ${forkRef}`)
-    core.debug(`fork_label: ${label}`)
-    core.debug(`fork_checkout: ${forkCheckout}`)
-    core.debug(`fork_full_name: ${forkFullName}`)
-
-    // If this pull request is a fork, use the exact SHA rather than the branch name
-    ref = pr.data.head.sha
-  } else {
-    // If this PR is NOT a fork, we can safely use the branch name
-    core.setOutput('fork', 'false')
-    ref = pr.data.head.ref
-  }
 
   // Regex statements for checking the trigger message
   const regexCommandWithStableBranch = new RegExp(
@@ -120,6 +87,39 @@ export async function prechecks(
               > Note: \`${trigger} ${stable_branch}\` is often used for rolling back a change or getting back to a known working state
               `)
     return {message: message, status: false}
+  }
+
+  // Determine whether to use the ref or sha depending on if the PR is from a fork or not
+  // Note: We should not export fork values if the stable_branch is being used here
+  if (pr.data.head.repo?.fork === true && ref != stable_branch) {
+    core.info(`PR is from a fork, using sha instead of ref`)
+    core.setOutput('fork', 'true')
+
+    // If this Action's inputs have been configured to explicitly prevent forks, exit
+    if (allowForks === false) {
+      message = `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`
+      return {message: message, status: false}
+    }
+
+    // Set some outputs specific to forks
+    const label = pr.data.head.label
+    const forkRef = pr.data.head.ref
+    const forkCheckout = `${label.replace(':', '-')} ${forkRef}`
+    const forkFullName = pr.data.head.repo.full_name
+    core.setOutput('fork_ref', forkRef)
+    core.setOutput('fork_label', label)
+    core.setOutput('fork_checkout', forkCheckout)
+    core.setOutput('fork_full_name', forkFullName)
+    core.debug(`fork_ref: ${forkRef}`)
+    core.debug(`fork_label: ${label}`)
+    core.debug(`fork_checkout: ${forkCheckout}`)
+    core.debug(`fork_full_name: ${forkFullName}`)
+
+    // If this pull request is a fork, use the exact SHA rather than the branch name
+    ref = pr.data.head.sha
+  } else {
+    // If this PR is NOT a fork, we can safely use the branch name
+    core.setOutput('fork', 'false')
   }
 
   // Check to ensure PR CI checks are passing and the PR has been reviewed
