@@ -57,7 +57,7 @@ export async function prechecks(
       return {message: message, status: false}
     }
 
-    // Set some outputs specific to forks    
+    // Set some outputs specific to forks
     const label = pr.data.head.label
     const forkRef = pr.data.head.ref
     core.setOutput('fork_ref', forkRef)
