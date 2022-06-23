@@ -49,6 +49,7 @@ export async function prechecks(
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
   if (pr.data.head.repo?.fork === true) {
     core.info(`PR is from a fork, using sha instead of ref`)
+    core.setOutput('fork', 'true')
 
     // If this Action's inputs have been configured to explicitly prevent forks, exit
     if (allowForks === false) {
@@ -56,10 +57,18 @@ export async function prechecks(
       return {message: message, status: false}
     }
 
+    // Set some outputs specific to forks    
+    const label = pr.data.head.label
+    const forkRef = pr.data.head.ref
+    core.setOutput('fork_ref', forkRef)
+    core.setOutput('fork_label', label)
+    core.setOutput('fork_checkout', `${label.replace(':', '-')} ${forkRef}`)
+
     // If this pull request is a fork, use the exact SHA rather than the branch name
     ref = pr.data.head.sha
   } else {
     // If this PR is NOT a fork, we can safely use the branch name
+    core.setOutput('fork', 'false')
     ref = pr.data.head.ref
   }
 
