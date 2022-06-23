@@ -45,6 +45,7 @@ export async function prechecks(
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref = pr.data.head.ref
   var noopMode = false
+  var forkBypass = false
 
   // Regex statements for checking the trigger message
   const regexCommandWithStableBranch = new RegExp(
@@ -60,6 +61,7 @@ export async function prechecks(
   // Check to see if the "stable" branch was used as the deployment target
   if (regexCommandWithStableBranch.test(comment)) {
     ref = stable_branch
+    forkBypass = true
     core.info(
       `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
     )
@@ -91,7 +93,7 @@ export async function prechecks(
 
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
   // Note: We should not export fork values if the stable_branch is being used here
-  if (pr.data.head.repo?.fork === true && ref != stable_branch) {
+  if (pr.data.head.repo?.fork === true && forkBypass === false) {
     core.info(`PR is from a fork, using sha instead of ref`)
     core.setOutput('fork', 'true')
 
