@@ -48,6 +48,8 @@ export async function prechecks(
 
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
   if (pr.data.head.repo?.fork === true) {
+    core.info(`PR is from a fork, using sha instead of ref`)
+
     // If this Action's inputs have been configured to explicitly prevent forks, exit
     if (allowForks === false) {
       message = `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`
