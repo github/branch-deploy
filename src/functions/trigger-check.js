@@ -12,9 +12,9 @@ export async function triggerCheck(prefixOnly, body, trigger) {
   // If the trigger is not activated, set the output to false and return with false
   if ((prefixOnly && !body.startsWith(trigger)) || !body.includes(trigger)) {
     if (prefixOnly) {
-      core.info(`Trigger "${trigger}" not found as comment prefix`)
+      core.debug(`Trigger "${trigger}" not found as comment prefix`)
     } else {
-      core.info(`Trigger "${trigger}" not found in the comment body`)
+      core.debug(`Trigger "${trigger}" not found in the comment body`)
     }
     return false
   }

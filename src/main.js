@@ -38,6 +38,7 @@ export async function run() {
     const lock_info_alias = core.getInput('lock_info_alias')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
+    const allowForks = core.getInput('allow_forks') === 'true'
 
     // Set the state so that the post run logic will trigger
     core.saveState('isPost', 'true')
@@ -243,6 +244,7 @@ export async function run() {
       update_branch,
       stable_branch,
       issue_number,
+      allowForks,
       context,
       octokit
     )

@@ -66,6 +66,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       'disabled',
       'main',
       '123',
+      true,
       context,
       octokit
     )
@@ -86,6 +87,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
       'disabled',
       'main',
       '123',
+      true,
       context,
       octokit
     )
@@ -106,6 +108,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
       'disabled',
       'main',
       '123',
+      true,
       context,
       octokit
     )
@@ -126,6 +129,7 @@ test('runs prechecks and does not find any matching command', async () => {
       'disabled',
       'main',
       '123',
+      true,
       context,
       octokit
     )
@@ -159,6 +163,7 @@ test('runs prechecks and finds that the IssueOps command is valid without define
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -188,6 +193,7 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
       'disabled',
       'main',
       '123',
+      true,
       context,
       octobadres
     )
@@ -210,6 +216,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
       'disabled',
       'main',
       '123',
+      true,
       context,
       octobadperms
     )
@@ -236,6 +243,7 @@ test('runs prechecks and fails due to a bad pull request', async () => {
       'disabled',
       'main',
       '123',
+      true,
       context,
       octobadpull
     )
@@ -270,6 +278,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -325,6 +334,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -380,6 +390,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -388,6 +399,114 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
     status: true,
     noopMode: true,
     ref: 'test-ref'
+  })
+})
+
+test('runs prechecks and finds that the IssueOps command is valid for a branch deployment and is from a forked repository', async () => {
+  var pullRequestFromFork = octokit
+  pullRequestFromFork['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  pullRequestFromFork['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  pullRequestFromFork['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        repo: {
+          fork: true
+        }
+      }
+    },
+    status: 200
+  })
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      context,
+      pullRequestFromFork
+    )
+  ).toStrictEqual({
+    message: '✔️ PR is approved and all CI checks passed - OK',
+    status: true,
+    noopMode: false,
+    ref: 'abcde12345'
+  })
+})
+
+test('runs prechecks and finds that the IssueOps command is on a PR from a forked repo and is not allowed', async () => {
+  var pullRequestFromFork = octokit
+  pullRequestFromFork['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  pullRequestFromFork['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  pullRequestFromFork['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        repo: {
+          fork: true
+        }
+      }
+    },
+    status: 200
+  })
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      false,
+      context,
+      pullRequestFromFork
+    )
+  ).toStrictEqual({
+    message: `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`,
+    status: false
   })
 })
 
@@ -425,6 +544,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -469,6 +589,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -513,6 +634,7 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -546,6 +668,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -580,6 +703,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -625,6 +749,7 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -669,6 +794,7 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -713,6 +839,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -757,6 +884,7 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -790,6 +918,7 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
       'disabled',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -844,6 +973,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
       'force',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -889,6 +1019,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
       'warn',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -943,6 +1074,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
       'force',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -991,6 +1123,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       'force',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -1036,6 +1169,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
       'warn',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -1081,6 +1215,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       'warn',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -1126,6 +1261,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
       'warn',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -1171,6 +1307,7 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
       'warn',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
@@ -1225,6 +1362,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
       'force',
       'main',
       '123',
+      true,
       context,
       octonocommitchecks
     )
