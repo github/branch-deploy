@@ -4,11 +4,11 @@ import * as core from '@actions/core'
 beforeEach(() => {
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   jest.spyOn(core, 'saveState').mockImplementation(() => {})
-  jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
 })
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
-const infoMock = jest.spyOn(core, 'info')
+const debugMock = jest.spyOn(core, 'debug')
 
 test('checks a message and finds a prefix trigger', async () => {
   const prefixOnly = true
@@ -24,7 +24,7 @@ test('checks a message and does not find prefix trigger', async () => {
   const trigger = '.deploy'
   expect(await triggerCheck(prefixOnly, body, trigger)).toBe(false)
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.bad')
-  expect(infoMock).toHaveBeenCalledWith(
+  expect(debugMock).toHaveBeenCalledWith(
     'Trigger ".deploy" not found as comment prefix'
   )
 })
@@ -49,7 +49,7 @@ test('checks a message and does not find global trigger', async () => {
     'comment_body',
     'I want to .ping a website'
   )
-  expect(infoMock).toHaveBeenCalledWith(
+  expect(debugMock).toHaveBeenCalledWith(
     'Trigger ".deploy" not found in the comment body'
   )
 })

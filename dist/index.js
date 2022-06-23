@@ -8865,9 +8865,9 @@ async function triggerCheck(prefixOnly, body, trigger) {
   // If the trigger is not activated, set the output to false and return with false
   if ((prefixOnly && !body.startsWith(trigger)) || !body.includes(trigger)) {
     if (prefixOnly) {
-      core.info(`Trigger "${trigger}" not found as comment prefix`)
+      core.debug(`Trigger "${trigger}" not found as comment prefix`)
     } else {
-      core.info(`Trigger "${trigger}" not found in the comment body`)
+      core.debug(`Trigger "${trigger}" not found in the comment body`)
     }
     return false
   }
@@ -9089,6 +9089,7 @@ async function validPermissions(octokit, context) {
 // :param update_branch: Defines the action to take if the branch is out-of-date
 // :param stable_branch: The "stable" or "base" branch to deploy to (e.g. master|main)
 // :param issue_number: The issue number of the event
+// :param allowForks: Boolean which defines whether the Action can run from forks or not
 // :param context: The context of the event
 // :param octokit: The octokit client
 // :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
@@ -9099,6 +9100,7 @@ async function prechecks(
   update_branch,
   stable_branch,
   issue_number,
+  allowForks,
   context,
   octokit
 ) {
@@ -9125,6 +9127,23 @@ async function prechecks(
   var ref
   var noopMode = false
 
+  // Determine whether to use the ref or sha depending on if the PR is from a fork or not
+  if (pr.data.head.repo?.fork === true) {
+    core.info(`PR is from a fork, using sha instead of ref`)
+
+    // If this Action's inputs have been configured to explicitly prevent forks, exit
+    if (allowForks === false) {
+      message = `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`
+      return {message: message, status: false}
+    }
+
+    // If this pull request is a fork, use the exact SHA rather than the branch name
+    ref = pr.data.head.sha
+  } else {
+    // If this PR is NOT a fork, we can safely use the branch name
+    ref = pr.data.head.ref
+  }
+
   // Regex statements for checking the trigger message
   const regexCommandWithStableBranch = new RegExp(
     `^\\${trigger}\\s*(${stable_branch})$`,
@@ -9144,20 +9163,17 @@ async function prechecks(
     )
     // Check to see if the IssueOps command requested noop mode
   } else if (regexCommandWithNoop.test(comment)) {
-    ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch with noop mode - setting ref to ${ref}`
     )
     noopMode = true
     // Check to see if the IssueOps command was used in a basic form with no other params
   } else if (regexCommandWithoutParameters.test(comment)) {
-    ref = pr.data.head.ref
     core.info(
       `${trigger} command used on current branch - setting ref to ${ref}`
     )
     // If no regex patterns matched, the IssueOps command was used in an unsupported way
   } else {
-    ref = pr.data.head.ref
     message = lib_default()(`
               ### ⚠️ Invalid command
               
@@ -10045,6 +10061,7 @@ async function run() {
     const lock_info_alias = core.getInput('lock_info_alias')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
+    const allowForks = core.getInput('allow_forks') === 'true'
 
     // Set the state so that the post run logic will trigger
     core.saveState('isPost', 'true')
@@ -10250,6 +10267,7 @@ async function run() {
       update_branch,
       stable_branch,
       issue_number,
+      allowForks,
       github.context,
       octokit
     )
