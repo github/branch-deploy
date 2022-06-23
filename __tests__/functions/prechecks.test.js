@@ -5,6 +5,7 @@ import dedent from 'dedent-js'
 beforeEach(() => {
   // jest.resetAllMocks()
   jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
 })
 
