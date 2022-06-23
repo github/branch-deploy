@@ -19,6 +19,7 @@ beforeEach(() => {
   jest.spyOn(core, 'setFailed').mockImplementation(() => {})
   jest.spyOn(core, 'saveState').mockImplementation(() => {})
   jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(core, 'error').mockImplementation(() => {})
   process.env.INPUT_GITHUB_TOKEN = 'faketoken'
