@@ -391,6 +391,60 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
   })
 })
 
+test('runs prechecks and finds that the IssueOps command is valid for a branch deployment and is from a forked repository', async () => {
+  var pullRequestFromFork = octokit
+  pullRequestFromFork['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  pullRequestFromFork['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  pullRequestFromFork['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        repo: {
+          fork: true
+        }
+      }
+    },
+    status: 200
+  })
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      context,
+      pullRequestFromFork
+    )
+  ).toStrictEqual({
+    message: '✔️ PR is approved and all CI checks passed - OK',
+    status: true,
+    noopMode: false,
+    ref: 'abcde12345'
+  })
+})
+
 test('runs prechecks and finds CI is pending and the PR has not been reviewed BUT it is a noop deploy', async () => {
   var octonocommitchecks = octokit
   octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
