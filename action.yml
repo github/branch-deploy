@@ -61,6 +61,10 @@ inputs:
     description: 'Allow branch deployments to run on repository forks. If you want to harden your workflows, this option can be set to false. Default is "true"'
     required: false
     default: "true"
+  admins:
+    description: 'A comma seperated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team"'
+    required: false
+    default: "false"
 outputs:
   triggered:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
