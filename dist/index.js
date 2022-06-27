@@ -9199,7 +9199,7 @@ async function isAdmin(context) {
   })
 
   // Check if the user is in the admin handle list
-  if (handles.includes(context.actor)) {
+  if (handles.includes(context.actor.toLowerCase())) {
     core.debug(`${context.actor} is an admin via handle reference`)
     return true
   }
