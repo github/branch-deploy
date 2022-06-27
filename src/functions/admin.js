@@ -116,5 +116,6 @@ export async function isAdmin(context) {
   }
 
   // If we get here, the user is not an admin
+  core.debug(`${context.actor} is not an admin`)
   return false
 }
