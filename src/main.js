@@ -56,6 +56,7 @@ export async function run() {
       noop_trigger
     )
     core.saveState('environment', environment)
+    core.setOutput('environment', environment)
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(context))) {
