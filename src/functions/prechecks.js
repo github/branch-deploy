@@ -95,6 +95,7 @@ export async function prechecks(
               - \`${trigger}\` - deploy **this** branch (\`${ref}\`)
               - \`${trigger} ${noop_trigger}\` - deploy **this** branch in **noop** mode (\`${ref}\`)
               - \`${trigger} ${stable_branch}\` - deploy the \`${stable_branch}\` branch
+              - \`${trigger} to <environment>\` - deploy **this** branch to the specified environment
               > Note: \`${trigger} ${stable_branch}\` is often used for rolling back a change or getting back to a known working state
               `)
     return {message: message, status: false}
