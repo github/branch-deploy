@@ -251,7 +251,9 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
 | update_branch | no | warn | Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself |
 | required_contexts | no | false | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option |
-| allow_forks | false | true | Allow branch deployments to run on repository forks. If you want to harden your workflows, this option can be set to false. Default is "true" |
+| allow_forks | no | true | Allow branch deployments to run on repository forks. If you want to harden your workflows, this option can be set to false. Default is "true" |
+| admins | no | false | A comma seperated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team" |
+| admins_pat | no | false | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
 
 ## Outputs 📤
 

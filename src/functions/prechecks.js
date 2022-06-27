@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {validPermissions} from './valid-permissions'
+import {isAdmin} from './admin'
 
 // Runs precheck logic before the branch deployment can proceed
 // :param comment: The comment body of the event
@@ -253,6 +254,12 @@ export async function prechecks(
     message = '✔️ All CI checks passed and **noop** requested - OK'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
+
+    // If CI is passing and the deployer is an admin
+  } else if (commitStatus === 'SUCCESS' && (await isAdmin(context)) === true) {
+    message =
+      '✔️ CI is passing and approval is bypassed due to admin rights - OK'
+    core.info(message)
 
     // If CI is pending and the PR has not been reviewed BUT it is a noop deploy
   } else if (
