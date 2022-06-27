@@ -396,6 +396,39 @@ permissions:
 
 It should also be noted that this Action has built in functions to check the permissions of a user who invokes a IssueOps command. If the user does not have `write` or greater permissions to the repository, their command will be rejected
 
+### Admins 👩‍🔬
+
+This Action supports a configurable input called `admins` which can be used to specify a list of individual GitHub users or teams that should have elevated permissions when using this Action
+
+The `admins` input option takes a comma seperated list of GitHub handles or GitHub org teams which can bypass branch protection rules related to approvals for deployments. For example, if you give the option `admins: monalisa`, the `monalisa` user will be able to deploy without needing approval on their pull requests. CI checks will still need to pass however.
+
+It should be noted that if you do not have pull request approvals enabled in your branch protection rules, then this option will not make a difference either way
+
+Here is a simple example using only handles below (the monalisa and octocat users will be treated as admins):
+
+```yaml
+- uses: github/branch-deploy@vX.X.X
+  id: branch-deploy
+  with:
+    admins: monalisa,octocat
+```
+
+Here is an example using a mix of GitHub handles and a GitHub org team below:
+
+```yaml
+- uses: github/branch-deploy@vX.X.X
+  id: branch-deploy
+  with:
+    admins: monalisa,octocat,octo-awesome-org/octo-awesome-team
+    admins_pat: ${{ secrets.BRANCH_DEPLOY_ADMINS_PAT }}
+```
+
+In this case, all users (and future users) in the `octo-awesome-org/octo-awesome-team` team will be treated as admins in addition to the monalisa and octocat users
+
+It should be noted if you choose to use GitHub org teams for admin definitions, you **will** need a [GitHub Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) with the `read:org` scope. This is because the Action will need to make API calls on behalf of an authenticated user in the org to retrieve team memberships. If you choose to only use GitHub handles for admin definitions, then the `admins_pat` input is not required
+
+> Note: You can read more about the `admin` option under the **inputs** section in this readme
+
 ## Actions Stability 🔧
 
 In order to ensure your usage of this action is stable, it is highly recommended that you use either pin your action to a SHA or use a specific release tag
