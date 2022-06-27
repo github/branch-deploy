@@ -6,7 +6,7 @@ import githubUsernameRegex from 'github-username-regex'
 // :param actor: The user to check
 // :param orgTeams: An array of org/team names
 // :returns: True if the user is in the org team, false otherwise
-async function orgCheck(actor, orgTeams) {
+async function orgTeamCheck(actor, orgTeams) {
   // This pat needs org read permissions if you are using org/teams to define admins
   const adminsPat = core.getInput('admins_pat')
 
@@ -22,7 +22,7 @@ async function orgCheck(actor, orgTeams) {
   const octokit = github.getOctokit(adminsPat)
 
   // Loop through all org/team names
-  orgTeams.forEach(async orgTeam => {
+  for (const orgTeam of orgTeams) {
     // Split the org/team name into org and team
     var [org, team] = orgTeam.split('/')
 
@@ -44,6 +44,7 @@ async function orgCheck(actor, orgTeams) {
       const result = await octokit.request(
         `GET /organizations/${orgId}/team/${teamId}/members/${actor}`
       )
+
       // If the status code is a 204, the user is in the team
       if (result.status === 204) {
         core.debug(`${actor} is in ${orgTeam}`)
@@ -61,7 +62,7 @@ async function orgCheck(actor, orgTeams) {
         core.warning(`Error checking org team membership: ${error}`)
       }
     }
-  })
+  }
 
   // If we get here, the user is not in any of the org teams
   return false
@@ -92,7 +93,9 @@ export async function isAdmin(context) {
         // Add the handle to the list of handles and remove @ from the start of the handle
         handles.push(admin.replace('@', ''))
       } else {
-        core.debug(`${admin} is not a valid GitHub username... skipping admin check`)
+        core.debug(
+          `${admin} is not a valid GitHub username... skipping admin check`
+        )
       }
     }
   })
@@ -101,12 +104,15 @@ export async function isAdmin(context) {
   if (handles.includes(context.actor)) {
     core.debug(`${context.actor} is an admin via handle reference`)
     return true
-  } else if (
-    orgTeams.length > 0 &&
-    (await orgCheck(context.actor, orgTeams)) === true
-  ) {
-    core.debug(`${context.actor} is an admin via org team reference`)
-    return true
+  }
+
+  // Check if the user is in the org/team list
+  if (orgTeams.length > 0) {
+    const result = await orgTeamCheck(context.actor, orgTeams)
+    if (result) {
+      core.debug(`${context.actor} is an admin via org team reference`)
+      return true
+    }
   }
 
   // If we get here, the user is not an admin
