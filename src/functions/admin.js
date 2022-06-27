@@ -92,7 +92,7 @@ export async function isAdmin(context) {
         // Add the handle to the list of handles and remove @ from the start of the handle
         handles.push(admin.replace('@', ''))
       } else {
-        console.log(`${admin} is not a valid GitHub username... skipping`)
+        core.debug(`${admin} is not a valid GitHub username... skipping admin check`)
       }
     }
   })
