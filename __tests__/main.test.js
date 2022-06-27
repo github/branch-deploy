@@ -27,6 +27,7 @@ beforeEach(() => {
   process.env.INPUT_REACTION = 'eyes'
   process.env.INPUT_PREFIX_ONLY = 'true'
   process.env.INPUT_ENVIRONMENT = 'production'
+  process.env.INPUT_ENVIRONMENT_TARGETS = 'production,development,staging'
   process.env.INPUT_STABLE_BRANCH = 'main'
   process.env.INPUT_NOOP_TRIGGER = 'noop'
   process.env.INPUT_LOCK_TRIGGER = '.lock'
