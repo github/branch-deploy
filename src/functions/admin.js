@@ -76,7 +76,9 @@ export async function isAdmin(context) {
   const admins = core.getInput('admins')
 
   // Sanitized the input to remove any whitespace and split into an array
-  const adminsSanitized = admins.split(',').map(admin => admin.trim().toLowerCase())
+  const adminsSanitized = admins
+    .split(',')
+    .map(admin => admin.trim().toLowerCase())
 
   // loop through admins
   var handles = []
