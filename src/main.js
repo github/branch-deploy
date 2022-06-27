@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import {triggerCheck} from './functions/trigger-check'
 import {contextCheck} from './functions/context-check'
 import {reactEmote} from './functions/react-emote'
+import {environmentTargets} from './functions/environment-targets'
 import {actionStatus} from './functions/action-status'
 import {createDeploymentStatus} from './functions/deployment'
 import {prechecks} from './functions/prechecks'
@@ -30,7 +31,7 @@ export async function run() {
     const reaction = core.getInput('reaction')
     const prefixOnly = core.getInput('prefix_only') === 'true'
     const token = core.getInput('github_token', {required: true})
-    const environment = core.getInput('environment', {required: true})
+    var environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
@@ -43,6 +44,17 @@ export async function run() {
     // Set the state so that the post run logic will trigger
     core.saveState('isPost', 'true')
     core.saveState('actionsToken', token)
+
+    // Get the body of the IssueOps command
+    const body = context.payload.comment.body.trim()
+
+    // Check if the default environment is being overwritten by an explicit environment
+    environment = await environmentTargets(
+      environment,
+      body,
+      trigger,
+      noop_trigger
+    )
     core.saveState('environment', environment)
 
     // Check the context of the event to ensure it is valid, return if it is not
@@ -51,7 +63,6 @@ export async function run() {
     }
 
     // Get variables from the event context
-    const body = context.payload.comment.body.trim()
     const issue_number = context.payload.issue.number
     const {owner, repo} = context.repo
 

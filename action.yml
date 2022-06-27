@@ -14,9 +14,13 @@ inputs:
     default: ${{ job.status }}
     required: true
   environment:
-    description: 'The name of the environment to deploy to. Example, "production"'
+    description: 'The name of the default environment to deploy to. Example, "production"'
     required: false
     default: "production"
+  environment_targets:
+    description: 'Optional target environments to select for use with deployments. Example, "production,development,staging"'
+    required: false
+    default: "production,development,staging"
   reaction:
     description: 'If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes"'
     required: false
