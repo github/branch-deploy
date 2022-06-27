@@ -9343,6 +9343,7 @@ async function prechecks(
     'i'
   )
   const regexCommandWithoutParameters = new RegExp(`^\\${trigger}\\s*$`, 'i')
+  const regexCommandWithParameters = new RegExp(`^\\${trigger}\\s+.*$`, 'i')
 
   // Check to see if the "stable" branch was used as the deployment target
   if (regexCommandWithStableBranch.test(comment)) {
@@ -9362,6 +9363,9 @@ async function prechecks(
     core.info(
       `${trigger} command used on current branch - setting ref to ${ref}`
     )
+    // Check to see if the IssueOps command was used in a basic form with other params
+  } else if (regexCommandWithParameters.test(comment)) {
+    core.info(`issueops command used with parameters`)
     // If no regex patterns matched, the IssueOps command was used in an unsupported way
   } else {
     message = lib_default()(`
