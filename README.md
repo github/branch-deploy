@@ -17,6 +17,7 @@ This Action does the heavy lifting for you to enable branch deployments:
 
 - `.deploy` - Deploy a pull request
 - `.deploy noop` - Deploy a pull request in noop mode
+- `.deploy to <environment>` - Deploy a pull request to a specific environment
 - `.lock` - Create a deployment lock
 - `.lock --reason` - Create a deployment lock with a custom reason
 - `.lock --details` - View details about a deployment lock
@@ -373,6 +374,39 @@ This allows you to achieve the following:
 - Fine grained control over your environment secrets in the `production-secrets` environment
 - A "sticky" green rocket to your PR that doesn't disappear when the workflow finishes
 - Access to all the environment secrets stored in the `production-secrets` environment
+
+### Environment Selection
+
+With this Action, you can also choose the environment you wish to deploy to. This is useful if you have multiple environments and want to deploy to a specific environment.
+
+This can be achieved with the `environment_targets` input
+
+With this option, you can specify a comma seperated list of environments that you can deploy to besides just the default with `.deploy`
+
+The defaults that are used are: `production,development,staging`. However, you can configure this to be whatever you like!
+
+To use a deployment with a specific environment, you would invoke your commands like so:
+
+- `.deploy production`
+- `.deploy to production`
+- `.deploy to <environment>`
+
+This also works with noop commands as well
+
+- `.deploy noop production`
+- `.deploy noop to production`
+- `.deploy noop to <environment>`
+
+YAML input example:
+
+```yaml
+- uses: github/branch-deploy@vX.X.X
+  id: branch-deploy
+  with:
+    trigger: ".deploy"
+    environment: production # the default environment
+    environment_targets: "production,development,staging" # the environments that you can deploy to with explicit commands
+```
 
 ## Security 🔒
 
