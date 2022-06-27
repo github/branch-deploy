@@ -375,13 +375,13 @@ This allows you to achieve the following:
 - A "sticky" green rocket to your PR that doesn't disappear when the workflow finishes
 - Access to all the environment secrets stored in the `production-secrets` environment
 
-### Environment Selection
+### Environment Targets
 
 With this Action, you can also choose the environment you wish to deploy to. This is useful if you have multiple environments and want to deploy to a specific environment.
 
 This can be achieved with the `environment_targets` input
 
-With this option, you can specify a comma seperated list of environments that you can deploy to besides just the default with `.deploy`
+With this option, you can specify a comma separated list of environments that you can deploy to besides just the default with `.deploy`
 
 The defaults that are used are: `production,development,staging`. However, you can configure this to be whatever you like!
 
