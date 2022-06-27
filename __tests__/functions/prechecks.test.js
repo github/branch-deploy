@@ -144,6 +144,7 @@ test('runs prechecks and does not find any matching command', async () => {
     - \`.deploy\` - deploy **this** branch (\`test-ref\`)
     - \`.deploy noop\` - deploy **this** branch in **noop** mode (\`test-ref\`)
     - \`.deploy main\` - deploy the \`main\` branch
+    - \`.deploy to <environment>\` - deploy **this** branch to the specified environment
     > Note: \`.deploy main\` is often used for rolling back a change or getting back to a known working state`),
     status: false
   })
