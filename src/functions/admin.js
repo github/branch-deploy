@@ -52,7 +52,7 @@ export async function isAdmin(
 
     // Check if the user is in the admin handle list
     if (handles.includes(context.actor)) {
-        core.debug(`${context.actor} is an admin via direct handle reference`)
+        core.debug(`${context.actor} is an admin via handle reference`)
         return true
     } else if (orgTeams.length > 0 && await orgCheck(context.actor, orgTeams) === true) {
         core.debug(`${context.actor} is an admin via org team reference`)
