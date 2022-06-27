@@ -23,7 +23,7 @@ beforeEach(() => {
   jest.resetAllMocks()
   process.env.INPUT_ADMINS_PAT = 'faketoken'
   process.env.INPUT_ADMINS =
-    'monalisa,@lisamona,octoawesome/octo-awesome-team,bad$user'
+    'MoNaLiSa,@lisamona,octoawesome/octo-awesome-team,bad$user'
   jest.spyOn(github, 'getOctokit').mockImplementation(() => {
     return {
       request: jest.fn().mockReturnValueOnce({
