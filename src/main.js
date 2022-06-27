@@ -49,7 +49,12 @@ export async function run() {
     const body = context.payload.comment.body.trim()
 
     // Check if the default environment is being overwritten by an explicit environment
-    environment = environmentTargets(environment, body, trigger, noop_trigger)
+    environment = await environmentTargets(
+      environment,
+      body,
+      trigger,
+      noop_trigger
+    )
     core.saveState('environment', environment)
 
     // Check the context of the event to ensure it is valid, return if it is not
