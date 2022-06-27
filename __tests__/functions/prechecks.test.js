@@ -1472,3 +1472,52 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 
   expect(infoMock).toHaveBeenCalledWith('issueops command used with parameters')
 })
+
+test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return true
+  })
+  expect(
+    await prechecks(
+      '.deploy noop to production',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message: '✔️ All CI checks passed and **noop** requested - OK',
+    noopMode: true,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith('issueops command used with parameters')
+  expect(infoMock).toHaveBeenCalledWith('noop mode used with parameters')
+})
