@@ -256,10 +256,7 @@ export async function prechecks(
     core.info('note: noop deployments do not require pr review')
 
     // If CI is passing and the deployer is an admin
-  } else if (
-    commitStatus === 'SUCCESS' &&
-    (await isAdmin(context)) === true
-  ) {
+  } else if (commitStatus === 'SUCCESS' && (await isAdmin(context)) === true) {
     message =
       '✔️ CI is passing and approval is bypassed due to admin rights - OK'
     core.info(message)
