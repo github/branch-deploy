@@ -23,20 +23,26 @@ async function orgCheck(actor, orgTeams) {
 export async function isAdmin(
     context
 ) {
+    // Get the admins string from the action inputs
     const admins = core.getInput('admins')
 
+    // Sanitized the input to remove any whitespace and split into an array
     const adminsSanitized = admins.split(",").map(admin => admin.trim())
 
     // loop through admins
     var handles = []
     var orgTeams = []
     adminsSanitized.forEach(admin => {
+        // If the item contains a '/', then it is a org/team
         if (admin.includes("/")) {
             orgTeams.push(admin)
         }
+        // Otherwise, it is a github handle
         else {
+            // Check if the github handle is valid
             if (githubUsernameRegex.test(admin)) {
-                handles.push(admin)
+                // Add the handle to the list of handles and remove @ from the start of the handle
+                handles.push(admin.replace('@', ''))
             }
             else {
                 console.log(`${admin} is not a valid GitHub username... skipping`)
