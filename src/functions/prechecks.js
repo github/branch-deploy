@@ -81,6 +81,10 @@ export async function prechecks(
     // Check to see if the IssueOps command was used in a basic form with other params
   } else if (regexCommandWithParameters.test(comment)) {
     core.info(`issueops command used with parameters`)
+    if (comment.includes(noop_trigger)) {
+      core.info('noop mode used with parameters')
+      noopMode = true
+    }
     // If no regex patterns matched, the IssueOps command was used in an unsupported way
   } else {
     message = dedent(`
