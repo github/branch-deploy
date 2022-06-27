@@ -45,10 +45,18 @@ export async function environmentTargets(
         `Found environment target for noop trigger (with 'to'): ${target}`
       )
       return target
+    } else if (body.trim() === trigger) {
+      core.debug('Using default environment for branch deployment')
+      return environment
+    } else if (body.trim() === `${trigger} ${noop_trigger}`) {
+      core.debug('Using default environment for noop trigger')
+      return environment
     }
   }
 
-  // If we get here, then no explicit environment target was found
-  core.debug('No explicit environment target found')
+  // If we get here, then no environment target was found
+  core.debug(
+    `No matching environment target found using default: ${environment}`
+  )
   return environment
 }

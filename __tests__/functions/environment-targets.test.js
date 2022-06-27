@@ -17,7 +17,9 @@ test('checks the comment body and does not find an explicit environment target',
   expect(
     await environmentTargets(environment, body, trigger, noop_trigger)
   ).toBe('production')
-  expect(debugMock).toHaveBeenCalledWith('No explicit environment target found')
+  expect(debugMock).toHaveBeenCalledWith(
+    'Using default environment for branch deployment'
+  )
 })
 
 test('checks the comment body and finds an explicit environment target for development', async () => {
