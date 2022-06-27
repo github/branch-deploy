@@ -65,6 +65,10 @@ inputs:
     description: 'A comma seperated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team"'
     required: false
     default: "false"
+  admins_pat:
+    description: 'A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team"'
+    required: false
+    default: "false"
 outputs:
   triggered:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
