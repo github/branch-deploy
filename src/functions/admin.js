@@ -11,7 +11,7 @@ async function orgCheck(actor, orgTeams) {
   const adminsPat = core.getInput('admins_pat')
 
   // If no admin_pat is provided, then we cannot check for org team memberships
-  if (!adminsPat || adminsPat.length === 0) {
+  if (!adminsPat || adminsPat.length === 0 || adminsPat === 'false') {
     core.warning(
       'No admins_pat provided, skipping admin check for org team membership'
     )
