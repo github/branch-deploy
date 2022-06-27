@@ -1,4 +1,5 @@
 import {prechecks} from '../../src/functions/prechecks'
+import * as isAdmin from '../../src/functions/admin'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 
@@ -180,29 +181,6 @@ test('runs prechecks and finds that the IssueOps command is valid without define
   expect(infoMock).toHaveBeenCalledWith(
     'Skipping commit status check and proceeding...'
   )
-})
-
-test('runs prechecks and fails with a non 200 permissionRes.status', async () => {
-  var octobadres = octokit
-  octobadres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 500})
-  expect(
-    await prechecks(
-      '.deploy',
-      '.deploy',
-      'noop',
-      'disabled',
-      'main',
-      '123',
-      true,
-      context,
-      octobadres
-    )
-  ).toStrictEqual({
-    message: 'Permission check returns non-200 status: 500',
-    status: false
-  })
 })
 
 test('runs prechecks and fails due to bad user permissions', async () => {
@@ -1373,5 +1351,75 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `force`\n\n> I went ahead and updated your branch with `main` - Please try again once this operation is complete',
     status: false
+  })
+})
+
+test('runs prechecks and fails with a non 200 permissionRes.status', async () => {
+  var octobadres = octokit
+  octobadres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 500})
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      context,
+      octobadres
+    )
+  ).toStrictEqual({
+    message: 'Permission check returns non-200 status: 500',
+    status: false
+  })
+})
+
+test('runs prechecks and finds that the IssueOps commands are valid and from a defined admin', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return true
+  })
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI is passing and approval is bypassed due to admin rights - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true
   })
 })
