@@ -73,7 +73,7 @@ export async function environmentTargets(
     context,
     octokit,
     reactionId,
-    message
+    `### ⚠️ Cannot proceed with deployment\n\n${message}`
   )
 
   // Return false to indicate that no environment target was found
