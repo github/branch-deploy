@@ -48,9 +48,6 @@ export async function run() {
     // Get the body of the IssueOps command
     const body = context.payload.comment.body.trim()
 
-    core.saveState('environment', environment)
-    core.setOutput('environment', environment)
-
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(context))) {
       return 'safe-exit'
@@ -258,6 +255,9 @@ export async function run() {
       core.debug('No valid environment targets found')
       return 'safe-exit'
     }
+
+    core.saveState('environment', environment)
+    core.setOutput('environment', environment)
 
     // Execute prechecks to ensure the Action can proceed
     const precheckResults = await prechecks(
