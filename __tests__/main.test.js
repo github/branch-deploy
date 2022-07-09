@@ -508,6 +508,20 @@ test('fails due to a bad context', async () => {
   expect(await run()).toBe('safe-exit')
 })
 
+test('fails due to no valid environment targets being found in the comment body', async () => {
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.deploy to chaos',
+      id: 123
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(debugMock).toHaveBeenCalledWith('No valid environment targets found')
+})
+
 test('fails due to no trigger being found', async () => {
   process.env.INPUT_TRIGGER = '.shipit'
   expect(await run()).toBe('safe-exit')
