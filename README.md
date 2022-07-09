@@ -268,7 +268,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | ref | The ref (branch or sha) to use with deployment |
 | comment_id | The comment id which triggered this deployment |
 | type | The type of trigger that was detected (examples: deploy, lock, unlock) |
-| continue | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not |
+| continue | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
 | fork | The string "true" if the pull request is a fork, otherwise "false" |
 | fork_ref | The true ref of the fork |
 | fork_label | The API label field returned for the fork |
@@ -577,6 +577,15 @@ This section will cover a few suggestions that will help you when using this Act
     ![branch-setting](https://user-images.githubusercontent.com/23362539/172939811-a8816db8-8e7c-404a-b12a-11ec5bc6e93d.png)
 
 2. Enable Branch Protection Settings - It is always a good idea to enable branch protection settings for your repo, especially when using this Action
+
+## Alternate Command Syntax 🗨️
+
+Here are a few alternate ways you can invoke commands:
+
+- `.deploy noop staging` - Invoke a "noop" deployment to the staging environment
+- `.deploy development` - Invoke a "development" deployment to the staging environment (notice how you can omit the "to" keyword)
+- `.deploy to development` - Invoke a "development" deployment to the staging environment (with the "to" keyword)
+- `.deploy` - Uses the default environment (usually "production")
 
 ## Testing Locally 🔨
 

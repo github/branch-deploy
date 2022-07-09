@@ -48,13 +48,6 @@ export async function run() {
     // Get the body of the IssueOps command
     const body = context.payload.comment.body.trim()
 
-    // Check if the default environment is being overwritten by an explicit environment
-    environment = await environmentTargets(
-      environment,
-      body,
-      trigger,
-      noop_trigger
-    )
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
 
@@ -102,6 +95,7 @@ export async function run() {
       // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
+      core.debug('No trigger found')
       return 'safe-exit'
     } else if (isDeploy) {
       core.setOutput('type', 'deploy')
@@ -246,6 +240,23 @@ export async function run() {
         core.saveState('bypass', 'true')
         return 'safe-exit'
       }
+    }
+
+    // Check if the default environment is being overwritten by an explicit environment
+    environment = await environmentTargets(
+      environment,
+      body,
+      trigger,
+      noop_trigger,
+      context,
+      octokit,
+      reactRes.data.id
+    )
+
+    // If the environment targets are not valid, then exit
+    if (!environment) {
+      core.debug('No valid environment targets found')
+      return 'safe-exit'
     }
 
     // Execute prechecks to ensure the Action can proceed
