@@ -12,6 +12,7 @@ import * as core from '@actions/core'
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const saveStateMock = jest.spyOn(core, 'saveState')
 const setFailedMock = jest.spyOn(core, 'setFailed')
+const debugMock = jest.spyOn(core, 'debug')
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -510,6 +511,7 @@ test('fails due to a bad context', async () => {
 test('fails due to no trigger being found', async () => {
   process.env.INPUT_TRIGGER = '.shipit'
   expect(await run()).toBe('safe-exit')
+  expect(debugMock).toHaveBeenCalledWith('No trigger found')
 })
 
 test('fails prechecks', async () => {
