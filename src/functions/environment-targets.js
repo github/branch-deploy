@@ -1,14 +1,23 @@
 import * as core from '@actions/core'
+import {actionStatus} from './action-status'
 
 // A simple function that checks if an explicit environment target is being used
 // :param environment: The default environment from the Actions inputs
 // :param body: The comment body
-// :returns: the environment target (String)
+// :param trigger: The trigger prefix
+// :param noop_trigger: The noop trigger prefix
+// :param context: The context of the Action
+// :param octokit: The Octokit instance
+// :param reactionId: The ID of the initial comment reaction (Integer)
+// :returns: the environment target (String) or false if no environment target was found (fails)
 export async function environmentTargets(
   environment,
   body,
   trigger,
-  noop_trigger
+  noop_trigger,
+  context,
+  octokit,
+  reactionId
 ) {
   // Get the environment targets from the action inputs
   const environment_targets = core.getInput('environment_targets')
@@ -54,9 +63,19 @@ export async function environmentTargets(
     }
   }
 
-  // If we get here, then no environment target was found
-  core.debug(
-    `No matching environment target found using default: ${environment}`
+  // If we get here, then no valid environment target was found
+  const message = 'No matching environment target found. Please check your command and try again'
+  core.warning(message)
+  core.saveState('bypass', 'true')
+
+  // Return the action status as a failure
+  await actionStatus(
+    context,
+    octokit,
+    reactionId,
+    message
   )
-  return environment
+
+  // Return false to indicate that no environment target was found
+  return false
 }

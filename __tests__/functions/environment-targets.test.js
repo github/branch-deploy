@@ -1,10 +1,16 @@
 import {environmentTargets} from '../../src/functions/environment-targets'
+import * as actionStatus from '../../src/functions/action-status'
 import * as core from '@actions/core'
 
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
+const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
+const saveStateMock = jest.spyOn(core, 'saveState')
 
 beforeEach(() => {
   jest.resetAllMocks()
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
   process.env.INPUT_ENVIRONMENT_TARGETS = 'production,development,staging'
 })
 
@@ -76,4 +82,28 @@ test('checks the comment body and finds an explicit environment target for produ
   expect(debugMock).toHaveBeenCalledWith(
     "Found environment target for branch deploy (with 'to'): production"
   )
+})
+
+test('checks the comment body on a noop deploy and does not find an explicit environment target', async () => {
+  expect(
+    await environmentTargets(environment, '.deploy noop', trigger, noop_trigger)
+  ).toBe('production')
+  expect(debugMock).toHaveBeenCalledWith(
+    'Using default environment for noop trigger'
+  )
+})
+
+test('checks the comment body on a deployment and does not find any matching environment target (fails)', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy to chaos',
+      trigger,
+      noop_trigger
+    )
+  ).toBe(false)
+  expect(warningMock).toHaveBeenCalledWith(
+    "No matching environment target found. Please check your command and try again"
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })
