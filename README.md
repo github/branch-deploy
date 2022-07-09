@@ -578,6 +578,15 @@ This section will cover a few suggestions that will help you when using this Act
 
 2. Enable Branch Protection Settings - It is always a good idea to enable branch protection settings for your repo, especially when using this Action
 
+## Alternate Command Syntax 🗨️
+
+Here are a few alternate ways you can invoke commands:
+
+- `.deploy noop staging` - Invoke a "noop" deployment to the staging environment
+- `.deploy development` - Invoke a "development" deployment to the staging environment (notice how you can omit the "to" keyword)
+- `.deploy to development` - Invoke a "development" deployment to the staging environment (with the "to" keyword)
+- `.deploy` - Uses the default environment (usually "production")
+
 ## Testing Locally 🔨
 
 Steps for testing the Action locally for development
