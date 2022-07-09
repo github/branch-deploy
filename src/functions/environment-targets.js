@@ -64,7 +64,8 @@ export async function environmentTargets(
   }
 
   // If we get here, then no valid environment target was found
-  const message = 'No matching environment target found. Please check your command and try again'
+  const message =
+    'No matching environment target found. Please check your command and try again'
   core.warning(message)
   core.saveState('bypass', 'true')
 

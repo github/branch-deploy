@@ -103,7 +103,7 @@ test('checks the comment body on a deployment and does not find any matching env
     )
   ).toBe(false)
   expect(warningMock).toHaveBeenCalledWith(
-    "No matching environment target found. Please check your command and try again"
+    'No matching environment target found. Please check your command and try again'
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })

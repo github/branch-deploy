@@ -8958,70 +8958,6 @@ async function reactEmote(reaction, context, octokit) {
   return reactRes
 }
 
-;// CONCATENATED MODULE: ./src/functions/environment-targets.js
-
-
-// A simple function that checks if an explicit environment target is being used
-// :param environment: The default environment from the Actions inputs
-// :param body: The comment body
-// :returns: the environment target (String)
-async function environmentTargets(
-  environment,
-  body,
-  trigger,
-  noop_trigger
-) {
-  // Get the environment targets from the action inputs
-  const environment_targets = core.getInput('environment_targets')
-
-  // Sanitized the input to remove any whitespace and split into an array
-  const environment_targets_sanitized = environment_targets
-    .split(',')
-    .map(target => target.trim())
-
-  // Loop through all the environment targets to see if an explicit target is being used
-  for (const target of environment_targets_sanitized) {
-    // If the body on a branch deploy contains the target
-    if (body.replace(trigger, '').trim() === target) {
-      core.debug(`Found environment target for branch deploy: ${target}`)
-      return target
-    }
-    // If the body on a noop trigger contains the target
-    else if (body.replace(`${trigger} ${noop_trigger}`, '').trim() === target) {
-      core.debug(`Found environment target for noop trigger: ${target}`)
-      return target
-    }
-    // If the body with 'to <target>' contains the target on a branch deploy
-    else if (body.replace(trigger, '').trim() === `to ${target}`) {
-      core.debug(
-        `Found environment target for branch deploy (with 'to'): ${target}`
-      )
-      return target
-    }
-    // If the body with 'to <target>' contains the target on a noop trigger
-    else if (
-      body.replace(`${trigger} ${noop_trigger}`, '').trim() === `to ${target}`
-    ) {
-      core.debug(
-        `Found environment target for noop trigger (with 'to'): ${target}`
-      )
-      return target
-    } else if (body.trim() === trigger) {
-      core.debug('Using default environment for branch deployment')
-      return environment
-    } else if (body.trim() === `${trigger} ${noop_trigger}`) {
-      core.debug('Using default environment for noop trigger')
-      return environment
-    }
-  }
-
-  // If we get here, then no environment target was found
-  core.debug(
-    `No matching environment target found using default: ${environment}`
-  )
-  return environment
-}
-
 ;// CONCATENATED MODULE: ./src/functions/action-status.js
 // Default failure reaction
 const thumbsDown = '-1'
@@ -9085,6 +9021,90 @@ async function actionStatus(
     comment_id: context.payload.comment.id,
     reaction_id: reactionId
   })
+}
+
+;// CONCATENATED MODULE: ./src/functions/environment-targets.js
+
+
+
+// A simple function that checks if an explicit environment target is being used
+// :param environment: The default environment from the Actions inputs
+// :param body: The comment body
+// :param trigger: The trigger prefix
+// :param noop_trigger: The noop trigger prefix
+// :param context: The context of the Action
+// :param octokit: The Octokit instance
+// :param reactionId: The ID of the initial comment reaction (Integer)
+// :returns: the environment target (String) or false if no environment target was found (fails)
+async function environmentTargets(
+  environment,
+  body,
+  trigger,
+  noop_trigger,
+  context,
+  octokit,
+  reactionId
+) {
+  // Get the environment targets from the action inputs
+  const environment_targets = core.getInput('environment_targets')
+
+  // Sanitized the input to remove any whitespace and split into an array
+  const environment_targets_sanitized = environment_targets
+    .split(',')
+    .map(target => target.trim())
+
+  // Loop through all the environment targets to see if an explicit target is being used
+  for (const target of environment_targets_sanitized) {
+    // If the body on a branch deploy contains the target
+    if (body.replace(trigger, '').trim() === target) {
+      core.debug(`Found environment target for branch deploy: ${target}`)
+      return target
+    }
+    // If the body on a noop trigger contains the target
+    else if (body.replace(`${trigger} ${noop_trigger}`, '').trim() === target) {
+      core.debug(`Found environment target for noop trigger: ${target}`)
+      return target
+    }
+    // If the body with 'to <target>' contains the target on a branch deploy
+    else if (body.replace(trigger, '').trim() === `to ${target}`) {
+      core.debug(
+        `Found environment target for branch deploy (with 'to'): ${target}`
+      )
+      return target
+    }
+    // If the body with 'to <target>' contains the target on a noop trigger
+    else if (
+      body.replace(`${trigger} ${noop_trigger}`, '').trim() === `to ${target}`
+    ) {
+      core.debug(
+        `Found environment target for noop trigger (with 'to'): ${target}`
+      )
+      return target
+    } else if (body.trim() === trigger) {
+      core.debug('Using default environment for branch deployment')
+      return environment
+    } else if (body.trim() === `${trigger} ${noop_trigger}`) {
+      core.debug('Using default environment for noop trigger')
+      return environment
+    }
+  }
+
+  // If we get here, then no valid environment target was found
+  const message =
+    'No matching environment target found. Please check your command and try again'
+  core.warning(message)
+  core.saveState('bypass', 'true')
+
+  // Return the action status as a failure
+  await actionStatus(
+    context,
+    octokit,
+    reactionId,
+    `### ⚠️ Cannot proceed with deployment\n\n${message}`
+  )
+
+  // Return false to indicate that no environment target was found
+  return false
 }
 
 ;// CONCATENATED MODULE: ./src/functions/deployment.js
@@ -10307,13 +10327,6 @@ async function run() {
     // Get the body of the IssueOps command
     const body = github.context.payload.comment.body.trim()
 
-    // Check if the default environment is being overwritten by an explicit environment
-    environment = await environmentTargets(
-      environment,
-      body,
-      trigger,
-      noop_trigger
-    )
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
 
@@ -10361,6 +10374,7 @@ async function run() {
       // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
+      core.debug('No trigger found')
       return 'safe-exit'
     } else if (isDeploy) {
       core.setOutput('type', 'deploy')
@@ -10505,6 +10519,23 @@ async function run() {
         core.saveState('bypass', 'true')
         return 'safe-exit'
       }
+    }
+
+    // Check if the default environment is being overwritten by an explicit environment
+    environment = await environmentTargets(
+      environment,
+      body,
+      trigger,
+      noop_trigger,
+      github.context,
+      octokit,
+      reactRes.data.id
+    )
+
+    // If the environment targets are not valid, then exit
+    if (!environment) {
+      core.debug('No valid environment targets found')
+      return 'safe-exit'
     }
 
     // Execute prechecks to ensure the Action can proceed
