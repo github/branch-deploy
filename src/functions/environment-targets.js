@@ -15,6 +15,7 @@ export async function environmentTargets(
   body,
   trigger,
   noop_trigger,
+  stable_branch,
   context,
   octokit,
   reactionId
@@ -54,11 +55,34 @@ export async function environmentTargets(
         `Found environment target for noop trigger (with 'to'): ${target}`
       )
       return target
-    } else if (body.trim() === trigger) {
+    }
+    // If the body with 'to <target>' contains the target on a stable branch deploy
+    else if (
+      body.replace(`${trigger} ${stable_branch}`, '').trim() === `to ${target}`
+    ) {
+      core.debug(
+        `Found environment target for stable branch deploy (with 'to'): ${target}`
+      )
+      return target
+    }
+    // If the body on a stable branch deploy contains the target
+    if (body.replace(`${trigger} ${stable_branch}`, '').trim() === target) {
+      core.debug(`Found environment target for stable branch deploy: ${target}`)
+      return target
+    }
+    // If the body matches the trigger phrase exactly, just use the default environment
+    else if (body.trim() === trigger) {
       core.debug('Using default environment for branch deployment')
       return environment
-    } else if (body.trim() === `${trigger} ${noop_trigger}`) {
+    }
+    // If the body matches the noop trigger phrase exactly, just use the default environment
+    else if (body.trim() === `${trigger} ${noop_trigger}`) {
       core.debug('Using default environment for noop trigger')
+      return environment
+    }
+    // If the body matches the stable branch phrase exactly, just use the default environment
+    else if (body.trim() === `${trigger} ${stable_branch}`) {
+      core.debug('Using default environment for stable branch deployment')
       return environment
     }
   }
