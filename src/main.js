@@ -245,6 +245,7 @@ export async function run() {
       body,
       trigger,
       noop_trigger,
+      stable_branch,
       context,
       octokit,
       reactRes.data.id
