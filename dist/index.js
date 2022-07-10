@@ -9379,7 +9379,7 @@ async function prechecks(
 
   // Regex statements for checking the trigger message
   const regexCommandWithStableBranch = new RegExp(
-    `^\\${trigger}\\s*(${stable_branch})$`,
+    `^\\${trigger}\\s*(${stable_branch}).*$`,
     'i'
   )
   const regexCommandWithNoop = new RegExp(
