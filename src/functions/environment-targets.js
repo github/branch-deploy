@@ -57,7 +57,9 @@ export async function environmentTargets(
       return target
     }
     // If the body with 'to <target>' contains the target on a stable branch deploy
-    else if (body.replace(`${trigger} ${stable_branch}`, '').trim() === `to ${target}`) {
+    else if (
+      body.replace(`${trigger} ${stable_branch}`, '').trim() === `to ${target}`
+    ) {
       core.debug(
         `Found environment target for stable branch deploy (with 'to'): ${target}`
       )
