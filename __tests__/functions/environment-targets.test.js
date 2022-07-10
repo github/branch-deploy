@@ -18,10 +18,17 @@ const environment = 'production'
 const body = '.deploy'
 const trigger = '.deploy'
 const noop_trigger = 'noop'
+const stable_branch = 'main'
 
 test('checks the comment body and does not find an explicit environment target', async () => {
   expect(
-    await environmentTargets(environment, body, trigger, noop_trigger)
+    await environmentTargets(
+      environment,
+      body,
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
   ).toBe('production')
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for branch deployment'
@@ -34,7 +41,8 @@ test('checks the comment body and finds an explicit environment target for devel
       environment,
       '.deploy development',
       trigger,
-      noop_trigger
+      noop_trigger,
+      stable_branch
     )
   ).toBe('development')
   expect(debugMock).toHaveBeenCalledWith(
@@ -48,7 +56,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       environment,
       '.deploy noop staging',
       trigger,
-      noop_trigger
+      noop_trigger,
+      stable_branch
     )
   ).toBe('staging')
   expect(debugMock).toHaveBeenCalledWith(
@@ -62,7 +71,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       environment,
       '.deploy noop to staging',
       trigger,
-      noop_trigger
+      noop_trigger,
+      stable_branch
     )
   ).toBe('staging')
   expect(debugMock).toHaveBeenCalledWith(
@@ -76,7 +86,8 @@ test('checks the comment body and finds an explicit environment target for produ
       environment,
       '.deploy to production',
       trigger,
-      noop_trigger
+      noop_trigger,
+      stable_branch
     )
   ).toBe('production')
   expect(debugMock).toHaveBeenCalledWith(
@@ -86,7 +97,13 @@ test('checks the comment body and finds an explicit environment target for produ
 
 test('checks the comment body on a noop deploy and does not find an explicit environment target', async () => {
   expect(
-    await environmentTargets(environment, '.deploy noop', trigger, noop_trigger)
+    await environmentTargets(
+      environment,
+      '.deploy noop',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
   ).toBe('production')
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for noop trigger'
@@ -99,7 +116,69 @@ test('checks the comment body on a deployment and does not find any matching env
       environment,
       '.deploy to chaos',
       trigger,
-      noop_trigger
+      noop_trigger,
+      stable_branch
+    )
+  ).toBe(false)
+  expect(warningMock).toHaveBeenCalledWith(
+    'No matching environment target found. Please check your command and try again'
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
+test('checks the comment body on a stable branch deployment and finds a matching environment (with to)', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy main to production',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toBe('production')
+  expect(debugMock).toHaveBeenCalledWith(
+    "Found environment target for stable branch deploy (with 'to'): production"
+  )
+})
+
+test('checks the comment body on a stable branch deployment and finds a matching environment (without to)', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy main production',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toBe('production')
+  expect(debugMock).toHaveBeenCalledWith(
+    'Found environment target for stable branch deploy: production'
+  )
+})
+
+test('checks the comment body on a stable branch deployment and uses the default environment', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy main',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toBe('production')
+  expect(debugMock).toHaveBeenCalledWith(
+    'Using default environment for stable branch deployment'
+  )
+})
+
+test('checks the comment body on a stable branch deployment and does not find a matching environment', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy main chaos',
+      trigger,
+      noop_trigger,
+      stable_branch
     )
   ).toBe(false)
   expect(warningMock).toHaveBeenCalledWith(
