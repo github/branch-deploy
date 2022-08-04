@@ -1642,7 +1642,7 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
     ref: 'test-ref'
   })
   expect(infoMock).toHaveBeenCalledWith(
-    "No CI checks have been defined for this pull request, proceeding - OK"
+    'No CI checks have been defined for this pull request, proceeding - OK'
   )
   expect(infoMock).toHaveBeenCalledWith(
     "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
@@ -1695,14 +1695,13 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
       octonocommitchecks
     )
   ).toStrictEqual({
-    message:
-      '✔️ PR is approved and all CI checks passed - OK',
+    message: '✔️ PR is approved and all CI checks passed - OK',
     status: true,
     noopMode: false,
     ref: 'test-ref'
   })
   expect(infoMock).toHaveBeenCalledWith(
-    "No CI checks have been defined for this pull request, proceeding - OK"
+    'No CI checks have been defined for this pull request, proceeding - OK'
   )
   expect(infoMock).toHaveBeenCalledWith(
     'Skipping commit status check and proceeding...'
@@ -1759,7 +1758,7 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
     ref: 'test-ref'
   })
   expect(infoMock).toHaveBeenCalledWith(
-    "No CI checks have been defined for this pull request, proceeding - OK"
+    'No CI checks have been defined for this pull request, proceeding - OK'
   )
   expect(infoMock).toHaveBeenCalledWith(
     'Skipping commit status check and proceeding...'
