@@ -37,6 +37,9 @@ const graphQLOK = jest.fn().mockReturnValue({
         nodes: [
           {
             commit: {
+              checkSuites: {
+                totalCount: 3
+              },
               statusCheckRollup: {
                 state: 'SUCCESS'
               }
@@ -291,6 +294,9 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -347,6 +353,9 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -393,6 +402,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 8
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -449,6 +461,9 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -502,6 +517,9 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 2
+                },
                 statusCheckRollup: {
                   state: 'PENDING'
                 }
@@ -547,6 +565,9 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'PENDING'
                 }
@@ -592,6 +613,9 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 3
+                },
                 statusCheckRollup: {
                   state: 'PENDING'
                 }
@@ -707,6 +731,9 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 14
+                },
                 statusCheckRollup: {
                   state: 'PENDING'
                 }
@@ -752,6 +779,9 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -797,6 +827,9 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'FAILURE'
                 }
@@ -842,6 +875,9 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'FAILURE'
                 }
@@ -922,6 +958,9 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -977,6 +1016,9 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1023,6 +1065,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1078,6 +1123,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1127,6 +1175,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1173,6 +1224,9 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1219,6 +1273,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'FAILED'
                 }
@@ -1265,6 +1322,9 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1311,6 +1371,9 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1391,6 +1454,9 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1438,6 +1504,9 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1487,6 +1556,9 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
           nodes: [
             {
               commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1521,4 +1593,177 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 
   expect(infoMock).toHaveBeenCalledWith('issueops command used with parameters')
   expect(infoMock).toHaveBeenCalledWith('noop mode used with parameters')
+})
+
+test('runs prechecks and finds that no CI checks exist and reviews are not defined', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: null,
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 0
+                },
+                statusCheckRollup: null
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK',
+    status: true,
+    noopMode: false,
+    ref: 'test-ref'
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    'No CI checks have been defined for this pull request, proceeding - OK'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    'Skipping commit status check and proceeding...'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+  )
+})
+
+test('runs prechecks and finds that no CI checks exist but reviews are defined', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 0
+                },
+                statusCheckRollup: null
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message: '✔️ PR is approved and all CI checks passed - OK',
+    status: true,
+    noopMode: false,
+    ref: 'test-ref'
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    'No CI checks have been defined for this pull request, proceeding - OK'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    'Skipping commit status check and proceeding...'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+  )
+})
+
+test('runs prechecks and finds that no CI checks exist and the PR is not approved, but it is from an admin', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 0
+                },
+                statusCheckRollup: null
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI is passing and approval is bypassed due to admin rights - OK',
+    status: true,
+    noopMode: false,
+    ref: 'test-ref'
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    'No CI checks have been defined for this pull request, proceeding - OK'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    'Skipping commit status check and proceeding...'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+  )
 })
