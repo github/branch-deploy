@@ -27,7 +27,7 @@
   "author": "Grant Birkinbine",
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^1.6.0",
+    "@actions/core": "^1.9.1",
     "@actions/github": "^5.0.1",
     "@babel/preset-env": "^7.17.10",
     "babel-core": "^6.26.3",
