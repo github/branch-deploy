@@ -29,6 +29,15 @@ If something goes wrong and you need to redeploy the main/master/base branch of 
 
 - `.deploy main` - Rolls back to the `main` branch in production
 - `.deploy main to <environment>` - Rolls back to the `main` branch in the specified environment
+
+## Environment Targets 🏝️
+
+Environment targets are used to target specific environments for deployments. These are specifically defined in the Actions workflow and could be anything you want. Common examples are `production`, `staging`, `development`, etc.
+
+`.deploy` will always use the default environment target unless you specify one. If you are ever unsure what environment to use, please contact your team member who setup the workflow.
+
+> Note: You can learn more about environment targets [here](https://github.com/github/branch-deploy#environment-targets)
+
 ## Deployment Permissions 🔑
 
 In order to run any branch deployment commands, you need the following permissions:
