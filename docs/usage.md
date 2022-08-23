@@ -23,6 +23,12 @@ If you need to lock deployments so that only you can trigger them, you can use t
 - `.lock --info` - Displays info about the current deployment lock if one exists
 - `.wcid` - An alias for `.lock --info`, it means "where can I deploy"
 
+## Deployment Rollbacks 🔙
+
+If something goes wrong and you need to redeploy the main/master/base branch of your repository, you can use the following set of commands:
+
+- `.deploy main` - Rolls back to the `main` branch in production
+- `.deploy main to <environment>` - Rolls back to the `main` branch in the specified environment
 ## Deployment Permissions 🔑
 
 In order to run any branch deployment commands, you need the following permissions:
