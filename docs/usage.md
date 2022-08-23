@@ -8,17 +8,37 @@ This document is a quick guide / cheatsheet for using the `branch-deploy` Action
 
 Deployments respect your repository's branch protection settings. You can trigger either a regular or noop deployment:
 
-- `.deploy` - Triggers a regular deployment
-- `.deploy noop` - Triggers a noop deployment (think Terraform plan for example)
+- `.deploy` - Triggers a regular deployment using the default environment (think "Terraform apply" for example)
+- `.deploy noop` - Triggers a noop deployment (think "Terraform plan" for example)
+- `.deploy <environment>` - Triggers a deployment for the specified environment
+- `.deploy noop <environment>` - Triggers a noop deployment for the specified environment
 
 ## Deployment Locks 🔒
 
 If you need to lock deployments so that only you can trigger them, you can use the following set of commands:
 
 - `.lock` - Locks deployments (sticky) so that only you can trigger them
+- `.lock --reason <text>` - Lock deployments with a reason
 - `.unlock` - Removes the current deployment lock (if one exists)
 - `.lock --info` - Displays info about the current deployment lock if one exists
 - `.wcid` - An alias for `.lock --info`, it means "where can I deploy"
+
+> Note: A deployment lock blocks deploys for all environments. **sticky** locks will also persist until someone removes them with `.unlock`
+
+## Deployment Rollbacks 🔙
+
+If something goes wrong and you need to redeploy the main/master/base branch of your repository, you can use the following set of commands:
+
+- `.deploy main` - Rolls back to the `main` branch in production
+- `.deploy main to <environment>` - Rolls back to the `main` branch in the specified environment
+
+## Environment Targets 🏝️
+
+Environment targets are used to target specific environments for deployments. These are specifically defined in the Actions workflow and could be anything you want. Common examples are `production`, `staging`, `development`, etc.
+
+`.deploy` will always use the default environment target unless you specify one. If you are ever unsure what environment to use, please contact your team member who setup the workflow.
+
+> Note: You can learn more about environment targets [here](https://github.com/github/branch-deploy#environment-targets)
 
 ## Deployment Permissions 🔑
 
