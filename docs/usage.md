@@ -8,14 +8,17 @@ This document is a quick guide / cheatsheet for using the `branch-deploy` Action
 
 Deployments respect your repository's branch protection settings. You can trigger either a regular or noop deployment:
 
-- `.deploy` - Triggers a regular deployment
-- `.deploy noop` - Triggers a noop deployment (think Terraform plan for example)
+- `.deploy` - Triggers a regular deployment using the default environment (think "Terraform apply" for example)
+- `.deploy noop` - Triggers a noop deployment (think "Terraform plan" for example)
+- `.deploy <environment>` - Triggers a deployment for the specified environment
+- `.deploy noop <environment>` - Triggers a noop deployment for the specified environment
 
 ## Deployment Locks 🔒
 
 If you need to lock deployments so that only you can trigger them, you can use the following set of commands:
 
 - `.lock` - Locks deployments (sticky) so that only you can trigger them
+- `.lock --reason <text>` - Lock deployments with a reason
 - `.unlock` - Removes the current deployment lock (if one exists)
 - `.lock --info` - Displays info about the current deployment lock if one exists
 - `.wcid` - An alias for `.lock --info`, it means "where can I deploy"
