@@ -19,7 +19,7 @@ This Action does the heavy lifting for you to enable branch deployments:
 - `.deploy noop` - Deploy a pull request in noop mode
 - `.deploy to <environment>` - Deploy a pull request to a specific environment
 - `.lock` - Create a deployment lock
-- `.lock --reason` - Create a deployment lock with a custom reason
+- `.lock --reason <text>` - Create a deployment lock with a custom reason
 - `.lock --details` - View details about a deployment lock
 - `.unlock` - Remove a deployment lock
 
