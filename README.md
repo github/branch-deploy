@@ -114,6 +114,8 @@ jobs:
 
 > Keep reading to learn more about this Action! Even further details about how this Action works can be found below as well
 
+You can check out further examples by checking out our [examples](docs/examples.md) documentation
+
 ## About 💡
 
 Before we get into details, let's first define a few key terms below:
