@@ -18,6 +18,12 @@ on:
   issue_comment:
     types: [created]
 
+# Permissions needed for reacting and adding comments for IssueOps commands
+permissions:
+  pull-requests: write
+  deployments: write
+  contents: write # you might only need 'read' here
+
 jobs:
   deploy:
     name: deploy
