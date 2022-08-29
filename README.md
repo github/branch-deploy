@@ -114,6 +114,8 @@ jobs:
 
 > Keep reading to learn more about this Action! Even further details about how this Action works can be found below as well
 
+You can check out further examples by checking out our [examples](docs/examples.md) documentation
+
 ## About 💡
 
 Before we get into details, let's first define a few key terms below:
@@ -557,7 +559,22 @@ concurrency:
   cancel-in-progress: true
 ```
 
-## Live Examples 📸
+## Examples
+
+This section contains real world examples of how this Action can be used
+
+- [Terraform](docs/examples.md#terraform)
+- [Heroku](docs/examples.md#heroku)
+- [Railway](docs/examples.md#railway)
+- [SSH](docs/examples.md#ssh)
+- [Cloudflare Pages](docs/examples.md#cloudflare-pages)
+- [Cloudflare Workers](docs/examples.md#cloudflare-workers)
+
+> Checkout the [examples document](docs/examples.md) for more examples
+
+Remember, these are just examples and you can quite literally configure this Action for **any** deployment target you want!
+
+### Live Examples 📸
 
 What to see live examples of this Action in use?
 
@@ -567,6 +584,8 @@ Check out some of the links below to see how others are using this Action in the
 - [the-hideout/cloudflare](https://github.com/the-hideout/cloudflare/blob/f3b189b54f278d7e7844e5cc2fcdbb6f5afd3467/.github/workflows/branch-deploy.yml)
 - [the-hideout/tarkov-api](https://github.com/the-hideout/tarkov-api/blob/be645d7750a0e440794229ce56aefeb4648b8892/.github/workflows/branch-deploy.yml)
 - [the-hideout/stash](https://github.com/the-hideout/stash/blob/4aabf7565fda933f8e40ae9c60cde9f03e549b3b/.github/workflows/branch-deploy.yml)
+
+> Are you using this Action in a cool new way? Open a pull request to this repo to have your workflow added to the list above!
 
 ## Suggestions 🌟
 
