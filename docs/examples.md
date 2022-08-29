@@ -102,7 +102,7 @@ jobs:
 
 ## Heroku
 
-This example shows how you could use this Action with Heroku
+This example shows how you could use this Action with [Heroku](https://heroku.com)
 
 - `.deploy noop` has no effect here
 - `.deploy` takes your current branch and deploys it to Heroku
@@ -147,4 +147,55 @@ jobs:
           heroku_app_name: <your-heroku-app-name-here>
           heroku_email: ${{ secrets.HEROKU_EMAIL }}
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+```
+
+## Railway
+
+This example shows how you could use this Action with [Railway](https://railway.app)
+
+- `.deploy noop` has no effect here
+- `.deploy` takes your current branch and deploys it to Railway
+
+```yaml
+name: branch-deploy
+
+on:
+  issue_comment:
+    types: [ created ]
+
+permissions:
+  pull-requests: write
+  deployments: write
+  contents: write # you might only need 'read' here
+
+jobs:
+  deploy:
+    name: deploy
+    if: ${{ github.event.issue.pull_request }} # only run on pull request comments
+    runs-on: ubuntu-latest
+    environment: production-secrets # the locked down environment we pull secrets from
+
+    steps:
+        # The branch-deploy Action
+      - name: branch-deploy
+        id: branch-deploy
+        uses: github/branch-deploy@vX.X.X
+
+        # If the branch-deploy Action was triggered, checkout our branch
+      - name: Checkout
+        if: steps.branch-deploy.outputs.continue == 'true'
+        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        with:
+          ref: ${{ steps.branch-deploy.outputs.ref }}
+
+        # Install the Railway CLI through npm
+      - name: Install Railway
+        run: npm i -g @railway/cli
+
+        # Deploy our branch to Railway
+      - name: Deploy to Railway
+        if: steps.branch-deploy.outputs.continue == 'true'
+        run: railway up
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 ```
