@@ -6,12 +6,14 @@ This section contains real world and common examples of how you could use this A
 
 ## Terraform
 
-This example shows how you could use this Action with Terraform
+This example shows how you could use this Action with [Terraform](https://www.terraform.io/)
 
 - `.deploy noop` triggers a Terraform plan
 - `.deploy` triggers a Terraform apply
 
 All deployment results get posted as a comment in the branch deploy output on your pull request
+
+> A live example can be found [here](https://github.com/the-hideout/cloudflare/blob/de0682c6fe0640a9af122306354b9ea9694ca7a2/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -39,32 +41,38 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }} # the directory we use where all our TF files are stored
 
     steps:
+        # The branch-deploy Action
       - name: branch-deploy
         id: branch-deploy
         uses: github/branch-deploy@vX.X.X
 
+        # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
+        # Setup Terraform on our Actions runner
       - uses: hashicorp/setup-terraform@ed3a0531877aca392eb870f440d9ae7aba83a6bd # pin@v1
         if: steps.branch-deploy.outputs.continue == 'true'
         with:
           terraform_version: 1.1.7
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
+        # Run Terraform init in our working directory
       - name: Terraform init
         if: steps.branch-deploy.outputs.continue == 'true'
         run: terraform init
 
+        # If '.deploy noop' was used, run a Terraform plan
       - name: Terraform plan
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
         id: plan
         run: terraform plan -no-color
         continue-on-error: true # continue on error as we will handle errors later on
 
+        # If '.deploy' was used, run a Terraform apply
       - name: Terraform apply
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
         id: apply
@@ -106,6 +114,8 @@ This example shows how you could use this Action with [Heroku](https://heroku.co
 
 - `.deploy noop` has no effect here (but you could change that)
 - `.deploy` takes your current branch and deploys it to Heroku
+
+> A live example can be found [here](https://github.com/the-hideout/stash/blob/3d8cd979d124bd13878c4bc92f74f3830cf53c22/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -155,6 +165,8 @@ This example shows how you could use this Action with [Railway](https://railway.
 
 - `.deploy noop` has no effect here (but you could change that)
 - `.deploy` takes your current branch and deploys it to Railway
+
+> A live example can be found [here](https://github.com/the-hideout/stash/blob/57d85e2092866b675a73ff23203c04962df12385/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -208,6 +220,8 @@ You can define any commands you want to be run in your SSH Action and they would
 
 - `.deploy noop` has no effect here (but you could change that)
 - `.deploy` runs the SSH action with your branch
+
+> A live example can be found [here](https://github.com/the-hideout/cache/blob/c7dc4fa550f137efebf0ee656413985afba66770/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
