@@ -561,12 +561,12 @@ concurrency:
 
 This section contains real world examples of how this Action can be used
 
-- Terraform
-- Heroku
-- Railway
-- SSH
-- Cloudflare Pages
-- Cloudflare Workers
+- [Terraform](docs/examples.md#terraform)
+- [Heroku](docs/examples.md#heroku)
+- [Railway](docs/examples.md#railway)
+- [SSH](docs/examples.md#ssh)
+- [Cloudflare Pages](docs/examples.md#cloudflare-pages)
+- [Cloudflare Workers](docs/examples.md#cloudflare-workers)
 
 > Checkout the [examples document](docs/examples.md) for more examples
 
