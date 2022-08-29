@@ -33,7 +33,7 @@ jobs:
   deploy:
     name: deploy
     runs-on: ubuntu-latest
-    environment: secrets # the locked down environment we pull secrets from
+    environment: production-secrets # the locked down environment we pull secrets from
     defaults:
       run:
         working-directory: ${{ env.WORKING_DIR }} # the directory we use where all our TF files are stored
@@ -98,4 +98,53 @@ jobs:
       - name: Check Terraform apply output
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' && steps.apply.outcome == 'failure' }}
         run: exit 1
+```
+
+## Heroku
+
+This example shows how you could use this Action with Heroku
+
+- `.deploy noop` has no effect here
+- `.deploy` takes your current branch and deploys it to Heroku
+
+```yaml
+name: branch-deploy
+
+on:
+  issue_comment:
+    types: [ created ]
+
+permissions:
+  pull-requests: write
+  deployments: write
+  contents: write # you might only need 'read' here
+
+jobs:
+  deploy:
+    name: deploy
+    if: ${{ github.event.issue.pull_request }} # only run on pull request comments
+    runs-on: ubuntu-latest
+    environment: production-secrets # the locked down environment we pull secrets from
+
+    steps:
+        # The branch-deploy Action
+      - name: branch-deploy
+        id: branch-deploy
+        uses: github/branch-deploy@vX.X.X
+
+        # If the branch-deploy Action was triggered, checkout our branch
+      - name: Checkout
+        if: steps.branch-deploy.outputs.continue == 'true'
+        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        with:
+          ref: ${{ steps.branch-deploy.outputs.ref }}
+
+        # Deploy our branch to Heroku
+      - name: Deploy to Heroku
+        if: steps.branch-deploy.outputs.continue == 'true'
+        uses: AkhileshNS/heroku-deploy@79ef2ae4ff9b897010907016b268fd0f88561820 # pin@v3.12.12
+        with:
+          heroku_app_name: <your-heroku-app-name-here>
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
 ```
