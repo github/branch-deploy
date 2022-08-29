@@ -252,3 +252,75 @@ jobs:
           script_stop: true
           script: <run-some-ssh-commands-here> # this could be whatever you want
 ```
+
+## Cloudflare Pages
+
+This example shows how you could use this Action with [Cloudflare Pages](https://pages.cloudflare.com/)
+
+- `.deploy to development` deploys your branch to the development environment
+- `.deploy` deploys your branch to the production environment
+
+> A live example can be found [here](https://github.com/the-hideout/tarkov-dev/blob/3dc501f0117b9a482cfe0954fda75b1b7e2e0cc4/.github/workflows/branch-deploy.yml)
+
+```yaml
+name: branch-deploy
+
+on:
+  issue_comment:
+    types: [ created ]
+
+# Permissions needed for reacting and adding comments for IssueOps commands
+permissions:
+  pull-requests: write
+  deployments: write
+  contents: write # you might only need 'read' here
+
+jobs:
+  deploy:
+    environment: secrets # the locked down environment we pull secrets from
+    if: ${{ github.event.issue.pull_request }} # only run on pull request comments
+    runs-on: ubuntu-latest
+
+    steps:
+
+        # The branch-deploy Action
+      - uses: github/branch-deploy@vX.X.X
+        id: branch-deploy
+
+        # If the branch-deploy Action was triggered, checkout our branch
+      - name: Checkout
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        with:
+          ref: ${{ steps.branch-deploy.outputs.ref }}
+
+        # Install the npm dependencies to build our cloudflare pages site
+      - name: Install
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        run: npm ci
+
+        # Build our cloudflare pages site
+      - name: Build
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        run: npm run build
+
+        # If '.deploy to development' was used, branch deploy to the development environment
+      - name: deploy - dev
+        id: dev-deploy
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' && steps.branch-deploy.outputs.environment == 'development' }}
+        uses: cloudflare/wrangler-action@4c10c1822abba527d820b29e6333e7f5dac2cabd # pin@2.0.0
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: pages publish build/ --project-name=<your-cloudflare-project-name>
+
+        # If '.deploy' was used, branch deploy to the production environment
+      - name: deploy - prod
+        id: prod-deploy
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' && steps.branch-deploy.outputs.environment == 'production' }}
+        uses: cloudflare/wrangler-action@4c10c1822abba527d820b29e6333e7f5dac2cabd # pin@2.0.0
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: pages publish build/ --project-name=<your-cloudflare-project-name> --branch=main
+```
