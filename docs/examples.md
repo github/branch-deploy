@@ -104,7 +104,7 @@ jobs:
 
 This example shows how you could use this Action with [Heroku](https://heroku.com)
 
-- `.deploy noop` has no effect here
+- `.deploy noop` has no effect here (but you could change that)
 - `.deploy` takes your current branch and deploys it to Heroku
 
 ```yaml
@@ -153,7 +153,7 @@ jobs:
 
 This example shows how you could use this Action with [Railway](https://railway.app)
 
-- `.deploy noop` has no effect here
+- `.deploy noop` has no effect here (but you could change that)
 - `.deploy` takes your current branch and deploys it to Railway
 
 ```yaml
@@ -198,4 +198,57 @@ jobs:
         run: railway up
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+```
+
+## SSH
+
+This example shows how you could use this Action with SSH
+
+You can define any commands you want to be run in your SSH Action and they would be gated by the branch-deploy Action.
+
+- `.deploy noop` has no effect here (but you could change that)
+- `.deploy` runs the SSH action with your branch
+
+```yaml
+name: branch-deploy
+
+on:
+  issue_comment:
+    types: [created]
+
+# Permissions needed for reacting and adding comments for IssueOps commands
+permissions:
+  pull-requests: write
+  deployments: write
+  contents: write # you might only need 'read' here
+
+jobs:
+  deploy:
+    environment: production-secrets # the locked down environment we pull secrets from
+    if: ${{ github.event.issue.pull_request }} # only run on pull request comments
+    runs-on: ubuntu-latest
+
+    steps:
+        # The branch-deploy Action
+      - uses: github/branch-deploy@vX.X.X
+        id: branch-deploy
+
+        # If the branch-deploy Action was triggered, checkout our branch
+      - name: Checkout
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        with:
+          ref: ${{ steps.branch-deploy.outputs.ref }}
+
+        # Deploy our branch via SSH remote commands
+      - name: SSH Remote Deploy
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
+        uses: appleboy/ssh-action@1d1b21ca96111b1eb4c03c21c14ebb971d2200f6 # pin@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script_stop: true
+          script: <run-some-ssh-commands-here> # this could be whatever you want
 ```
