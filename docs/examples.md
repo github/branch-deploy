@@ -4,6 +4,43 @@ This section contains real world and common examples of how you could use this A
 
 > Note: In all examples, we will be using `uses: github/branch-deploy@vX.X.X`. Replace `X.X.X` with the [latest version](https://github.com/marketplace/actions/branch-deploy) of this Action
 
+## Simple Example
+
+This is the simpliest possible example of how you could use the branch-deploy Action for reference
+
+- `.deploy noop` has no effect here (but you could change that)
+- `.deploy` will deploy the current branch (you can configure deployments however you like, this is just an example)
+
+```yaml
+name: branch-deploy
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+
+        # The branch-deploy Action
+      - name: branch-deploy
+        id: branch-deploy
+        uses: github/branch-deploy@vX.X.X
+        
+        # If the branch-deploy Action was triggered, checkout our branch
+      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
+        with:
+          ref: ${{ steps.branch-deploy.outputs.ref }}
+
+        # If the branch-deploy Action was triggered, run the deployment (i.e. '.deploy')
+      - name: deploy
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
+        run: <do-your-deployment> # this could be anything you want
+```
+
 ## Terraform
 
 This example shows how you could use this Action with [Terraform](https://www.terraform.io/)
