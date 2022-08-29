@@ -22,6 +22,7 @@ on:
   issue_comment:
     types: [ created ]
 
+# The working directory where our Terraform files are located
 env:
   WORKING_DIR: terraform/
 
@@ -29,7 +30,7 @@ env:
 permissions:
   pull-requests: write
   deployments: write
-  contents: write
+  contents: write # you might only need 'read' here
 
 jobs:
   deploy:
@@ -41,6 +42,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }} # the directory we use where all our TF files are stored
 
     steps:
+
         # The branch-deploy Action
       - name: branch-deploy
         id: branch-deploy
@@ -137,6 +139,7 @@ jobs:
     environment: production-secrets # the locked down environment we pull secrets from
 
     steps:
+
         # The branch-deploy Action
       - name: branch-deploy
         id: branch-deploy
@@ -188,6 +191,7 @@ jobs:
     environment: production-secrets # the locked down environment we pull secrets from
 
     steps:
+
         # The branch-deploy Action
       - name: branch-deploy
         id: branch-deploy
@@ -243,6 +247,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
         # The branch-deploy Action
       - uses: github/branch-deploy@vX.X.X
         id: branch-deploy
