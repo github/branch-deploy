@@ -348,6 +348,11 @@ jobs:
 
 This example shows how you could use this Action with [Cloudflare Workers](https://workers.cloudflare.com/)
 
+- `.deploy to development` deploys your branch to the development environment (if you have one with your Cloudflare workers)
+- `.deploy` deploys your branch to the production environment
+
+> A live example can be found [here](https://github.com/the-hideout/tarkov-api/blob/8333e038ecf8831128732871e6137435792a5f63/.github/workflows/branch-deploy.yml)
+
 ```yaml
 name: branch-deploy
 
