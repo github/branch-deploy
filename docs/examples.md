@@ -6,6 +6,13 @@ This section contains real world and common examples of how you could use this A
 
 ## Terraform
 
+This example shows how you could use this Action with Terraform
+
+- `.deploy noop` triggers a Terraform plan
+- `.deploy` triggers a Terraform apply
+
+All deployment results get posted as a comment in the branch deploy output on your pull request
+
 ```yaml
 name: branch-deploy
 
