@@ -410,3 +410,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
 ```
+
+---
+
+Are you using the `branch-deploy` Action and want your example included here? Open a pull request and we'll add it!
