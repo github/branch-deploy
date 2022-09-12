@@ -9115,7 +9115,7 @@ async function environmentTargets(
 
   // If we get here, then no valid environment target was found
   const message =
-    'No matching environment target found. Please check your command and try again'
+    'No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.'
   core.warning(message)
   core.saveState('bypass', 'true')
 
@@ -9527,6 +9527,17 @@ async function prechecks(
     core.info(`Could not retrieve PR commit status: ${e} - Handled: OK`)
     core.info('Skipping commit status check and proceeding...')
     commitStatus = null
+
+    // Try to display the raw GraphQL result for debugging purposes
+    try {
+      core.debug('raw graphql result for debugging:')
+      core.debug(result)
+    } catch {
+      // istanbul ignore next
+      core.debug(
+        'Could not output raw graphql result for debugging - This is bad'
+      )
+    }
   }
 
   // Get admin data
@@ -10057,6 +10068,7 @@ async function unlock(octokit, context, reactionId, silent = false) {
 
       // If silent, exit here
       if (silent) {
+        core.debug('failed to delete lock (bad status code) - silent')
         return 'failed to delete lock (bad status code) - silent'
       }
 
@@ -10068,6 +10080,7 @@ async function unlock(octokit, context, reactionId, silent = false) {
     if (error.status === 422 && error.message === 'Reference does not exist') {
       // If silent, exit here
       if (silent) {
+        core.debug('no deployment lock currently set - silent')
         return 'no deployment lock currently set - silent'
       }
 

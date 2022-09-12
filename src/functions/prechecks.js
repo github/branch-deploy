@@ -203,7 +203,9 @@ export async function prechecks(
       core.debug(result)
     } catch {
       // istanbul ignore next
-      core.debug('Could not output raw graphql result for debugging - This is bad')
+      core.debug(
+        'Could not output raw graphql result for debugging - This is bad'
+      )
     }
   }
 
