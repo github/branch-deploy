@@ -25,6 +25,7 @@ export async function unlock(octokit, context, reactionId, silent = false) {
 
       // If silent, exit here
       if (silent) {
+        core.debug('removing lock silently')
         return 'removed lock - silent'
       }
 
