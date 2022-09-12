@@ -1,5 +1,7 @@
 # Branch Deploy Action 🚀
 
+test
+
 [![CodeQL](https://github.com/github/branch-deploy/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/codeql-analysis.yml) [![test](https://github.com/github/branch-deploy/actions/workflows/test.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/test.yml) [![coverage](./badges/coverage.svg)](./badges/coverage.svg)
 
 A GitHub Action to enable branch deployments using IssueOps!
