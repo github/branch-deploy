@@ -1595,6 +1595,58 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
   expect(infoMock).toHaveBeenCalledWith('noop mode used with parameters')
 })
 
+test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin when CI is not defined', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: null
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return true
+  })
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith('issueops command used with parameters')
+})
+
 test('runs prechecks and finds that no CI checks exist and reviews are not defined', async () => {
   var octonocommitchecks = octokit
   octonocommitchecks['graphql'] = jest.fn().mockReturnValue({

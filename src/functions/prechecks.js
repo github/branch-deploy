@@ -198,6 +198,9 @@ export async function prechecks(
     commitStatus = null
   }
 
+  // Get admin data
+  const userIsAdmin = await isAdmin(context)
+
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (regexCommandWithStableBranch.test(comment)) {
     message = '✔️ Deployment to the **stable** branch requested - OK'
@@ -280,9 +283,15 @@ export async function prechecks(
     core.info('note: noop deployments do not require pr review')
 
     // If CI is passing and the deployer is an admin
-  } else if (commitStatus === 'SUCCESS' && (await isAdmin(context)) === true) {
+  } else if (commitStatus === 'SUCCESS' && userIsAdmin === true) {
     message =
       '✔️ CI is passing and approval is bypassed due to admin rights - OK'
+    core.info(message)
+
+    // If CI is undefined and the deployer is an admin
+  } else if (commitStatus === null && userIsAdmin === true) {
+    message =
+      '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
     core.info(message)
 
     // If CI is pending and the PR has not been reviewed BUT it is a noop deploy
