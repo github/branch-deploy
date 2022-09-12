@@ -85,7 +85,7 @@ test('successfully completes a production branch deployment', async () => {
       }
     },
     12345,
-    '  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `branch` 🚀\n  - Branch: `test-ref`\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>\n\n  Successfully deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`',
+    '  ### Deployment Results ✅\n\n  **monalisa** successfully deployed branch `test-ref` to **production**\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>',
     true
   )
   expect(createDeploymentStatusSpy).toHaveBeenCalled()
@@ -156,7 +156,7 @@ test('successfully completes a production branch deployment and removes a non-st
       }
     },
     12345,
-    '  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `branch` 🚀\n  - Branch: `test-ref`\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>\n\n  Successfully deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`',
+    '  ### Deployment Results ✅\n\n  **monalisa** successfully deployed branch `test-ref` to **production**\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>',
     true
   )
   expect(createDeploymentStatusSpy).toHaveBeenCalled()
@@ -223,7 +223,7 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
       }
     },
     12345,
-    '  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `noop` 🧪\n  - Branch: `test-ref`\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>\n\n  Successfully noop deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`',
+    '  ### Deployment Results ✅\n\n  **monalisa** successfully **noop** deployed branch `test-ref` to **production**\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>',
     true
   )
 })
@@ -261,7 +261,7 @@ test('successfully completes a production branch deployment with no custom messa
       }
     },
     12345,
-    '  ### Deployment Results\n\n  - Status: `success` ✔️\n  - Mode: `branch` 🚀\n  - Branch: `test-ref`\n\n  Successfully deployed branch **test-ref**\n\n  > Actor: **monalisa**, Action: `issue_comment`, Workflow: `test-workflow`',
+    '  ### Deployment Results ✅\n\n  **monalisa** successfully deployed branch `test-ref` to **production**',
     true
   )
 })

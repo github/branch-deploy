@@ -10166,32 +10166,26 @@ async function postDeploy(
     success = false
   }
 
-  var mode
   var deployTypeString = ' ' // a single space as a default
 
   // Set the mode and deploy type based on the deployment mode
   if (noop === 'true') {
-    mode = '`noop` 🧪'
-    deployTypeString = ' noop '
-  } else {
-    mode = '`branch` 🚀'
+    deployTypeString = ' **noop** '
   }
 
   // Dynamically set the message text depending if the deployment succeeded or failed
   var message
   var deployStatus
   if (status === 'success') {
-    message = `Successfully${deployTypeString}deployed branch **${ref}**`
-    deployStatus = `\`${status}\` ✔️`
+    message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${ref}\` to **${environment}**`
+    deployStatus = '✅'
   } else if (status === 'failure') {
-    message = `Failure when${deployTypeString}deploying branch **${ref}**`
-    deployStatus = `\`${status}\` ❌`
+    message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${ref}\` to **${environment}**`
+    deployStatus = '❌'
   } else {
     message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
-    deployStatus = `\`${status}\` ⚠️`
+    deployStatus = '⚠️'
   }
-
-  const footer = `Actor: **${context.actor}**, Action: \`${context.eventName}\`, Workflow: \`${context.workflow}\``
 
   // Conditionally format the message body
   var message_fmt
@@ -10200,33 +10194,21 @@ async function postDeploy(
       .replace(/\\n/g, '\n')
       .replace(/\\t/g, '\t')
     message_fmt = lib_default()(`
-    ### Deployment Results
-  
-    - Status: ${deployStatus}
-    - Mode: ${mode}
-    - Branch: \`${ref}\`
+    ### Deployment Results ${deployStatus}
+
+    ${message}
   
     <details><summary>Show Results</summary>
   
     ${customMessageFmt}
   
     </details>
-  
-    ${message}
-  
-    > ${footer}
     `)
   } else {
     message_fmt = lib_default()(`
-    ### Deployment Results
-  
-    - Status: ${deployStatus}
-    - Mode: ${mode}
-    - Branch: \`${ref}\`
+    ### Deployment Results ${deployStatus}
   
     ${message}
-  
-    > ${footer}
     `)
   }
 
@@ -10658,14 +10640,13 @@ async function run() {
     }
     const log_url = `${process.env.GITHUB_SERVER_URL}/${github.context.repo.owner}/${github.context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
     const commentBody = lib_default()(`
-      ### Deployment Triggered
+      ### Deployment Triggered 🚀
 
-      __${github.context.actor}__, started a __${deploymentType}__ deployment 🚀
-
-      - __Branch__: \`${precheckResults.ref}\`
-      - __Mode__: \`${deploymentType}\`
+      __${github.context.actor}__, started a __${deploymentType}__ deployment to __${environment}__
 
       You can watch the progress [here](${log_url}) 🔗
+
+      > __Branch__: \`${precheckResults.ref}\`
     `)
 
     // Make a comment on the PR
