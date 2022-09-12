@@ -1,8 +1,8 @@
 import * as core from '@actions/core'
-import { actionStatus } from './action-status'
-import { createDeploymentStatus } from './deployment'
-import { unlock } from './unlock'
-import { lock } from './lock'
+import {actionStatus} from './action-status'
+import {createDeploymentStatus} from './deployment'
+import {unlock} from './unlock'
+import {lock} from './lock'
 import dedent from 'dedent-js'
 
 // Helper function to help facilitate the process of completing a deployment

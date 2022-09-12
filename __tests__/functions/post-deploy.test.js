@@ -1,4 +1,4 @@
-import { postDeploy } from '../../src/functions/post-deploy'
+import {postDeploy} from '../../src/functions/post-deploy'
 import * as actionStatus from '../../src/functions/action-status'
 import * as lock from '../../src/functions/lock'
 import * as unlock from '../../src/functions/unlock'
@@ -7,19 +7,19 @@ import * as core from '@actions/core'
 
 beforeEach(() => {
   jest.resetAllMocks()
-  jest.spyOn(core, 'info').mockImplementation(() => { })
+  jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
-    return { sticky: true }
+    return {sticky: true}
   })
   jest
     .spyOn(createDeploymentStatus, 'createDeploymentStatus')
     .mockImplementation(() => {
       return undefined
     })
-  jest.spyOn(core, 'debug').mockImplementation(() => { })
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
 })
 
 const context = {
@@ -73,8 +73,8 @@ test('successfully completes a production branch deployment', async () => {
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
-      payload: { comment: { id: '1' } },
-      repo: { owner: 'corp', repo: 'test' },
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     {
@@ -100,8 +100,8 @@ test('successfully completes a production branch deployment', async () => {
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
-      payload: { comment: { id: '1' } },
-      repo: { owner: 'corp', repo: 'test' },
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     'test-ref',
@@ -113,7 +113,7 @@ test('successfully completes a production branch deployment', async () => {
 
 test('successfully completes a production branch deployment and removes a non-sticky lock', async () => {
   const lockSpy = jest.spyOn(lock, 'lock').mockImplementation(() => {
-    return { sticky: false }
+    return {sticky: false}
   })
   jest.spyOn(unlock, 'unlock').mockImplementation(() => {
     return true
@@ -144,8 +144,8 @@ test('successfully completes a production branch deployment and removes a non-st
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
-      payload: { comment: { id: '1' } },
-      repo: { owner: 'corp', repo: 'test' },
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     {
@@ -171,8 +171,8 @@ test('successfully completes a production branch deployment and removes a non-st
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
-      payload: { comment: { id: '1' } },
-      repo: { owner: 'corp', repo: 'test' },
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     'test-ref',
@@ -184,7 +184,7 @@ test('successfully completes a production branch deployment and removes a non-st
 
 test('successfully completes a noop branch deployment and removes a non-sticky lock', async () => {
   const lockSpy = jest.spyOn(lock, 'lock').mockImplementation(() => {
-    return { sticky: false }
+    return {sticky: false}
   })
   jest.spyOn(unlock, 'unlock').mockImplementation(() => {
     return true
@@ -211,8 +211,8 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
-      payload: { comment: { id: '1' } },
-      repo: { owner: 'corp', repo: 'test' },
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     {
@@ -249,8 +249,8 @@ test('successfully completes a production branch deployment with no custom messa
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
-      payload: { comment: { id: '1' } },
-      repo: { owner: 'corp', repo: 'test' },
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     {
