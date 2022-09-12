@@ -1,13 +1,13 @@
-import {prechecks} from '../../src/functions/prechecks'
+import { prechecks } from '../../src/functions/prechecks'
 import * as isAdmin from '../../src/functions/admin'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 
 beforeEach(() => {
   // jest.resetAllMocks()
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
+  jest.spyOn(core, 'info').mockImplementation(() => { })
+  jest.spyOn(core, 'debug').mockImplementation(() => { })
+  jest.spyOn(core, 'setOutput').mockImplementation(() => { })
 })
 
 // Globals for testing
@@ -24,10 +24,10 @@ const context = {
 }
 const getCollabOK = jest
   .fn()
-  .mockReturnValue({data: {permission: 'admin'}, status: 200})
+  .mockReturnValue({ data: { permission: 'admin' }, status: 200 })
 const getPullsOK = jest
   .fn()
-  .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
 const graphQLOK = jest.fn().mockReturnValue({
   repository: {
     pullRequest: {
@@ -191,7 +191,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
   var octobadperms = octokit
   octobadperms['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'read'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'read' }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -215,10 +215,10 @@ test('runs prechecks and fails due to a bad pull request', async () => {
   var octobadpull = octokit
   octobadpull['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValueOnce({status: 500})
+    .mockReturnValueOnce({ status: 500 })
   octobadpull['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -250,10 +250,10 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -309,10 +309,10 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -368,10 +368,10 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy noop',
@@ -417,7 +417,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   })
   pullRequestFromFork['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   pullRequestFromFork['rest']['pulls']['get'] = jest.fn().mockReturnValue({
     data: {
       head: {
@@ -476,7 +476,7 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
   })
   pullRequestFromFork['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   pullRequestFromFork['rest']['pulls']['get'] = jest.fn().mockReturnValue({
     data: {
       head: {
@@ -532,10 +532,10 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy noop',
@@ -580,10 +580,10 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -628,10 +628,10 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -662,10 +662,10 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy noop',
@@ -697,10 +697,10 @@ test('runs prechecks and deploys to the stable branch', async () => {
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy main',
@@ -746,10 +746,10 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -794,10 +794,10 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -842,10 +842,10 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -890,10 +890,10 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -924,10 +924,10 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -973,10 +973,10 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   octonocommitchecks['rest']['pulls']['updateBranch'] = jest
     .fn()
     .mockReturnValue({
@@ -1031,10 +1031,10 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1080,10 +1080,10 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   octonocommitchecks['rest']['pulls']['updateBranch'] = jest
     .fn()
     .mockReturnValue({
@@ -1138,10 +1138,10 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   octonocommitchecks['rest']['pulls']['updateBranch'] = jest
     .fn()
     .mockReturnValue(null)
@@ -1190,10 +1190,10 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1239,10 +1239,10 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1288,10 +1288,10 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1337,10 +1337,10 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -1386,10 +1386,10 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   octonocommitchecks['rest']['pulls']['updateBranch'] = jest
     .fn()
     .mockReturnValue({
@@ -1422,7 +1422,7 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
   var octobadres = octokit
   octobadres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 500})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 500 })
   expect(
     await prechecks(
       '.deploy',
@@ -1445,7 +1445,7 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
   var octogoodres = octokit
   octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1495,7 +1495,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
   var octogoodres = octokit
   octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1547,7 +1547,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
   var octogoodres = octokit
   octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1599,7 +1599,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
   var octogoodres = octokit
   octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1637,8 +1637,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       octogoodres
     )
   ).toStrictEqual({
-    message:
-      '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK',
+    message: '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK',
     noopMode: false,
     ref: 'test-ref',
     status: true
@@ -1670,10 +1669,10 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -1730,10 +1729,10 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
@@ -1786,10 +1785,10 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
   })
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+    .mockReturnValueOnce({ data: { permission: 'admin' }, status: 200 })
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValue({ data: { head: { ref: 'test-ref' } }, status: 200 })
   expect(
     await prechecks(
       '.deploy',
