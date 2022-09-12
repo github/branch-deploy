@@ -1,8 +1,8 @@
 import * as core from '@actions/core'
-import {actionStatus} from './action-status'
-import {createDeploymentStatus} from './deployment'
-import {unlock} from './unlock'
-import {lock} from './lock'
+import { actionStatus } from './action-status'
+import { createDeploymentStatus } from './deployment'
+import { unlock } from './unlock'
+import { lock } from './lock'
 import dedent from 'dedent-js'
 
 // Helper function to help facilitate the process of completing a deployment
@@ -58,27 +58,27 @@ export async function postDeploy(
 
   // Set the mode and deploy type based on the deployment mode
   if (noop === 'true') {
-    mode = '`noop` 🧪'
-    deployTypeString = ' noop '
+    mode = '`noop`'
+    deployTypeString = ' **noop** '
   } else {
-    mode = '`branch` 🚀'
+    mode = '`branch`'
   }
 
   // Dynamically set the message text depending if the deployment succeeded or failed
   var message
   var deployStatus
   if (status === 'success') {
-    message = `Successfully${deployTypeString}deployed branch **${ref}**`
-    deployStatus = `\`${status}\` ✔️`
+    message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${ref}\` to **${environment}**`
+    deployStatus = '✅'
   } else if (status === 'failure') {
-    message = `Failure when${deployTypeString}deploying branch **${ref}**`
-    deployStatus = `\`${status}\` ❌`
+    message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${ref}\` to **${environment}**`
+    deployStatus = '❌'
   } else {
     message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
-    deployStatus = `\`${status}\` ⚠️`
+    deployStatus = '⚠️'
   }
 
-  const footer = `Actor: **${context.actor}**, Action: \`${context.eventName}\`, Workflow: \`${context.workflow}\``
+  const footer = `Status: \`${status}\` Branch: \`${ref}\`, Env: \`${environment}\`, Mode: \`${mode}\``
 
   // Conditionally format the message body
   var message_fmt
@@ -87,32 +87,24 @@ export async function postDeploy(
       .replace(/\\n/g, '\n')
       .replace(/\\t/g, '\t')
     message_fmt = dedent(`
-    ### Deployment Results
-  
-    - Status: ${deployStatus}
-    - Mode: ${mode}
-    - Branch: \`${ref}\`
+    ### Deployment Results ${deployStatus}
+
+    ${message}
   
     <details><summary>Show Results</summary>
   
     ${customMessageFmt}
   
     </details>
-  
-    ${message}
-  
+
     > ${footer}
     `)
   } else {
     message_fmt = dedent(`
-    ### Deployment Results
-  
-    - Status: ${deployStatus}
-    - Mode: ${mode}
-    - Branch: \`${ref}\`
+    ### Deployment Results ${deployStatus}
   
     ${message}
-  
+
     > ${footer}
     `)
   }
