@@ -10166,15 +10166,11 @@ async function postDeploy(
     success = false
   }
 
-  var mode
   var deployTypeString = ' ' // a single space as a default
 
   // Set the mode and deploy type based on the deployment mode
   if (noop === 'true') {
-    mode = '`noop`'
     deployTypeString = ' **noop** '
-  } else {
-    mode = '`branch`'
   }
 
   // Dynamically set the message text depending if the deployment succeeded or failed
@@ -10190,8 +10186,6 @@ async function postDeploy(
     message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
     deployStatus = '⚠️'
   }
-
-  const footer = `Status: \`${status}\` Branch: \`${ref}\`, Env: \`${environment}\`, Mode: \`${mode}\``
 
   // Conditionally format the message body
   var message_fmt
@@ -10209,16 +10203,12 @@ async function postDeploy(
     ${customMessageFmt}
   
     </details>
-
-    > ${footer}
     `)
   } else {
     message_fmt = lib_default()(`
     ### Deployment Results ${deployStatus}
   
     ${message}
-
-    > ${footer}
     `)
   }
 
