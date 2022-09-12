@@ -196,6 +196,15 @@ export async function prechecks(
     core.info(`Could not retrieve PR commit status: ${e} - Handled: OK`)
     core.info('Skipping commit status check and proceeding...')
     commitStatus = null
+
+    // Try to display the raw GraphQL result for debugging purposes
+    try {
+      core.debug('raw graphql result for debugging:')
+      core.debug(result)
+    } catch {
+      // istanbul ignore next
+      core.debug('Could not output raw graphql result for debugging - This is bad')
+    }
   }
 
   // Get admin data

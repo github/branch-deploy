@@ -14,6 +14,7 @@ beforeEach(() => {
     return undefined
   })
   jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
 })
 
 const context = {

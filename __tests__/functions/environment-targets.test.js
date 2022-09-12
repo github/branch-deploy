@@ -121,7 +121,7 @@ test('checks the comment body on a deployment and does not find any matching env
     )
   ).toBe(false)
   expect(warningMock).toHaveBeenCalledWith(
-    'No matching environment target found. Please check your command and try again'
+    'No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.'
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })
@@ -182,7 +182,7 @@ test('checks the comment body on a stable branch deployment and does not find a 
     )
   ).toBe(false)
   expect(warningMock).toHaveBeenCalledWith(
-    'No matching environment target found. Please check your command and try again'
+    'No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.'
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })

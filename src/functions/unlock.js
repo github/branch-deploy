@@ -48,6 +48,7 @@ export async function unlock(octokit, context, reactionId, silent = false) {
 
       // If silent, exit here
       if (silent) {
+        core.debug('failed to delete lock (bad status code) - silent')
         return 'failed to delete lock (bad status code) - silent'
       }
 
@@ -59,6 +60,7 @@ export async function unlock(octokit, context, reactionId, silent = false) {
     if (error.status === 422 && error.message === 'Reference does not exist') {
       // If silent, exit here
       if (silent) {
+        core.debug('no deployment lock currently set - silent')
         return 'no deployment lock currently set - silent'
       }
 
