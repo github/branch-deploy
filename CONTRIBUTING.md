@@ -8,6 +8,7 @@ All contributions are welcome and greatly appreciated!
 2. Commit your changes
 3. Test your changes (learn how to test below)
 4. Open a pull request back to this repository
+    > Make sure to run `npm run bundle` as your final commit!
 5. Notify the maintainers of this repository for peer review and approval
 6. Merge!
 
