@@ -25,6 +25,8 @@ This Action does the heavy lifting for you to enable branch deployments:
 
 > These commands are all fully customizable and are just an example using this Action's defaults
 
+Alternate command syntax and shortcuts can be found at the bottom of this readme [here](#alternate-command-syntax-%EF%B8%8F)
+
 ## Demo 🎥
 
 A video demo showing how IssueOps on a pull request works using this Action
