@@ -4,6 +4,8 @@ All contributions are welcome and greatly appreciated!
 
 ## Steps to Contribute 💡
 
+> Check the `.node-version` file in the root of this repo so see what version of Node.js is required for local development - note, this can be different from the version of Node.js which runs the Action on GitHub runners
+
 1. Fork this repository
 2. Commit your changes
 3. Test your changes (learn how to test below)
