@@ -9279,6 +9279,8 @@ async function isAdmin(context) {
   // Get the admins string from the action inputs
   const admins = core.getInput('admins')
 
+  core.debug(`raw admins value: ${admins}`)
+
   // Sanitized the input to remove any whitespace and split into an array
   const adminsSanitized = admins
     .split(',')
