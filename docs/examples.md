@@ -28,6 +28,7 @@ jobs:
   deploy:
     name: deploy
     runs-on: ubuntu-latest
+    if: ${{ github.event.issue.pull_request }} # only run on pull request comments
 
     steps:
 
@@ -79,6 +80,7 @@ jobs:
   deploy:
     name: deploy
     runs-on: ubuntu-latest
+    if: ${{ github.event.issue.pull_request }} # only run on pull request comments
     environment: production-secrets # the locked down environment we pull secrets from
     defaults:
       run:
