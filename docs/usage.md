@@ -12,6 +12,7 @@ Deployments respect your repository's branch protection settings. You can trigge
 - `.deploy noop` - Triggers a noop deployment (think "Terraform plan" for example)
 - `.deploy <environment>` - Triggers a deployment for the specified environment
 - `.deploy noop <environment>` - Triggers a noop deployment for the specified environment
+- `.deploy <stable_branch>` - Trigger a rollback deploy to your stable branch (main, master, etc)
 
 ## Deployment Locks 🔒
 
@@ -59,6 +60,9 @@ An example workflow for using this Action might look like this:
 6. The lock is claimed and now only the user who claimed it can deploy
 7. The user runs `.deploy noop` to get a preview of their changes
 8. All looks good so the user runs `.deploy` and ships their code to production from their branch
+
+    > If anything goes wrong, the user can run `.deploy main` to rollback to the `main` branch
+
 9. After an hour or so, all looks good so they merge their changes to the `main` branch
 10. Upon merging, they comment on their merged pull request `.unlock` to remove the lock
 11. Done!

@@ -18,6 +18,7 @@ This Action does the heavy lifting for you to enable branch deployments:
 - `.deploy` - Deploy a pull request
 - `.deploy noop` - Deploy a pull request in noop mode
 - `.deploy to <environment>` - Deploy a pull request to a specific environment
+- `.deploy <stable_branch>` - Trigger a rollback deploy to your stable branch (main, master, etc)
 - `.lock` - Create a deployment lock
 - `.lock --reason <text>` - Create a deployment lock with a custom reason
 - `.lock --details` - View details about a deployment lock
@@ -413,6 +414,16 @@ YAML input example:
     environment: production # the default environment
     environment_targets: "production,development,staging" # the environments that you can deploy to with explicit commands
 ```
+
+## Rollbacks 🔄
+
+This Action supports rollback deployments out of the box. This is useful when you run a branch deployment (`.deploy`) and something goes wrong and you need to rollback to a previous known working state.
+
+This can be achieved by using the `.deploy <stable_branch>` command
+
+> See the [inputs](#inputs-) section above for more information on how to configure the stable branch
+
+The `<stable_branch>` can be any branch you like but it is highly recommended that you use a branch that is protected and only has stable code in it. An example would be using `main` or `master` as your stable branch and enforcing strict branch protection rules on it to ensure that only stable code is merged into it
 
 ## Security 🔒
 
