@@ -572,6 +572,12 @@ concurrency:
   cancel-in-progress: true
 ```
 
+### Need More Deployment Lock Control?
+
+If you need more control over when, how, and why deployment locks are set, you can use the [github/lock](https://github.com/github/lock) Action!
+
+This Action allows you to set a lock via an issue comment, custom condition, on merges, etc. You have full control over when and how the lock is set and removed!
+
 ## Examples
 
 This section contains real world examples of how this Action can be used
