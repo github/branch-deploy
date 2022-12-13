@@ -82,6 +82,7 @@ permissions:
   pull-requests: write
   deployments: write
   contents: write
+  checks: read
 
 jobs:
   demo:
@@ -181,6 +182,7 @@ permissions:
   pull-requests: write # Required for commenting on PRs
   deployments: write # Required for updating deployment statuses
   contents: write # Required for reading/writing the lock file
+  checks: read # Required for checking if the CI checks have passed in order to deploy the PR
 ```
 
 These are the minimum permissions you need to run this Action
