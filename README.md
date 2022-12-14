@@ -274,6 +274,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | noop | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
 | ref | The ref (branch or sha) to use with deployment |
 | comment_id | The comment id which triggered this deployment |
+| deployment_id | The ID of the deployment created by running this action |
 | type | The type of trigger that was detected (examples: deploy, lock, unlock) |
 | continue | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
 | fork | The string "true" if the pull request is a fork, otherwise "false" |
