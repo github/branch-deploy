@@ -1688,7 +1688,7 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
     )
   ).toStrictEqual({
     message:
-      '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK',
+      '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK',
     status: true,
     noopMode: false,
     ref: 'test-ref'
@@ -1747,7 +1747,7 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
       octonocommitchecks
     )
   ).toStrictEqual({
-    message: '✔️ PR is approved and all CI checks passed - OK',
+    message: '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK',
     status: true,
     noopMode: false,
     ref: 'test-ref'
@@ -1804,7 +1804,7 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
     )
   ).toStrictEqual({
     message:
-      '✔️ CI is passing and approval is bypassed due to admin rights - OK',
+      '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK',
     status: true,
     noopMode: false,
     ref: 'test-ref'
