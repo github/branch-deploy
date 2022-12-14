@@ -1747,7 +1747,8 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
       octonocommitchecks
     )
   ).toStrictEqual({
-    message: '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK',
+    message:
+      '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK',
     status: true,
     noopMode: false,
     ref: 'test-ref'

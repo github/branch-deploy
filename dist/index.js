@@ -10433,7 +10433,7 @@ async function prechecks(
   // Grab the statusCheckRollup state from the GraphQL result
   var commitStatus
   try {
-    // If there are no CI checks defined at all, we can set the commitStatus to success
+    // If there are no CI checks defined at all, we can set the commitStatus to null
     if (
       result.repository.pullRequest.commits.nodes[0].commit.checkSuites
         .totalCount === 0
@@ -10441,7 +10441,7 @@ async function prechecks(
       core.info(
         'No CI checks have been defined for this pull request, proceeding - OK'
       )
-      commitStatus = 'SUCCESS'
+      commitStatus = null
       // If there are CI checked defined, we need to check for the 'state' of the latest commit
     } else {
       commitStatus =
