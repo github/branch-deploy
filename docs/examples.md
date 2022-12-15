@@ -22,7 +22,8 @@ on:
 permissions:
   pull-requests: write
   deployments: write
-  contents: write # you might only need 'read' here
+  contents: write
+  checks: read
 
 jobs:
   deploy:
@@ -74,7 +75,8 @@ env:
 permissions:
   pull-requests: write
   deployments: write
-  contents: write # you might only need 'read' here
+  contents: write 
+  checks: read
 
 jobs:
   deploy:
@@ -174,7 +176,8 @@ on:
 permissions:
   pull-requests: write
   deployments: write
-  contents: write # you might only need 'read' here
+  contents: write
+  checks: read
 
 jobs:
   deploy:
@@ -226,7 +229,8 @@ on:
 permissions:
   pull-requests: write
   deployments: write
-  contents: write # you might only need 'read' here
+  contents: write
+  checks: read
 
 jobs:
   deploy:
@@ -283,7 +287,8 @@ on:
 permissions:
   pull-requests: write
   deployments: write
-  contents: write # you might only need 'read' here
+  contents: write 
+  checks: read
 
 jobs:
   deploy:
@@ -337,7 +342,8 @@ on:
 permissions:
   pull-requests: write
   deployments: write
-  contents: write # you might only need 'read' here
+  contents: write
+  checks: read
 
 jobs:
   deploy:
@@ -409,7 +415,8 @@ on:
 permissions:
   pull-requests: write
   deployments: write
-  contents: write  # you might only need 'read' here
+  contents: write
+  checks: read
 
 jobs:
   deploy:
