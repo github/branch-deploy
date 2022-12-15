@@ -446,8 +446,16 @@ To further harden your workflow files, it is strongly suggested to include the b
 permissions:
   pull-requests: write
   deployments: write
-  contents: read
+  contents: write
+  checks: read
 ```
+
+Permissions Explained:
+
+- `pull-requests`: `write` - Required to add comments to pull requests with deployment results
+- `deployments`: `write` - Required to update repository deployment statuses
+- `contents`: `write` - Write access is required for this Action to create "lock" branches for deployments
+- `checks`: `read` - Only read access is needed for this Action to get the status of other CI checks
 
 It should also be noted that this Action has built in functions to check the permissions of a user who invokes a IssueOps command. If the user does not have `write` or greater permissions to the repository, their command will be rejected
 

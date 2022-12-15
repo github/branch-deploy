@@ -8,6 +8,7 @@ permissions:
   pull-requests: write
   deployments: write
   contents: write
+  checks: read
 
 jobs:
   sample:
