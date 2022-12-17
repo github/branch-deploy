@@ -11616,6 +11616,7 @@ async function run() {
       ref: precheckResults.ref,
       required_contexts: requiredContexts
     })
+    core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)
 
     // If a merge to the base branch is required, let the user know and exit
