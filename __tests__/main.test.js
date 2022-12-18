@@ -92,6 +92,7 @@ beforeEach(() => {
 
 test('successfully runs the action', async () => {
   expect(await run()).toBe('success')
+  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
@@ -439,6 +440,7 @@ test('successfully runs the action after trimming the body', async () => {
 test('successfully runs the action with required contexts', async () => {
   process.env.INPUT_REQUIRED_CONTEXTS = 'lint,test,build'
   expect(await run()).toBe('success')
+  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)

@@ -100,6 +100,8 @@ outputs:
     description: 'The console command presented in the GitHub UI to checkout a given fork locally'
   fork_full_name:
     description: 'The full name of the fork in "org/repo" format'
+  deployment_id: 
+    description: The ID of the deployment created by running this action
 runs:
   using: "node16"
   main: "dist/index.js"
