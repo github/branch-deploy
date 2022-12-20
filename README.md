@@ -632,8 +632,8 @@ This section will cover a few suggestions that will help you when using this Act
 Here are a few alternate ways you can invoke commands:
 
 - `.deploy noop staging` - Invoke a "noop" deployment to the staging environment
-- `.deploy development` - Invoke a "development" deployment to the staging environment (notice how you can omit the "to" keyword)
-- `.deploy to development` - Invoke a "development" deployment to the staging environment (with the "to" keyword)
+- `.deploy development` - Invoke a deployment to the development environment (notice how you can omit the "to" keyword)
+- `.deploy to development` - Invoke a deployment to the development environment (with the "to" keyword)
 - `.deploy` - Uses the default environment (usually "production")
 
 ## Testing Locally 🔨
