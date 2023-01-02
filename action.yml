@@ -14,11 +14,11 @@ inputs:
     default: ${{ job.status }}
     required: true
   environment:
-    description: 'The name of the default environment to deploy to. Example, "production"'
+    description: 'The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment'
     required: false
     default: "production"
   environment_targets:
-    description: 'Optional target environments to select for use with deployments. Example, "production,development,staging"'
+    description: 'Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging`'
     required: false
     default: "production,development,staging"
   reaction:
