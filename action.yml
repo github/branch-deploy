@@ -21,6 +21,10 @@ inputs:
     description: 'Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging`'
     required: false
     default: "production,development,staging"
+  production_environment:
+    description: 'The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name.'
+    required: false
+    default: "production"
   reaction:
     description: 'If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes"'
     required: false
