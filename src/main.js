@@ -365,7 +365,7 @@ export async function run() {
       repo: repo,
       ref: precheckResults.ref,
       required_contexts: requiredContexts,
-      environment: environment,
+      environment: environment
       // description: "",
       // :description note: Short description of the deployment.
       // production_environment: true
