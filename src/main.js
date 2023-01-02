@@ -35,6 +35,7 @@ export async function run() {
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
+    const production_environment = core.getInput('production_environment')
     const unlock_trigger = core.getInput('unlock_trigger')
     const lock_info_alias = core.getInput('lock_info_alias')
     const update_branch = core.getInput('update_branch')
@@ -359,16 +360,23 @@ export async function run() {
       })
     }
 
+    // Check if the environment is a production_environment
+    var productionEnvironment = false
+    if (environment === production_environment.trim()) {
+      productionEnvironment = true
+    }
+    core.debug(`production_environment: ${productionEnvironment}`)
+
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
       repo: repo,
       ref: precheckResults.ref,
       required_contexts: requiredContexts,
-      environment: environment
+      environment: environment,
       // description: "",
       // :description note: Short description of the deployment.
-      // production_environment: true
+      production_environment: productionEnvironment
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
     })
     core.setOutput('deployment_id', createDeploy.id)

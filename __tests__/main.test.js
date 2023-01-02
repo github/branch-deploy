@@ -29,6 +29,7 @@ beforeEach(() => {
   process.env.INPUT_PREFIX_ONLY = 'true'
   process.env.INPUT_ENVIRONMENT = 'production'
   process.env.INPUT_ENVIRONMENT_TARGETS = 'production,development,staging'
+  process.env.INPUT_PRODUCTION_ENVIRONMENT = 'production'
   process.env.INPUT_STABLE_BRANCH = 'main'
   process.env.INPUT_NOOP_TRIGGER = 'noop'
   process.env.INPUT_LOCK_TRIGGER = '.lock'
@@ -107,6 +108,40 @@ test('successfully runs the action', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('noop', 'false')
   expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
   expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
+  expect(debugMock).toHaveBeenCalledWith('production_environment: true')
+})
+
+test('successfully runs the action on a deployment to development', async () => {
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.deploy to development',
+      id: 123
+    }
+  }
+
+  expect(await run()).toBe('success')
+  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    '.deploy to development'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(setOutputMock).toHaveBeenCalledWith('noop', 'false')
+  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'development')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(saveStateMock).toHaveBeenCalledWith('noop', 'false')
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+  expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
+  expect(debugMock).toHaveBeenCalledWith('production_environment: false')
 })
 
 test('fails due to multiple commands in one message', async () => {
