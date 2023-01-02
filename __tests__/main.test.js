@@ -124,7 +124,10 @@ test('successfully runs the action on a deployment to development', async () => 
 
   expect(await run()).toBe('success')
   expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy to development')
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    '.deploy to development'
+  )
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
   expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
