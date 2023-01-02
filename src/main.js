@@ -364,7 +364,12 @@ export async function run() {
       owner: owner,
       repo: repo,
       ref: precheckResults.ref,
-      required_contexts: requiredContexts
+      required_contexts: requiredContexts,
+      environment: environment
+      // description: "",
+      // :description note: Short description of the deployment.
+      // production_environment: true
+      // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
     })
     core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)
