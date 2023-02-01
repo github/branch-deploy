@@ -40,6 +40,18 @@ const octokit = {
           }
         }
       }),
+      listCommits: jest.fn().mockReturnValue({
+        data: [
+          {
+            sha: 'deadbeef',
+            parents: [
+              {
+                sha: 'beefdead'
+              }
+            ]
+          }
+        ]
+      }),
       listDeployments: jest.fn().mockReturnValue({
         data: [
           {
@@ -87,6 +99,18 @@ test('checks if the default branch sha and deployment sha are identical, and the
               sha: 'deadbeef'
             }
           }
+        }),
+        listCommits: jest.fn().mockReturnValue({
+          data: [
+            {
+              sha: 'deadbeef',
+              parents: [
+                {
+                  sha: 'beefdead'
+                }
+              ]
+            }
+          ]
         }),
         listDeployments: jest.fn().mockReturnValue({
           data: [
