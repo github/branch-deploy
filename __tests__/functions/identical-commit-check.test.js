@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {isMergeCommitIdentical} from '../../src/functions/identical-commit-check'
+import {identicalCommitCheck} from '../../src/functions/identical-commit-check'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')
@@ -56,12 +56,13 @@ const octokit = {
 
 test('checks if the default branch sha and deployment sha are identical, and they are', async () => {
   expect(
-    await isMergeCommitIdentical(octokit, context, 'production')
+    await identicalCommitCheck(octokit, context, 'production')
   ).toStrictEqual(true)
   expect(infoMock).toHaveBeenCalledWith(
     'latest deployment sha is identical to the latest commit sha'
   )
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'false')
+  expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
 })
 
 test('checks if the default branch sha and deployment sha are identical, and they are not', async () => {
@@ -95,7 +96,7 @@ test('checks if the default branch sha and deployment sha are identical, and the
   }
 
   expect(
-    await isMergeCommitIdentical(
+    await identicalCommitCheck(
       octokitWithNoMatchingSha,
       context,
       'production'
@@ -105,4 +106,5 @@ test('checks if the default branch sha and deployment sha are identical, and the
     'a new deployment will be created based on your configuration'
   )
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
 })

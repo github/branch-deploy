@@ -5,7 +5,7 @@ import * as core from '@actions/core'
 // :param context: the context object
 // :param environment: the environment to check
 // :return: true if the current deployment's ref is identical to the merge commit, false otherwise
-export async function isMergeCommitIdentical(octokit, context, environment) {
+export async function identicalCommitCheck(octokit, context, environment) {
   // get the owner and the repo from the context
   const {owner, repo} = context.repo
 
@@ -51,10 +51,12 @@ export async function isMergeCommitIdentical(octokit, context, environment) {
     core.info('latest deployment sha is identical to the latest commit sha')
     core.info('identical commits will not be deployed again based on your configuration')
     core.setOutput('continue', 'false')
+    core.setOutput('environment', environment)
   } else {
     core.info('latest deployment is not identical to the latest commit on the default branch')
     core.info('a new deployment will be created based on your configuration')
     core.setOutput('continue', 'true')
+    core.setOutput('environment', environment)
   }
 
   return result
