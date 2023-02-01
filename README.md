@@ -26,7 +26,7 @@ This Action does the heavy lifting for you to enable branch deployments:
 
 > These commands are all fully customizable and are just an example using this Action's defaults
 
-Alternate command syntax and shortcuts can be found at the bottom of this readme [here](#alternate-command-syntax-%EF%B8%8F)
+Alternate command syntax and shortcuts can be found at the bottom of this readme [here](#alternate-command-syntax)
 
 ## Demo 🎥
 
@@ -263,7 +263,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | allow_forks | no | true | Allow branch deployments to run on repository forks. If you want to harden your workflows, this option can be set to false. Default is "true" |
 | admins | no | false | A comma seperated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team" |
 | admins_pat | no | false | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
-| merge_deploy_mode | no | false | Advanced configuration option for operations on merge commits. See the [merge commit docs]() below |
+| merge_deploy_mode | no | false | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
 
 ## Outputs 📤
 
@@ -590,7 +590,7 @@ If you need more control over when, how, and why deployment locks are set, you c
 
 This Action allows you to set a lock via an issue comment, custom condition, on merges, etc. You have full control over when and how the lock is set and removed!
 
-## Merge Commit Workflow Strategy 📝
+## Merge Commit Workflow Strategy
 
 > Note: This section is rather advanced and entirely optional
 
@@ -703,7 +703,7 @@ This section will cover a few suggestions that will help you when using this Act
 
 2. Enable Branch Protection Settings - It is always a good idea to enable branch protection settings for your repo, especially when using this Action
 
-## Alternate Command Syntax 🗨️
+## Alternate Command Syntax
 
 Here are a few alternate ways you can invoke commands:
 
