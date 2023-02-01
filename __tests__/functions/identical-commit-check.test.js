@@ -43,7 +43,10 @@ const octokit = {
       listDeployments: jest.fn().mockReturnValue({
         data: [
           {
-            sha: 'beefdead'
+            sha: 'beefdead',
+            payload: {
+              type: 'branch-deploy'
+            }
           }
         ]
       }),
@@ -86,7 +89,10 @@ test('checks if the default branch sha and deployment sha are identical, and the
         listDeployments: jest.fn().mockReturnValue({
           data: [
             {
-              sha: 'beefdead'
+              sha: 'beefdead',
+              payload: {
+                type: 'branch-deploy'
+              }
             }
           ]
         }),

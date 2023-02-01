@@ -24,7 +24,10 @@ export async function createDeploymentStatus(
     deployment_id: deploymentId,
     state: state,
     INPUT_LOG_URL: `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`,
-    environment: environment
+    environment: environment,
+    payload: {
+      type: 'branch-deploy'
+    }
   })
 
   return result
