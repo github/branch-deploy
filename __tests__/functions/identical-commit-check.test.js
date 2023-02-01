@@ -26,47 +26,7 @@ const context = {
 }
 
 const octokit = {
-  repos: {
-    get: jest.fn().mockReturnValue({
-      data: {
-        default_branch: 'main'
-      }
-    }),
-    getBranch: jest.fn().mockReturnValue({
-      data: {
-        commit: {
-          sha: 'deadbeef'
-        }
-      }
-    }),
-    listDeployments: jest.fn().mockReturnValue({
-      data: [
-        {
-          sha: 'beefdead'
-        }
-      ]
-    }),
-    compareCommits: jest.fn().mockReturnValue({
-      data: {
-        status: 'identical'
-      }
-    })
-  }
-}
-
-test('checks if the default branch sha and deployment sha are identical, and they are', async () => {
-  expect(
-    await identicalCommitCheck(octokit, context, 'production')
-  ).toStrictEqual(true)
-  expect(infoMock).toHaveBeenCalledWith(
-    'latest deployment sha is identical to the latest commit sha'
-  )
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'false')
-  expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
-})
-
-test('checks if the default branch sha and deployment sha are identical, and they are not', async () => {
-  const octokitWithNoMatchingSha = {
+  rest: {
     repos: {
       get: jest.fn().mockReturnValue({
         data: {
@@ -87,11 +47,55 @@ test('checks if the default branch sha and deployment sha are identical, and the
           }
         ]
       }),
-      compareCommits: jest.fn().mockReturnValue({
+      compareCommitsWithBasehead: jest.fn().mockReturnValue({
         data: {
-          status: 'not identical'
+          status: 'identical'
         }
       })
+    }
+  }
+}
+
+test('checks if the default branch sha and deployment sha are identical, and they are', async () => {
+  expect(
+    await identicalCommitCheck(octokit, context, 'production')
+  ).toStrictEqual(true)
+  expect(infoMock).toHaveBeenCalledWith(
+    'latest deployment sha is identical to the latest commit sha'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('continue', 'false')
+  expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
+})
+
+test('checks if the default branch sha and deployment sha are identical, and they are not', async () => {
+  const octokitWithNoMatchingSha = {
+    rest: {
+      repos: {
+        get: jest.fn().mockReturnValue({
+          data: {
+            default_branch: 'main'
+          }
+        }),
+        getBranch: jest.fn().mockReturnValue({
+          data: {
+            commit: {
+              sha: 'deadbeef'
+            }
+          }
+        }),
+        listDeployments: jest.fn().mockReturnValue({
+          data: [
+            {
+              sha: 'beefdead'
+            }
+          ]
+        }),
+        compareCommitsWithBasehead: jest.fn().mockReturnValue({
+          data: {
+            status: 'not identical'
+          }
+        })
+      }
     }
   }
 

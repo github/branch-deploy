@@ -11260,7 +11260,7 @@ async function identicalCommitCheck(octokit, context, environment) {
   const {owner, repo} = context.repo
 
   // find the default branch
-  const {data: repoData} = await octokit.repos.get({
+  const {data: repoData} = await octokit.rest.repos.get({
     owner,
     repo
   })
@@ -11268,7 +11268,7 @@ async function identicalCommitCheck(octokit, context, environment) {
   core.debug(`default branch name: ${defaultBranchName}`)
 
   // get the latest commit on the default branch of the repo
-  const {data: defaultBranchData} = await octokit.repos.getBranch({
+  const {data: defaultBranchData} = await octokit.rest.repos.getBranch({
     owner,
     repo,
     branch: defaultBranchName
@@ -11277,7 +11277,7 @@ async function identicalCommitCheck(octokit, context, environment) {
   core.debug(`default branch commit sha: ${defaultBranchCommitSha}`)
 
   // find the latest deployment and get its sha
-  const {data: deployments} = await octokit.repos.listDeployments({
+  const {data: deployments} = await octokit.rest.repos.listDeployments({
     owner,
     repo,
     environment,
@@ -11286,13 +11286,13 @@ async function identicalCommitCheck(octokit, context, environment) {
   const latestDeploymentSha = deployments[0].sha
   core.debug(`latest deployment sha: ${latestDeploymentSha}`)
 
-  // compare the latest deployment sha with the latest commit on the default branch
-  const {data: compareData} = await octokit.repos.compareCommits({
-    owner,
-    repo,
-    base: defaultBranchCommitSha,
-    head: latestDeploymentSha
-  })
+  // use the compareCommitsWithBasehead API to check if the latest deployment sha is identical to the latest commit on the default branch
+  const {data: compareData} =
+    await octokit.rest.repos.compareCommitsWithBasehead({
+      owner,
+      repo,
+      basehead: `${defaultBranchCommitSha}...${latestDeploymentSha}`
+    })
 
   // if the latest deployment sha is identical to the latest commit on the default branch then return true
   const result = compareData.status === 'identical'
