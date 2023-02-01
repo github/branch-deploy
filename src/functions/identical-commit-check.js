@@ -31,19 +31,26 @@ export async function identicalCommitCheck(octokit, context, environment) {
     owner,
     repo,
     environment,
-    sort: 'created',
+    sort: 'created_at',
     direction: 'desc',
     per_page: 100
   })
-
   // loop through all deployments and look for the latest deployment with the payload type of branch-deploy
   var latestDeploymentSha
+  var createdAt
+  var deploymentId
   for (const deployment of deploymentsData) {
     if (deployment.payload.type === 'branch-deploy') {
       latestDeploymentSha = deployment.sha
+      createdAt = deployment.created_at
+      deploymentId = deployment.id
       break
     }
   }
+  core.debug('latest deployment with payload type of "branch-deploy"')
+  core.debug(`latest deployment sha: ${latestDeploymentSha}`)
+  core.debug(`latest deployment created at: ${createdAt}`)
+  core.debug(`latest deployment id: ${deploymentId}`)
 
   // use the compareCommitsWithBasehead API to check if the latest deployment sha is identical to the latest commit on the default branch
   const {data: compareData} =

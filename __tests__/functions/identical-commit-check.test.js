@@ -44,6 +44,8 @@ const octokit = {
         data: [
           {
             sha: 'beefdead',
+            id: 785395609,
+            created_at: '2023-02-01T20:26:33Z',
             payload: {
               type: 'branch-deploy'
             }
@@ -90,6 +92,8 @@ test('checks if the default branch sha and deployment sha are identical, and the
           data: [
             {
               sha: 'beefdead',
+              id: 785395609,
+              created_at: '2023-02-01T20:26:33Z',
               payload: {
                 type: 'branch-deploy'
               }
