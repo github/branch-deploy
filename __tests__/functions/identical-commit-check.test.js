@@ -96,11 +96,7 @@ test('checks if the default branch sha and deployment sha are identical, and the
   }
 
   expect(
-    await identicalCommitCheck(
-      octokitWithNoMatchingSha,
-      context,
-      'production'
-    )
+    await identicalCommitCheck(octokitWithNoMatchingSha, context, 'production')
   ).toStrictEqual(false)
   expect(infoMock).toHaveBeenCalledWith(
     'a new deployment will be created based on your configuration'

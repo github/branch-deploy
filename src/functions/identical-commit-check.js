@@ -46,14 +46,18 @@ export async function identicalCommitCheck(octokit, context, environment) {
 
   // if the latest deployment sha is identical to the latest commit on the default branch then return true
   const result = compareData.status === 'identical'
-  
+
   if (result) {
     core.info('latest deployment sha is identical to the latest commit sha')
-    core.info('identical commits will not be deployed again based on your configuration')
+    core.info(
+      'identical commits will not be deployed again based on your configuration'
+    )
     core.setOutput('continue', 'false')
     core.setOutput('environment', environment)
   } else {
-    core.info('latest deployment is not identical to the latest commit on the default branch')
+    core.info(
+      'latest deployment is not identical to the latest commit on the default branch'
+    )
     core.info('a new deployment will be created based on your configuration')
     core.setOutput('continue', 'true')
     core.setOutput('environment', environment)

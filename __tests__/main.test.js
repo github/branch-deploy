@@ -579,9 +579,11 @@ test('fails prechecks', async () => {
 
 test('successfully runs in mergeDeployMode', async () => {
   process.env.INPUT_MERGE_DEPLOY_MODE = 'true'
-  jest.spyOn(identicalCommitCheck, 'identicalCommitCheck').mockImplementation(() => {
-    return true
-  })
+  jest
+    .spyOn(identicalCommitCheck, 'identicalCommitCheck')
+    .mockImplementation(() => {
+      return true
+    })
   expect(await run()).toBe('safe-exit')
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
   process.env.INPUT_MERGE_DEPLOY_MODE = 'false' // reset

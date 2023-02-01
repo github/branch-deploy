@@ -11247,7 +11247,77 @@ async function post() {
   }
 }
 
+;// CONCATENATED MODULE: ./src/functions/identical-commit-check.js
+
+
+// Helper function to check if the current deployment's ref is identical to the merge commit
+// :param octokit: the authenticated octokit instance
+// :param context: the context object
+// :param environment: the environment to check
+// :return: true if the current deployment's ref is identical to the merge commit, false otherwise
+async function identicalCommitCheck(octokit, context, environment) {
+  // get the owner and the repo from the context
+  const {owner, repo} = context.repo
+
+  // find the default branch
+  const {data: repoData} = await octokit.repos.get({
+    owner,
+    repo
+  })
+  const defaultBranchName = repoData.default_branch
+  core.debug(`default branch name: ${defaultBranchName}`)
+
+  // get the latest commit on the default branch of the repo
+  const {data: defaultBranchData} = await octokit.repos.getBranch({
+    owner,
+    repo,
+    branch: defaultBranchName
+  })
+  const defaultBranchCommitSha = defaultBranchData.commit.sha
+  core.debug(`default branch commit sha: ${defaultBranchCommitSha}`)
+
+  // find the latest deployment and get its sha
+  const {data: deployments} = await octokit.repos.listDeployments({
+    owner,
+    repo,
+    environment,
+    per_page: 1
+  })
+  const latestDeploymentSha = deployments[0].sha
+  core.debug(`latest deployment sha: ${latestDeploymentSha}`)
+
+  // compare the latest deployment sha with the latest commit on the default branch
+  const {data: compareData} = await octokit.repos.compareCommits({
+    owner,
+    repo,
+    base: defaultBranchCommitSha,
+    head: latestDeploymentSha
+  })
+
+  // if the latest deployment sha is identical to the latest commit on the default branch then return true
+  const result = compareData.status === 'identical'
+
+  if (result) {
+    core.info('latest deployment sha is identical to the latest commit sha')
+    core.info(
+      'identical commits will not be deployed again based on your configuration'
+    )
+    core.setOutput('continue', 'false')
+    core.setOutput('environment', environment)
+  } else {
+    core.info(
+      'latest deployment is not identical to the latest commit on the default branch'
+    )
+    core.info('a new deployment will be created based on your configuration')
+    core.setOutput('continue', 'true')
+    core.setOutput('environment', environment)
+  }
+
+  return result
+}
+
 ;// CONCATENATED MODULE: ./src/main.js
+
 
 
 
@@ -11291,6 +11361,18 @@ async function run() {
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
     const allowForks = core.getInput('allow_forks') === 'true'
+    const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
+
+    // Create an octokit client
+    const octokit = github.getOctokit(token)
+
+    // If we are running in the merge deploy mode, run commit checks
+    if (mergeDeployMode) {
+      identicalCommitCheck(octokit, github.context, environment)
+      // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
+      core.saveState('bypass', 'true')
+      return 'safe-exit'
+    }
 
     // Set the state so that the post run logic will trigger
     core.saveState('isPost', 'true')
@@ -11307,9 +11389,6 @@ async function run() {
     // Get variables from the event context
     const issue_number = github.context.payload.issue.number
     const {owner, repo} = github.context.repo
-
-    // Create an octokit client
-    const octokit = github.getOctokit(token)
 
     // Check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(prefixOnly, body, trigger)
