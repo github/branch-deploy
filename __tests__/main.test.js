@@ -3,6 +3,7 @@ import * as reactEmote from '../src/functions/react-emote'
 import * as contextCheck from '../src/functions/context-check'
 import * as prechecks from '../src/functions/prechecks'
 import * as validPermissions from '../src/functions/valid-permissions'
+import * as identicalCommitCheck from '../src/functions/identical-commit-check'
 import * as lock from '../src/functions/lock'
 import * as unlock from '../src/functions/unlock'
 import * as actionStatus from '../src/functions/action-status'
@@ -574,6 +575,16 @@ test('fails prechecks', async () => {
   expect(setFailedMock).toHaveBeenCalledWith(
     '### ⚠️ Cannot proceed with deployment... something went wrong'
   )
+})
+
+test('successfully runs in mergeDeployMode', async () => {
+  process.env.INPUT_MERGE_DEPLOY_MODE = 'true'
+  jest.spyOn(identicalCommitCheck, 'identicalCommitCheck').mockImplementation(() => {
+    return true
+  })
+  expect(await run()).toBe('safe-exit')
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  process.env.INPUT_MERGE_DEPLOY_MODE = 'false' // reset
 })
 
 test('handles and unexpected error and exits', async () => {
