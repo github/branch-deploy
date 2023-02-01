@@ -26,15 +26,24 @@ export async function identicalCommitCheck(octokit, context, environment) {
   const defaultBranchCommitSha = defaultBranchData.commit.sha
   core.debug(`default branch commit sha: ${defaultBranchCommitSha}`)
 
-  // find the latest deployment and get its sha
-  const {data: deployments} = await octokit.rest.repos.listDeployments({
+  // find the latest deployment with the payload type of branch-deploy
+  const {data: deploymentsData} = await octokit.rest.repos.listDeployments({
     owner,
     repo,
     environment,
-    per_page: 1
+    sort: 'created',
+    direction: 'desc',
+    per_page: 100
   })
-  const latestDeploymentSha = deployments[0].sha
-  core.debug(`latest deployment sha: ${latestDeploymentSha}`)
+
+  // loop through all deployments and look for the latest deployment with the payload type of branch-deploy
+  var latestDeploymentSha
+  for (const deployment of deploymentsData) {
+    if (deployment.payload.type === 'branch-deploy') {
+      latestDeploymentSha = deployment.sha
+      break
+    }
+  }
 
   // use the compareCommitsWithBasehead API to check if the latest deployment sha is identical to the latest commit on the default branch
   const {data: compareData} =
