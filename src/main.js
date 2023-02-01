@@ -24,7 +24,7 @@ const BASE_URL = 'https://github.com'
 // Lock info flags
 const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d']
 
-// :returns: 'success', 'success - noop', 'failure', 'safe-exit', or raises an error
+// :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', or raises an error
 export async function run() {
   try {
     // Get the inputs for the branch-deploy Action
@@ -52,7 +52,7 @@ export async function run() {
       identicalCommitCheck(octokit, context, environment)
       // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
       core.saveState('bypass', 'true')
-      return 'safe-exit'
+      return 'success - merge deploy mode'
     }
 
     // Set the state so that the post run logic will trigger

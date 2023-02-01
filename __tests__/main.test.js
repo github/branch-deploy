@@ -584,7 +584,7 @@ test('successfully runs in mergeDeployMode', async () => {
     .mockImplementation(() => {
       return true
     })
-  expect(await run()).toBe('safe-exit')
+  expect(await run()).toBe('success - merge deploy mode')
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
   process.env.INPUT_MERGE_DEPLOY_MODE = 'false' // reset
 })
