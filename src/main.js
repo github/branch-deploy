@@ -386,8 +386,11 @@ export async function run() {
       environment: environment,
       // description: "",
       // :description note: Short description of the deployment.
-      production_environment: productionEnvironment
+      production_environment: productionEnvironment,
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
+      payload: {
+        type: 'branch-deploy'
+      }
     })
     core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)
