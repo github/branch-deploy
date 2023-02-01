@@ -11366,6 +11366,10 @@ async function run() {
     // Create an octokit client
     const octokit = github.getOctokit(token)
 
+    // Set the state so that the post run logic will trigger
+    core.saveState('isPost', 'true')
+    core.saveState('actionsToken', token)
+
     // If we are running in the merge deploy mode, run commit checks
     if (mergeDeployMode) {
       identicalCommitCheck(octokit, github.context, environment)
@@ -11373,10 +11377,6 @@ async function run() {
       core.saveState('bypass', 'true')
       return 'success - merge deploy mode'
     }
-
-    // Set the state so that the post run logic will trigger
-    core.saveState('isPost', 'true')
-    core.saveState('actionsToken', token)
 
     // Get the body of the IssueOps command
     const body = github.context.payload.comment.body.trim()
