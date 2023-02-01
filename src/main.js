@@ -11,6 +11,7 @@ import {lock} from './functions/lock'
 import {unlock} from './functions/unlock'
 import {post} from './functions/post'
 import {timeDiff} from './functions/time-diff'
+import {identicalCommitCheck} from './functions/identical-commit-check'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 import dedent from 'dedent-js'
@@ -23,7 +24,7 @@ const BASE_URL = 'https://github.com'
 // Lock info flags
 const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d']
 
-// :returns: 'success', 'success - noop', 'failure', 'safe-exit', or raises an error
+// :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', or raises an error
 export async function run() {
   try {
     // Get the inputs for the branch-deploy Action
@@ -41,6 +42,18 @@ export async function run() {
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
     const allowForks = core.getInput('allow_forks') === 'true'
+    const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
+
+    // Create an octokit client
+    const octokit = github.getOctokit(token)
+
+    // If we are running in the merge deploy mode, run commit checks
+    if (mergeDeployMode) {
+      identicalCommitCheck(octokit, context, environment)
+      // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
+      core.saveState('bypass', 'true')
+      return 'success - merge deploy mode'
+    }
 
     // Set the state so that the post run logic will trigger
     core.saveState('isPost', 'true')
@@ -57,9 +70,6 @@ export async function run() {
     // Get variables from the event context
     const issue_number = context.payload.issue.number
     const {owner, repo} = context.repo
-
-    // Create an octokit client
-    const octokit = github.getOctokit(token)
 
     // Check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(prefixOnly, body, trigger)
