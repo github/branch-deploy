@@ -73,9 +73,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octokit
     )
@@ -97,9 +97,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octokit
     )
@@ -121,9 +121,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octokit
     )
@@ -145,9 +145,9 @@ test('runs prechecks and does not find any matching command', async () => {
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octokit
     )
@@ -183,9 +183,9 @@ test('runs prechecks and finds that the IssueOps command is valid without define
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -216,9 +216,9 @@ test('runs prechecks and fails due to bad user permissions', async () => {
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octobadperms
     )
@@ -246,9 +246,9 @@ test('runs prechecks and fails due to a bad pull request', async () => {
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octobadpull
     )
@@ -284,9 +284,9 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -346,9 +346,9 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -408,9 +408,9 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -470,9 +470,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       pullRequestFromFork
     )
@@ -531,9 +531,9 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
       'main',
       '123',
       false,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       pullRequestFromFork
     )
@@ -581,9 +581,9 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -632,9 +632,9 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -683,9 +683,9 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -720,9 +720,9 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -758,9 +758,9 @@ test('runs prechecks and deploys to the stable branch', async () => {
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -810,9 +810,9 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -861,9 +861,9 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -912,9 +912,9 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -963,9 +963,9 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1000,9 +1000,9 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1061,9 +1061,9 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1113,9 +1113,9 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1174,9 +1174,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1229,9 +1229,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1281,9 +1281,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1333,9 +1333,9 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1385,9 +1385,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1437,9 +1437,9 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1498,9 +1498,9 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1525,9 +1525,9 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octobadres
     )
@@ -1575,9 +1575,9 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octogoodres
     )
@@ -1628,9 +1628,9 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octogoodres
     )
@@ -1683,9 +1683,9 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octogoodres
     )
@@ -1738,9 +1738,9 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octogoodres
     )
@@ -1791,9 +1791,9 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1854,9 +1854,9 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1914,9 +1914,9 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
       'main',
       '123',
       true,
-      "",
-      "",
-      "production",
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
