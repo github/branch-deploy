@@ -285,6 +285,7 @@ export async function run() {
       allowForks,
       skipCi,
       skipReviews,
+      environment,
       context,
       octokit
     )
