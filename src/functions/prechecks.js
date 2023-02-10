@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {validPermissions} from './valid-permissions'
 import {isAdmin} from './admin'
+import {stringToArray} from './string-to-array'
 
 // Runs precheck logic before the branch deployment can proceed
 // :param comment: The comment body of the event
@@ -10,6 +11,9 @@ import {isAdmin} from './admin'
 // :param stable_branch: The "stable" or "base" branch to deploy to (e.g. master|main)
 // :param issue_number: The issue number of the event
 // :param allowForks: Boolean which defines whether the Action can run from forks or not
+// :param skipCiInput: An array of environments that should not be checked for passing CI (string)
+// :param skipReviewsInput: An array of environments that should not be checked for reviewers (string)
+// :param environment: The environment being used for deployment
 // :param context: The context of the event
 // :param octokit: The octokit client
 // :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
@@ -21,6 +25,9 @@ export async function prechecks(
   stable_branch,
   issue_number,
   allowForks,
+  skipCiInput,
+  skipReviewsInput,
+  environment,
   context,
   octokit
 ) {
@@ -42,6 +49,12 @@ export async function prechecks(
     message = `Could not retrieve PR info: ${pr.status}`
     return {message: message, status: false}
   }
+
+  // Setup the skipCi and skipReview variables
+  const skipCiArray = await stringToArray(skipCiInput)
+  const skipReviewsArray = await stringToArray(skipReviewsInput)
+  const skipCi = skipCiArray.includes(environment)
+  const skipReviews = skipReviewsArray.includes(environment)
 
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref = pr.data.head.ref
@@ -168,8 +181,15 @@ export async function prechecks(
   // Make the GraphQL query
   const result = await octokit.graphql(query, variables)
 
-  // Grab the reviewDecision from the GraphQL result
-  const reviewDecision = result.repository.pullRequest.reviewDecision
+  // Check the reviewDecision
+  var reviewDecision
+  if (skipReviews) {
+    // If skipReviews is true, we bypass the results the graphql
+    reviewDecision = 'skip_reviews'
+  } else {
+    // Otherwise, grab the reviewDecision from the GraphQL result
+    reviewDecision = result.repository.pullRequest.reviewDecision
+  }
 
   // Grab the mergeStateStatus from the GraphQL result
   const mergeStateStatus = result.repository.pullRequest.mergeStateStatus
@@ -177,8 +197,16 @@ export async function prechecks(
   // Grab the statusCheckRollup state from the GraphQL result
   var commitStatus
   try {
+    // Check to see if skipCi is set for the environment being used
+    if (skipCi) {
+      core.info(
+        `CI checks have been disabled for the ${environment} environment, proceeding - OK`
+      )
+      commitStatus = 'skip_ci'
+    }
+
     // If there are no CI checks defined at all, we can set the commitStatus to null
-    if (
+    else if (
       result.repository.pullRequest.commits.nodes[0].commit.checkSuites
         .totalCount === 0
     ) {
@@ -186,6 +214,7 @@ export async function prechecks(
         'No CI checks have been defined for this pull request, proceeding - OK'
       )
       commitStatus = null
+
       // If there are CI checked defined, we need to check for the 'state' of the latest commit
     } else {
       commitStatus =
@@ -222,7 +251,9 @@ export async function prechecks(
 
     // If update_branch is not "disabled", check the mergeStateStatus to see if it is BEHIND
   } else if (
-    (commitStatus === 'SUCCESS' || commitStatus === null) &&
+    (commitStatus === 'SUCCESS' ||
+      commitStatus === null ||
+      commitStatus == 'skip_ci') &&
     update_branch !== 'disabled' &&
     mergeStateStatus === 'BEHIND'
   ) {
@@ -283,6 +314,47 @@ export async function prechecks(
       '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
     core.info(message)
 
+    // CI checks are passing and reviews are set to be bypassed
+  } else if (commitStatus === 'SUCCESS' && reviewDecision == 'skip_reviews') {
+    message =
+      '✔️ CI checked passsed and required reviewers have been disabled for this environment - OK'
+    core.info(message)
+
+    // CI checks are set to be bypassed and the pull request is approved
+  } else if (commitStatus === 'skip_ci' && reviewDecision === 'APPROVED') {
+    message =
+      '✔️ CI requirements have been disabled for this environment and the PR has been approved - OK'
+    core.info(message)
+
+    // CI checks are set to be bypassed BUT required reviews have not been defined
+  } else if (commitStatus === 'skip_ci' && reviewDecision === null) {
+    message =
+      '⚠️ CI requirements have been disabled for this environment and required reviewers have not been defined... proceeding - OK'
+    core.info(message)
+
+    // CI checks are set to be bypassed and the PR has not been reviewed BUT it is a noop deploy
+  } else if (
+    commitStatus === 'skip_ci' &&
+    reviewDecision === 'REVIEW_REQUIRED' &&
+    noopMode
+  ) {
+    message =
+      '✔️ CI requirements have been disabled for this environment and **noop** requested - OK'
+    core.info(message)
+    core.info('note: noop deployments do not require pr review')
+
+    // If CI checks are set to be bypassed and the deployer is an admin
+  } else if (commitStatus === 'skip_ci' && userIsAdmin === true) {
+    message =
+      '✔️ CI requirements have been disabled for this environment and approval is bypassed due to admin rights - OK'
+    core.info(message)
+
+    // If CI checks are set to be bypassed and PR reviews are also set to by bypassed
+  } else if (commitStatus === 'skip_ci' && reviewDecision === 'skip_reviews') {
+    message =
+      '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK'
+    core.info(message)
+
     // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
@@ -314,9 +386,16 @@ export async function prechecks(
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Reviews are not required for a noop deployment but CI checks must be passing in order to continue`
     return {message: message, status: false}
 
-    // If CI is pending and reviewers have not been defined
-  } else if (reviewDecision === null && commitStatus === 'PENDING') {
+    // If CI is pending and reviewers have not been defined and it IS a noop deploy
+  } else if (
+    reviewDecision === null &&
+    commitStatus === 'PENDING' &&
+    noopMode
+  ) {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
+    core.info(
+      'note: even noop deploys require CI to finish and be in a passing state'
+    )
     return {message: message, status: false}
 
     // If CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy
@@ -338,9 +417,20 @@ export async function prechecks(
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing and the PR must be reviewed in order to continue`
     return {message: message, status: false}
 
-    // If the PR has been approved but CI checks are pending and it is not a noop deploy
+    // If the PR is considered 'approved' but CI checks are pending and it is not a noop deploy
   } else if (
-    reviewDecision === 'APPROVED' &&
+    (reviewDecision === 'APPROVED' ||
+      reviewDecision === null ||
+      reviewDecision === 'skip_reviews') &&
+    commitStatus === 'PENDING' &&
+    !noopMode
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
+    return {message: message, status: false}
+
+    // If required reviews are disabled for the environment but CI is pending and it is not a noop deploy
+  } else if (
+    reviewDecision === 'skip_reviews' &&
     commitStatus === 'PENDING' &&
     !noopMode
   ) {
@@ -361,7 +451,10 @@ export async function prechecks(
     return {message: message, status: false}
 
     // If the PR does not require approval but CI is failing
-  } else if (reviewDecision === null && commitStatus === 'FAILURE') {
+  } else if (
+    (reviewDecision === null || reviewDecision === 'skip_reviews') &&
+    commitStatus === 'FAILURE'
+  ) {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request does not require approvals but CI checks are failing`
     return {message: message, status: false}
 
@@ -374,6 +467,18 @@ export async function prechecks(
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is missing required approvals`
     core.info(
       'note: CI checks have not been defined so they will not be evaluated'
+    )
+    return {message: message, status: false}
+
+    // If the PR is NOT reviewed and CI checks have been disabled and NOT a noop deploy
+  } else if (
+    reviewDecision === 'REVIEW_REQUIRED' &&
+    commitStatus === 'skip_ci' &&
+    !noopMode
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is missing required approvals`
+    core.info(
+      'note: CI checks are disabled for this environment so they will not be evaluated'
     )
     return {message: message, status: false}
 
