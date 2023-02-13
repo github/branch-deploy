@@ -14,7 +14,18 @@ export async function stringToArray(string) {
     }
 
     // Split up the String on commas, trim each element, and return the Array
-    return string.split(',').map(target => target.trim())
+    const stringArray = string.split(',').map(target => target.trim())
+    var results = []
+
+    // filter out empty items
+    for (const item of stringArray) {
+      if (item === "") {
+        continue
+      }
+      results.push(item)
+    }
+
+    return results
   } catch (error) {
     core.error(`failed string for debugging purposes: ${string}`)
     throw new Error(`could not convert String to Array - error: ${error}`)
