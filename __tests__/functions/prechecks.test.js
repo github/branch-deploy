@@ -1937,3 +1937,57 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
     '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
   )
 })
+
+test('runs prechecks and finds that skip_ci is set and the PR has been approved', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 0
+                },
+                statusCheckRollup: null
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development',
+      '',
+      'development',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI requirements have been disabled for this environment and the PR has been approved - OK',
+    status: true,
+    noopMode: false,
+    ref: 'test-ref'
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    '✔️ CI requirements have been disabled for this environment and the PR has been approved - OK'
+  )
+})
