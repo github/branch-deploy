@@ -395,7 +395,7 @@ export async function prechecks(
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
     return {message: message, status: false}
 
-    // If CI is pending and reviewers have not been defined and it IT a noop deploy
+    // If CI is pending and reviewers have not been defined and it IS a noop deploy
   } else if (
     reviewDecision === null &&
     commitStatus === 'PENDING' &&
@@ -431,15 +431,6 @@ export async function prechecks(
     (reviewDecision === 'APPROVED' ||
       reviewDecision === null ||
       reviewDecision === 'skip_reviews') &&
-    commitStatus === 'PENDING' &&
-    !noopMode
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
-    return {message: message, status: false}
-
-    // If required reviews are disabled for the environment but CI is pending and it is not a noop deploy
-  } else if (
-    reviewDecision === 'skip_reviews' &&
     commitStatus === 'PENDING' &&
     !noopMode
   ) {

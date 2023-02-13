@@ -2019,7 +2019,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
     }
   })
   jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
-    return true
+    return false
   })
   expect(
     await prechecks(
@@ -2045,4 +2045,330 @@ test('runs prechecks and finds that the commit status is success and skip_review
   })
 
   expect(infoMock).toHaveBeenCalledWith('✔️ CI checked passsed and required reviewers have been disabled for this environment - OK')
+})
+
+test('runs prechecks and finds that skip_ci is set and now reviews are defined', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: null,
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+  expect(
+    await prechecks(
+      '.deploy to development',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      'staging', // skip_reviews
+      'development', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '⚠️ CI requirements have been disabled for this environment and required reviewers have not been defined... proceeding - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith('⚠️ CI requirements have been disabled for this environment and required reviewers have not been defined... proceeding - OK')
+})
+
+test('runs prechecks and finds that skip_ci is set, reviews are required, and its a noop deploy', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+  expect(
+    await prechecks(
+      '.deploy noop to development',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      '', // skip_reviews
+      'development', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI requirements have been disabled for this environment and **noop** requested - OK',
+    noopMode: true,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith('✔️ CI requirements have been disabled for this environment and **noop** requested - OK')
+})
+
+test('runs prechecks and finds that skip_ci is set and skip_reviews is set', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+  expect(
+    await prechecks(
+      '.deploy to development',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      'development,staging', // skip_reviews
+      'development', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith('✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK')
+})
+
+test('runs prechecks and finds that skip_ci is set and the deployer is an admin', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return true
+  })
+  expect(
+    await prechecks(
+      '.deploy to development',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      '', // skip_reviews
+      'development', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI requirements have been disabled for this environment and approval is bypassed due to admin rights - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith('✔️ CI requirements have been disabled for this environment and approval is bypassed due to admin rights - OK')
+})
+
+test('runs prechecks and finds that CI is pending and reviewers have not been defined and it IS a noop deploy', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: null,
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'PENDING'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      '', // skip_ci
+      '', // skip_reviews
+      'production', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`null\`\n- commitStatus: \`PENDING\`\n\n> CI checks must be passing in order to continue`,
+    status: false
+  })
+
+  expect(infoMock).toHaveBeenCalledWith('note: even noop deploys require CI to finish and be in a passing state')
+})
+
+test('runs prechecks and finds that the PR is NOT reviewed and CI checks have been disabled and it is NOT a noop deploy', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'PENDING'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+  expect(
+    await prechecks(
+      '.deploy to staging',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'staging', // skip_ci
+      'production', // skip_reviews
+      'staging', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`REVIEW_REQUIRED\`\n- commitStatus: \`skip_ci\`\n\n> Your pull request is missing required approvals`,
+    status: false
+  })
+
+  expect(infoMock).toHaveBeenCalledWith('note: CI checks are disabled for this environment so they will not be evaluated')
 })
