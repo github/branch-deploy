@@ -1967,16 +1967,16 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
     .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
   expect(
     await prechecks(
-      '.deploy',
+      '.deploy to development',
       '.deploy',
       'noop',
       'disabled',
       'main',
       '123',
       true,
-      'development',
-      '',
-      'development',
+      'development', // skip_ci
+      '', // skip_reviews
+      'development', // the environment the deployment was sent to
       context,
       octonocommitchecks
     )
@@ -1990,4 +1990,59 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
   expect(infoMock).toHaveBeenCalledWith(
     '✔️ CI requirements have been disabled for this environment and the PR has been approved - OK'
   )
+})
+
+test('runs prechecks and finds that the commit status is success and skip_reviews is set for the environment', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return true
+  })
+  expect(
+    await prechecks(
+      '.deploy to staging',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      'staging', // skip_reviews
+      'staging', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI checked passsed and required reviewers have been disabled for this environment - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith('✔️ CI checked passsed and required reviewers have been disabled for this environment - OK')
 })
