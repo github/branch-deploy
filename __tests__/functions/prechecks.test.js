@@ -2044,7 +2044,9 @@ test('runs prechecks and finds that the commit status is success and skip_review
     status: true
   })
 
-  expect(infoMock).toHaveBeenCalledWith('✔️ CI checked passsed and required reviewers have been disabled for this environment - OK')
+  expect(infoMock).toHaveBeenCalledWith(
+    '✔️ CI checked passsed and required reviewers have been disabled for this environment - OK'
+  )
 })
 
 test('runs prechecks and finds that skip_ci is set and now reviews are defined', async () => {
@@ -2099,7 +2101,9 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
     status: true
   })
 
-  expect(infoMock).toHaveBeenCalledWith('⚠️ CI requirements have been disabled for this environment and required reviewers have not been defined... proceeding - OK')
+  expect(infoMock).toHaveBeenCalledWith(
+    '⚠️ CI requirements have been disabled for this environment and required reviewers have not been defined... proceeding - OK'
+  )
 })
 
 test('runs prechecks and finds that skip_ci is set, reviews are required, and its a noop deploy', async () => {
@@ -2154,7 +2158,9 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
     status: true
   })
 
-  expect(infoMock).toHaveBeenCalledWith('✔️ CI requirements have been disabled for this environment and **noop** requested - OK')
+  expect(infoMock).toHaveBeenCalledWith(
+    '✔️ CI requirements have been disabled for this environment and **noop** requested - OK'
+  )
 })
 
 test('runs prechecks and finds that skip_ci is set and skip_reviews is set', async () => {
@@ -2209,7 +2215,9 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
     status: true
   })
 
-  expect(infoMock).toHaveBeenCalledWith('✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK')
+  expect(infoMock).toHaveBeenCalledWith(
+    '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK'
+  )
 })
 
 test('runs prechecks and finds that skip_ci is set and the deployer is an admin', async () => {
@@ -2264,7 +2272,9 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
     status: true
   })
 
-  expect(infoMock).toHaveBeenCalledWith('✔️ CI requirements have been disabled for this environment and approval is bypassed due to admin rights - OK')
+  expect(infoMock).toHaveBeenCalledWith(
+    '✔️ CI requirements have been disabled for this environment and approval is bypassed due to admin rights - OK'
+  )
 })
 
 test('runs prechecks and finds that CI is pending and reviewers have not been defined and it IS a noop deploy', async () => {
@@ -2312,12 +2322,13 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
       octogoodres
     )
   ).toStrictEqual({
-    message:
-      `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`null\`\n- commitStatus: \`PENDING\`\n\n> CI checks must be passing in order to continue`,
+    message: `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`null\`\n- commitStatus: \`PENDING\`\n\n> CI checks must be passing in order to continue`,
     status: false
   })
 
-  expect(infoMock).toHaveBeenCalledWith('note: even noop deploys require CI to finish and be in a passing state')
+  expect(infoMock).toHaveBeenCalledWith(
+    'note: even noop deploys require CI to finish and be in a passing state'
+  )
 })
 
 test('runs prechecks and finds that the PR is NOT reviewed and CI checks have been disabled and it is NOT a noop deploy', async () => {
@@ -2365,10 +2376,11 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
       octogoodres
     )
   ).toStrictEqual({
-    message:
-      `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`REVIEW_REQUIRED\`\n- commitStatus: \`skip_ci\`\n\n> Your pull request is missing required approvals`,
+    message: `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`REVIEW_REQUIRED\`\n- commitStatus: \`skip_ci\`\n\n> Your pull request is missing required approvals`,
     status: false
   })
 
-  expect(infoMock).toHaveBeenCalledWith('note: CI checks are disabled for this environment so they will not be evaluated')
+  expect(infoMock).toHaveBeenCalledWith(
+    'note: CI checks are disabled for this environment so they will not be evaluated'
+  )
 })

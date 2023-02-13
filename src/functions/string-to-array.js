@@ -19,7 +19,7 @@ export async function stringToArray(string) {
 
     // filter out empty items
     for (const item of stringArray) {
-      if (item === "") {
+      if (item === '') {
         continue
       }
       results.push(item)
