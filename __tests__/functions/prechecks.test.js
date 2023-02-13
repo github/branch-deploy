@@ -73,6 +73,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octokit
     )
@@ -94,6 +97,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octokit
     )
@@ -115,6 +121,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octokit
     )
@@ -136,6 +145,9 @@ test('runs prechecks and does not find any matching command', async () => {
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octokit
     )
@@ -171,6 +183,9 @@ test('runs prechecks and finds that the IssueOps command is valid without define
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -201,6 +216,9 @@ test('runs prechecks and fails due to bad user permissions', async () => {
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octobadperms
     )
@@ -228,6 +246,9 @@ test('runs prechecks and fails due to a bad pull request', async () => {
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octobadpull
     )
@@ -263,6 +284,9 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -322,6 +346,9 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -381,6 +408,9 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -440,6 +470,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       pullRequestFromFork
     )
@@ -498,6 +531,9 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
       'main',
       '123',
       false,
+      '',
+      '',
+      'production',
       context,
       pullRequestFromFork
     )
@@ -545,6 +581,9 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -593,6 +632,9 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -641,6 +683,9 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -675,6 +720,9 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -710,6 +758,9 @@ test('runs prechecks and deploys to the stable branch', async () => {
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -759,6 +810,9 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -807,6 +861,9 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -855,6 +912,9 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -903,6 +963,9 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -937,6 +1000,9 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -995,6 +1061,9 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1044,6 +1113,9 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1102,6 +1174,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1154,6 +1229,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1203,6 +1281,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1252,6 +1333,9 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1301,6 +1385,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1350,6 +1437,9 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1408,6 +1498,9 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1432,6 +1525,9 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octobadres
     )
@@ -1479,6 +1575,9 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octogoodres
     )
@@ -1529,6 +1628,9 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octogoodres
     )
@@ -1581,6 +1683,9 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octogoodres
     )
@@ -1633,6 +1738,9 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octogoodres
     )
@@ -1683,6 +1791,9 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1743,6 +1854,9 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1800,6 +1914,9 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
       'main',
       '123',
       true,
+      '',
+      '',
+      'production',
       context,
       octonocommitchecks
     )
@@ -1818,5 +1935,452 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
   )
   expect(infoMock).toHaveBeenCalledWith(
     '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+  )
+})
+
+test('runs prechecks and finds that skip_ci is set and the PR has been approved', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 0
+                },
+                statusCheckRollup: null
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest
+    .fn()
+    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+  expect(
+    await prechecks(
+      '.deploy to development',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      '', // skip_reviews
+      'development', // the environment the deployment was sent to
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI requirements have been disabled for this environment and the PR has been approved - OK',
+    status: true,
+    noopMode: false,
+    ref: 'test-ref'
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    '✔️ CI requirements have been disabled for this environment and the PR has been approved - OK'
+  )
+})
+
+test('runs prechecks and finds that the commit status is success and skip_reviews is set for the environment', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+  expect(
+    await prechecks(
+      '.deploy to staging',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      'staging', // skip_reviews
+      'staging', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI checked passsed and required reviewers have been disabled for this environment - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith(
+    '✔️ CI checked passsed and required reviewers have been disabled for this environment - OK'
+  )
+})
+
+test('runs prechecks and finds that skip_ci is set and now reviews are defined', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: null,
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+  expect(
+    await prechecks(
+      '.deploy to development',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      'staging', // skip_reviews
+      'development', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '⚠️ CI requirements have been disabled for this environment and required reviewers have not been defined... proceeding - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith(
+    '⚠️ CI requirements have been disabled for this environment and required reviewers have not been defined... proceeding - OK'
+  )
+})
+
+test('runs prechecks and finds that skip_ci is set, reviews are required, and its a noop deploy', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+  expect(
+    await prechecks(
+      '.deploy noop to development',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      '', // skip_reviews
+      'development', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI requirements have been disabled for this environment and **noop** requested - OK',
+    noopMode: true,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith(
+    '✔️ CI requirements have been disabled for this environment and **noop** requested - OK'
+  )
+})
+
+test('runs prechecks and finds that skip_ci is set and skip_reviews is set', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+  expect(
+    await prechecks(
+      '.deploy to development',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      'development,staging', // skip_reviews
+      'development', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith(
+    '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK'
+  )
+})
+
+test('runs prechecks and finds that skip_ci is set and the deployer is an admin', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return true
+  })
+  expect(
+    await prechecks(
+      '.deploy to development',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      '', // skip_reviews
+      'development', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI requirements have been disabled for this environment and approval is bypassed due to admin rights - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true
+  })
+
+  expect(infoMock).toHaveBeenCalledWith(
+    '✔️ CI requirements have been disabled for this environment and approval is bypassed due to admin rights - OK'
+  )
+})
+
+test('runs prechecks and finds that CI is pending and reviewers have not been defined and it IS a noop deploy', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: null,
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'PENDING'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      '', // skip_ci
+      '', // skip_reviews
+      'production', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message: `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`null\`\n- commitStatus: \`PENDING\`\n\n> CI checks must be passing in order to continue`,
+    status: false
+  })
+
+  expect(infoMock).toHaveBeenCalledWith(
+    'note: even noop deploys require CI to finish and be in a passing state'
+  )
+})
+
+test('runs prechecks and finds that the PR is NOT reviewed and CI checks have been disabled and it is NOT a noop deploy', async () => {
+  var octogoodres = octokit
+  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octogoodres['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'PENDING'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+  expect(
+    await prechecks(
+      '.deploy to staging',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'staging', // skip_ci
+      'production', // skip_reviews
+      'staging', // the environment the deployment was sent to
+      context,
+      octogoodres
+    )
+  ).toStrictEqual({
+    message: `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`REVIEW_REQUIRED\`\n- commitStatus: \`skip_ci\`\n\n> Your pull request is missing required approvals`,
+    status: false
+  })
+
+  expect(infoMock).toHaveBeenCalledWith(
+    'note: CI checks are disabled for this environment so they will not be evaluated'
   )
 })

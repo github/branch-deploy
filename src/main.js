@@ -42,6 +42,8 @@ export async function run() {
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
     const allowForks = core.getInput('allow_forks') === 'true'
+    const skipCi = core.getInput('skip_ci')
+    const skipReviews = core.getInput('skip_reviews')
     const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
 
     // Create an octokit client
@@ -281,6 +283,9 @@ export async function run() {
       stable_branch,
       issue_number,
       allowForks,
+      skipCi,
+      skipReviews,
+      environment,
       context,
       octokit
     )
