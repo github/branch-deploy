@@ -35,6 +35,7 @@ beforeEach(() => {
   process.env.INPUT_NOOP_TRIGGER = 'noop'
   process.env.INPUT_LOCK_TRIGGER = '.lock'
   process.env.INPUT_UNLOCK_TRIGGER = '.unlock'
+  process.env.INPUT_HELP_TRIGGER = '.help'
   process.env.INPUT_LOCK_INFO_ALIAS = '.wcid'
   process.env.INPUT_REQUIRED_CONTEXTS = 'false'
   process.env.INPUT_ALLOW_FORKS = 'true'
