@@ -10534,6 +10534,19 @@ async function prechecks(
   // Get admin data
   const userIsAdmin = await isAdmin(context)
 
+  // log values for debugging
+  core.debug('precheck values for debugging:')
+  core.debug(`reviewDecision: ${reviewDecision}`)
+  core.debug(`mergeStateStatus: ${mergeStateStatus}`)
+  core.debug(`commitStatus: ${commitStatus}`)
+  core.debug(`userIsAdmin: ${userIsAdmin}`)
+  core.debug(`update_branch: ${update_branch}`)
+  core.debug(`skipCi: ${skipCi}`)
+  core.debug(`skipReviews: ${skipReviews}`)
+  core.debug(`allowForks: ${allowForks}`)
+  core.debug(`forkBypass: ${forkBypass}`)
+  core.debug(`environment: ${environment}`)
+
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (regexCommandWithStableBranch.test(comment)) {
     message = '✔️ Deployment to the **stable** branch requested - OK'
