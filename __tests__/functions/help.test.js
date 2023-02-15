@@ -181,12 +181,12 @@ test('successfully calls help with non-defaults', async () => {
     unlock_trigger: '.unlock',
     help_trigger: '.help',
     lock_info_alias: '.wcid',
-    update_branch: 'warn',
-    required_contexts: 'false',
+    update_branch: 'force',
+    required_contexts: 'cat',
     allowForks: 'true',
-    skipCi: '',
-    skipReviews: '',
-    admins: 'false'
+    skipCi: 'development',
+    skipReviews: 'development',
+    admins: 'monalisa'
   }
 
   expect(await help(octokit, context, 123, inputs))
@@ -265,10 +265,10 @@ test('successfully calls help with non-defaults', async () => {
   }\` - The GitHub reaction icon to add to the deployment comment when a deployment is triggered
   - \`update_branch: ${
     inputs.update_branch
-  }\` - This Action will warn if the branch is out of date with the base branch
+  }\` - This Action will force update the branch to the base branch if it is out of date
   - \`required_contexts: ${
     inputs.required_contexts
-  }\` - There are no designated required contexts for this Action (default and suggested)
+  }\` - There are required contexts designated for this Action
   - \`allowForks: ${inputs.allowForks}\` - This Action will ${
     inputs.allowForks === 'true' ? 'run' : 'not run'
   } on forked repositories
@@ -279,13 +279,13 @@ test('successfully calls help with non-defaults', async () => {
   }
   - \`skipCi: ${
     inputs.skipCi
-  }\` - This Action will require passing CI for all environments
+  }\` - This Action will not require passing CI for the environments specified
   - \`skipReviews: ${
     inputs.skipReviews
-  }\` - This Action will require passing reviews for all environments
+  }\` - This Action will not require passing reviews for the environments specified
   - \`admins: ${
     inputs.admins
-  }\` - This Action has no designated admins (default)
+  }\` - This Action will allow the listed admins to bypass pull request reviews before deployment
 
   ---
 
