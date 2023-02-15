@@ -2,9 +2,11 @@ import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {actionStatus} from './action-status'
 
+const defaultSpecificMessage = '<something went wrong - please report this>'
+
 export async function help(octokit, context, reactionId, inputs) {
-  var update_branch_message = ''
-  if (inputs.update_branch === 'warn') {
+  var update_branch_message = defaultSpecificMessage
+  if (inputs.update_branch.trim() === 'warn') {
     update_branch_message =
       'This Action will warn if the branch is out of date with the base branch'
   } else if (inputs.update_branch === 'force') {
@@ -15,30 +17,30 @@ export async function help(octokit, context, reactionId, inputs) {
       'This Action will not update the branch to the base branch before deployment'
   }
 
-  var required_contexts_message = ''
-  if (inputs.required_contexts === 'false') {
+  var required_contexts_message = defaultSpecificMessage
+  if (inputs.required_contexts.trim() === 'false') {
     required_contexts_message =
       'There are no designated required contexts for this Action (default and suggested)'
   } else {
     required_contexts_message = `There are required contexts designated for this Action`
   }
 
-  var skip_ci_message = ''
+  var skip_ci_message = defaultSpecificMessage
   if (inputs.skipCi.trim() !== '') {
     skip_ci_message = `This Action will not require passing CI for the environments specified`
   } else {
     skip_ci_message = `This Action will require passing CI for all environments`
   }
 
-  var skip_reviews_message = ''
+  var skip_reviews_message = defaultSpecificMessage
   if (inputs.skipReviews.trim() !== '') {
     skip_reviews_message = `This Action will not require passing reviews for the environments specified`
   } else {
     skip_reviews_message = `This Action will require passing reviews for all environments`
   }
 
-  var admins_message = ''
-  if (inputs.admins.trim() !== '') {
+  var admins_message = defaultSpecificMessage
+  if (inputs.admins.trim() === 'false') {
     admins_message = `This Action will allow the listed admins to bypass pull request reviews before deployment`
   } else {
     admins_message = `This Action has no designated admins (default)`
@@ -114,6 +116,7 @@ export async function help(octokit, context, reactionId, inputs) {
 
   The following configuration options have been defined for this Action:
 
+  - \`reaction: ${inputs.reaction}\` - The GitHub reaction icon to add to the deployment comment when a deployment is triggered
   - \`update_branch: ${inputs.update_branch}\` - ${update_branch_message}
   - \`required_contexts: ${
     inputs.required_contexts
