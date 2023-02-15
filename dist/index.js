@@ -11540,50 +11540,52 @@ async function identicalCommitCheck(octokit, context, environment) {
 }
 
 ;// CONCATENATED MODULE: ./src/functions/help.js
-// import * as core from '@actions/core'
 
 
+
+
+const defaultSpecificMessage = '<something went wrong - please report this>'
 
 async function help(octokit, context, reactionId, inputs) {
-  var update_branch_message = ''
-  if (inputs.update_branch === 'warn') {
+  var update_branch_message = defaultSpecificMessage
+  if (inputs.update_branch.trim() === 'warn') {
     update_branch_message =
       'This Action will warn if the branch is out of date with the base branch'
   } else if (inputs.update_branch === 'force') {
     update_branch_message =
-      'This Action will force update the branch to the base branch'
+      'This Action will force update the branch to the base branch if it is out of date'
   } else if (inputs.update_branch === 'disabled') {
     update_branch_message =
       'This Action will not update the branch to the base branch before deployment'
   }
 
-  var required_contexts_message = ''
-  if (inputs.required_contexts === 'false') {
+  var required_contexts_message = defaultSpecificMessage
+  if (inputs.required_contexts.trim() === 'false') {
     required_contexts_message =
       'There are no designated required contexts for this Action (default and suggested)'
   } else {
     required_contexts_message = `There are required contexts designated for this Action`
   }
 
-  var skip_ci_message = ''
+  var skip_ci_message = defaultSpecificMessage
   if (inputs.skipCi.trim() !== '') {
     skip_ci_message = `This Action will not require passing CI for the environments specified`
   } else {
     skip_ci_message = `This Action will require passing CI for all environments`
   }
 
-  var skip_reviews_message = ''
+  var skip_reviews_message = defaultSpecificMessage
   if (inputs.skipReviews.trim() !== '') {
     skip_reviews_message = `This Action will not require passing reviews for the environments specified`
   } else {
     skip_reviews_message = `This Action will require passing reviews for all environments`
   }
 
-  var admins_message = ''
-  if (inputs.admins.trim() !== '') {
-    admins_message = `This Action will allow the listed admins to bypass pull request reviews before deployment`
-  } else {
+  var admins_message = defaultSpecificMessage
+  if (inputs.admins.trim() === 'false') {
     admins_message = `This Action has no designated admins (default)`
+  } else {
+    admins_message = `This Action will allow the listed admins to bypass pull request reviews before deployment`
   }
 
   // Construct the message to add to the issue comment
@@ -11656,6 +11658,9 @@ async function help(octokit, context, reactionId, inputs) {
 
   The following configuration options have been defined for this Action:
 
+  - \`reaction: ${
+    inputs.reaction
+  }\` - The GitHub reaction icon to add to the deployment comment when a deployment is triggered
   - \`update_branch: ${inputs.update_branch}\` - ${update_branch_message}
   - \`required_contexts: ${
     inputs.required_contexts
@@ -11676,6 +11681,8 @@ async function help(octokit, context, reactionId, inputs) {
 
   > View the full usage guide [here](https://github.com/github/branch-deploy/blob/main/docs/usage.md) for additional help
   `)
+
+  core.debug(comment)
 
   // Put the help comment on the pull request
   await actionStatus(
