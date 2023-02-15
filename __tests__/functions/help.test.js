@@ -22,13 +22,6 @@ const context = {
   },
   issue: {
     number: 1
-  },
-  payload: {
-    pull_request: {
-      head: {
-        ref: 'test'
-      }
-    }
   }
 }
 const octokit = {}
@@ -112,23 +105,23 @@ test('successfully calls help with defaults', async () => {
 
   The following set of examples use this Action's inputs to show you how to use the commands.
 
-  - \`${defaultInputs.trigger}\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the \`${defaultInputs.environment}\` environment
+  - \`${defaultInputs.trigger}\` - Deploy this branch to the \`${
+    defaultInputs.environment
+  }\` environment
   - \`${defaultInputs.trigger} ${
     defaultInputs.stable_branch
   }\` - Rollback the \`${defaultInputs.environment}\` environment to the \`${
     defaultInputs.stable_branch
   }\` branch
-  - \`${defaultInputs.trigger} ${defaultInputs.noop_trigger}\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the \`${defaultInputs.environment}\` environment in noop mode
+  - \`${defaultInputs.trigger} ${
+    defaultInputs.noop_trigger
+  }\` - Deploy this branch to the \`${
+    defaultInputs.environment
+  }\` environment in noop mode
   - \`${defaultInputs.trigger} to <${defaultInputs.environment_targets.replace(
     ',',
     '|'
-  )}>\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the specified environment (note: the \`to\` keyword is optional)
+  )}>\` - Deploy this branch to the specified environment (note: the \`to\` keyword is optional)
 
   ### ⚙️ Configuration
 
@@ -242,21 +235,21 @@ test('successfully calls help with non-defaults', async () => {
 
   The following set of examples use this Action's inputs to show you how to use the commands.
 
-  - \`${inputs.trigger}\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the \`${inputs.environment}\` environment
+  - \`${inputs.trigger}\` - Deploy this branch to the \`${
+    inputs.environment
+  }\` environment
   - \`${inputs.trigger} ${inputs.stable_branch}\` - Rollback the \`${
     inputs.environment
   }\` environment to the \`${inputs.stable_branch}\` branch
-  - \`${inputs.trigger} ${inputs.noop_trigger}\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the \`${inputs.environment}\` environment in noop mode
+  - \`${inputs.trigger} ${
+    inputs.noop_trigger
+  }\` - Deploy this branch to the \`${
+    inputs.environment
+  }\` environment in noop mode
   - \`${inputs.trigger} to <${inputs.environment_targets.replace(
     ',',
     '|'
-  )}>\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the specified environment (note: the \`to\` keyword is optional)
+  )}>\` - Deploy this branch to the specified environment (note: the \`to\` keyword is optional)
 
   ### ⚙️ Configuration
 
@@ -370,21 +363,21 @@ test('successfully calls help with non-defaults', async () => {
 
   The following set of examples use this Action's inputs to show you how to use the commands.
 
-  - \`${inputs.trigger}\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the \`${inputs.environment}\` environment
+  - \`${inputs.trigger}\` - Deploy this branch to the \`${
+    inputs.environment
+  }\` environment
   - \`${inputs.trigger} ${inputs.stable_branch}\` - Rollback the \`${
     inputs.environment
   }\` environment to the \`${inputs.stable_branch}\` branch
-  - \`${inputs.trigger} ${inputs.noop_trigger}\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the \`${inputs.environment}\` environment in noop mode
+  - \`${inputs.trigger} ${
+    inputs.noop_trigger
+  }\` - Deploy this branch to the \`${
+    inputs.environment
+  }\` environment in noop mode
   - \`${inputs.trigger} to <${inputs.environment_targets.replace(
     ',',
     '|'
-  )}>\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the specified environment (note: the \`to\` keyword is optional)
+  )}>\` - Deploy this branch to the specified environment (note: the \`to\` keyword is optional)
 
   ### ⚙️ Configuration
 
@@ -477,21 +470,21 @@ test('successfully calls help with non-defaults', async () => {
 
   The following set of examples use this Action's inputs to show you how to use the commands.
 
-  - \`${inputs.trigger}\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the \`${inputs.environment}\` environment
+  - \`${inputs.trigger}\` - Deploy this branch to the \`${
+    inputs.environment
+  }\` environment
   - \`${inputs.trigger} ${inputs.stable_branch}\` - Rollback the \`${
     inputs.environment
   }\` environment to the \`${inputs.stable_branch}\` branch
-  - \`${inputs.trigger} ${inputs.noop_trigger}\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the \`${inputs.environment}\` environment in noop mode
+  - \`${inputs.trigger} ${
+    inputs.noop_trigger
+  }\` - Deploy this branch to the \`${
+    inputs.environment
+  }\` environment in noop mode
   - \`${inputs.trigger} to <${inputs.environment_targets.replace(
     ',',
     '|'
-  )}>\` - Deploy the \`${
-    context.payload.pull_request.head.ref
-  }\` branch to the specified environment (note: the \`to\` keyword is optional)
+  )}>\` - Deploy this branch to the specified environment (note: the \`to\` keyword is optional)
 
   ### ⚙️ Configuration
 
