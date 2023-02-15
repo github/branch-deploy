@@ -10595,7 +10595,7 @@ async function prechecks(
   ) {
     // If the update_branch param is set to "warn", warn and exit
     if (update_branch === 'warn') {
-      message = `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${update_branch}\`\n\n> Please ensure your branch is up to date with the \`${stable_branch}\` and try again`
+      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${update_branch}\`\n\n> Please ensure your branch is up to date with the \`${stable_branch}\` branch and try again`
       return {message: message, status: false}
     }
 

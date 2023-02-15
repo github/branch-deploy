@@ -1297,7 +1297,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
     )
   ).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` and try again',
+      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` branch and try again',
     status: false
   })
 })
@@ -1453,7 +1453,7 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
     )
   ).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` and try again',
+      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` branch and try again',
     status: false
   })
 })
