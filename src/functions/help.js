@@ -3,6 +3,8 @@ import dedent from 'dedent-js'
 import {actionStatus} from './action-status'
 
 const defaultSpecificMessage = '<something went wrong - please report this>'
+const usageGuideLink =
+  'https://github.com/github/branch-deploy/blob/main/docs/usage.md'
 
 export async function help(octokit, context, reactionId, inputs) {
   var update_branch_message = defaultSpecificMessage
@@ -137,7 +139,7 @@ export async function help(octokit, context, reactionId, inputs) {
 
   ---
 
-  > View the full usage guide [here](https://github.com/github/branch-deploy/blob/main/docs/usage.md) for additional help
+  > View the full usage guide [here](${usageGuideLink}) for additional help
   `)
 
   core.debug(comment)

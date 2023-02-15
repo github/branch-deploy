@@ -3,6 +3,8 @@ import dedent from 'dedent-js'
 import {help} from '../../src/functions/help'
 import * as actionStatus from '../../src/functions/action-status'
 
+const usageGuideLink =
+  'https://github.com/github/branch-deploy/blob/main/docs/usage.md'
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
 
 beforeEach(() => {
@@ -161,7 +163,7 @@ test('successfully calls help with defaults', async () => {
 
   ---
 
-  > View the full usage guide [here](https://github.com/github/branch-deploy/blob/main/docs/usage.md) for additional help
+  > View the full usage guide [here](${usageGuideLink}) for additional help
   `)
 
   expect(debugMock).toHaveBeenCalledWith(comment)
@@ -289,7 +291,7 @@ test('successfully calls help with non-defaults', async () => {
 
   ---
 
-  > View the full usage guide [here](https://github.com/github/branch-deploy/blob/main/docs/usage.md) for additional help
+  > View the full usage guide [here](${usageGuideLink}) for additional help
   `)
 
   expect(debugMock).toHaveBeenCalledWith(comment)
@@ -417,7 +419,7 @@ test('successfully calls help with non-defaults', async () => {
 
   ---
 
-  > View the full usage guide [here](https://github.com/github/branch-deploy/blob/main/docs/usage.md) for additional help
+  > View the full usage guide [here](${usageGuideLink}) for additional help
   `)
 
   expect(debugMock).toHaveBeenCalledWith(comment)
@@ -524,7 +526,7 @@ test('successfully calls help with non-defaults', async () => {
 
   ---
 
-  > View the full usage guide [here](https://github.com/github/branch-deploy/blob/main/docs/usage.md) for additional help
+  > View the full usage guide [here](${usageGuideLink}) for additional help
   `)
 
   expect(debugMock).toHaveBeenCalledWith(commentSecond)

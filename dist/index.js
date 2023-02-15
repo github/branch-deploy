@@ -11545,6 +11545,8 @@ async function identicalCommitCheck(octokit, context, environment) {
 
 
 const defaultSpecificMessage = '<something went wrong - please report this>'
+const usageGuideLink =
+  'https://github.com/github/branch-deploy/blob/main/docs/usage.md'
 
 async function help(octokit, context, reactionId, inputs) {
   var update_branch_message = defaultSpecificMessage
@@ -11679,7 +11681,7 @@ async function help(octokit, context, reactionId, inputs) {
 
   ---
 
-  > View the full usage guide [here](https://github.com/github/branch-deploy/blob/main/docs/usage.md) for additional help
+  > View the full usage guide [here](${usageGuideLink}) for additional help
   `)
 
   core.debug(comment)
