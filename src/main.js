@@ -38,6 +38,7 @@ export async function run() {
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
     const production_environment = core.getInput('production_environment')
+    const environment_targets = core.getInput('environment_targets')
     const unlock_trigger = core.getInput('unlock_trigger')
     const help_trigger = core.getInput('help_trigger')
     const lock_info_alias = core.getInput('lock_info_alias')
@@ -47,6 +48,7 @@ export async function run() {
     const skipCi = core.getInput('skip_ci')
     const skipReviews = core.getInput('skip_reviews')
     const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
+    const admins = core.getInput('admins')
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
@@ -165,6 +167,7 @@ export async function run() {
         noop_trigger: noop_trigger,
         lock_trigger: lock_trigger,
         production_environment: production_environment,
+        environment_targets: environment_targets,
         unlock_trigger: unlock_trigger,
         help_trigger: help_trigger,
         lock_info_alias: lock_info_alias,
@@ -173,7 +176,7 @@ export async function run() {
         allowForks: allowForks,
         skipCi: skipCi,
         skipReviews: skipReviews,
-        mergeDeployMode: mergeDeployMode
+        admins: admins
       }
 
       // Run the help command and exit
