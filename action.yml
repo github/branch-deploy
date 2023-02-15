@@ -38,13 +38,17 @@ inputs:
     required: false
     default: "noop"
   lock_trigger:
-    description: 'The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: "lock"'
+    description: 'The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: ".lock"'
     required: false
     default: ".lock"
   unlock_trigger:
-    description: 'The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: "unlock"'
+    description: 'The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: ".unlock"'
     required: false
     default: ".unlock"
+  help_trigger:
+    description: 'The string to look for in comments as an IssueOps help trigger. Example: ".help"'
+    required: false
+    default: ".help"
   lock_info_alias:
     description: 'An alias or shortcut to get details about the current lock (if it exists) Example: ".info"'
     required: false

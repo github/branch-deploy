@@ -2,6 +2,7 @@ import {run} from '../src/main'
 import * as reactEmote from '../src/functions/react-emote'
 import * as contextCheck from '../src/functions/context-check'
 import * as prechecks from '../src/functions/prechecks'
+import * as help from '../src/functions/help'
 import * as validPermissions from '../src/functions/valid-permissions'
 import * as identicalCommitCheck from '../src/functions/identical-commit-check'
 import * as lock from '../src/functions/lock'
@@ -35,6 +36,7 @@ beforeEach(() => {
   process.env.INPUT_NOOP_TRIGGER = 'noop'
   process.env.INPUT_LOCK_TRIGGER = '.lock'
   process.env.INPUT_UNLOCK_TRIGGER = '.unlock'
+  process.env.INPUT_HELP_TRIGGER = '.help'
   process.env.INPUT_LOCK_INFO_ALIAS = '.wcid'
   process.env.INPUT_REQUIRED_CONTEXTS = 'false'
   process.env.INPUT_ALLOW_FORKS = 'true'
@@ -575,6 +577,53 @@ test('fails prechecks', async () => {
   expect(setFailedMock).toHaveBeenCalledWith(
     '### ⚠️ Cannot proceed with deployment... something went wrong'
   )
+})
+
+test('runs the .help command successfully', async () => {
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.help',
+      id: 123
+    }
+  }
+
+  jest.spyOn(help, 'help').mockImplementation(() => {
+    return undefined
+  })
+
+  expect(await run()).toBe('safe-exit')
+  expect(debugMock).toHaveBeenCalledWith('help command detected')
+})
+
+test('runs the .help command successfully', async () => {
+  const permissionsMsg =
+    '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return permissionsMsg
+  })
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.help',
+      id: 123
+    }
+  }
+
+  jest.spyOn(help, 'help').mockImplementation(() => {
+    return undefined
+  })
+
+  expect(await run()).toBe('failure')
+  expect(debugMock).toHaveBeenCalledWith('help command detected')
+  expect(setFailedMock).toHaveBeenCalledWith(permissionsMsg)
 })
 
 test('successfully runs in mergeDeployMode', async () => {

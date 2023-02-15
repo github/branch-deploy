@@ -23,6 +23,7 @@ This Action does the heavy lifting for you to enable branch deployments:
 - `.lock --reason <text>` - Create a deployment lock with a custom reason
 - `.lock --details` - View details about a deployment lock
 - `.unlock` - Remove a deployment lock
+- `.help` - Get help with IssueOps commands with this Action
 
 > These commands are all fully customizable and are just an example using this Action's defaults
 
@@ -250,8 +251,9 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | reaction | no | eyes | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
 | trigger | no | .deploy | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
 | noop_trigger | no | noop | The string to look for in comments as an IssueOps noop trigger. Example: "noop" - The usage would then be ".deploy noop" |
-| lock_trigger | no | .lock | The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: "lock" |
-| unlock_trigger | no | .unlock | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: "unlock" |
+| lock_trigger | no | .lock | The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: ".lock" |
+| unlock_trigger | no | .unlock | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: ".unlock" |
+| help_trigger | no | .help | The string to look for in comments as an IssueOps help trigger. Example: ".help" |
 | lock_info_alias | no | .wcid | An alias or shortcut to get details about the current lock (if it exists) Example: ".info" - Hubbers will find the ".wcid" default helpful ("where can I deploy") |
 | environment | no | production | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
 | environment_targets | no | production,development,staging | Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging` |
