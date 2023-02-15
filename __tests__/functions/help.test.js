@@ -422,7 +422,6 @@ test('successfully calls help with non-defaults', async () => {
 
   expect(debugMock).toHaveBeenCalledWith(comment)
 
-
   var inputsSecond = inputs
   inputsSecond.update_branch = 'disabled'
   expect(await help(octokit, context, 123, inputsSecond))
