@@ -2,6 +2,7 @@ import {run} from '../src/main'
 import * as reactEmote from '../src/functions/react-emote'
 import * as contextCheck from '../src/functions/context-check'
 import * as prechecks from '../src/functions/prechecks'
+import * as help from '../src/functions/help'
 import * as validPermissions from '../src/functions/valid-permissions'
 import * as identicalCommitCheck from '../src/functions/identical-commit-check'
 import * as lock from '../src/functions/lock'
@@ -576,6 +577,25 @@ test('fails prechecks', async () => {
   expect(setFailedMock).toHaveBeenCalledWith(
     '### ⚠️ Cannot proceed with deployment... something went wrong'
   )
+})
+
+test('runs the .help command successfully', async () => {
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.help',
+      id: 123
+    }
+  }
+
+  jest.spyOn(help, 'help').mockImplementation(() => {
+    return undefined
+  })
+
+  expect(await run()).toBe('safe-exit')
+  expect(debugMock).toHaveBeenCalledWith('help command detected')
 })
 
 test('successfully runs in mergeDeployMode', async () => {

@@ -141,6 +141,7 @@ export async function run() {
 
     // If the command is a help request
     if (isHelp) {
+      core.debug('help command detected')
       // Check to ensure the user has valid permissions
       const validPermissionsRes = await validPermissions(octokit, context)
       // If the user doesn't have valid permissions, return an error
