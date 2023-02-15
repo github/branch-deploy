@@ -12,6 +12,7 @@ import {unlock} from './functions/unlock'
 import {post} from './functions/post'
 import {timeDiff} from './functions/time-diff'
 import {identicalCommitCheck} from './functions/identical-commit-check'
+import {help} from './functions/help'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 import dedent from 'dedent-js'
@@ -38,6 +39,7 @@ export async function run() {
     const lock_trigger = core.getInput('lock_trigger')
     const production_environment = core.getInput('production_environment')
     const unlock_trigger = core.getInput('unlock_trigger')
+    const help_trigger = core.getInput('help_trigger')
     const lock_info_alias = core.getInput('lock_info_alias')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
@@ -77,6 +79,7 @@ export async function run() {
     const isDeploy = await triggerCheck(prefixOnly, body, trigger)
     const isLock = await triggerCheck(prefixOnly, body, lock_trigger)
     const isUnlock = await triggerCheck(prefixOnly, body, unlock_trigger)
+    const isHelp = await triggerCheck(prefixOnly, body, help_trigger)
     const isLockInfoAlias = await triggerCheck(
       prefixOnly,
       body,
@@ -86,7 +89,7 @@ export async function run() {
     // Loop through all the triggers and check if there are multiple triggers
     // If multiple triggers are activated, exit (this is not allowed)
     var multipleTriggers = false
-    for (const trigger of [isDeploy, isLock, isUnlock, isLockInfoAlias]) {
+    for (const trigger of [isDeploy, isLock, isUnlock, isHelp, isLockInfoAlias]) {
       if (trigger) {
         if (multipleTriggers) {
           core.saveState('bypass', 'true')
@@ -101,7 +104,7 @@ export async function run() {
       }
     }
 
-    if (!isDeploy && !isLock && !isUnlock && !isLockInfoAlias) {
+    if (!isDeploy && !isLock && !isUnlock && !isHelp && !isLockInfoAlias) {
       // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
@@ -113,6 +116,8 @@ export async function run() {
       core.setOutput('type', 'lock')
     } else if (isUnlock) {
       core.setOutput('type', 'unlock')
+    } else if (isHelp) {
+      core.setOutput('type', 'help')
     } else if (isLockInfoAlias) {
       core.setOutput('type', 'lock-info-alias')
     }
@@ -125,6 +130,51 @@ export async function run() {
     core.setOutput('comment_id', context.payload.comment.id)
     core.saveState('comment_id', context.payload.comment.id)
     core.saveState('reaction_id', reactRes.data.id)
+
+    // If the command is a help request
+    if (isHelp) {
+      // Check to ensure the user has valid permissions
+      const validPermissionsRes = await validPermissions(octokit, context)
+      // If the user doesn't have valid permissions, return an error
+      if (validPermissionsRes !== true) {
+        await actionStatus(
+          context,
+          octokit,
+          reactRes.data.id,
+          validPermissionsRes
+        )
+        // Set the bypass state to true so that the post run logic will not run
+        core.saveState('bypass', 'true')
+        core.setFailed(validPermissionsRes)
+        return 'failure'
+      }
+
+      // rollup all the inputs into a single object
+      const inputs = {
+        trigger: trigger,
+        reaction: reaction,
+        prefixOnly: prefixOnly,
+        environment: environment,
+        stable_branch: stable_branch,
+        noop_trigger: noop_trigger,
+        lock_trigger: lock_trigger,
+        production_environment: production_environment,
+        unlock_trigger: unlock_trigger,
+        help_trigger: help_trigger,
+        lock_info_alias: lock_info_alias,
+        update_branch: update_branch,
+        required_contexts: required_contexts,
+        allowForks: allowForks,
+        skipCi: skipCi,
+        skipReviews: skipReviews,
+        mergeDeployMode: mergeDeployMode
+      }
+
+      // Run the help command and exit
+      await help(octokit, context, reactRes.data.id, inputs)
+      core.saveState('bypass', 'true')
+      return 'safe-exit'
+    }
 
     // If the command is a lock/unlock request
     if (isLock || isUnlock || isLockInfoAlias) {
