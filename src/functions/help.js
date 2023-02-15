@@ -31,6 +31,7 @@ export async function help(octokit, context, reactionId, inputs) {
   if (inputs.skipCi.trim() !== '') {
     skip_ci_message = `This Action will not require passing CI for the environments specified`
   } else {
+    inputs.skipCi = 'false'
     skip_ci_message = `This Action will require passing CI for all environments`
   }
 
@@ -38,6 +39,7 @@ export async function help(octokit, context, reactionId, inputs) {
   if (inputs.skipReviews.trim() !== '') {
     skip_reviews_message = `This Action will not require passing reviews for the environments specified`
   } else {
+    inputs.skipReviews = 'false'
     skip_reviews_message = `This Action will require passing reviews for all environments`
   }
 
