@@ -598,6 +598,34 @@ test('runs the .help command successfully', async () => {
   expect(debugMock).toHaveBeenCalledWith('help command detected')
 })
 
+test('runs the .help command successfully', async () => {
+  const permissionsMsg =
+    '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return permissionsMsg
+  })
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.help',
+      id: 123
+    }
+  }
+
+  jest.spyOn(help, 'help').mockImplementation(() => {
+    return undefined
+  })
+
+  expect(await run()).toBe('failure')
+  expect(debugMock).toHaveBeenCalledWith('help command detected')
+  expect(setFailedMock).toHaveBeenCalledWith(permissionsMsg)
+})
+
 test('successfully runs in mergeDeployMode', async () => {
   process.env.INPUT_MERGE_DEPLOY_MODE = 'true'
   jest
