@@ -171,7 +171,7 @@ test('successfully calls help with non-defaults', async () => {
   const inputs = {
     trigger: '.deploy',
     reaction: 'eyes',
-    prefixOnly: 'true',
+    prefixOnly: 'false',
     environment: 'production',
     stable_branch: 'main',
     noop_trigger: 'noop',
@@ -183,7 +183,7 @@ test('successfully calls help with non-defaults', async () => {
     lock_info_alias: '.wcid',
     update_branch: 'force',
     required_contexts: 'cat',
-    allowForks: 'true',
+    allowForks: 'false',
     skipCi: 'development',
     skipReviews: 'development',
     admins: 'monalisa'
