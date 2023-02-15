@@ -11,7 +11,7 @@ export async function help(octokit, context, reactionId, inputs) {
       'This Action will warn if the branch is out of date with the base branch'
   } else if (inputs.update_branch === 'force') {
     update_branch_message =
-      'This Action will force update the branch to the base branch'
+      'This Action will force update the branch to the base branch if it is out of date'
   } else if (inputs.update_branch === 'disabled') {
     update_branch_message =
       'This Action will not update the branch to the base branch before deployment'
@@ -41,9 +41,9 @@ export async function help(octokit, context, reactionId, inputs) {
 
   var admins_message = defaultSpecificMessage
   if (inputs.admins.trim() === 'false') {
-    admins_message = `This Action will allow the listed admins to bypass pull request reviews before deployment`
-  } else {
     admins_message = `This Action has no designated admins (default)`
+  } else {
+    admins_message = `This Action will allow the listed admins to bypass pull request reviews before deployment`
   }
 
   // Construct the message to add to the issue comment
@@ -116,7 +116,9 @@ export async function help(octokit, context, reactionId, inputs) {
 
   The following configuration options have been defined for this Action:
 
-  - \`reaction: ${inputs.reaction}\` - The GitHub reaction icon to add to the deployment comment when a deployment is triggered
+  - \`reaction: ${
+    inputs.reaction
+  }\` - The GitHub reaction icon to add to the deployment comment when a deployment is triggered
   - \`update_branch: ${inputs.update_branch}\` - ${update_branch_message}
   - \`required_contexts: ${
     inputs.required_contexts
