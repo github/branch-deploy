@@ -25,9 +25,17 @@ const context = {
 const getCollabOK = jest
   .fn()
   .mockReturnValue({data: {permission: 'admin'}, status: 200})
-const getPullsOK = jest
-  .fn()
-  .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+const getPullsOK = jest.fn().mockReturnValue({
+  data: {
+    head: {
+      ref: 'test-ref'
+    },
+    base: {
+      ref: 'base-ref'
+    }
+  },
+  status: 200
+})
 const graphQLOK = jest.fn().mockReturnValue({
   repository: {
     pullRequest: {
@@ -2383,4 +2391,155 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
   expect(infoMock).toHaveBeenCalledWith(
     'note: CI checks are disabled for this environment so they will not be evaluated'
   )
+})
+
+test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and a noop deploy and force updates the branch', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'BLOCKED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        ref: 'test-ref'
+      },
+      base: {
+        ref: 'main'
+      }
+    },
+    status: 200
+  })
+  octonocommitchecks['rest']['repos']['getBranch'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+  octonocommitchecks['rest']['repos']['compareCommits'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {behind_by: 1}, status: 200})
+  octonocommitchecks['rest']['pulls']['updateBranch'] = jest
+    .fn()
+    .mockReturnValue({
+      data: {
+        message: 'Updating pull request branch.',
+        url: 'https://api.github.com/repos/foo/bar/pulls/123'
+      },
+      status: 202
+    })
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      'force',
+      'main',
+      '123',
+      true,
+      '',
+      '',
+      'production',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: `BLOCKED`\n- update_branch: `force`\n\n> I went ahead and updated your branch with `main` - Please try again once this operation is complete',
+    status: false
+  })
+})
+
+test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) and a noop deploy and does not update the branch', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'BLOCKED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        ref: 'test-ref'
+      },
+      base: {
+        ref: 'main'
+      }
+    },
+    status: 200
+  })
+  octonocommitchecks['rest']['repos']['getBranch'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+  octonocommitchecks['rest']['repos']['compareCommits'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
+  octonocommitchecks['rest']['pulls']['updateBranch'] = jest
+    .fn()
+    .mockReturnValue({
+      data: {
+        message: 'Updating pull request branch.',
+        url: 'https://api.github.com/repos/foo/bar/pulls/123'
+      },
+      status: 202
+    })
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      'force',
+      'main',
+      '123',
+      true,
+      '',
+      '',
+      'production',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message: '✔️ PR is approved and all CI checks passed - OK',
+    status: true,
+    noopMode: true,
+    ref: 'test-ref'
+  })
 })

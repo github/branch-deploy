@@ -241,6 +241,35 @@ export async function prechecks(
   // Get admin data
   const userIsAdmin = await isAdmin(context)
 
+  // Check to see if the branch is behind the base branch
+  var behind = false
+  // if the mergeStateStatus is 'BLOCKED' check to see if the branch is out-of-date with the base branch
+  if (mergeStateStatus === 'BLOCKED') {
+    // Make an API call to get the base branch
+    const baseBranch = await octokit.rest.repos.getBranch({
+      ...context.repo,
+      branch: pr.data.base.ref
+    })
+
+    // Make an API call to compare the base branch and the PR branch
+    const compare = await octokit.rest.repos.compareCommits({
+      ...context.repo,
+      base: baseBranch.data.commit.sha,
+      head: pr.data.head.sha
+    })
+
+    // If the PR branch is behind the base branch, set the behind variable to true
+    if (compare.data.behind_by > 0) {
+      behind = true
+    } else {
+      behind = false
+    }
+
+    // If the mergeStateStatus is 'BEHIND' set the behind variable to true
+  } else if (mergeStateStatus === 'BEHIND') {
+    behind = true
+  }
+
   // log values for debugging
   core.debug('precheck values for debugging:')
   core.debug(`reviewDecision: ${reviewDecision}`)
@@ -253,6 +282,7 @@ export async function prechecks(
   core.debug(`allowForks: ${allowForks}`)
   core.debug(`forkBypass: ${forkBypass}`)
   core.debug(`environment: ${environment}`)
+  core.debug(`behind: ${behind}`)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (regexCommandWithStableBranch.test(comment)) {
@@ -268,7 +298,7 @@ export async function prechecks(
       commitStatus === null ||
       commitStatus == 'skip_ci') &&
     update_branch !== 'disabled' &&
-    mergeStateStatus === 'BEHIND'
+    behind === true
   ) {
     // If the update_branch param is set to "warn", warn and exit
     if (update_branch === 'warn') {
