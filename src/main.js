@@ -89,7 +89,13 @@ export async function run() {
     // Loop through all the triggers and check if there are multiple triggers
     // If multiple triggers are activated, exit (this is not allowed)
     var multipleTriggers = false
-    for (const trigger of [isDeploy, isLock, isUnlock, isHelp, isLockInfoAlias]) {
+    for (const trigger of [
+      isDeploy,
+      isLock,
+      isUnlock,
+      isHelp,
+      isLockInfoAlias
+    ]) {
       if (trigger) {
         if (multipleTriggers) {
           core.saveState('bypass', 'true')
