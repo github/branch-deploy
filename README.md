@@ -23,6 +23,7 @@ This Action does the heavy lifting for you to enable branch deployments:
 - `.lock --reason <text>` - Create a deployment lock with a custom reason
 - `.lock --details` - View details about a deployment lock
 - `.unlock` - Remove a deployment lock
+- `.help` - Get help with IssueOps commands with this Action
 
 > These commands are all fully customizable and are just an example using this Action's defaults
 
