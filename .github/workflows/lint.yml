@@ -1,0 +1,28 @@
+name: lint
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'releases/*'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
+
+      - uses: actions/cache@48af2dc4a9e8278b89d7fa154b955c30c6aaab09 # pin@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: lint
+        run: |
+          npm run format-check
+          npm run lint
