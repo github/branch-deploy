@@ -9,6 +9,7 @@ import {prechecks} from './functions/prechecks'
 import {validPermissions} from './functions/valid-permissions'
 import {lock} from './functions/lock'
 import {unlock} from './functions/unlock'
+import {parseComment} from './functions/parse-comment'
 import {post} from './functions/post'
 import {timeDiff} from './functions/time-diff'
 import {identicalCommitCheck} from './functions/identical-commit-check'
@@ -333,6 +334,10 @@ export async function run() {
     core.info(`environment: ${environment}`)
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
+
+    const comment = await parseComment(body, trigger, noop_trigger, stable_branch)
+    core.info(`comment_body_without_op: ${comment}`)
+    core.setOutput('comment_body_without_op', comment)
 
     // Execute prechecks to ensure the Action can proceed
     const precheckResults = await prechecks(

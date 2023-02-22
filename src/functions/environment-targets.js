@@ -31,17 +31,17 @@ export async function environmentTargets(
   // Loop through all the environment targets to see if an explicit target is being used
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
-    if (body.replace(trigger, '').trim() === target) {
+    if (body.replace(trigger, '').trim().split(' ')[0] === target) {
       core.debug(`Found environment target for branch deploy: ${target}`)
       return target
     }
     // If the body on a noop trigger contains the target
-    else if (body.replace(`${trigger} ${noop_trigger}`, '').trim() === target) {
+    else if (body.replace(`${trigger} ${noop_trigger}`, '').trim().split(' ')[0] === target) {
       core.debug(`Found environment target for noop trigger: ${target}`)
       return target
     }
     // If the body with 'to <target>' contains the target on a branch deploy
-    else if (body.replace(trigger, '').trim() === `to ${target}`) {
+    else if (body.replace(trigger, '').trim().split(' ')[0] === `to` && body.replace(trigger, '').trim().split(' ')[1] === `${target}`) {
       core.debug(
         `Found environment target for branch deploy (with 'to'): ${target}`
       )
@@ -49,7 +49,7 @@ export async function environmentTargets(
     }
     // If the body with 'to <target>' contains the target on a noop trigger
     else if (
-      body.replace(`${trigger} ${noop_trigger}`, '').trim() === `to ${target}`
+      body.replace(`${trigger} ${noop_trigger}`, '').trim().split(' ')[0] === `to` && body.replace(`${trigger} ${noop_trigger}`, '').trim().split(' ')[1] === `${target}`
     ) {
       core.debug(
         `Found environment target for noop trigger (with 'to'): ${target}`

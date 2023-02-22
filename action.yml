@@ -98,6 +98,8 @@ outputs:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
   comment_body:
     description: The comment body
+  comment_body_without_op:
+    description: The comment body without operation
   environment:
     description: The environment that has been selected for a deployment
   noop:

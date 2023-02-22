@@ -646,3 +646,39 @@ test('handles and unexpected error and exits', async () => {
     expect(setFailedMock.toHaveBeenCalled())
   }
 })
+
+const cases = [
+  {
+    body: '.deploy to development custom params',
+    comment_body_without_op: 'custom params',
+  },
+  {
+    body: '.deploy development custom params',
+    comment_body_without_op: 'custom params',
+  },
+  {
+    body: '.deploy noop to development custom params',
+    comment_body_without_op: 'custom params',
+  },
+  {
+    body: '.deploy noop development custom params',
+    comment_body_without_op: 'custom params',
+  },
+];
+cases.forEach(e => {
+  test(`successfully set the comment_body_without_op output: ${JSON.stringify(e)}`, async () => {
+    github.context.payload = {
+      issue: {
+        number: 123
+      },
+      comment: {
+        body: e.body,
+        id: 123
+      }
+    }
+  
+    expect(await run()).toBe('success')
+    expect(setOutputMock).toHaveBeenCalledWith('comment_body', e.body)
+    expect(setOutputMock).toHaveBeenCalledWith('comment_body_without_op', e.comment_body_without_op)
+  })
+})
