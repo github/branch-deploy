@@ -6,7 +6,7 @@ This section contains real world and common examples of how you could use this A
 
 ## Simple Example
 
-This is the simpliest possible example of how you could use the branch-deploy Action for reference
+This is the simplest possible example of how you could use the branch-deploy Action for reference
 
 - `.deploy noop` has no effect here (but you could change that)
 - `.deploy` will deploy the current branch (you can configure deployments however you like, this is just an example)
