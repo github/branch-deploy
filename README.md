@@ -262,10 +262,10 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
 | update_branch | no | warn | Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself |
 | required_contexts | no | false | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option |
-| skip_ci | no | "" | A comma seperated list of environments that will not use passing CI as a requirement for deployment. Use this option to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
-| skip_reviews | no | "" | A comma seperated list of environment that will not use reviews/approvals as a requirement for deployment. Use this options to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
+| skip_ci | no | "" | A comma separated list of environments that will not use passing CI as a requirement for deployment. Use this option to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
+| skip_reviews | no | "" | A comma separated list of environment that will not use reviews/approvals as a requirement for deployment. Use this options to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
 | allow_forks | no | true | Allow branch deployments to run on repository forks. If you want to harden your workflows, this option can be set to false. Default is "true" |
-| admins | no | false | A comma seperated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team" |
+| admins | no | false | A comma separated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team" |
 | admins_pat | no | false | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
 | merge_deploy_mode | no | false | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
 
@@ -362,7 +362,7 @@ However, this has a few limitations:
 - When workflows finish, so does the deployment to that environment - This means that the little green rocket doesn't "stick" to your pull request
 - It is tricky to tune in environment protection rules with a single environment when using IssueOps + branch-deployments
 
-To get around these limitations with this branch-deploy action and IssueOps, we can use two different environments. One to store our environement secrets and another to use in our branch deployments.
+To get around these limitations with this branch-deploy action and IssueOps, we can use two different environments. One to store our environnement secrets and another to use in our branch deployments.
 
 > Yes this isn't the most elegant solution, but it works and is very easy to accomplish
 
@@ -468,7 +468,7 @@ It should also be noted that this Action has built in functions to check the per
 
 This Action supports a configurable input called `admins` which can be used to specify a list of individual GitHub users or teams that should have elevated permissions when using this Action
 
-The `admins` input option takes a comma seperated list of GitHub handles or GitHub org teams which can bypass branch protection rules related to approvals for deployments. For example, if you give the option `admins: monalisa`, the `monalisa` user will be able to deploy without needing approval on their pull requests. CI checks will still need to pass however.
+The `admins` input option takes a comma separated list of GitHub handles or GitHub org teams which can bypass branch protection rules related to approvals for deployments. For example, if you give the option `admins: monalisa`, the `monalisa` user will be able to deploy without needing approval on their pull requests. CI checks will still need to pass however.
 
 It should be noted that if you do not have pull request approvals enabled in your branch protection rules, then this option will not make a difference either way
 
@@ -511,7 +511,7 @@ You can easily select the exact version you want on the GitHub Actions marketpla
 
 You can also pin to an exact commit SHA as well using a third party tool such as [mheap/pin-github-action](https://github.com/mheap/pin-github-action)
 
-> GitHub Actions security hardening and stability docs availabe here: [docs](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions)
+> GitHub Actions security hardening and stability docs available here: [docs](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions)
 
 ## Deployment Locks and Actions Concurrency 🔓
 
@@ -532,7 +532,7 @@ These deployment locks come in two flavors:
 - `sticky`
 - `non-sticky`
 
-**sticky** locks are locks that presist until you remove them. As seen in the example above, the `.lock` command creates a **sticky** lock that will persist until someone runs `.unlock`
+**sticky** locks are locks that persist until you remove them. As seen in the example above, the `.lock` command creates a **sticky** lock that will persist until someone runs `.unlock`
 
 **non-sticky** locks are temporary locks that only exist during a deployment. This action will automatically create a **non-sticky** lock for you when you run `.deploy`. It does this to prevent another user from running `.deploy` in another pull request and creating a deployment conflict
 
@@ -542,7 +542,7 @@ Let's review the core concepts of deployment locks in a short summary:
 
 - Deployment locks are used to prevent multiple deployments from running at the same time and breaking things
 - Non-sticky locks are created automatically when running `.deploy` or `.deploy noop`
-- Sticky locks are created manually by commenting `.lock` on a pull request - They will presist until you remove them with `.unlock`
+- Sticky locks are created manually by commenting `.lock` on a pull request - They will persist until you remove them with `.unlock`
 - Locks are associated to a user's GitHub handle - This user can deploy any pull request in the repository and as many times as they want
 - Any user can remove a lock by commenting `.unlock` on any pull request in the repository
 - Details about a lock can be viewed with `.lock --details`
@@ -574,11 +574,11 @@ Unlock Example:
 
 ### Actions Concurrency
 
-> Note: Using the locking mechanism included in this Action (above) is highly recommended over Actions concurreny. The section below will be included anyways should you have a valid reason to use it instead of the deploy lock features this Action provides
+> Note: Using the locking mechanism included in this Action (above) is highly recommended over Actions concurrency. The section below will be included anyways should you have a valid reason to use it instead of the deploy lock features this Action provides
 
 If your workflows need some level of concurrency or locking, you can leverage the native GitHub Actions concurrency feature ([documentation](https://docs.github.com/en/actions/using-jobs/using-concurrency)) to enable this.
 
-For example, if you have two users run `.deploy` on two seperate PRs at the same time, it will trigger two deployments. In some cases, this will break things and you may not want this. By using Actions concurrency, you can prevent multiple workflows from running at once
+For example, if you have two users run `.deploy` on two separate PRs at the same time, it will trigger two deployments. In some cases, this will break things and you may not want this. By using Actions concurrency, you can prevent multiple workflows from running at once
 
 The default behavior for Actions is to run the first job that was triggered and to set the other one as `pending`. If you want to cancel the other job, that can be configured as well. Below you will see an example where we setup a concurrency group which only allows one deployment at a time and cancels all other workflows triggered while our deployment is running:
 
@@ -621,7 +621,7 @@ Example scenario 2:
 6. The workflow compares the latest deployment with the merge commit and finds they are different
 7. The workflow uses logic to deploy the merge commit since it is different than the latest deployment
 
-This should help explain why this strategy is useful. It helps to save CI time and prevent redundant deployments. If you are not using this strategy, you will end up deploying the merge commit even if it is the same as the latest deployment if you do a deployment everytime a pull request is merged (rather common).
+This should help explain why this strategy is useful. It helps to save CI time and prevent redundant deployments. If you are not using this strategy, you will end up deploying the merge commit even if it is the same as the latest deployment if you do a deployment every time a pull request is merged (rather common).
 
 ### Using the Merge Commit Workflow Strategy
 

@@ -70,11 +70,11 @@ inputs:
     required: false
     default: "false"
   skip_ci:
-    description: 'A comma seperated list of environments that will not use passing CI as a requirement for deployment. Use this option to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string "" - Example: "development,staging"'
+    description: 'A comma separated list of environments that will not use passing CI as a requirement for deployment. Use this option to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string "" - Example: "development,staging"'
     required: false
     default: ""
   skip_reviews:
-    description: 'A comma seperated list of environment that will not use reviews/approvals as a requirement for deployment. Use this options to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string "" - Example: "development,staging"'
+    description: 'A comma separated list of environment that will not use reviews/approvals as a requirement for deployment. Use this options to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string "" - Example: "development,staging"'
     required: false
     default: ""
   allow_forks:
@@ -82,7 +82,7 @@ inputs:
     required: false
     default: "true"
   admins:
-    description: 'A comma seperated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team"'
+    description: 'A comma separated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team"'
     required: false
     default: "false"
   admins_pat:

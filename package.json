@@ -21,8 +21,9 @@
   },
   "keywords": [
     "actions",
-    "node",
-    "setup"
+    "issueops",
+    "deployment",
+    "github"
   ],
   "author": "Grant Birkinbine",
   "license": "MIT",
