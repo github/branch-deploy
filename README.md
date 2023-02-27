@@ -670,6 +670,14 @@ jobs:
         run: echo "I am doing a fake regular deploy"
 ```
 
+## Manual Deployment Control
+
+If you need more fine tuned control over when the deployment status is set to `success` you can use the `skip_completing` option to prevent this Action from setting your deployment status to `success` after it completes.
+
+When using this option, you will need to manually set your deployment status depending on if you deployment succeeds or fails.
+
+An example workflow using this option can be found [here](https://github.com/github/branch-deploy/blob/main/docs/examples.md#multiple-jobs)
+
 ## Examples
 
 This section contains real world examples of how this Action can be used
