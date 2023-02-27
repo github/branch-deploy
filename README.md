@@ -268,6 +268,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | admins | no | false | A comma separated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team" |
 | admins_pat | no | false | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
 | merge_deploy_mode | no | false | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
+| skip_completing | no | false | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
 
 ## Outputs 📤
 
@@ -668,6 +669,14 @@ jobs:
         if: ${{ steps.deployment-check.outputs.continue == 'true' }} # only run if the Action returned 'true' for the 'continue' output
         run: echo "I am doing a fake regular deploy"
 ```
+
+## Manual Deployment Control
+
+If you need more fine tuned control over when the deployment status is set to `success` you can use the `skip_completing` option to prevent this Action from setting your deployment status to `success` after it completes.
+
+When using this option, you will need to manually set your deployment status depending on if you deployment succeeds or fails.
+
+An example workflow using this option can be found [here](https://github.com/github/branch-deploy/blob/main/docs/examples.md#multiple-jobs)
 
 ## Examples
 
