@@ -15,6 +15,7 @@ export async function post() {
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
+    const skip_completing = core.getInput('skip_completing')
     const deployMessage = process.env.DEPLOY_MESSAGE
 
     // If bypass is set, exit the workflow
@@ -25,6 +26,12 @@ export async function post() {
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(context))) {
+      return
+    }
+
+    // Skip the process of completing a deployment, return
+    if (skip_completing === 'true') {
+      core.info('skip_completing set, exiting')
       return
     }
 
