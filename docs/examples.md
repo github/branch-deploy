@@ -465,7 +465,7 @@ jobs:
 
 ## Multiple jobs
 
-If you need a complex deployment workflow, you can create a deployment status in separate jobs.
+If you need a complex deployment workflow, you can create a deployment status manually in a separate step
 
 ```yaml
 name: deploy
