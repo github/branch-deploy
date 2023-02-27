@@ -463,6 +463,66 @@ jobs:
           apiToken: ${{ secrets.CF_API_TOKEN }}
 ```
 
+## Multiple jobs
+
+If you need a complex deployment workflow, you can create a deployment status manually in a separate step
+
+```yaml
+name: deploy
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  pull-requests: write
+  deployments: write
+  contents: write
+  checks: read
+
+jobs:
+  trigger:
+    if: ${{ github.event.issue.pull_request }} # only run on pull request comments
+    runs-on: ubuntu-latest
+    outputs:
+      continue: ${{ steps.branch-deploy.outputs.continue }}
+      noop: ${{ steps.branch-deploy.outputs.noop }}
+      deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
+      environment: ${{ steps.branch-deploy.outputs.environment }}
+
+    steps:
+    - uses: github/branch-deploy@vX.X.X
+      id: branch-deploy
+      with:
+        skip_completing: 'true'
+
+  deploy:
+    needs: trigger
+    if: ${{ needs.trigger.outputs.continue == 'true' && needs.trigger.outputs.noop != 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: fake regular deploy
+      run: echo "I am doing a fake regular deploy"
+
+  result:
+    needs: [trigger, deploy]
+    if: ${{ needs.deploy.result != 'skipped' }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Create a deployment status
+      run: |
+        gh api \
+          --method POST \
+          repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
+          -f environment='${{ needs.trigger.outputs.environment }}' \
+          -f state='${{ (needs.deploy.result == 'success' && 'success') || 'failure' }}'
+      env:
+        GH_REPO: ${{ github.repository }}
+        GH_TOKEN: ${{ github.token }}
+```
+
 ---
 
 Are you using the `branch-deploy` Action and want your example included here? Open a pull request and we'll add it!

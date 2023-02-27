@@ -93,6 +93,10 @@ inputs:
     description: This is an advanced option that is an alternate workflow bundled into this Action. You can control how merge commits are handled when a PR is merged into your repository's default branch. If the merge commit SHA matches the latest deployment for the same environment, then the 'continue' output will be set to 'false' which indicates that a deployment should not be performed again as the latest deployment is identical. If the merge commit SHA does not match the latest deployment for the same environment, then the 'continue' output will be set to 'true' which indicates that a deployment should be performed. With this option, the 'environment' output is also set for subsequent steps to reference
     required: false
     default: "false"
+  skip_completing:
+    description: 'If set "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false"'
+    required: false
+    default: "false"
 outputs:
   triggered:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'

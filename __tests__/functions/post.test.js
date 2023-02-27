@@ -4,6 +4,9 @@ import * as postDeploy from '../../src/functions/post-deploy'
 import * as contextCheck from '../../src/functions/context-check'
 import * as github from '@actions/github'
 
+const validInputs = {
+  skip_completing: 'false'
+}
 const validStates = {
   ref: 'test-ref',
   comment_id: '123',
@@ -16,10 +19,14 @@ const validStates = {
 
 const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation(() => {})
 const setWarningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
+const setInfoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
 
 beforeEach(() => {
   jest.resetAllMocks()
   jest.spyOn(core, 'error').mockImplementation(() => {})
+  jest.spyOn(core, 'getInput').mockImplementation(name => {
+    return validInputs[name]
+  })
   jest.spyOn(core, 'getState').mockImplementation(name => {
     return validStates[name]
   })
@@ -54,6 +61,17 @@ test('exits due to a bypass being set', async () => {
   })
   expect(await post()).toBeUndefined()
   expect(setWarningMock).toHaveBeenCalledWith('bypass set, exiting')
+})
+
+test('skips the process of completing a deployment', async () => {
+  const skipped = {
+    skip_completing: 'true'
+  }
+  jest.spyOn(core, 'getInput').mockImplementation(name => {
+    return skipped[name]
+  })
+  expect(await post()).toBeUndefined()
+  expect(setInfoMock).toHaveBeenCalledWith('skip_completing set, exiting')
 })
 
 test('throws an error', async () => {
