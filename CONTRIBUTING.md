@@ -4,7 +4,7 @@ All contributions are welcome and greatly appreciated!
 
 ## Steps to Contribute 💡
 
-> Check the `.node-version` file in the root of this repo so see what version of Node.js is required for local development - note, this can be different from the version of Node.js which runs the Action on GitHub runners
+> Check the `.node-version` file in the root of this repo so see what version of Node.js is required for local development - note, this can be different from the version of Node.js which runs the Action on GitHub runners. It is suggested to download [nodenv](https://github.com/nodenv/nodenv) which uses this file and manages your Node.js versions for you
 
 1. Fork this repository
 2. Commit your changes
@@ -20,6 +20,8 @@ The maintainers of this repository will create a new release with your changes s
 
 This project requires **100%** test coverage
 
+> The branch-deploy Action is used by enterprises, governments, and open source organizations - it is critical that we have 100% test coverage to ensure that we are not introducing any regressions. All changes will be throughly tested by maintainers of this repository before a new release is created.
+
 ### Running the test suite (suggested)
 
 Simply run the following command to execute the entire test suite:
@@ -31,6 +33,8 @@ npm run test
 > Note: this requires that you have already run `npm install`
 
 ### Testing directly with IssueOps
+
+> See the testing FAQs below for more information on this process
 
 You can test your changes by doing the following steps:
 
@@ -47,10 +51,6 @@ Q: Why do I have to commit my changes to `main`?
 
 A: The `on: issue_comment` workflow only uses workflow files from the `main` branch by design - [learn more](https://github.com/github/branch-deploy#security-)
 
-Q: Is there an example PR I can view to see how testing with a pull request works?
+Q: How can I test my changes once my PR is merged and *before* a new release is created?
 
-A: Yes there is! It sure is a messy PR but here is a good [example](https://github.com/github/branch-deploy/pull/18)
-
-Q: What workflow is actually running when I do `.deploy` on my testing PR?
-
-A: The workflow that is executing is stored in this repo and can be viewed [here](.github/workflows/test.yml)
+A: You should create a repo like [this one](https://github.com/GrantBirki/actions-sandbox) that uses `github/branch-deploy@main` as the Action version and test your changes there
