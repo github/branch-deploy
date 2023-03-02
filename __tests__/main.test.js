@@ -47,7 +47,10 @@ beforeEach(() => {
     },
     comment: {
       body: '.deploy',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
 
@@ -121,7 +124,10 @@ test('successfully runs the action on a deployment to development', async () => 
     },
     comment: {
       body: '.deploy to development',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
 
@@ -154,7 +160,10 @@ test('fails due to multiple commands in one message', async () => {
       number: 123
     },
     comment: {
-      body: '.deploy .lock'
+      body: '.deploy .lock',
+      user: {
+        login: 'monalisa'
+      }
     }
   }
   expect(await run()).toBe('failure')
@@ -183,7 +192,10 @@ test('successfully runs the action in noop mode', async () => {
     },
     comment: {
       body: '.deploy noop',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
   expect(await run()).toBe('success - noop')
@@ -217,7 +229,10 @@ test('runs the action in lock mode and fails due to bad permissions', async () =
     },
     comment: {
       body: '.lock',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
   expect(await run()).toBe('failure')
@@ -244,7 +259,10 @@ test('successfully runs the action in lock mode', async () => {
     },
     comment: {
       body: '.lock --reason testing a new feature',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
   expect(await run()).toBe('safe-exit')
@@ -285,7 +303,10 @@ test('successfully runs the action in lock mode - details only', async () => {
     },
     comment: {
       body: '.lock --details',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
   expect(await run()).toBe('safe-exit')
@@ -326,7 +347,10 @@ test('successfully runs the action in lock mode - details only - --info flag', a
     },
     comment: {
       body: '.lock --info',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
   expect(await run()).toBe('safe-exit')
@@ -367,7 +391,10 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
     },
     comment: {
       body: '.wcid',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
   expect(await run()).toBe('safe-exit')
@@ -401,7 +428,10 @@ test('successfully runs the action in lock mode and finds no lock - details only
     },
     comment: {
       body: '.lock --details',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
   expect(await run()).toBe('safe-exit')
@@ -437,7 +467,10 @@ test('runs with the unlock trigger', async () => {
     },
     comment: {
       body: '.unlock',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
   jest.spyOn(unlock, 'unlock').mockImplementation(() => {
@@ -468,7 +501,10 @@ test('successfully runs the action after trimming the body', async () => {
       number: 123
     },
     comment: {
-      body: '.deploy noop    \n\t\n   '
+      body: '.deploy noop    \n\t\n   ',
+      user: {
+        login: 'monalisa'
+      }
     }
   }
   expect(await run()).toBe('success - noop')
@@ -547,7 +583,10 @@ test('fails due to no valid environment targets being found in the comment body'
     },
     comment: {
       body: '.deploy to chaos',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
   expect(await run()).toBe('safe-exit')
@@ -586,7 +625,10 @@ test('runs the .help command successfully', async () => {
     },
     comment: {
       body: '.help',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
 
@@ -613,7 +655,10 @@ test('runs the .help command successfully', async () => {
     },
     comment: {
       body: '.help',
-      id: 123
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
     }
   }
 

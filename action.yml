@@ -126,6 +126,10 @@ outputs:
     description: 'The full name of the fork in "org/repo" format'
   deployment_id: 
     description: The ID of the deployment created by running this action
+  initial_reaction_id:
+    description: The reaction id for the initial reaction on the trigger comment
+  actor_handle:
+    description: The handle of the user who triggered the action
 runs:
   using: "node16"
   main: "dist/index.js"

@@ -137,7 +137,9 @@ export async function run() {
     const reactRes = await reactEmote(reaction, context, octokit)
     core.setOutput('comment_id', context.payload.comment.id)
     core.saveState('comment_id', context.payload.comment.id)
+    core.setOutput('initial_reaction_id', reactRes.data.id)
     core.saveState('reaction_id', reactRes.data.id)
+    core.setOutput('actor_handle', context.payload.comment.user.login)
 
     // If the command is a help request
     if (isHelp) {
