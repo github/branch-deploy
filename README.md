@@ -705,6 +705,7 @@ Check out some of the links below to see how others are using this Action in the
 - [the-hideout/cloudflare](https://github.com/the-hideout/cloudflare/blob/f3b189b54f278d7e7844e5cc2fcdbb6f5afd3467/.github/workflows/branch-deploy.yml)
 - [the-hideout/tarkov-api](https://github.com/the-hideout/tarkov-api/blob/be645d7750a0e440794229ce56aefeb4648b8892/.github/workflows/branch-deploy.yml)
 - [the-hideout/stash](https://github.com/the-hideout/stash/blob/4aabf7565fda933f8e40ae9c60cde9f03e549b3b/.github/workflows/branch-deploy.yml)
+- [GrantBirki/blog](https://github.com/GrantBirki/blog/blob/25a51aff28c066e378844992c20afc6c58131e26/.github/workflows/branch-deploy.yml)
 
 > Are you using this Action in a cool new way? Open a pull request to this repo to have your workflow added to the list above!
 

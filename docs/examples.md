@@ -523,6 +523,213 @@ jobs:
         GH_TOKEN: ${{ github.token }}
 ```
 
+## Multiple Jobs with GitHub Pages
+
+A detailed example using multiple jobs, custom deployment status creation, and comments
+
+> This live example can be found [here](https://github.com/GrantBirki/blog/blob/25a51aff28c066e378844992c20afc6c58131e26/.github/workflows/branch-deploy.yml)
+
+```yaml
+name: branch deploy
+
+# The workflow to execute on is comments that are newly created
+on:
+  issue_comment:
+    types: [ created ]
+
+# Permissions needed for reacting and adding comments for IssueOps commands
+permissions:
+  pull-requests: write
+  deployments: write
+  contents: write
+  checks: read
+  pages: write
+  id-token: write
+
+# set an environment variable for use in the jobs pointing to my blog
+env:
+  blog_url: https://blog.birki.io
+
+jobs:
+  # branch-deploy trigger job
+  trigger:
+    if: # only run on pull request comments and very specific comment body string as defined in our branch-deploy settings
+      ${{ github.event.issue.pull_request &&
+      (contains(github.event.comment.body, '.deploy') ||
+      contains(github.event.comment.body, '.lock') ||
+      contains(github.event.comment.body, '.wcid') ||
+      contains(github.event.comment.body, '.unlock')) }}
+    runs-on: ubuntu-latest
+    outputs: # set outputs for use in downstream jobs
+      continue: ${{ steps.branch-deploy.outputs.continue }}
+      noop: ${{ steps.branch-deploy.outputs.noop }}
+      deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
+      environment: ${{ steps.branch-deploy.outputs.environment }}
+      ref: ${{ steps.branch-deploy.outputs.ref }}
+      comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
+      initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
+      actor_handle: ${{ steps.branch-deploy.outputs.actor_handle }}
+
+    steps:
+      # execute the branch-deploy action
+      - uses: github/branch-deploy@vX.X.X
+        id: branch-deploy
+        with:
+          trigger: ".deploy"
+          environment: "github-pages"
+          production_environment: "github-pages"
+          skip_completing: "true" # we will complete the deployment manually in the 'result' job
+          admins: "GrantBirki"
+
+  # build the github-pages site with hugo
+  build:
+    needs: trigger
+    if: ${{ needs.trigger.outputs.continue == 'true' }} # only run if the trigger job set continue to true
+    runs-on: ubuntu-latest
+
+    steps:
+      # checkout the project's repository based on the ref provided by the branch-deploy step
+      - name: checkout
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # pin@v3.3.0
+        with:
+          ref: ${{ needs.trigger.outputs.ref }}
+
+      # read the hugo version from the .hugo-version file in this repository
+      - name: set hugo version
+        id: hugo-version
+        run: |
+          HUGO_VERSION=$(cat .hugo-version)
+          echo "HUGO_VERSION=${HUGO_VERSION}" >> $GITHUB_OUTPUT
+
+      # install the hugo cli using the version detected in the previous step
+      - name: install hugo cli
+        env:
+          HUGO_VERSION: ${{ steps.hugo-version.outputs.HUGO_VERSION }}
+        run: |
+          wget -O ${{ runner.temp }}/hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_${HUGO_VERSION}_linux-amd64.deb \
+          && sudo dpkg -i ${{ runner.temp }}/hugo.deb
+
+      # configure the GitHub Pages action
+      - name: setup pages
+        id: pages
+        uses: actions/configure-pages@c5a3e1159e0cbdf0845eb8811bd39e39fc3099c2 # pin@v2.1.3
+
+      # build the site with hugo
+      - name: build with hugo
+        run: |
+          hugo --gc --verbose \
+            --baseURL ${{ steps.pages.outputs.base_url }}
+
+      # this step is custom to my blog and adds a 'commit' version to the site
+      - name: write build version
+        run: echo ${GITHUB_SHA} > ./public/version.txt
+
+      # upload the built site as an artifact for the deploy step
+      - name: upload artifact
+        uses: actions/upload-pages-artifact@253fd476ed429e83b7aae64a92a75b4ceb1a17cf # pin@v1.0.7
+        with:
+          path: ./public
+
+  # deploy to GitHub Pages
+  deploy:
+    needs: [ trigger, build ]
+    if: ${{ needs.trigger.outputs.continue == 'true' }} # only run if the trigger job set continue to true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      # deploy the site to GitHub Pages
+      - name: deploy
+        id: deployment
+        uses: actions/deploy-pages@20a4baa1095bad40ba7d6ca0d9abbc220b76603f # pin@v1.2.3
+
+  # update the deployment result - manually complete the deployment that was created by the branch-deploy action
+  result:
+    needs: [ trigger, build, deploy ]
+    runs-on: ubuntu-latest
+    # run even on failures but only if the trigger job set continue to true
+    if: ${{ always() && needs.trigger.outputs.continue == 'true' }}
+
+    steps:
+      # if a previous step failed, set a variable to use as the deployment status
+      - name: set deployment status
+        id: deploy-status
+        if: ${{ needs.trigger.result == 'failure' || needs.build.result == 'failure' ||
+          needs.deploy.result == 'failure' }}
+        run: |
+          echo "DEPLOY_STATUS=failure" >> $GITHUB_OUTPUT
+
+      # use the GitHub CLI to update the deployment status that was initiated by the branch-deploy action
+      - name: Create a deployment status
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_STATUS: ${{ steps.deploy-status.outputs.DEPLOY_STATUS }}
+        run: |
+          if [ -z "${DEPLOY_STATUS}" ]; then
+            DEPLOY_STATUS="success"
+          fi
+
+          gh api \
+            --method POST \
+            repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
+            -f environment='${{ needs.trigger.outputs.environment }}' \
+            -f state=${DEPLOY_STATUS}
+
+      # remove the default 'eyes' reaction from the comment that triggered the deployment
+      # this reaction is added by the branch-deploy action by default
+      - name: remove eyes reaction
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method DELETE \
+            repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+
+      # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
+      - name: rocket reaction
+        if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS != 'failure' }}
+        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        with:
+          comment-id: ${{ needs.trigger.outputs.comment_id }}
+          reactions: rocket
+
+      # if the deployment failed, add a '-1' (thumbs down) reaction to the comment that triggered the deployment
+      - name: failure reaction
+        if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS == 'failure' }}
+        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        with:
+          comment-id: ${{ needs.trigger.outputs.comment_id }}
+          reactions: "-1"
+
+      # if the deployment was successful, add a 'success' comment
+      - name: success comment
+        if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS != 'failure' }}
+        uses: peter-evans/create-or-update-comment@67dcc547d311b736a8e6c5c236542148a47adc3d # pin@v2.1.1
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ### Deployment Results ✅
+
+            **${{ needs.trigger.outputs.actor_handle }}** successfully deployed branch `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
+
+            > [View Live Deployment](${{ env.blog_url }}) :link:
+
+      # if the deployment was not successful, add a 'failure' comment
+      - name: failure comment
+        if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS == 'failure' }}
+        uses: peter-evans/create-or-update-comment@67dcc547d311b736a8e6c5c236542148a47adc3d # pin@v2.1.1
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ### Deployment Results ❌
+
+            **${{ needs.trigger.outputs.actor_handle }}** had a failure when deploying `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
+```
+
 ---
 
 Are you using the `branch-deploy` Action and want your example included here? Open a pull request and we'll add it!
