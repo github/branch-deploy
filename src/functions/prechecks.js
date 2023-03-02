@@ -194,6 +194,9 @@ export async function prechecks(
   // Grab the mergeStateStatus from the GraphQL result
   const mergeStateStatus = result.repository.pullRequest.mergeStateStatus
 
+  // Grab the draft status
+  const isDraft = pr.data.draft
+
   // Grab the statusCheckRollup state from the GraphQL result
   var commitStatus
   try {
@@ -331,7 +334,7 @@ export async function prechecks(
     }
 
     // If the mergeStateStatus is in DRAFT, alert and exit
-  } else if (mergeStateStatus === 'DRAFT') {
+  } else if (isDraft) {
     message = `### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state`
     return {message: message, status: false}
 
