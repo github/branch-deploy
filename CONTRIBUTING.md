@@ -22,7 +22,7 @@ This project requires **100%** test coverage
 
 > The branch-deploy Action is used by enterprises, governments, and open source organizations - it is critical that we have 100% test coverage to ensure that we are not introducing any regressions. All changes will be throughly tested by maintainers of this repository before a new release is created.
 
-### Running the test suite (suggested)
+### Running the test suite (required)
 
 Simply run the following command to execute the entire test suite:
 
