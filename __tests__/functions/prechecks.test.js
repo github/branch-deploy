@@ -1308,7 +1308,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
-        mergeStateStatus: 'DRAFT',
+        mergeStateStatus: 'BLOCKED',
         commits: {
           nodes: [
             {
@@ -1329,9 +1329,24 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
   octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
     .fn()
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest
+  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        ref: 'test-ref'
+      },
+      base: {
+        ref: 'main'
+      },
+      draft: true
+    },
+    status: 200
+  })
+  octonocommitchecks['rest']['repos']['getBranch'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref'}}, status: 200})
+    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+  octonocommitchecks['rest']['repos']['compareCommits'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
   expect(
     await prechecks(
       '.deploy noop',
