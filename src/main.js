@@ -20,7 +20,6 @@ import dedent from 'dedent-js'
 // Lock constants
 const LOCK_BRANCH = 'branch-deploy-lock'
 const LOCK_FILE = 'lock.json'
-const BASE_URL = 'https://github.com'
 
 // Lock info flags
 const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d']
@@ -245,7 +244,7 @@ export async function run() {
             - __Created By__: \`${lockData.created_by}\`
             - __Sticky__: \`${lockData.sticky}\`
             - __Comment Link__: [click here](${lockData.link})
-            - __Lock Link__: [click here](${BASE_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
+            - __Lock Link__: [click here](${context.server_url}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
         
             The current lock has been active for \`${totalTime}\`
         
