@@ -23,7 +23,7 @@ export async function createDeploymentStatus(
     ref: ref,
     deployment_id: deploymentId,
     state: state,
-    INPUT_LOG_URL: `${context.server_url}/${owner}/${repo}/actions/runs/${context.runId}`,
+    INPUT_LOG_URL: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${context.runId}`,
     environment: environment
   })
 

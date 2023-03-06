@@ -10082,7 +10082,7 @@ async function createDeploymentStatus(
     ref: ref,
     deployment_id: deploymentId,
     state: state,
-    INPUT_LOG_URL: `${context.server_url}/${owner}/${repo}/actions/runs/${context.runId}`,
+    INPUT_LOG_URL: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${context.runId}`,
     environment: environment
   })
 
@@ -10884,7 +10884,7 @@ async function createLock(octokit, context, ref, reason, sticky, reactionId) {
     created_at: new Date().toISOString(),
     created_by: context.actor,
     sticky: sticky,
-    link: `${context.server_url}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
+    link: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
   }
 
   // Create the lock file
@@ -11096,7 +11096,7 @@ async function lock(
     - __Created By__: \`${lockData.created_by}\`
     - __Sticky__: \`${lockData.sticky}\`
     - __Comment Link__: [click here](${lockData.link})
-    - __Lock Link__: [click here](${context.server_url}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
+    - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
 
     The current lock has been active for \`${totalTime}\`
 
@@ -11955,7 +11955,7 @@ async function run() {
             - __Created By__: \`${lockData.created_by}\`
             - __Sticky__: \`${lockData.sticky}\`
             - __Comment Link__: [click here](${lockData.link})
-            - __Lock Link__: [click here](${github.context.server_url}/${owner}/${repo}/blob/${main_LOCK_BRANCH}/${main_LOCK_FILE})
+            - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${main_LOCK_BRANCH}/${main_LOCK_FILE})
         
             The current lock has been active for \`${totalTime}\`
         
