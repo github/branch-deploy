@@ -10082,7 +10082,7 @@ async function createDeploymentStatus(
     ref: ref,
     deployment_id: deploymentId,
     state: state,
-    INPUT_LOG_URL: `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`,
+    INPUT_LOG_URL: `${context.server_url}/${owner}/${repo}/actions/runs/${context.runId}`,
     environment: environment
   })
 
@@ -10862,7 +10862,6 @@ async function timeDiff(firstDate, secondDate) {
 const LOCK_BRANCH = 'branch-deploy-lock'
 const LOCK_FILE = 'lock.json'
 const LOCK_COMMIT_MSG = 'lock'
-const BASE_URL = 'https://github.com'
 
 // Helper function for creating a lock file for branch-deployment locks
 // :param octokit: The octokit client
@@ -10885,7 +10884,7 @@ async function createLock(octokit, context, ref, reason, sticky, reactionId) {
     created_at: new Date().toISOString(),
     created_by: context.actor,
     sticky: sticky,
-    link: `${BASE_URL}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
+    link: `${context.server_url}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
   }
 
   // Create the lock file
@@ -11097,7 +11096,7 @@ async function lock(
     - __Created By__: \`${lockData.created_by}\`
     - __Sticky__: \`${lockData.sticky}\`
     - __Comment Link__: [click here](${lockData.link})
-    - __Lock Link__: [click here](${BASE_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
+    - __Lock Link__: [click here](${context.server_url}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
 
     The current lock has been active for \`${totalTime}\`
 
@@ -11732,7 +11731,6 @@ async function help(octokit, context, reactionId, inputs) {
 // Lock constants
 const main_LOCK_BRANCH = 'branch-deploy-lock'
 const main_LOCK_FILE = 'lock.json'
-const main_BASE_URL = 'https://github.com'
 
 // Lock info flags
 const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d']
@@ -11957,7 +11955,7 @@ async function run() {
             - __Created By__: \`${lockData.created_by}\`
             - __Sticky__: \`${lockData.sticky}\`
             - __Comment Link__: [click here](${lockData.link})
-            - __Lock Link__: [click here](${main_BASE_URL}/${owner}/${repo}/blob/${main_LOCK_BRANCH}/${main_LOCK_FILE})
+            - __Lock Link__: [click here](${github.context.server_url}/${owner}/${repo}/blob/${main_LOCK_BRANCH}/${main_LOCK_FILE})
         
             The current lock has been active for \`${totalTime}\`
         

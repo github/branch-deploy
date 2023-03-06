@@ -7,7 +7,6 @@ import {timeDiff} from './time-diff'
 const LOCK_BRANCH = 'branch-deploy-lock'
 const LOCK_FILE = 'lock.json'
 const LOCK_COMMIT_MSG = 'lock'
-const BASE_URL = 'https://github.com'
 
 // Helper function for creating a lock file for branch-deployment locks
 // :param octokit: The octokit client
@@ -30,7 +29,7 @@ async function createLock(octokit, context, ref, reason, sticky, reactionId) {
     created_at: new Date().toISOString(),
     created_by: context.actor,
     sticky: sticky,
-    link: `${BASE_URL}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
+    link: `${context.server_url}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
   }
 
   // Create the lock file
@@ -242,7 +241,7 @@ export async function lock(
     - __Created By__: \`${lockData.created_by}\`
     - __Sticky__: \`${lockData.sticky}\`
     - __Comment Link__: [click here](${lockData.link})
-    - __Lock Link__: [click here](${BASE_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
+    - __Lock Link__: [click here](${context.server_url}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
 
     The current lock has been active for \`${totalTime}\`
 
