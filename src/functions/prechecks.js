@@ -78,6 +78,16 @@ export async function prechecks(
 
   // Check to see if the "stable" branch was used as the deployment target
   if (regexCommandWithStableBranch.test(comment)) {
+
+    // Make an API call to get the base branch
+    const baseBranch = await octokit.rest.repos.getBranch({
+      ...context.repo,
+      branch: stable_branch
+    })
+
+    // the sha now becomes the sha of the base branch
+    sha = baseBranch.data.commit.sha
+
     ref = stable_branch
     forkBypass = true
     core.info(
@@ -538,5 +548,5 @@ export async function prechecks(
   }
 
   // Return a success message
-  return {message: message, status: true, ref: ref, noopMode: noopMode}
+  return {message: message, status: true, ref: ref, noopMode: noopMode, sha: sha}
 }
