@@ -352,6 +352,7 @@ export async function run() {
     )
     core.setOutput('ref', precheckResults.ref)
     core.saveState('ref', precheckResults.ref)
+    core.setOutput('sha', precheckResults.sha)
 
     // If the prechecks failed, run the actionFailed function and return
     if (!precheckResults.status) {
@@ -460,7 +461,6 @@ export async function run() {
     })
     core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)
-    core.setOutput('sha', createDeploy.sha)
 
     // If a merge to the base branch is required, let the user know and exit
     if (

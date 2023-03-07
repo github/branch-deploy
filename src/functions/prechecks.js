@@ -50,6 +50,9 @@ export async function prechecks(
     return {message: message, status: false}
   }
 
+  // save sha
+  var sha = pr.data.head.sha
+
   // Setup the skipCi and skipReview variables
   const skipCiArray = await stringToArray(skipCiInput)
   const skipReviewsArray = await stringToArray(skipReviewsInput)
