@@ -107,7 +107,7 @@ outputs:
   noop:
     description: 'The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not'
   sha:
-    description: The sha of the branch deployment detected by the Action on the pull request
+    description: The sha of the branch to be deployed
   ref:
     description: The ref (branch or sha) to use with deployment
   comment_id:

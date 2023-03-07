@@ -278,7 +278,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | comment_body | The comment body |
 | environment | The environment that has been selected for a deployment |
 | noop | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
-| sha | The sha of the branch deployment detected by the Action on the pull request |
+| sha | The sha of the branch to be deployed |
 | ref | The ref (branch or sha) to use with deployment |
 | comment_id | The comment id which triggered this deployment |
 | deployment_id | The ID of the deployment created by running this action |
