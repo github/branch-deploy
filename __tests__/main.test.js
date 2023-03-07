@@ -65,7 +65,7 @@ beforeEach(() => {
         repos: {
           createDeployment: jest.fn().mockImplementation(() => {
             return {
-              data: {id: 123, sha: 'test-sha'}
+              data: {id: 123}
             }
           }),
           createDeploymentStatus: jest.fn().mockImplementation(() => {
@@ -106,7 +106,6 @@ test('successfully runs the action', async () => {
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
   expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('sha', 'test-sha')
   expect(setOutputMock).toHaveBeenCalledWith('noop', 'false')
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
   expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
