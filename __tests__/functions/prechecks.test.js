@@ -291,7 +291,10 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -354,7 +357,10 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -417,7 +423,10 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy noop',
@@ -592,7 +601,10 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy noop',
@@ -643,7 +655,10 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -694,7 +709,10 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -731,7 +749,10 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy noop',
@@ -770,7 +791,10 @@ test('runs prechecks and deploys to the stable branch', async () => {
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octonocommitchecks['rest']['repos']['getBranch'] = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
@@ -826,7 +850,10 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -877,7 +904,10 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -928,7 +958,10 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -979,7 +1012,10 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -1016,7 +1052,10 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -1068,7 +1107,10 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octonocommitchecks['rest']['pulls']['updateBranch'] = jest
     .fn()
     .mockReturnValue({
@@ -1129,7 +1171,10 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1181,7 +1226,10 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octonocommitchecks['rest']['pulls']['updateBranch'] = jest
     .fn()
     .mockReturnValue({
@@ -1242,7 +1290,10 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octonocommitchecks['rest']['pulls']['updateBranch'] = jest
     .fn()
     .mockReturnValue(null)
@@ -1297,7 +1348,10 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1417,7 +1471,10 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1469,7 +1526,10 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -1521,7 +1581,10 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octonocommitchecks['rest']['pulls']['updateBranch'] = jest
     .fn()
     .mockReturnValue({
@@ -1586,7 +1649,10 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octogoodres['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1643,7 +1709,10 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octogoodres['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1702,7 +1771,10 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octogoodres['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1761,7 +1833,10 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octogoodres['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1839,7 +1914,10 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -1903,7 +1981,10 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -1964,7 +2045,10 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy',
@@ -2025,7 +2109,10 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octonocommitchecks['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   expect(
     await prechecks(
       '.deploy to development',
@@ -2061,7 +2148,10 @@ test('runs prechecks and finds that the commit status is success and skip_review
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octogoodres['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -2122,7 +2212,10 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octogoodres['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -2183,7 +2276,10 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octogoodres['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -2244,7 +2340,10 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octogoodres['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -2305,7 +2404,10 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   octogoodres['rest']['pulls']['get'] = jest
     .fn()
-    .mockReturnValue({data: {head: {ref: 'test-ref', sha: 'abc123'}}, status: 200})
+    .mockReturnValue({
+      data: {head: {ref: 'test-ref', sha: 'abc123'}},
+      status: 200
+    })
   octogoodres['graphql'] = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
