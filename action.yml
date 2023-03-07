@@ -106,6 +106,8 @@ outputs:
     description: The environment that has been selected for a deployment
   noop:
     description: 'The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not'
+  sha:
+    description: The sha to use with deployment
   ref:
     description: The ref (branch or sha) to use with deployment
   comment_id:

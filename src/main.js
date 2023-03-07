@@ -460,6 +460,7 @@ export async function run() {
     })
     core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)
+    core.setOutput('sha', createDeploy.sha)
 
     // If a merge to the base branch is required, let the user know and exit
     if (
