@@ -11777,6 +11777,7 @@ async function run() {
     const skipReviews = core.getInput('skip_reviews')
     const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
     const admins = core.getInput('admins')
+    const auto_merge = core.getInput('auto_merge') === 'true'
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
@@ -11907,7 +11908,8 @@ async function run() {
         allowForks: allowForks,
         skipCi: skipCi,
         skipReviews: skipReviews,
-        admins: admins
+        admins: admins,
+        auto_merge: auto_merge
       }
 
       // Run the help command and exit
@@ -12178,6 +12180,7 @@ async function run() {
       owner: owner,
       repo: repo,
       ref: precheckResults.ref,
+      auto_merge: auto_merge,
       required_contexts: requiredContexts,
       environment: environment,
       // description: "",
