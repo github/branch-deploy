@@ -18,6 +18,7 @@ const lockBase64Octocat =
 const saveStateMock = jest.spyOn(core, 'saveState')
 const setFailedMock = jest.spyOn(core, 'setFailed')
 const infoMock = jest.spyOn(core, 'info')
+const debugMock = jest.spyOn(core, 'debug')
 
 const environment = 'production'
 
@@ -26,6 +27,8 @@ beforeEach(() => {
   jest.spyOn(core, 'setFailed').mockImplementation(() => {})
   jest.spyOn(core, 'saveState').mockImplementation(() => {})
   jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
 })
 
 const context = {
@@ -372,6 +375,142 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
     }
   }
   expect(await lock(octokit, context, ref, 123, true, environment)).toBe(true)
+  expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
+  expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+  expect(infoMock).toHaveBeenCalledWith(
+    'Created lock branch: branch-deploy-lock'
+  )
+})
+
+test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file', async () => {
+  const context = {
+    actor: 'monalisa',
+    repo: {
+      owner: 'corp',
+      repo: 'test'
+    },
+    issue: {
+      number: 1
+    },
+    payload: {
+      comment: {
+        body: '.lock --global',
+        id: 123
+      }
+    }
+  }
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+      },
+      git: {
+        createRef: jest.fn().mockReturnValue({status: 201})
+      },
+      issues: {
+        createComment: jest.fn().mockReturnValue({})
+      }
+    }
+  }
+  expect(await lock(octokit, context, ref, 123, true, environment)).toBe(true)
+  expect(infoMock).toHaveBeenCalledWith('global lock: true')
+  expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
+  expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+  expect(infoMock).toHaveBeenCalledWith(
+    'Created lock branch: branch-deploy-lock'
+  )
+})
+
+test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file with a --reason', async () => {
+  const context = {
+    actor: 'monalisa',
+    repo: {
+      owner: 'corp',
+      repo: 'test'
+    },
+    issue: {
+      number: 1
+    },
+    payload: {
+      comment: {
+        body: '.lock --reason because something is broken --global',
+        id: 123
+      }
+    }
+  }
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+      },
+      git: {
+        createRef: jest.fn().mockReturnValue({status: 201})
+      },
+      issues: {
+        createComment: jest.fn().mockReturnValue({})
+      }
+    }
+  }
+  expect(await lock(octokit, context, ref, 123, true, environment)).toBe(true)
+  expect(debugMock).toHaveBeenCalledWith('reason: because something is broken')
+  expect(infoMock).toHaveBeenCalledWith('global lock: true')
+  expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
+  expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+  expect(infoMock).toHaveBeenCalledWith(
+    'Created lock branch: branch-deploy-lock'
+  )
+})
+
+test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file with a --reason at the end of the string', async () => {
+  const context = {
+    actor: 'monalisa',
+    repo: {
+      owner: 'corp',
+      repo: 'test'
+    },
+    issue: {
+      number: 1
+    },
+    payload: {
+      comment: {
+        body: '.lock --global  --reason because something is broken badly  ',
+        id: 123
+      }
+    }
+  }
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+      },
+      git: {
+        createRef: jest.fn().mockReturnValue({status: 201})
+      },
+      issues: {
+        createComment: jest.fn().mockReturnValue({})
+      }
+    }
+  }
+  expect(await lock(octokit, context, ref, 123, true, environment)).toBe(true)
+  expect(debugMock).toHaveBeenCalledWith(
+    'reason: because something is broken badly'
+  )
+  expect(infoMock).toHaveBeenCalledWith('global lock: true')
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(

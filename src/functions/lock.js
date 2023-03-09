@@ -15,6 +15,7 @@ const LOCK_COMMIT_MSG = 'lock'
 // :param reason: The reason for the deployment lock
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :param environment: The environment to lock
+// :param global: A bool indicating whether the lock is global or not (should lock all environments)
 // :returns: The result of the createOrUpdateFileContents API call
 async function createLock(
   octokit,
@@ -23,6 +24,7 @@ async function createLock(
   reason,
   sticky,
   environment,
+  global,
   reactionId
 ) {
   // Deconstruct the context to obtain the owner and repo
@@ -39,6 +41,7 @@ async function createLock(
     created_by: context.actor,
     sticky: sticky,
     environment: environment,
+    global: global,
     link: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
   }
 
@@ -51,16 +54,28 @@ async function createLock(
     branch: LOCK_BRANCH
   })
 
+  core.info(`global lock: ${global}`)
+
   // Write a log message stating the lock has been claimed
   core.info('deployment lock obtained')
   // If the lock is sticky, always leave a comment
   if (sticky) {
     core.info('deployment lock is sticky')
 
+    // create a special comment section for global locks
+    let globalComment = ''
+    if (global === true) {
+      globalComment = dedent(
+        `This is a **global** deploy lock - All environments are locked
+
+      `
+      )
+    }
+
     const comment = dedent(`
     ### 🔒 Deployment Lock Claimed
 
-    You are now the only user that can trigger deployments until the deployment lock is removed
+    ${globalComment}You are now the only user that can trigger deployments until the deployment lock is removed
 
     > This lock is _sticky_ and will persist until someone runs \`.unlock\`
     `)
@@ -84,8 +99,14 @@ async function findReason(context, sticky) {
     return 'deployment'
   }
 
-  // Get the body of the comment
-  const body = context.payload.comment.body.trim()
+  // Get the global lock flag from the Action input
+  const globalFlag = core.getInput('global_lock_flag').trim()
+
+  // Get the body of the comment and remove the global lock flag from the string
+  const body = context.payload.comment.body
+    .trim()
+    .replace(globalFlag, '')
+    .trim()
 
   // Check if --reason was provided
   if (body.includes('--reason') === false) {
@@ -105,7 +126,29 @@ async function findReason(context, sticky) {
   }
 
   // Return the reason for the lock request
+  core.debug(`reason: ${reason}`)
   return reason
+}
+
+// Helper function to check if the lock is global
+// This function always checks the entire body of every comment for the global lock flag (usually just --global)
+// If the flag is found, the lock is global (meaning all environments get locked)
+// :param context: The GitHub Actions event context
+// :returns: true if the lock is global, false if not
+async function isGlobal(context) {
+  // Get the global lock flag from the Action input
+  const globalFlag = core.getInput('global_lock_flag').trim()
+
+  // Get the body of the comment
+  const body = context.payload.comment.body.trim()
+
+  // Check if the global lock flag was provided
+  if (body.includes(globalFlag) === true) {
+    return true
+  }
+
+  // Return false if the global flag was not provided
+  return false
 }
 
 // Helper function for claiming a deployment lock
@@ -128,6 +171,9 @@ export async function lock(
 ) {
   // Attempt to obtain a reason from the context for the lock - either a string or null
   const reason = await findReason(context, sticky)
+
+  // check to see if this is a global deployment lock
+  const global = await isGlobal(context, environment)
 
   // Check if the lock branch already exists
   try {
@@ -171,6 +217,7 @@ export async function lock(
         reason,
         sticky,
         environment,
+        global,
         reactionId
       )
       return true
@@ -292,6 +339,7 @@ export async function lock(
         reason,
         sticky,
         environment,
+        global,
         reactionId
       )
       return true
