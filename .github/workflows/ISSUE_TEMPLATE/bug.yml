@@ -21,13 +21,20 @@ body:
       required: true
 
   - type: textarea
-    id: expected
+    id: config
     attributes:
-      label: Expected Behavior
-      description: A clear and concise description of what you expected to happen
-      placeholder: I expected X to happen when trying to do Y
-    validations:
-      required: true
+      label: Action Configuration
+      description: Please copy and paste your Action's configuration. Please omit any sensitive information if your configuration is not public.
+      placeholder: |
+        ```yaml
+        - name: branch-deploy
+          id: branch-deploy
+          uses: github/branch-deploy@vX.X.X
+          with:
+            trigger: ".deploy"
+            environment: "production"
+            stable_branch: "main"
+        ```
 
   - type: textarea
     id: logs
