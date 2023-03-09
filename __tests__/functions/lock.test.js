@@ -19,6 +19,8 @@ const saveStateMock = jest.spyOn(core, 'saveState')
 const setFailedMock = jest.spyOn(core, 'setFailed')
 const infoMock = jest.spyOn(core, 'info')
 
+const environment = 'production'
+
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'setFailed').mockImplementation(() => {})
@@ -89,7 +91,7 @@ test('Determines that another user has the lock and exits - during a lock claim 
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, false)).toBe(false)
+  expect(await lock(octokit, context, ref, 123, false, environment)).toBe(false)
   expect(actionStatusSpy).toHaveBeenCalledWith(
     context,
     octokit,
@@ -125,7 +127,7 @@ test('Determines that another user has the lock and exits - during a direct lock
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, true)).toBe(false)
+  expect(await lock(octokit, context, ref, 123, true, environment)).toBe(false)
   expect(actionStatusSpy).toHaveBeenCalledWith(
     context,
     octokit,
@@ -154,7 +156,7 @@ test('Request detailsOnly on the lock file and gets lock file data successfully'
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, null, true)).toStrictEqual({
+  expect(await lock(octokit, context, ref, 123, null, environment, true)).toStrictEqual({
     branch: 'octocats-everywhere',
     created_at: '2022-06-14T21:12:14.041Z',
     created_by: 'octocat',
@@ -182,7 +184,7 @@ test('Request detailsOnly on the lock file when the lock branch exists but no lo
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, null, true)).toBe(null)
+  expect(await lock(octokit, context, ref, 123, null, environment, true)).toBe(null)
 })
 
 test('Request detailsOnly on the lock file when no branch exists', async () => {
@@ -220,7 +222,7 @@ test('Request detailsOnly on the lock file when no branch exists', async () => {
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, null, true)).toBe(null)
+  expect(await lock(octokit, context, ref, 123, null, environment, true)).toBe(null)
 })
 
 test('Determines that the lock request is coming from current owner of the lock and exits - non-sticky', async () => {
@@ -237,7 +239,7 @@ test('Determines that the lock request is coming from current owner of the lock 
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, false)).toBe('owner')
+  expect(await lock(octokit, context, ref, 123, false, environment)).toBe('owner')
   expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
 })
 
@@ -255,7 +257,7 @@ test('Determines that the lock request is coming from current owner of the lock 
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, true)).toBe('owner')
+  expect(await lock(octokit, context, ref, 123, true, environment)).toBe('owner')
   expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
 })
 
@@ -277,7 +279,7 @@ test('Creates a lock when the lock branch exists but no lock file exists', async
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, false)).toBe(true)
+  expect(await lock(octokit, context, ref, 123, false, environment)).toBe(true)
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
 })
 
@@ -316,7 +318,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, true)).toBe(true)
+  expect(await lock(octokit, context, ref, 123, true, environment)).toBe(true)
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
@@ -359,7 +361,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, true)).toBe(true)
+  expect(await lock(octokit, context, ref, 123, true, environment)).toBe(true)
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
@@ -377,7 +379,7 @@ test('throws an error if an unhandled exception occurs', async () => {
     }
   }
   try {
-    await lock(octokit, context, ref, 123, true)
+    await lock(octokit, context, ref, 123, true, environment)
   } catch (e) {
     expect(e.message).toBe('Error: oh no')
   }
