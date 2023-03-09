@@ -1,0 +1,42 @@
+name: Bug Report
+description: File a bug/issue report
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Bug Report 🐛
+        
+        Thanks for taking the time to fill out this bug report!
+
+        Please answer each question below to your best ability. It is okay to leave questions blank if you have to!
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Issue
+      description: Please describe the bug/issue in detail
+      placeholder: Something is wrong with X when trying to do Y
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen
+      placeholder: I expected X to happen when trying to do Y
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Actions Log Output
+      description: Please copy and paste any relevant log output. If your Action's workflow is public, please provide a direct link to the logs
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Extra Information
+      description: Any extra information, links to issues, screenshots, etc
