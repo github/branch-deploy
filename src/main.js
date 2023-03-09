@@ -221,7 +221,7 @@ export async function run() {
             null,
             reactRes.data.id,
             null,
-            true
+            true // details only flag
           )
 
           // If a lock was found
@@ -493,7 +493,6 @@ export async function run() {
     )
 
     core.setOutput('continue', 'true')
-
     return 'success'
   } catch (error) {
     core.saveState('bypass', 'true')
