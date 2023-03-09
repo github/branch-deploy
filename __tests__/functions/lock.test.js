@@ -156,7 +156,9 @@ test('Request detailsOnly on the lock file and gets lock file data successfully'
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, null, environment, true)).toStrictEqual({
+  expect(
+    await lock(octokit, context, ref, 123, null, environment, true)
+  ).toStrictEqual({
     branch: 'octocats-everywhere',
     created_at: '2022-06-14T21:12:14.041Z',
     created_by: 'octocat',
@@ -184,7 +186,9 @@ test('Request detailsOnly on the lock file when the lock branch exists but no lo
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, null, environment, true)).toBe(null)
+  expect(await lock(octokit, context, ref, 123, null, environment, true)).toBe(
+    null
+  )
 })
 
 test('Request detailsOnly on the lock file when no branch exists', async () => {
@@ -222,7 +226,9 @@ test('Request detailsOnly on the lock file when no branch exists', async () => {
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, null, environment, true)).toBe(null)
+  expect(await lock(octokit, context, ref, 123, null, environment, true)).toBe(
+    null
+  )
 })
 
 test('Determines that the lock request is coming from current owner of the lock and exits - non-sticky', async () => {
@@ -239,7 +245,9 @@ test('Determines that the lock request is coming from current owner of the lock 
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, false, environment)).toBe('owner')
+  expect(await lock(octokit, context, ref, 123, false, environment)).toBe(
+    'owner'
+  )
   expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
 })
 
@@ -257,7 +265,9 @@ test('Determines that the lock request is coming from current owner of the lock 
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, true, environment)).toBe('owner')
+  expect(await lock(octokit, context, ref, 123, true, environment)).toBe(
+    'owner'
+  )
   expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
 })
 

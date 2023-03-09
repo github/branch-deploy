@@ -16,7 +16,15 @@ const LOCK_COMMIT_MSG = 'lock'
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :param environment: The environment to lock
 // :returns: The result of the createOrUpdateFileContents API call
-async function createLock(octokit, context, ref, reason, sticky, environment, reactionId) {
+async function createLock(
+  octokit,
+  context,
+  ref,
+  reason,
+  sticky,
+  environment,
+  reactionId
+) {
   // Deconstruct the context to obtain the owner and repo
   const {owner, repo} = context.repo
 
@@ -156,7 +164,15 @@ export async function lock(
       core.info(`Created lock branch: ${LOCK_BRANCH}`)
 
       // Create the lock file
-      await createLock(octokit, context, ref, reason, sticky, environment, reactionId)
+      await createLock(
+        octokit,
+        context,
+        ref,
+        reason,
+        sticky,
+        environment,
+        reactionId
+      )
       return true
     }
   }
@@ -269,7 +285,15 @@ export async function lock(
         return null
       }
 
-      await createLock(octokit, context, ref, reason, sticky, environment, reactionId)
+      await createLock(
+        octokit,
+        context,
+        ref,
+        reason,
+        sticky,
+        environment,
+        reactionId
+      )
       return true
     }
 

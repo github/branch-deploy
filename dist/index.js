@@ -10887,8 +10887,17 @@ const LOCK_COMMIT_MSG = 'lock'
 // :param ref: The branch which requested the lock / deployment
 // :param reason: The reason for the deployment lock
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
+// :param environment: The environment to lock
 // :returns: The result of the createOrUpdateFileContents API call
-async function createLock(octokit, context, ref, reason, sticky, reactionId) {
+async function createLock(
+  octokit,
+  context,
+  ref,
+  reason,
+  sticky,
+  environment,
+  reactionId
+) {
   // Deconstruct the context to obtain the owner and repo
   const {owner, repo} = context.repo
 
@@ -10902,6 +10911,7 @@ async function createLock(octokit, context, ref, reason, sticky, reactionId) {
     created_at: new Date().toISOString(),
     created_by: context.actor,
     sticky: sticky,
+    environment: environment,
     link: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
   }
 
@@ -10977,6 +10987,7 @@ async function findReason(context, sticky) {
 // :param ref: The branch which requested the lock / deployment
 // :param reactionId: The ID of the reaction to add to the issue comment (use if the lock is already claimed or if we claimed it with 'sticky')
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
+// :param environment: The environment to lock
 // :param detailsOnly: A bool indicating whether to only return the details of the lock and not alter its state
 // :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock, or null if this is a detailsOnly request and the lock was not found
 async function lock(
@@ -10985,6 +10996,7 @@ async function lock(
   ref,
   reactionId,
   sticky,
+  environment,
   detailsOnly = false
 ) {
   // Attempt to obtain a reason from the context for the lock - either a string or null
@@ -11025,7 +11037,15 @@ async function lock(
       core.info(`Created lock branch: ${LOCK_BRANCH}`)
 
       // Create the lock file
-      await createLock(octokit, context, ref, reason, sticky, reactionId)
+      await createLock(
+        octokit,
+        context,
+        ref,
+        reason,
+        sticky,
+        environment,
+        reactionId
+      )
       return true
     }
   }
@@ -11138,7 +11158,15 @@ async function lock(
         return null
       }
 
-      await createLock(octokit, context, ref, reason, sticky, reactionId)
+      await createLock(
+        octokit,
+        context,
+        ref,
+        reason,
+        sticky,
+        environment,
+        reactionId
+      )
       return true
     }
 
@@ -11950,7 +11978,7 @@ async function run() {
             null,
             reactRes.data.id,
             null,
-            true
+            true // details only flag
           )
 
           // If a lock was found
@@ -12222,7 +12250,6 @@ async function run() {
     )
 
     core.setOutput('continue', 'true')
-
     return 'success'
   } catch (error) {
     core.saveState('bypass', 'true')
