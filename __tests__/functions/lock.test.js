@@ -59,7 +59,10 @@ test('successfully obtains a deployment lock (non-sticky) by creating the branch
           .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
         get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
+        getContent: jest
+          .fn()
+          .mockRejectedValue(new NotFoundError('file not found')),
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})
@@ -219,7 +222,10 @@ test('Request detailsOnly on the lock file when no branch exists', async () => {
           .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
         get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
+        getContent: jest
+          .fn()
+          .mockRejectedValue(new NotFoundError('file not found')),
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})
@@ -342,7 +348,10 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
           .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
         get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
+        getContent: jest
+          .fn()
+          .mockRejectedValue(new NotFoundError('file not found'))
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})
@@ -385,7 +394,10 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
           .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
         get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
+        getContent: jest
+          .fn()
+          .mockRejectedValue(new NotFoundError('file not found')),
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})
@@ -428,7 +440,10 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
           .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
         get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
+        getContent: jest
+          .fn()
+          .mockRejectedValue(new NotFoundError('file not found')),
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})
@@ -472,7 +487,10 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
           .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
         get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
+        getContent: jest
+          .fn()
+          .mockRejectedValue(new NotFoundError('file not found')),
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})
@@ -517,7 +535,10 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
           .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
         get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
+        getContent: jest
+          .fn()
+          .mockRejectedValue(new NotFoundError('file not found'))
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})

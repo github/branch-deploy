@@ -5,6 +5,7 @@ import {timeDiff} from './time-diff'
 
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = 'branch-deploy-lock'
+const GLOBAL_LOCK_BRANCH = `global-${LOCK_BRANCH_SUFFIX}`
 const LOCK_FILE = 'lock.json'
 const LOCK_COMMIT_MSG = 'lock'
 
@@ -15,7 +16,7 @@ const LOCK_COMMIT_MSG = 'lock'
 async function constructBranchName(environment, global) {
   // If the lock is global, return the global lock branch name
   if (global === true) {
-    return `global-${LOCK_BRANCH_SUFFIX}`
+    return GLOBAL_LOCK_BRANCH
   }
 
   // If the lock is not global, return the environment-specific lock branch name
@@ -230,14 +231,14 @@ async function checkLockFile(octokit, context, branchName) {
       ref: branchName
     })
 
-    // Decode the file contents to json
+    // decode the file contents to json
     const lockData = JSON.parse(
       Buffer.from(response.data.content, 'base64').toString()
     )
     
     return lockData
   } catch (error) {
-    // If the lock file doesn't exist, create it
+    // If the lock file doesn't exist, return false
     if (error.status === 404) {
       return false
     }
@@ -365,6 +366,23 @@ export async function lock(
 
   // construct the branch name for the lock
   const branchName = await constructBranchName(environment, global)
+
+  // Before we can process THIS lock request, we must first check for a global lock
+  // If there is a global lock, we must check if the requestor is the owner of the lock
+  // We can only proceed here if there is NO global lock or if the requestor is the owner of the global lock
+  // We can just jump directly to checking the lock file
+  const globalLockData = await checkLockFile(octokit, context, GLOBAL_LOCK_BRANCH)
+  // If the global lock exists, check if the requestor is the owner
+  if (globalLockData) {
+    // Check if the requestor is the owner of the global lock
+    const globalLockOwner = await checkLockOwner(octokit, context, globalLockData, sticky, reactionId)
+    if (globalLockOwner === false) {
+      // If the requestor is not the owner of the global lock, return false
+      return false
+    } else {
+      core.info('requestor is the owner of the global lock - continuing checks')
+    }
+  }
 
   // Check if the lock branch exists
   const branchExists = await checkBranch(octokit, context, branchName)
