@@ -10877,9 +10877,23 @@ async function timeDiff(firstDate, secondDate) {
 
 
 // Constants for the lock file
-const LOCK_BRANCH = 'branch-deploy-lock'
+const LOCK_BRANCH_SUFFIX = 'branch-deploy-lock'
 const LOCK_FILE = 'lock.json'
 const LOCK_COMMIT_MSG = 'lock'
+
+// Helper function to construct the branch name
+// :param environment: The name of the environment
+// :param global: A bool indicating whether the lock is global or not
+// :returns: The branch name (String)
+async function constructBranchName(environment, global) {
+  // If the lock is global, return the global lock branch name
+  if (global === true) {
+    return `global-${LOCK_BRANCH_SUFFIX}`
+  }
+
+  // If the lock is not global, return the environment-specific lock branch name
+  return `${environment}-${LOCK_BRANCH_SUFFIX}`
+}
 
 // Helper function for creating a lock file for branch-deployment locks
 // :param octokit: The octokit client
@@ -10924,7 +10938,7 @@ async function createLock(
     path: LOCK_FILE,
     message: LOCK_COMMIT_MSG,
     content: Buffer.from(JSON.stringify(lockData)).toString('base64'),
-    branch: LOCK_BRANCH
+    branch: await constructBranchName(environment, global)
   })
 
   core.info(`global lock: ${global}`)
@@ -11048,11 +11062,73 @@ async function lock(
   // check to see if this is a global deployment lock
   const global = await isGlobal(context, environment)
 
+  // construct the branch name for the lock
+  const branchName = await constructBranchName(environment, global)
+
+  // Before we do anything, check if a global locks exists and check if the requestor is the owner of the lock
+  try {
+    // Get the lock file
+    const lockFile = await octokit.rest.repos.getContent({
+      ...context.repo,
+      path: LOCK_FILE,
+      ref: `global-${LOCK_BRANCH_SUFFIX}`
+    })
+
+    // Parse the lock file
+    const lockData = JSON.parse(
+      Buffer.from(lockFile.data.content, 'base64').toString()
+    )
+
+    // Check if the requestor is the owner of the lock
+    if (lockData.created_by === context.actor) {
+      core.info(`${context.actor} is the owner of the global lock`)
+
+      // If this is a .lock (sticky) command, update with actionStatus as we are about to exit
+      if (sticky) {
+        // Find the total time since the lock was created
+        const totalTime = await timeDiff(
+          lockData.created_at,
+          new Date().toISOString()
+        )
+
+        const youOwnItComment = lib_default()(`
+          ### 🔒 Deployment Lock Information
+
+          __${
+            context.actor
+          }__, you are already the owner of the current **global** deployment lock
+
+          The current lock has been active for \`${totalTime}\`
+
+          > If you need to release the lock, please comment \`.unlock ${core.getInput('global_lock_flag')
+            .trim()}\`
+          `)
+
+        await actionStatus(
+          context,
+          octokit,
+          reactionId,
+          youOwnItComment,
+          true,
+          true
+        )
+      }
+
+      // Return 'owner' if the requestor is the owner of the global lock
+      return 'owner'
+    }
+  } catch (error) {
+    if (error.status === 404) {
+      // If the lock file doesn't exist, continue
+      core.debug('no global lock branch found')
+    }
+  }
+
   // Check if the lock branch already exists
   try {
     await octokit.rest.repos.getBranch({
       ...context.repo,
-      branch: LOCK_BRANCH
+      branch: branchName
     })
   } catch (error) {
     // Create the lock branch if it doesn't exist
@@ -11076,11 +11152,11 @@ async function lock(
       // Create the lock branch
       await octokit.rest.git.createRef({
         ...context.repo,
-        ref: `refs/heads/${LOCK_BRANCH}`,
+        ref: `refs/heads/${branchName}`,
         sha: baseBranch.data.commit.sha
       })
 
-      core.info(`Created lock branch: ${LOCK_BRANCH}`)
+      core.info(`Created lock branch: ${branchName}`)
 
       // Create the lock file
       await createLock(
@@ -11103,7 +11179,7 @@ async function lock(
     const response = await octokit.rest.repos.getContent({
       ...context.repo,
       path: LOCK_FILE,
-      ref: LOCK_BRANCH
+      ref: branchName
     })
 
     // Decode the file contents to json
@@ -11134,7 +11210,7 @@ async function lock(
 
           The current lock has been active for \`${totalTime}\`
 
-          > If you need to release the lock, please comment \`.unlock\`
+          > If you need to release the lock, please comment \`.unlock ${lockData.environment}\`
           `)
 
         await actionStatus(
@@ -11181,7 +11257,7 @@ async function lock(
     - __Created By__: \`${lockData.created_by}\`
     - __Sticky__: \`${lockData.sticky}\`
     - __Comment Link__: [click here](${lockData.link})
-    - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
+    - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${LOCK_BRANCH_SUFFIX}/${LOCK_FILE})
 
     The current lock has been active for \`${totalTime}\`
 
@@ -11229,7 +11305,7 @@ async function lock(
 
 
 // Constants for the lock file
-const unlock_LOCK_BRANCH = 'branch-deploy-lock'
+const LOCK_BRANCH = 'branch-deploy-lock'
 
 // Helper function for releasing a deployment lock
 // :param octokit: The octokit client
@@ -11242,7 +11318,7 @@ async function unlock(octokit, context, reactionId, silent = false) {
     // Delete the lock branch
     const result = await octokit.rest.git.deleteRef({
       ...context.repo,
-      ref: `heads/${unlock_LOCK_BRANCH}`
+      ref: `heads/${LOCK_BRANCH}`
     })
 
     // If the lock was successfully released, return true
@@ -11269,7 +11345,7 @@ async function unlock(octokit, context, reactionId, silent = false) {
       return true
     } else {
       // If the lock was not successfully released, return false and log the HTTP code
-      const comment = `failed to delete lock branch: ${unlock_LOCK_BRANCH} - HTTP: ${result.status}`
+      const comment = `failed to delete lock branch: ${LOCK_BRANCH} - HTTP: ${result.status}`
       core.info(comment)
 
       // If silent, exit here
