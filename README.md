@@ -257,6 +257,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | unlock_trigger | no | .unlock | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: ".unlock" |
 | help_trigger | no | .help | The string to look for in comments as an IssueOps help trigger. Example: ".help" |
 | lock_info_alias | no | .wcid | An alias or shortcut to get details about the current lock (if it exists) Example: ".info" - Hubbers will find the ".wcid" default helpful ("where can I deploy") |
+| global_lock_flag | no | --global | The flag to pass into the lock command to lock all environments. Example: "--global" |
 | environment | no | production | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
 | environment_targets | no | production,development,staging | Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging` |
 | production_environment | no | production | The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name. |

@@ -53,6 +53,10 @@ inputs:
     description: 'An alias or shortcut to get details about the current lock (if it exists) Example: ".info"'
     required: false
     default: ".wcid"
+  global_lock_flag:
+    description: 'The flag to pass into the lock command to lock all environments. Example: "--global"'
+    required: false
+    default: "--global"
   stable_branch:
     description: 'The name of a stable branch to deploy to (rollbacks). Example: "main"'
     required: false
