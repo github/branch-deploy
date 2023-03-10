@@ -8,6 +8,7 @@ const LOCK_BRANCH_SUFFIX = 'branch-deploy-lock'
 const GLOBAL_LOCK_BRANCH = `global-${LOCK_BRANCH_SUFFIX}`
 const LOCK_FILE = 'lock.json'
 const LOCK_COMMIT_MSG = 'lock'
+const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d']
 
 // Helper function to construct the branch name
 // :param environment: The name of the environment
@@ -57,6 +58,7 @@ async function createLock(
     sticky: sticky,
     environment: environment,
     global: global,
+    unlock_command: await constructUnlockCommand(environment, global),
     link: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
   }
 
@@ -78,9 +80,9 @@ async function createLock(
     core.info('deployment lock is sticky')
 
     // create a special comment section for global locks
-    let globalComment = ''
+    let globalMsg = ''
     if (global === true) {
-      globalComment = dedent(
+      globalMsg = dedent(
         `This is a **global** deploy lock - All environments are locked
 
       `
@@ -90,7 +92,7 @@ async function createLock(
     const comment = dedent(`
     ### 🔒 Deployment Lock Claimed
 
-    ${globalComment}You are now the only user that can trigger deployments until the deployment lock is removed
+    ${globalMsg}You are now the only user that can trigger deployments until the deployment lock is removed
 
     > This lock is _sticky_ and will persist until someone runs \`.unlock\`
     `)
@@ -102,6 +104,74 @@ async function createLock(
 
   // Return the result of the lock file creation
   return result
+}
+
+// Helper function to construct the unlock command
+// :param environment: The name of the environment
+// :param global: A bool indicating whether the lock is global or not
+// :returns: The unlock command (String)
+async function constructUnlockCommand(environment, global) {
+  // fetch the unlock trigger
+  const unlockTrigger = core.getInput('unlock_trigger').trim()
+  // fetch the global lock flag
+  const globalFlag = core.getInput('global_lock_flag').trim()
+
+  // If the lock is global, return the global lock branch name
+  if (global === true) {
+    return `${unlockTrigger} ${globalFlag}`
+  }
+
+  // If the lock is not global, return the environment-specific lock branch name
+  return `${unlockTrigger} ${environment}`
+}
+
+// Helper function to find the environment to be locked (if any - otherwise, the default)
+// This function will also check if the global lock flag was provided
+// If the global lock flag was provided, the environment will be set to null
+// :param context: The GitHub Actions event context
+// :returns: An object - EX: {environment: 'staging', global: false}
+async function findEnvironment(context) {
+  // Get the body of the comment
+  var body = context.payload.comment.body.trim()
+
+  // Get the global lock flag from the Action input
+  const globalFlag = core.getInput('global_lock_flag').trim()
+
+  // Check if the global lock flag was provided
+  if (body.includes(globalFlag) === true) {
+    return {
+      environment: null,
+      global: true
+    }
+  }
+
+  // also remove any lock flags from the body
+  LOCK_INFO_FLAGS.forEach(flag => {
+    body = body.replace(flag, '').trim()
+  })
+
+  // remove everything from the body after --reason
+  if (body.includes('--reason')) {
+    body = body.split('--reason')[0].trim()
+  }
+
+  // remove the lock command from the body
+  const lockTrigger = core.getInput('lock_trigger').trim()
+  body = body.replace(lockTrigger, '').trim()
+
+  // If the body is empty, return the default environment
+  if (body === '') {
+    return {
+      environment: core.getInput('environment').trim(),
+      global: false
+    }
+  } else {
+    // If there is anything left in the body, return that as the environment
+    return {
+      environment: body,
+      global: false
+    }
+  }
 }
 
 // Helper function to find a --reason flag in the comment body for a lock request
@@ -143,27 +213,6 @@ async function findReason(context, sticky) {
   // Return the reason for the lock request
   core.debug(`reason: ${reason}`)
   return reason
-}
-
-// Helper function to check if the lock is global
-// This function always checks the entire body of every comment for the global lock flag (usually just --global)
-// If the flag is found, the lock is global (meaning all environments get locked)
-// :param context: The GitHub Actions event context
-// :returns: true if the lock is global, false if not
-async function isGlobal(context) {
-  // Get the global lock flag from the Action input
-  const globalFlag = core.getInput('global_lock_flag').trim()
-
-  // Get the body of the comment
-  const body = context.payload.comment.body.trim()
-
-  // Check if the global lock flag was provided
-  if (body.includes(globalFlag) === true) {
-    return true
-  }
-
-  // Return false if the global flag was not provided
-  return false
 }
 
 // Helper function to check if a given branch exists
@@ -346,7 +395,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
 // :param ref: The branch which requested the lock / deployment
 // :param reactionId: The ID of the reaction to add to the issue comment (use if the lock is already claimed or if we claimed it with 'sticky')
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
-// :param environment: The environment to lock
+// :param environment: The environment to lock (can be passed in if already known - otherwise we try and find it)
 // :param detailsOnly: A bool indicating whether to only return the details of the lock and not alter its state
 // :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock, or null if this is a detailsOnly request and the lock was not found
 export async function lock(
@@ -355,14 +404,23 @@ export async function lock(
   ref,
   reactionId,
   sticky,
-  environment,
+  environment = null,
   detailsOnly = false
 ) {
+  var global
+
   // Attempt to obtain a reason from the context for the lock - either a string or null
   const reason = await findReason(context, sticky)
 
-  // check to see if this is a global deployment lock
-  const global = await isGlobal(context, environment)
+  // Find the environment from the context if it was not passed in
+  if (environment === null) {
+    const envObject = await findEnvironment(context)
+    environment = envObject.environment
+    global = envObject.global
+  } else {
+    // if the environment was passed in, we can assume it is not a global lock
+    global = false
+  }
 
   // construct the branch name for the lock
   const branchName = await constructBranchName(environment, global)

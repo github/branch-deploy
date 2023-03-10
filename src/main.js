@@ -218,9 +218,10 @@ export async function run() {
           const lockData = await lock(
             octokit,
             context,
-            null,
+            null, // ref
             reactRes.data.id,
-            null,
+            null, // sticky
+            null, // environment (we will find this in the lock function)
             true // details only flag
           )
 
@@ -232,23 +233,40 @@ export async function run() {
               new Date().toISOString()
             )
 
+            // special comment for global deploy locks
+            let globalMsg = ''
+            let environmentMsg = `- __Environment__: \`${lockData.environment}\``
+            if (lockData.global === true) {
+              globalMsg = dedent(`
+
+              This is a **global** deploy lock - All environments are locked
+
+              `)
+              environmentMsg = dedent(`
+              - __Environments__: \`all\`
+              - __Global__: \`true\`
+              `)
+              core.info('there is a global deployment lock on this repository')
+            }
+
             // Format the lock details message
             const lockMessage = dedent(`
             ### Lock Details 🔒
 
-            The deployment lock is currently claimed by __${lockData.created_by}__
-        
+            The deployment lock is currently claimed by __${lockData.created_by}__${globalMsg}
+
             - __Reason__: \`${lockData.reason}\`
             - __Branch__: \`${lockData.branch}\`
             - __Created At__: \`${lockData.created_at}\`
             - __Created By__: \`${lockData.created_by}\`
             - __Sticky__: \`${lockData.sticky}\`
+            ${environmentMsg}
             - __Comment Link__: [click here](${lockData.link})
             - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
-        
+
             The current lock has been active for \`${totalTime}\`
-        
-            > If you need to release the lock, please comment \`${unlock_trigger}\`
+
+            > If you need to release the lock, please comment \`${lockData.unlock_command}\`
             `)
 
             // Update the issue comment with the lock details
@@ -257,7 +275,7 @@ export async function run() {
               octokit,
               reactRes.data.id,
               // eslint-disable-next-line no-regex-spaces
-              lockMessage.replace(new RegExp('    ', 'g'), ''),
+              lockMessage,
               true,
               true
             )
@@ -300,7 +318,15 @@ export async function run() {
 
         // Send the lock request
         const sticky = true
-        await lock(octokit, context, pr.data.head.ref, reactRes.data.id, sticky)
+        await lock(
+          octokit,
+          context,
+          pr.data.head.ref,
+          reactRes.data.id,
+          sticky,
+          null, // environment (we will find this in the lock function)
+          false // details only flag
+        )
         core.saveState('bypass', 'true')
         return 'safe-exit'
       }
@@ -377,7 +403,8 @@ export async function run() {
         context,
         precheckResults.ref,
         reactRes.data.id,
-        sticky
+        sticky,
+        environment
       ))
     ) {
       return 'safe-exit'
