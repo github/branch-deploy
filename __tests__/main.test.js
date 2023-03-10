@@ -358,7 +358,10 @@ test('successfully runs the action in lock mode - details only - for the develop
     }
   }
   expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock development --details')
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    '.lock development --details'
+  )
   expect(infoSpy).toHaveBeenCalledWith(
     'the deployment lock is currently claimed by __octocat__'
   )
@@ -493,7 +496,9 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
   }
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.wcid production')
-  expect(infoSpy).toHaveBeenCalledWith('there is a global deployment lock on this repository')
+  expect(infoSpy).toHaveBeenCalledWith(
+    'there is a global deployment lock on this repository'
+  )
   expect(infoSpy).toHaveBeenCalledWith(
     'the deployment lock is currently claimed by __octocat__'
   )

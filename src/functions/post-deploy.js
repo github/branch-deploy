@@ -125,7 +125,13 @@ export async function postDeploy(
       core.info('sticky lock detected, will not remove lock')
     } else if (lockData.sticky === false) {
       // Remove the lock - use silent mode
-      await unlock(octokit, context, null, true)
+      await unlock(
+        octokit,
+        context,
+        null, // reaction_id
+        environment, // environment
+        true // silent
+      )
     }
 
     return 'success - noop'
@@ -148,7 +154,13 @@ export async function postDeploy(
     core.info('sticky lock detected, will not remove lock')
   } else if (lockData.sticky === false) {
     // Remove the lock - use silent mode
-    await unlock(octokit, context, null, true)
+    await unlock(
+      octokit,
+      context,
+      null, // reaction_id
+      environment, // environment
+      true // silent
+    )
   }
 
   // If the post deploy comment logic completes successfully, return

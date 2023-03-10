@@ -11404,20 +11404,87 @@ async function lock(
 
 
 // Constants for the lock file
-const LOCK_BRANCH = 'branch-deploy-lock'
+const unlock_LOCK_BRANCH_SUFFIX = 'branch-deploy-lock'
+const unlock_GLOBAL_LOCK_BRANCH = `global-${unlock_LOCK_BRANCH_SUFFIX}`
+
+// Helper function to find the environment to be unlocked (if any - otherwise, the default)
+// This function will also check if the global lock flag was provided
+// If the global lock flag was provided, the environment will be set to null
+// :param context: The GitHub Actions event context
+// :returns: An object - EX: {environment: 'staging', global: false}
+async function unlock_findEnvironment(context) {
+  // Get the body of the comment
+  var body = context.payload.comment.body.trim()
+
+  // Get the global lock flag from the Action input
+  const globalFlag = core.getInput('global_lock_flag').trim()
+
+  // Check if the global lock flag was provided
+  if (body.includes(globalFlag) === true) {
+    return {
+      environment: null,
+      global: true
+    }
+  }
+
+  // remove the unlock command from the body
+  const unlockTrigger = core.getInput('unlock_trigger').trim()
+  body = body.replace(unlockTrigger, '').trim()
+
+  // If the body is empty, return the default environment
+  if (body === '') {
+    return {
+      environment: core.getInput('environment').trim(),
+      global: false
+    }
+  } else {
+    // If there is anything left in the body, return that as the environment
+    return {
+      environment: body,
+      global: false
+    }
+  }
+}
 
 // Helper function for releasing a deployment lock
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is successfully released) (Integer)
+// :param environment: The environment to remove the lock from (String) - can be null and if so, the environment will be determined from the context
 // :param silent: A bool indicating whether to add a comment to the issue or not (Boolean)
 // :returns: true if the lock was successfully released, a string with some details if silent was used, false otherwise
-async function unlock(octokit, context, reactionId, silent = false) {
+async function unlock(
+  octokit,
+  context,
+  reactionId,
+  environment = null,
+  silent = false
+) {
   try {
+    let branchName
+    let global
+    // Find the environment from the context if it was not passed in
+    // If the environment is not being passed in, we can safely assuming that this function is not being called from a post-deploy Action and instead, it is being directly called from an IssueOps command
+    if (environment === null) {
+      const envObject = await unlock_findEnvironment(context)
+      environment = envObject.environment
+      global = envObject.global
+    } else {
+      // if the environment was passed in, we can assume it is not a global lock
+      global = false
+    }
+
+    // construct the branch name
+    if (global) {
+      branchName = unlock_GLOBAL_LOCK_BRANCH
+    } else {
+      branchName = `${environment}-${unlock_LOCK_BRANCH_SUFFIX}`
+    }
+
     // Delete the lock branch
     const result = await octokit.rest.git.deleteRef({
       ...context.repo,
-      ref: `heads/${LOCK_BRANCH}`
+      ref: `heads/${branchName}`
     })
 
     // If the lock was successfully released, return true
@@ -11444,7 +11511,7 @@ async function unlock(octokit, context, reactionId, silent = false) {
       return true
     } else {
       // If the lock was not successfully released, return false and log the HTTP code
-      const comment = `failed to delete lock branch: ${LOCK_BRANCH} - HTTP: ${result.status}`
+      const comment = `failed to delete lock branch: ${branchName} - HTTP: ${result.status}`
       core.info(comment)
 
       // If silent, exit here
@@ -11619,7 +11686,13 @@ async function postDeploy(
       core.info('sticky lock detected, will not remove lock')
     } else if (lockData.sticky === false) {
       // Remove the lock - use silent mode
-      await unlock(octokit, context, null, true)
+      await unlock(
+        octokit,
+        context,
+        null, // reaction_id
+        environment, // environment
+        true // silent
+      )
     }
 
     return 'success - noop'
@@ -11642,7 +11715,13 @@ async function postDeploy(
     core.info('sticky lock detected, will not remove lock')
   } else if (lockData.sticky === false) {
     // Remove the lock - use silent mode
-    await unlock(octokit, context, null, true)
+    await unlock(
+      octokit,
+      context,
+      null, // reaction_id
+      environment, // environment
+      true // silent
+    )
   }
 
   // If the post deploy comment logic completes successfully, return
@@ -11998,7 +12077,7 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 // Lock constants
-const main_LOCK_BRANCH = 'branch-deploy-lock'
+const LOCK_BRANCH = 'branch-deploy-lock'
 const main_LOCK_FILE = 'lock.json'
 
 // Lock info flags
@@ -12242,7 +12321,7 @@ async function run() {
             - __Sticky__: \`${lockData.sticky}\`
             ${environmentMsg}
             - __Comment Link__: [click here](${lockData.link})
-            - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${main_LOCK_BRANCH}/${main_LOCK_FILE})
+            - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${main_LOCK_FILE})
 
             The current lock has been active for \`${totalTime}\`
 
