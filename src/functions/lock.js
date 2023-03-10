@@ -184,7 +184,7 @@ async function checkBranch(octokit, context, branchName) {
     if (error.status === 404) {
       return false
     } else {
-      throw error
+      throw new Error(error)
     }
     }
 }

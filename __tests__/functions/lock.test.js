@@ -69,9 +69,9 @@ test('successfully obtains a deployment lock (non-sticky) by creating the branch
       }
     }
   }
-  expect(await lock(octokit, context, ref, 123, false)).toBe(true)
+  expect(await lock(octokit, context, ref, 123, false, environment)).toBe(true)
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: branch-deploy-lock'
+    'Created lock branch: production-branch-deploy-lock'
   )
 })
 
@@ -274,6 +274,27 @@ test('Determines that the lock request is coming from current owner of the lock 
   expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
 })
 
+test('fails to decode the lock file contents', async () => {
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockReturnValue({data: {content: null}})
+      }
+    }
+  }
+  try {
+    await lock(octokit, context, ref, 123, true, environment)
+  } catch (error) {
+    expect(error.message).toBe('TypeError [ERR_INVALID_ARG_TYPE]: The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received null')
+  }
+})
+
 test('Creates a lock when the lock branch exists but no lock file exists', async () => {
   const octokit = {
     rest: {
@@ -335,7 +356,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: branch-deploy-lock'
+    'Created lock branch: production-branch-deploy-lock'
   )
 })
 
@@ -378,7 +399,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: branch-deploy-lock'
+    'Created lock branch: production-branch-deploy-lock'
   )
 })
 
@@ -422,7 +443,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: branch-deploy-lock'
+    'Created lock branch: global-branch-deploy-lock'
   )
 })
 
@@ -467,7 +488,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: branch-deploy-lock'
+    'Created lock branch: global-branch-deploy-lock'
   )
 })
 
@@ -514,7 +535,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: branch-deploy-lock'
+    'Created lock branch: global-branch-deploy-lock'
   )
 })
 
