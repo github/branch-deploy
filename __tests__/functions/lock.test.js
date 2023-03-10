@@ -69,7 +69,7 @@ test('successfully obtains a deployment lock (non-sticky) by creating the branch
         createOrUpdateFileContents: jest.fn().mockReturnValue({}),
         getContent: jest
           .fn()
-          .mockRejectedValue(new NotFoundError('file not found')),
+          .mockRejectedValue(new NotFoundError('file not found'))
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})
@@ -271,7 +271,7 @@ test('Request detailsOnly on the lock file when no branch exists', async () => {
         createOrUpdateFileContents: jest.fn().mockReturnValue({}),
         getContent: jest
           .fn()
-          .mockRejectedValue(new NotFoundError('file not found')),
+          .mockRejectedValue(new NotFoundError('file not found'))
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})
@@ -313,7 +313,7 @@ test('Request detailsOnly on the lock file when no branch exists and hits an err
         createOrUpdateFileContents: jest.fn().mockReturnValue({}),
         getContent: jest
           .fn()
-          .mockRejectedValue(new NotFoundError('file not found')),
+          .mockRejectedValue(new NotFoundError('file not found'))
       }
     }
   }
@@ -372,16 +372,16 @@ test('fails to decode the lock file contents', async () => {
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
         get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
-          .fn()
-          .mockReturnValue({data: {content: null}})
+        getContent: jest.fn().mockReturnValue({data: {content: null}})
       }
     }
   }
   try {
     await lock(octokit, context, ref, 123, true, environment)
   } catch (error) {
-    expect(error.message).toBe('TypeError [ERR_INVALID_ARG_TYPE]: The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received null')
+    expect(error.message).toBe(
+      'TypeError [ERR_INVALID_ARG_TYPE]: The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received null'
+    )
   }
 })
 
@@ -481,7 +481,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
         createOrUpdateFileContents: jest.fn().mockReturnValue({}),
         getContent: jest
           .fn()
-          .mockRejectedValue(new NotFoundError('file not found')),
+          .mockRejectedValue(new NotFoundError('file not found'))
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})
@@ -527,7 +527,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
         createOrUpdateFileContents: jest.fn().mockReturnValue({}),
         getContent: jest
           .fn()
-          .mockRejectedValue(new NotFoundError('file not found')),
+          .mockRejectedValue(new NotFoundError('file not found'))
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})
@@ -574,7 +574,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
         createOrUpdateFileContents: jest.fn().mockReturnValue({}),
         getContent: jest
           .fn()
-          .mockRejectedValue(new NotFoundError('file not found')),
+          .mockRejectedValue(new NotFoundError('file not found'))
       },
       git: {
         createRef: jest.fn().mockReturnValue({status: 201})

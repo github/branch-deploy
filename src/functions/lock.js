@@ -187,7 +187,7 @@ async function checkBranch(octokit, context, branchName) {
     } else {
       throw new Error(error)
     }
-    }
+  }
 }
 
 // Helper function to create a lock branch
@@ -235,7 +235,7 @@ async function checkLockFile(octokit, context, branchName) {
     const lockData = JSON.parse(
       Buffer.from(response.data.content, 'base64').toString()
     )
-    
+
     return lockData
   } catch (error) {
     // If the lock file doesn't exist, return false
@@ -371,11 +371,21 @@ export async function lock(
   // If there is a global lock, we must check if the requestor is the owner of the lock
   // We can only proceed here if there is NO global lock or if the requestor is the owner of the global lock
   // We can just jump directly to checking the lock file
-  const globalLockData = await checkLockFile(octokit, context, GLOBAL_LOCK_BRANCH)
+  const globalLockData = await checkLockFile(
+    octokit,
+    context,
+    GLOBAL_LOCK_BRANCH
+  )
   // If the global lock exists, check if the requestor is the owner
   if (globalLockData) {
     // Check if the requestor is the owner of the global lock
-    const globalLockOwner = await checkLockOwner(octokit, context, globalLockData, sticky, reactionId)
+    const globalLockOwner = await checkLockOwner(
+      octokit,
+      context,
+      globalLockData,
+      sticky,
+      reactionId
+    )
     if (globalLockOwner === false) {
       // If the requestor is not the owner of the global lock, return false
       return false
@@ -420,7 +430,13 @@ export async function lock(
       return true
     } else {
       // If the lock file exists, check if the requestor is the one who owns the lock
-      const lockOwner = await checkLockOwner(octokit, context, lockData, sticky, reactionId)
+      const lockOwner = await checkLockOwner(
+        octokit,
+        context,
+        lockData,
+        sticky,
+        reactionId
+      )
       if (lockOwner === true) {
         // If the requestor is the one who owns the lock, return 'owner'
         return 'owner'
