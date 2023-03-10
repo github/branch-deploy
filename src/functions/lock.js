@@ -165,6 +165,180 @@ async function isGlobal(context) {
   return false
 }
 
+// Helper function to check if a given branch exists
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param branchName: The name of the branch to check
+// :return: true if the branch exists, false if not
+async function checkBranch(octokit, context, branchName) {
+  // Check if the lock branch already exists
+  try {
+    await octokit.rest.repos.getBranch({
+      ...context.repo,
+      branch: branchName
+    })
+
+    return true
+  } catch (error) {
+    // Create the lock branch if it doesn't exist
+    if (error.status === 404) {
+      return false
+    } else {
+      throw error
+    }
+    }
+}
+
+// Helper function to create a lock branch
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param branchName: The name of the branch to create
+async function createBranch(octokit, context, branchName) {
+  // Determine the default branch for the repo
+  const repoData = await octokit.rest.repos.get({
+    ...context.repo
+  })
+
+  // Fetch the base branch's to use its SHA as the parent
+  const baseBranch = await octokit.rest.repos.getBranch({
+    ...context.repo,
+    branch: repoData.data.default_branch
+  })
+
+  // Create the lock branch
+  await octokit.rest.git.createRef({
+    ...context.repo,
+    ref: `refs/heads/${branchName}`,
+    sha: baseBranch.data.commit.sha
+  })
+
+  core.info(`Created lock branch: ${branchName}`)
+}
+
+// Helper function to check if a lock file exists and decodes it if it does
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param branchName: The name of the branch to check
+// :return: The lock file contents if it exists, false if not
+async function checkLockFile(octokit, context, branchName) {
+  // If the lock branch exists, check if a lock file exists
+  try {
+    // Get the lock file contents
+    const response = await octokit.rest.repos.getContent({
+      ...context.repo,
+      path: LOCK_FILE,
+      ref: branchName
+    })
+
+    // Decode the file contents to json
+    const lockData = JSON.parse(
+      Buffer.from(response.data.content, 'base64').toString()
+    )
+    
+    return lockData
+  } catch (error) {
+    // If the lock file doesn't exist, create it
+    if (error.status === 404) {
+      return false
+    }
+
+    // If some other error occurred, throw it
+    throw new Error(error)
+  }
+}
+
+// Helper function to check the lock owner
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param lockData: The lock file contents
+// :param sticky: A bool indicating whether the lock is sticky or not (should persist forever) - non-sticky locks are inherent from deployments
+// :param reactionId: The ID of the reaction that triggered the lock request
+// :return: true if the lock owner is the requestor, false if not
+async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
+  // If the requestor is the one who owns the lock, return 'owner'
+  if (lockData.created_by === context.actor) {
+    core.info(`${context.actor} is the owner of the lock`)
+
+    // If this is a .lock (sticky) command, update with actionStatus as we are about to exit
+    if (sticky) {
+      // Find the total time since the lock was created
+      const totalTime = await timeDiff(
+        lockData.created_at,
+        new Date().toISOString()
+      )
+
+      const youOwnItComment = dedent(`
+        ### 🔒 Deployment Lock Information
+
+        __${context.actor}__, you are already the owner of the current deployment lock
+
+        The current lock has been active for \`${totalTime}\`
+
+        > If you need to release the lock, please comment \`.unlock\`
+        `)
+
+      await actionStatus(
+        context,
+        octokit,
+        reactionId,
+        youOwnItComment,
+        true,
+        true
+      )
+    }
+
+    return true
+  }
+
+  // Deconstruct the context to obtain the owner and repo
+  const {owner, repo} = context.repo
+
+  // Find the total time since the lock was created
+  const totalTime = await timeDiff(
+    lockData.created_at,
+    new Date().toISOString()
+  )
+
+  // Set the header if it is sticky or not (aka a deployment or a direct invoke of .lock)
+  var header = ''
+  if (sticky === true) {
+    header = 'claim deployment lock'
+  } else if (sticky === false) {
+    header = 'proceed with deployment'
+  }
+
+  // Construct the comment to add to the issue, alerting that the lock is already claimed
+  const comment = dedent(`
+  ### ⚠️ Cannot ${header}
+
+  Sorry __${context.actor}__, the deployment lock is currently claimed by __${lockData.created_by}__
+
+  #### Lock Details 🔒
+
+  - __Reason__: \`${lockData.reason}\`
+  - __Branch__: \`${lockData.branch}\`
+  - __Created At__: \`${lockData.created_at}\`
+  - __Created By__: \`${lockData.created_by}\`
+  - __Sticky__: \`${lockData.sticky}\`
+  - __Comment Link__: [click here](${lockData.link})
+  - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${LOCK_BRANCH_SUFFIX}/${LOCK_FILE})
+
+  The current lock has been active for \`${totalTime}\`
+
+  > If you need to release the lock, please comment \`.unlock\`
+  `)
+
+  // Set the action status with the comment
+  await actionStatus(context, octokit, reactionId, comment)
+
+  // Set the bypass state to true so that the post run logic will not run
+  core.saveState('bypass', 'true')
+  core.setFailed(comment)
+
+  // Return false to indicate that the lock was not claimed
+  return false
+}
+
 // Helper function for claiming a deployment lock
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
@@ -192,100 +366,28 @@ export async function lock(
   // construct the branch name for the lock
   const branchName = await constructBranchName(environment, global)
 
-  // Before we do anything, check if a global locks exists and check if the requestor is the owner of the lock
-  try {
-    // Get the lock file
-    const lockFile = await octokit.rest.repos.getContent({
-      ...context.repo,
-      path: LOCK_FILE,
-      ref: `global-${LOCK_BRANCH_SUFFIX}`
-    })
+  // Check if the lock branch exists
+  const branchExists = await checkBranch(octokit, context, branchName)
 
-    // Parse the lock file
-    const lockData = JSON.parse(
-      Buffer.from(lockFile.data.content, 'base64').toString()
-    )
-
-    // Check if the requestor is the owner of the lock
-    if (lockData.created_by === context.actor) {
-      core.info(`${context.actor} is the owner of the global lock`)
-
-      // If this is a .lock (sticky) command, update with actionStatus as we are about to exit
-      if (sticky) {
-        // Find the total time since the lock was created
-        const totalTime = await timeDiff(
-          lockData.created_at,
-          new Date().toISOString()
-        )
-
-        const youOwnItComment = dedent(`
-          ### 🔒 Deployment Lock Information
-
-          __${
-            context.actor
-          }__, you are already the owner of the current **global** deployment lock
-
-          The current lock has been active for \`${totalTime}\`
-
-          > If you need to release the lock, please comment \`.unlock ${core
-            .getInput('global_lock_flag')
-            .trim()}\`
-          `)
-
-        await actionStatus(
-          context,
-          octokit,
-          reactionId,
-          youOwnItComment,
-          true,
-          true
-        )
-      }
-
-      // Return 'owner' if the requestor is the owner of the global lock
-      return 'owner'
-    }
-  } catch (error) {
-    if (error.status === 404) {
-      // If the lock file doesn't exist, continue
-      core.debug('no global lock branch found')
-    }
+  if (branchExists === false && detailsOnly === true) {
+    // If the lock branch doesn't exist and this is a detailsOnly request, return null
+    return null
   }
 
-  // Check if the lock branch already exists
-  try {
-    await octokit.rest.repos.getBranch({
-      ...context.repo,
-      branch: branchName
-    })
-  } catch (error) {
-    // Create the lock branch if it doesn't exist
-    if (error.status === 404) {
-      // Exit if this is a detailsOnly request
-      if (detailsOnly) {
-        return null
-      }
+  if (branchExists) {
+    // Check if the lock file exists
+    const lockData = await checkLockFile(octokit, context, branchName)
 
-      // Determine the default branch for the repo
-      const repoData = await octokit.rest.repos.get({
-        ...context.repo
-      })
+    if (lockData === false && detailsOnly === true) {
+      // If the lock file doesn't exist and this is a detailsOnly request, return null
+      return null
+    } else if (lockData && detailsOnly) {
+      // If the lock file exists and this is a detailsOnly request, return the lock data
+      return lockData
+    }
 
-      // Fetch the base branch's to use its SHA as the parent
-      const baseBranch = await octokit.rest.repos.getBranch({
-        ...context.repo,
-        branch: repoData.data.default_branch
-      })
-
-      // Create the lock branch
-      await octokit.rest.git.createRef({
-        ...context.repo,
-        ref: `refs/heads/${branchName}`,
-        sha: baseBranch.data.commit.sha
-      })
-
-      core.info(`Created lock branch: ${branchName}`)
-
+    if (lockData === false) {
+      // If the lock files doesn't exist, we can create it here
       // Create the lock file
       await createLock(
         octokit,
@@ -298,131 +400,35 @@ export async function lock(
         reactionId
       )
       return true
+    } else {
+      // If the lock file exists, check if the requestor is the one who owns the lock
+      const lockOwner = await checkLockOwner(octokit, context, lockData, sticky, reactionId)
+      if (lockOwner === true) {
+        // If the requestor is the one who owns the lock, return 'owner'
+        return 'owner'
+      } else {
+        // If the requestor is not the one who owns the lock, return false
+        return false
+      }
     }
   }
 
-  // If the lock branch exists, check if a lock file exists
-  try {
-    // Get the lock file contents
-    const response = await octokit.rest.repos.getContent({
-      ...context.repo,
-      path: LOCK_FILE,
-      ref: branchName
-    })
+  // If we get here, the lock branch does not exist and the detailsOnly flag is not set
+  // We can now safely create the lock branch and the lock file
 
-    // Decode the file contents to json
-    const lockData = JSON.parse(
-      Buffer.from(response.data.content, 'base64').toString()
-    )
+  // Create the lock branch if it doesn't exist
+  await createBranch(octokit, context, branchName)
 
-    if (detailsOnly) {
-      return lockData
-    }
-
-    // If the requestor is the one who owns the lock, return 'owner'
-    if (lockData.created_by === context.actor) {
-      core.info(`${context.actor} is the owner of the lock`)
-
-      // If this is a .lock (sticky) command, update with actionStatus as we are about to exit
-      if (sticky) {
-        // Find the total time since the lock was created
-        const totalTime = await timeDiff(
-          lockData.created_at,
-          new Date().toISOString()
-        )
-
-        const youOwnItComment = dedent(`
-          ### 🔒 Deployment Lock Information
-
-          __${context.actor}__, you are already the owner of the current deployment lock
-
-          The current lock has been active for \`${totalTime}\`
-
-          > If you need to release the lock, please comment \`.unlock ${lockData.environment}\`
-          `)
-
-        await actionStatus(
-          context,
-          octokit,
-          reactionId,
-          youOwnItComment,
-          true,
-          true
-        )
-      }
-
-      return 'owner'
-    }
-
-    // Deconstruct the context to obtain the owner and repo
-    const {owner, repo} = context.repo
-
-    // Find the total time since the lock was created
-    const totalTime = await timeDiff(
-      lockData.created_at,
-      new Date().toISOString()
-    )
-
-    // Set the header if it is sticky or not (aka a deployment or a direct invoke of .lock)
-    var header = ''
-    if (sticky === true) {
-      header = 'claim deployment lock'
-    } else if (sticky === false) {
-      header = 'proceed with deployment'
-    }
-
-    // Construct the comment to add to the issue, alerting that the lock is already claimed
-    const comment = dedent(`
-    ### ⚠️ Cannot ${header}
-
-    Sorry __${context.actor}__, the deployment lock is currently claimed by __${lockData.created_by}__
-
-    #### Lock Details 🔒
-
-    - __Reason__: \`${lockData.reason}\`
-    - __Branch__: \`${lockData.branch}\`
-    - __Created At__: \`${lockData.created_at}\`
-    - __Created By__: \`${lockData.created_by}\`
-    - __Sticky__: \`${lockData.sticky}\`
-    - __Comment Link__: [click here](${lockData.link})
-    - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${LOCK_BRANCH_SUFFIX}/${LOCK_FILE})
-
-    The current lock has been active for \`${totalTime}\`
-
-    > If you need to release the lock, please comment \`.unlock\`
-    `)
-
-    // Set the action status with the comment
-    await actionStatus(context, octokit, reactionId, comment)
-
-    // Set the bypass state to true so that the post run logic will not run
-    core.saveState('bypass', 'true')
-    core.setFailed(comment)
-
-    // Return false to indicate that the lock was not claimed
-    return false
-  } catch (error) {
-    // If the lock file doesn't exist, create it
-    if (error.status === 404) {
-      // Exit if this is a detailsOnly request
-      if (detailsOnly) {
-        return null
-      }
-
-      await createLock(
-        octokit,
-        context,
-        ref,
-        reason,
-        sticky,
-        environment,
-        global,
-        reactionId
-      )
-      return true
-    }
-
-    // If some other error occurred, throw it
-    throw new Error(error)
-  }
+  // Create the lock file
+  await createLock(
+    octokit,
+    context,
+    ref,
+    reason,
+    sticky,
+    environment,
+    global,
+    reactionId
+  )
+  return true
 }
