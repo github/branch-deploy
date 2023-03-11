@@ -659,6 +659,51 @@ test('Determines that the lock request is coming from current owner of the lock 
   expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
 })
 
+test('Determines that the lock request is coming from current owner of the lock (GLOBAL lock) and exits - sticky', async () => {
+  context.actor = 'octocat'
+  context.payload.comment.body = '.lock --global'
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockReturnValue({data: {content: lockBase64OctocatGlobal}})
+      }
+    }
+  }
+  expect(
+    await lock(octokit, context, ref, 123, true, null)
+  ).toStrictEqual(
+    {
+      lockData: {
+        branch: 'octocats-everywhere',
+        created_at: '2022-06-14T21:12:14.041Z',
+        created_by: 'octocat',
+        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+        reason: 'Testing my new feature with lots of cats',
+        sticky: true,
+        environment: null,
+        global: true,
+        unlock_command: '.unlock --global'
+      },
+      status: 'owner',
+      global: true,
+      globalFlag: '--global',
+      environment: null
+    }
+  )
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: global-branch-deploy-lock`
+  )
+  expect(infoMock).toHaveBeenCalledWith('octocat is the owner of the lock')
+})
+
 test('fails to decode the lock file contents', async () => {
   const octokit = {
     rest: {
