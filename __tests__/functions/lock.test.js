@@ -178,13 +178,13 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a lo
     octokitOtherUserHasLock,
     123,
     expect.stringMatching(
-      /Sorry __monalisa__, the deployment lock is currently claimed by __octocat__/
+      /Sorry __monalisa__, the `production` environment deployment lock is currently claimed by __octocat__/
     )
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
   expect(setFailedMock).toHaveBeenCalledWith(
     expect.stringMatching(
-      /Sorry __monalisa__, the deployment lock is currently claimed by __octocat__/
+      /Sorry __monalisa__, the `production` environment deployment lock is currently claimed by __octocat__/
     )
   )
 })
@@ -209,14 +209,71 @@ test('Determines that another user has the lock (non-global) and exits - during 
     octokitOtherUserHasLock,
     123,
     expect.stringMatching(
-      /Sorry __monalisa__, the deployment lock is currently claimed by __octocat__/
+      /Sorry __monalisa__, the `production` environment deployment lock is currently claimed by __octocat__/
     )
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
   expect(setFailedMock).toHaveBeenCalledWith(
     expect.stringMatching(
-      /Sorry __monalisa__, the deployment lock is currently claimed by __octocat__/
+      /Sorry __monalisa__, the `production` environment deployment lock is currently claimed by __octocat__/
     )
+  )
+})
+
+test('Determines that another user has the lock (GLOBAL) and exits - during a direct lock claim with .lock --global', async () => {
+  context.payload.comment.body = '.lock --global'
+  const actionStatusSpy = jest
+    .spyOn(actionStatus, 'actionStatus')
+    .mockImplementation(() => {
+      return undefined
+    })
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockRejectedValueOnce(new NotFoundError('file not found'))
+          .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}})
+      }
+    }
+  }
+  expect(await lock(octokit, context, ref, 123, true, null)).toStrictEqual({
+    lockData: {
+      branch: 'octocats-everywhere',
+      created_at: '2022-06-14T21:12:14.041Z',
+      created_by: 'octocat',
+      environment: null,
+      global: true,
+      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+      reason: 'Testing my new feature with lots of cats',
+      sticky: true,
+      unlock_command: '.unlock --global'
+    },
+    status: false,
+    globalFlag,
+    environment: null,
+    global: true
+  })
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: global-branch-deploy-lock`
+  )
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    context,
+    octokit,
+    123,
+    expect.stringMatching(
+      /Sorry __monalisa__, the `global` deployment lock is currently claimed by __octocat__/
+    )
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  expect(setFailedMock).toHaveBeenCalledWith(
+    expect.stringMatching(/Cannot claim deployment lock/)
   )
 })
 
@@ -269,7 +326,7 @@ test('Determines that another user has the lock (non-global) and exits - during 
     octokit,
     123,
     expect.stringMatching(
-      /Sorry __monalisa__, the deployment lock is currently claimed by __octocat__/
+      /Sorry __monalisa__, the `production` environment deployment lock is currently claimed by __octocat__/
     )
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')

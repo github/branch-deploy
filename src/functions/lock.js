@@ -371,19 +371,42 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
     header = 'proceed with deployment'
   }
 
+  // dynamic reason text
+  let reasonText = ''
+  if (lockData.reason) {
+    reasonText = `- __Reason__: \`${lockData.reason}\``
+  }
+
+  // dynamic lock text
+  let lockText = ''
+  let environmentText = ''
+  if (lockData.global === true) {
+    lockText = dedent(
+      `the \`global\` deployment lock is currently claimed by __${lockData.created_by}__
+      
+      A \`global\` deployment lock prevents all other users from deploying to any environment except for the owner of the lock
+      `
+    )
+  } else {
+    lockText = `the \`${lockData.environment}\` environment deployment lock is currently claimed by __${lockData.created_by}__`
+    environmentText = `- __Environment__: \`${lockData.environment}\``
+  }
+
   // Construct the comment to add to the issue, alerting that the lock is already claimed
   const comment = dedent(`
   ### ⚠️ Cannot ${header}
 
-  Sorry __${context.actor}__, the deployment lock is currently claimed by __${lockData.created_by}__
+  Sorry __${context.actor}__, ${lockText}
 
   #### Lock Details 🔒
 
-  - __Reason__: \`${lockData.reason}\`
+  ${reasonText}
+  ${environmentText}
   - __Branch__: \`${lockData.branch}\`
   - __Created At__: \`${lockData.created_at}\`
   - __Created By__: \`${lockData.created_by}\`
   - __Sticky__: \`${lockData.sticky}\`
+  - __Global__: \`${lockData.global}\`
   - __Comment Link__: [click here](${lockData.link})
   - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${LOCK_BRANCH_SUFFIX}/${LOCK_FILE})
 
