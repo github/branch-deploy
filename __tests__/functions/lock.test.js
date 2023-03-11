@@ -675,27 +675,23 @@ test('Determines that the lock request is coming from current owner of the lock 
       }
     }
   }
-  expect(
-    await lock(octokit, context, ref, 123, true, null)
-  ).toStrictEqual(
-    {
-      lockData: {
-        branch: 'octocats-everywhere',
-        created_at: '2022-06-14T21:12:14.041Z',
-        created_by: 'octocat',
-        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
-        reason: 'Testing my new feature with lots of cats',
-        sticky: true,
-        environment: null,
-        global: true,
-        unlock_command: '.unlock --global'
-      },
-      status: 'owner',
+  expect(await lock(octokit, context, ref, 123, true, null)).toStrictEqual({
+    lockData: {
+      branch: 'octocats-everywhere',
+      created_at: '2022-06-14T21:12:14.041Z',
+      created_by: 'octocat',
+      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+      reason: 'Testing my new feature with lots of cats',
+      sticky: true,
+      environment: null,
       global: true,
-      globalFlag: '--global',
-      environment: null
-    }
-  )
+      unlock_command: '.unlock --global'
+    },
+    status: 'owner',
+    global: true,
+    globalFlag: '--global',
+    environment: null
+  })
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
   expect(debugMock).toHaveBeenCalledWith(

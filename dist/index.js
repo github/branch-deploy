@@ -11200,10 +11200,17 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
         new Date().toISOString()
       )
 
+      let lockMsg
+      if (lockData.global === true) {
+        lockMsg = 'global'
+      } else {
+        lockMsg = `\`${lockData.environment}\` environment`
+      }
+
       const youOwnItComment = lib_default()(`
         ### 🔒 Deployment Lock Information
 
-        __${context.actor}__, you are already the owner of the current deployment lock
+        __${context.actor}__, you are already the owner of the current ${lockMsg} deployment lock
 
         The current lock has been active for \`${totalTime}\`
 
