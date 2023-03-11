@@ -73,11 +73,14 @@ export async function unlock(
       global = false
     }
 
-    // construct the branch name
+    // construct the branch name and success message text
+    var successText = ''
     if (global === true) {
       branchName = GLOBAL_LOCK_BRANCH
+      successText = '`global`'
     } else {
       branchName = `${environment}-${LOCK_BRANCH_SUFFIX}`
+      successText = `\`${environment}\``
     }
 
     // Delete the lock branch
@@ -100,7 +103,7 @@ export async function unlock(
       const comment = dedent(`
       ### 🔓 Deployment Lock Removed
 
-      The deployment lock has been successfully removed
+      The ${successText} deployment lock has been successfully removed
       `)
 
       // Set the action status with the comment
