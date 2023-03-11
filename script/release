@@ -10,7 +10,7 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 
 latest_tag=$(git describe --tags $(git rev-list --tags --max-count=1))
-echo -e "The latest release tag is:${BLUE}${latest_tag}${OFF}"
+echo -e "The latest release tag is: ${BLUE}${latest_tag}${OFF}"
 read -p 'New Release Tag (vX.X.X format): ' new_tag
 
 tag_regex='^v\d\.\d\.\d$'
