@@ -11345,7 +11345,7 @@ async function lock(
       environment,
       global
     }
-  } else if (globalLockData && detailsOnly && global === true) {
+  } else if (globalLockData && detailsOnly) {
     // If the lock file exists and this is a detailsOnly request for the global lock, return the lock data
     return {
       status: 'details-only',
