@@ -316,13 +316,12 @@ export async function run() {
         })
 
         // Send the lock request
-        const sticky = true
         await lock(
           octokit,
           context,
           pr.data.head.ref,
           reactRes.data.id,
-          sticky,
+          true, // sticky
           null, // environment (we will find this in the lock function)
           false // details only flag
         )
@@ -394,18 +393,17 @@ export async function run() {
     }
 
     // Aquire the branch-deploy lock for non-sticky requests
+    const lockResponse = await lock(
+      octokit,
+      context,
+      precheckResults.ref,
+      reactRes.data.id,
+      false, // sticky
+      environment
+    )
+
     // If the lock request fails, exit the Action
-    const sticky = false
-    if (
-      !(await lock(
-        octokit,
-        context,
-        precheckResults.ref,
-        reactRes.data.id,
-        sticky,
-        environment
-      ))
-    ) {
+    if (lockResponse.status === false) {
       return 'safe-exit'
     }
 

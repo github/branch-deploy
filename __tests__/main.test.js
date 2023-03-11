@@ -584,7 +584,7 @@ test('successfully runs the action in lock mode and finds no lock - details only
 
 test('fails to aquire the lock on a deploy so it exits', async () => {
   jest.spyOn(lock, 'lock').mockImplementation(() => {
-    return false
+    return {status: false}
   })
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
