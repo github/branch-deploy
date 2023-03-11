@@ -249,7 +249,7 @@ test('Request detailsOnly on the lock file and gets lock file data successfully'
 
 test('Request detailsOnly on the lock file and gets lock file data successfully -- .wcid', async () => {
   context.payload.comment.body = '.wcid'
-  
+
   const octokit = {
     rest: {
       repos: {
@@ -474,7 +474,8 @@ test('Creates a lock when the lock branch exists but no lock file exists', async
 })
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file - with a --reason', async () => {
-  context.payload.comment.body = '.lock --reason testing a super cool new feature'
+  context.payload.comment.body =
+    '.lock --reason testing a super cool new feature'
   const octokit = {
     rest: {
       repos: {
@@ -583,7 +584,8 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 })
 
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file with a --reason', async () => {
-  context.payload.comment.body = '.lock --reason because something is broken --global'
+  context.payload.comment.body =
+    '.lock --reason because something is broken --global'
   const octokit = {
     rest: {
       repos: {
@@ -621,7 +623,8 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 })
 
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file with a --reason at the end of the string', async () => {
-  context.payload.comment.body = '.lock --global  --reason because something is broken badly  '
+  context.payload.comment.body =
+    '.lock --global  --reason because something is broken badly  '
   const octokit = {
     rest: {
       repos: {
@@ -661,7 +664,8 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 })
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file with a --reason at the end of the string', async () => {
-  context.payload.comment.body = '.lock development  --reason because something is broken badly  '
+  context.payload.comment.body =
+    '.lock development  --reason because something is broken badly  '
   const octokit = {
     rest: {
       repos: {
