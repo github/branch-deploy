@@ -159,6 +159,10 @@ async function findEnvironment(context) {
   const lockTrigger = core.getInput('lock_trigger').trim()
   body = body.replace(lockTrigger, '').trim()
 
+  // remove the lock info alias command from the body
+  const lockInfoAlias = core.getInput('lock_info_alias').trim()
+  body = body.replace(lockInfoAlias, '').trim()
+
   // If the body is empty, return the default environment
   if (body === '') {
     return {
@@ -424,6 +428,11 @@ export async function lock(
 
   // construct the branch name for the lock
   const branchName = await constructBranchName(environment, global)
+
+  // lock debug info
+  core.debug(`detected lock env: ${environment}`)
+  core.debug(`detected lock global: ${global}`)
+  core.debug(`constructed lock branch: ${branchName}`)
 
   // Before we can process THIS lock request, we must first check for a global lock
   // If there is a global lock, we must check if the requestor is the owner of the lock
