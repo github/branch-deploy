@@ -329,7 +329,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
 
         The current lock has been active for \`${totalTime}\`
 
-        > If you need to release the lock, please comment \`.unlock\`
+        > If you need to release the lock, please comment \`${lockData.unlock_command}\`
         `)
 
       await actionStatus(
@@ -362,8 +362,6 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
     header = 'proceed with deployment'
   }
 
-  // TODO
-
   // Construct the comment to add to the issue, alerting that the lock is already claimed
   const comment = dedent(`
   ### ⚠️ Cannot ${header}
@@ -382,7 +380,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
 
   The current lock has been active for \`${totalTime}\`
 
-  > If you need to release the lock, please comment \`.unlock\`
+  > If you need to release the lock, please comment \`${lockData.unlock_command}\`
   `)
 
   // Set the action status with the comment

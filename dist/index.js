@@ -11205,7 +11205,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
 
         The current lock has been active for \`${totalTime}\`
 
-        > If you need to release the lock, please comment \`.unlock\`
+        > If you need to release the lock, please comment \`${lockData.unlock_command}\`
         `)
 
       await actionStatus(
@@ -11258,7 +11258,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
 
   The current lock has been active for \`${totalTime}\`
 
-  > If you need to release the lock, please comment \`.unlock\`
+  > If you need to release the lock, please comment \`${lockData.unlock_command}\`
   `)
 
   // Set the action status with the comment
