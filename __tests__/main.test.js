@@ -582,6 +582,50 @@ test('successfully runs the action in lock mode and finds no lock - details only
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })
 
+test('successfully runs the action in lock mode and finds no GLOBAL lock - details only', async () => {
+  const infoSpy = jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {
+      status: null,
+      lockData: null,
+      environment: null,
+      global: true,
+      globalFlag: '--global'
+    }
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.lock --global --details',
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    '.lock --global --details'
+  )
+  expect(infoSpy).toHaveBeenCalledWith('no active deployment locks found')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
 test('fails to aquire the lock on a deploy so it exits', async () => {
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return {status: false}
