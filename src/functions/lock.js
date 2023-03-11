@@ -434,6 +434,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :param environment: The environment to lock (can be passed in if already known - otherwise we try and find it)
 // :param detailsOnly: A bool indicating whether to only return the details of the lock and not alter its state
+// :param postDeployStep: A bool indicating whether this function is being called from the post-deploy step
 // :returns: A lock repsponse object
 // Example:
 // {
@@ -455,7 +456,8 @@ export async function lock(
   reactionId,
   sticky,
   environment = null,
-  detailsOnly = false
+  detailsOnly = false,
+  postDeployStep = false
 ) {
   var global
 
@@ -502,7 +504,7 @@ export async function lock(
       environment,
       global
     }
-  } else if (globalLockData && detailsOnly) {
+  } else if (globalLockData && detailsOnly && postDeployStep === false) {
     // If the lock file exists and this is a detailsOnly request for the global lock, return the lock data
     return {
       status: 'details-only',
@@ -514,7 +516,7 @@ export async function lock(
   }
 
   // If the global lock exists, check if the requestor is the owner
-  if (globalLockData) {
+  if (globalLockData && postDeployStep === false) {
     // Check if the requestor is the owner of the global lock
     const globalLockOwner = await checkLockOwner(
       octokit,

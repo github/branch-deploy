@@ -167,7 +167,8 @@ export async function postDeploy(
     null, // reaction_id
     false, // sticky
     environment, // environment
-    true // detailsOnly set to true
+    true, // detailsOnly set to true
+    true // postDeployStep set to true - this means we will not exit early if a global lock exists
   )
 
   // Obtain the lockData from the lock response
