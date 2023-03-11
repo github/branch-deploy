@@ -1,33 +1,15 @@
 import * as core from '@actions/core'
 import {actionStatus} from './action-status'
 
-// A simple function that checks if an explicit environment target is being used
-// :param environment: The default environment from the Actions inputs
-// :param body: The comment body
-// :param trigger: The trigger prefix
-// :param noop_trigger: The noop trigger prefix
-// :param context: The context of the Action
-// :param octokit: The Octokit instance
-// :param reactionId: The ID of the initial comment reaction (Integer)
-// :returns: the environment target (String) or false if no environment target was found (fails)
-export async function environmentTargets(
-  environment,
-  body,
-  trigger,
-  noop_trigger,
-  stable_branch,
-  context,
-  octokit,
-  reactionId
-) {
-  // Get the environment targets from the action inputs
-  const environment_targets = core.getInput('environment_targets')
-
-  // Sanitized the input to remove any whitespace and split into an array
-  const environment_targets_sanitized = environment_targets
-    .split(',')
-    .map(target => target.trim())
-
+// Helper function to that does environment checks specific to branch deploys
+// :param environment_targets_sanitized: The list of environment targets
+// :param body: The body of the comment
+// :param trigger: The trigger used to initiate the deployment
+// :param noop_trigger: The trigger used to initiate a noop deployment
+// :param stable_branch: The stable branch
+// :param environment: The default environment
+// :returns: The environment target if found, false otherwise
+async function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_trigger, stable_branch, environment) {
   // Loop through all the environment targets to see if an explicit target is being used
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
@@ -84,6 +66,45 @@ export async function environmentTargets(
     else if (body.trim() === `${trigger} ${stable_branch}`) {
       core.debug('Using default environment for stable branch deployment')
       return environment
+    }
+  }
+
+  // If we get here, then no valid environment target was found
+  return false
+}
+
+// A simple function that checks if an explicit environment target is being used
+// :param environment: The default environment from the Actions inputs
+// :param body: The comment body
+// :param trigger: The trigger prefix
+// :param noop_trigger: The noop trigger prefix
+// :param context: The context of the Action
+// :param octokit: The Octokit instance
+// :param reactionId: The ID of the initial comment reaction (Integer)
+// :returns: the environment target (String) or false if no environment target was found (fails)
+export async function environmentTargets(
+  environment,
+  body,
+  trigger,
+  noop_trigger,
+  stable_branch,
+  context,
+  octokit,
+  reactionId,
+  lockChecks = false
+) {
+  // Get the environment targets from the action inputs
+  const environment_targets = core.getInput('environment_targets')
+
+  // Sanitized the input to remove any whitespace and split into an array
+  const environment_targets_sanitized = environment_targets
+    .split(',')
+    .map(target => target.trim())
+
+  if (lockChecks === false) {
+    const environmentDetected = await onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_trigger, stable_branch, environment)
+    if (environmentDetected !== false) {
+      return environmentDetected
     }
   }
 
