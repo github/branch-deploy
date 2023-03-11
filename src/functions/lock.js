@@ -80,20 +80,22 @@ async function createLock(
     core.info('deployment lock is sticky')
 
     // create a special comment section for global locks
-    let lockMsg = ''
+    let globalMsg = ''
+    let lockMsg
     if (global === true) {
-      lockMsg =
+      globalMsg =
         'This is a **global** deploy lock - All environments are now locked'
+      lockMsg = '**globally**'
     } else {
-      lockMsg = `This is a deploy lock for the \`${environment}\` environment`
+      lockMsg = `to the \`${environment}\` environment`
     }
 
     const comment = dedent(`
     ### 🔒 Deployment Lock Claimed
 
-    ${lockMsg}
+    ${globalMsg}
     
-    You are now the only user that can trigger deployments until the deployment lock is removed
+    You are now the only user that can trigger deployments ${lockMsg} until the deployment lock is removed
 
     > This lock is _sticky_ and will persist until someone runs \`${lockData.unlock_command}\`
     `)
