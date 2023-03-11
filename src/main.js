@@ -272,7 +272,6 @@ export async function run() {
               context,
               octokit,
               reactRes.data.id,
-              // eslint-disable-next-line no-regex-spaces
               lockMessage,
               true,
               true
@@ -293,7 +292,6 @@ export async function run() {
               context,
               octokit,
               reactRes.data.id,
-              // eslint-disable-next-line no-regex-spaces
               lockMessage,
               true,
               true

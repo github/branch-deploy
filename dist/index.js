@@ -12343,7 +12343,6 @@ async function run() {
               github.context,
               octokit,
               reactRes.data.id,
-              // eslint-disable-next-line no-regex-spaces
               lockMessage,
               true,
               true
@@ -12364,7 +12363,6 @@ async function run() {
               github.context,
               octokit,
               reactRes.data.id,
-              // eslint-disable-next-line no-regex-spaces
               lockMessage,
               true,
               true
