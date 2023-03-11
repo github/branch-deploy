@@ -11032,6 +11032,10 @@ async function findEnvironment(context) {
   const lockTrigger = core.getInput('lock_trigger').trim()
   body = body.replace(lockTrigger, '').trim()
 
+  // remove the lock info alias command from the body
+  const lockInfoAlias = core.getInput('lock_info_alias').trim()
+  body = body.replace(lockInfoAlias, '').trim()
+
   // If the body is empty, return the default environment
   if (body === '') {
     return {
@@ -11297,6 +11301,11 @@ async function lock(
 
   // construct the branch name for the lock
   const branchName = await constructBranchName(environment, global)
+
+  // lock debug info
+  core.debug(`detected lock env: ${environment}`)
+  core.debug(`detected lock global: ${global}`)
+  core.debug(`constructed lock branch: ${branchName}`)
 
   // Before we can process THIS lock request, we must first check for a global lock
   // If there is a global lock, we must check if the requestor is the owner of the lock
@@ -12344,9 +12353,9 @@ async function run() {
           } else if (lockData === null) {
             const lockMessage = lib_default()(`
             ### Lock Details 🔒
-        
+
             No active deployment locks found for the \`${owner}/${repo}\` repository
-        
+
             > If you need to create a lock, please comment \`${lock_trigger}\`
             `)
 
@@ -12355,7 +12364,7 @@ async function run() {
               octokit,
               reactRes.data.id,
               // eslint-disable-next-line no-regex-spaces
-              lockMessage.replace(new RegExp('    ', 'g'), ''),
+              lockMessage,
               true,
               true
             )

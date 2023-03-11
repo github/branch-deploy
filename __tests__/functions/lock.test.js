@@ -85,6 +85,11 @@ test('successfully obtains a deployment lock (non-sticky) by creating the branch
   expect(infoMock).toHaveBeenCalledWith(
     'Created lock branch: production-branch-deploy-lock'
   )
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
 })
 
 test('Determines that another user has the lock (GLOBAL) and exits - during a lock claim on deployment', async () => {
@@ -107,6 +112,11 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a lo
     }
   }
   expect(await lock(octokit, context, ref, 123, false, environment)).toBe(false)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
   expect(actionStatusSpy).toHaveBeenCalledWith(
     context,
     octokit,
@@ -144,6 +154,11 @@ test('Determines that another user has the lock (non-global) and exits - during 
     }
   }
   expect(await lock(octokit, context, ref, 123, false, environment)).toBe(false)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
   expect(actionStatusSpy).toHaveBeenCalledWith(
     context,
     octokit,
@@ -181,6 +196,11 @@ test('Determines that another user has the lock (non-global) and exits - during 
     }
   }
   expect(await lock(octokit, context, ref, 123, true, environment)).toBe(false)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
   expect(actionStatusSpy).toHaveBeenCalledWith(
     context,
     octokit,
@@ -220,6 +240,11 @@ test('Request detailsOnly on the lock file and gets lock file data successfully'
     reason: 'Testing my new feature with lots of cats',
     sticky: true
   })
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
 })
 
 test('Request detailsOnly on the lock file when the lock branch exists but no lock file exists', async () => {
@@ -242,6 +267,11 @@ test('Request detailsOnly on the lock file when the lock branch exists but no lo
   }
   expect(await lock(octokit, context, ref, 123, null, environment, true)).toBe(
     null
+  )
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
   )
 })
 
@@ -286,6 +316,11 @@ test('Request detailsOnly on the lock file when no branch exists', async () => {
   expect(await lock(octokit, context, ref, 123, null, environment, true)).toBe(
     null
   )
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
 })
 
 test('Request detailsOnly on the lock file when no branch exists and hits an error when trying to check the branch', async () => {
@@ -323,6 +358,11 @@ test('Request detailsOnly on the lock file when no branch exists and hits an err
     await lock(octokit, context, ref, 123, null, environment, true)
   } catch (error) {
     expect(error.message).toBe('Error: oh no - 500')
+    expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+    expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+    expect(debugMock).toHaveBeenCalledWith(
+      `constructed lock branch: ${environment}-branch-deploy-lock`
+    )
   }
 })
 
@@ -342,6 +382,11 @@ test('Determines that the lock request is coming from current owner of the lock 
   }
   expect(await lock(octokit, context, ref, 123, false, environment)).toBe(
     'owner'
+  )
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
   )
   expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
 })
@@ -363,6 +408,11 @@ test('Determines that the lock request is coming from current owner of the lock 
   expect(await lock(octokit, context, ref, 123, true, environment)).toBe(
     'owner'
   )
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
   expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
 })
 
@@ -383,6 +433,11 @@ test('fails to decode the lock file contents', async () => {
   } catch (error) {
     expect(error.message).toBe(
       'TypeError [ERR_INVALID_ARG_TYPE]: The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received null'
+    )
+    expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+    expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+    expect(debugMock).toHaveBeenCalledWith(
+      `constructed lock branch: ${environment}-branch-deploy-lock`
     )
   }
 })
@@ -406,6 +461,11 @@ test('Creates a lock when the lock branch exists but no lock file exists', async
     }
   }
   expect(await lock(octokit, context, ref, 123, false, environment)).toBe(true)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
 })
 
@@ -448,6 +508,11 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
     }
   }
   expect(await lock(octokit, context, ref, 123, true, environment)).toBe(true)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
@@ -494,6 +559,11 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
     }
   }
   expect(await lock(octokit, context, ref, 123, true, environment)).toBe(true)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
@@ -540,6 +610,11 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
     }
   }
   expect(await lock(octokit, context, ref, 123, true, null)).toBe(true)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: global-branch-deploy-lock`
+  )
   expect(infoMock).toHaveBeenCalledWith('global lock: true')
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
@@ -587,6 +662,11 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
     }
   }
   expect(await lock(octokit, context, ref, 123, true, null)).toBe(true)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: global-branch-deploy-lock`
+  )
   expect(debugMock).toHaveBeenCalledWith('reason: because something is broken')
   expect(infoMock).toHaveBeenCalledWith('global lock: true')
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
@@ -638,6 +718,11 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
   expect(debugMock).toHaveBeenCalledWith(
     'reason: because something is broken badly'
   )
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: global-branch-deploy-lock`
+  )
   expect(infoMock).toHaveBeenCalledWith('global lock: true')
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
@@ -685,6 +770,11 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
     }
   }
   expect(await lock(octokit, context, ref, 123, true, null)).toBe(true)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: development`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: development-branch-deploy-lock`
+  )
   expect(debugMock).toHaveBeenCalledWith(
     'reason: because something is broken badly'
   )
@@ -735,6 +825,11 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
     }
   }
   expect(await lock(octokit, context, ref, 123, true, null)).toBe(true)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
   expect(debugMock).toHaveBeenCalledWith('reason: because something is broken')
   expect(infoMock).toHaveBeenCalledWith('global lock: false')
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
