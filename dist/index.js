@@ -10956,21 +10956,22 @@ async function createLock(
     core.info('deployment lock is sticky')
 
     // create a special comment section for global locks
-    let globalMsg = ''
+    let lockMsg = ''
     if (global === true) {
-      globalMsg = lib_default()(
-        `This is a **global** deploy lock - All environments are now locked
-
-      `
-      )
+      lockMsg =
+        'This is a **global** deploy lock - All environments are now locked'
+    } else {
+      lockMsg = `This is a deploy lock for the \`${environment}\` environment`
     }
 
     const comment = lib_default()(`
     ### 🔒 Deployment Lock Claimed
 
-    ${globalMsg}You are now the only user that can trigger deployments until the deployment lock is removed
+    ${lockMsg}
+    
+    You are now the only user that can trigger deployments until the deployment lock is removed
 
-    > This lock is _sticky_ and will persist until someone runs \`.unlock\`
+    > This lock is _sticky_ and will persist until someone runs \`${lockData.unlock_command}\`
     `)
 
     // If the lock is sticky, this means that it was invoked with `.lock` and not from a deployment
@@ -11236,6 +11237,8 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
   } else if (sticky === false) {
     header = 'proceed with deployment'
   }
+
+  // TODO
 
   // Construct the comment to add to the issue, alerting that the lock is already claimed
   const comment = lib_default()(`
