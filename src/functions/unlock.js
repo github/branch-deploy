@@ -60,8 +60,8 @@ export async function unlock(
   silent = false
 ) {
   try {
-    let branchName
-    let global
+    var branchName
+    var global
     // Find the environment from the context if it was not passed in
     // If the environment is not being passed in, we can safely assuming that this function is not being called from a post-deploy Action and instead, it is being directly called from an IssueOps command
     if (environment === null) {
@@ -74,7 +74,7 @@ export async function unlock(
     }
 
     // construct the branch name
-    if (global) {
+    if (global === true) {
       branchName = GLOBAL_LOCK_BRANCH
     } else {
       branchName = `${environment}-${LOCK_BRANCH_SUFFIX}`
@@ -131,14 +131,22 @@ export async function unlock(
         return 'no deployment lock currently set - silent'
       }
 
+      // Format the comment
+      var noLockMsg
+      if (global === true) {
+        noLockMsg = '🔓 There is currently no `global` deployment lock set'
+      } else {
+        noLockMsg = `🔓 There is currently no \`${environment}\` deployment lock set`
+      }
+
       // Leave a comment letting the user know there is no lock to release
       await actionStatus(
         context,
         octokit,
         reactionId,
-        '🔓 There is currently no deployment lock set',
-        true,
-        true
+        noLockMsg,
+        true, // success
+        true // alt success reaction (ususally thumbs up)
       )
 
       // Return true since there is no lock to release
