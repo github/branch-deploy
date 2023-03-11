@@ -465,7 +465,7 @@ test('Request detailsOnly on the lock file and does not find a lock --global', a
     await lock(octokit, context, ref, 123, null, null, true)
   ).toStrictEqual({
     lockData: null,
-    status: 'details-only',
+    status: null,
     environment: null,
     globalFlag,
     global: true

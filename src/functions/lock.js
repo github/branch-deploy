@@ -463,7 +463,7 @@ export async function lock(
   if (globalLockData === false && detailsOnly === true && global === true) {
     // If the global lock file doesn't exist and this is a detailsOnly request for the global lock return null
     return {
-      status: 'details-only',
+      status: null,
       lockData: null,
       globalFlag,
       environment,
