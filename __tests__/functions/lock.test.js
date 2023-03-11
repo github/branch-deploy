@@ -30,6 +30,7 @@ const debugMock = jest.spyOn(core, 'debug')
 const environment = 'production'
 
 var octokit
+var octokitOtherUserHasLock
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -63,6 +64,20 @@ beforeEach(() => {
       }
     }
   }
+
+  octokitOtherUserHasLock = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockReturnValueOnce({data: {content: lockBase64Octocat}})
+      }
+    }
+  }
 })
 
 const context = {
@@ -84,27 +99,6 @@ const context = {
 const ref = 'cool-new-feature'
 
 test('successfully obtains a deployment lock (non-sticky) by creating the branch and lock file', async () => {
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: jest
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found'))
-      },
-      git: {
-        createRef: jest.fn().mockReturnValue({status: 201})
-      },
-      issues: {
-        createComment: jest.fn().mockReturnValue({})
-      }
-    }
-  }
   expect(await lock(octokit, context, ref, 123, false, environment)).toBe(true)
   expect(infoMock).toHaveBeenCalledWith(
     'Created lock branch: production-branch-deploy-lock'
@@ -122,20 +116,9 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a lo
     .mockImplementation(() => {
       return undefined
     })
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: jest
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
-          .fn()
-          .mockReturnValueOnce({data: {content: lockBase64Octocat}})
-      }
-    }
-  }
-  expect(await lock(octokit, context, ref, 123, false, environment)).toBe(false)
+  expect(
+    await lock(octokitOtherUserHasLock, context, ref, 123, false, environment)
+  ).toBe(false)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
   expect(debugMock).toHaveBeenCalledWith(
@@ -143,7 +126,7 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a lo
   )
   expect(actionStatusSpy).toHaveBeenCalledWith(
     context,
-    octokit,
+    octokitOtherUserHasLock,
     123,
     expect.stringMatching(
       /Sorry __monalisa__, the deployment lock is currently claimed by __octocat__/
@@ -163,21 +146,9 @@ test('Determines that another user has the lock (non-global) and exits - during 
     .mockImplementation(() => {
       return undefined
     })
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: jest
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('file not found'))
-          .mockReturnValueOnce({data: {content: lockBase64Octocat}})
-      }
-    }
-  }
-  expect(await lock(octokit, context, ref, 123, false, environment)).toBe(false)
+  expect(
+    await lock(octokitOtherUserHasLock, context, ref, 123, false, environment)
+  ).toBe(false)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
   expect(debugMock).toHaveBeenCalledWith(
@@ -185,7 +156,7 @@ test('Determines that another user has the lock (non-global) and exits - during 
   )
   expect(actionStatusSpy).toHaveBeenCalledWith(
     context,
-    octokit,
+    octokitOtherUserHasLock,
     123,
     expect.stringMatching(
       /Sorry __monalisa__, the deployment lock is currently claimed by __octocat__/
