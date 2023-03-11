@@ -22,6 +22,9 @@ const lockBase64Monalisa =
 const lockBase64Octocat =
   'ewogICAgInJlYXNvbiI6ICJUZXN0aW5nIG15IG5ldyBmZWF0dXJlIHdpdGggbG90cyBvZiBjYXRzIiwKICAgICJicmFuY2giOiAib2N0b2NhdHMtZXZlcnl3aGVyZSIsCiAgICAiY3JlYXRlZF9hdCI6ICIyMDIyLTA2LTE0VDIxOjEyOjE0LjA0MVoiLAogICAgImNyZWF0ZWRfYnkiOiAib2N0b2NhdCIsCiAgICAic3RpY2t5IjogdHJ1ZSwKICAgICJlbnZpcm9ubWVudCI6ICJwcm9kdWN0aW9uIiwKICAgICJ1bmxvY2tfY29tbWFuZCI6ICIudW5sb2NrIHByb2R1Y3Rpb24iLAogICAgImdsb2JhbCI6IGZhbHNlLAogICAgImxpbmsiOiAiaHR0cHM6Ly9naXRodWIuY29tL3Rlc3Qtb3JnL3Rlc3QtcmVwby9wdWxsLzIjaXNzdWVjb21tZW50LTQ1NiIKfQo='
 
+const lockBase64OctocatGlobal =
+  'ewogICAgInJlYXNvbiI6ICJUZXN0aW5nIG15IG5ldyBmZWF0dXJlIHdpdGggbG90cyBvZiBjYXRzIiwKICAgICJicmFuY2giOiAib2N0b2NhdHMtZXZlcnl3aGVyZSIsCiAgICAiY3JlYXRlZF9hdCI6ICIyMDIyLTA2LTE0VDIxOjEyOjE0LjA0MVoiLAogICAgImNyZWF0ZWRfYnkiOiAib2N0b2NhdCIsCiAgICAic3RpY2t5IjogdHJ1ZSwKICAgICJlbnZpcm9ubWVudCI6IG51bGwsCiAgICAidW5sb2NrX2NvbW1hbmQiOiAiLnVubG9jayAtLWdsb2JhbCIsCiAgICAiZ2xvYmFsIjogdHJ1ZSwKICAgICJsaW5rIjogImh0dHBzOi8vZ2l0aHViLmNvbS90ZXN0LW9yZy90ZXN0LXJlcG8vcHVsbC8yI2lzc3VlY29tbWVudC00NTYiCn0K'
+
 const saveStateMock = jest.spyOn(core, 'saveState')
 const setFailedMock = jest.spyOn(core, 'setFailed')
 const infoMock = jest.spyOn(core, 'info')
@@ -237,6 +240,41 @@ test('Request detailsOnly on the lock file and gets lock file data successfully'
     reason: 'Testing my new feature with lots of cats',
     sticky: true,
     unlock_command: '.unlock production'
+  })
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
+})
+
+test('Request detailsOnly on the lock file and gets lock file data successfully - global lock', async () => {
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
+          .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}}) // succeeds the second time looking for a 'local' lock for the environment
+      }
+    }
+  }
+  expect(
+    await lock(octokit, context, ref, 123, null, environment, true)
+  ).toStrictEqual({
+    branch: 'octocats-everywhere',
+    created_at: '2022-06-14T21:12:14.041Z',
+    created_by: 'octocat',
+    environment: null,
+    global: true,
+    link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+    reason: 'Testing my new feature with lots of cats',
+    sticky: true,
+    unlock_command: '.unlock --global'
   })
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
