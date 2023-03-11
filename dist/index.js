@@ -11277,7 +11277,17 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :param environment: The environment to lock (can be passed in if already known - otherwise we try and find it)
 // :param detailsOnly: A bool indicating whether to only return the details of the lock and not alter its state
-// :returns: true if the lock was successfully claimed, false if already locked or it fails, 'owner' if the requestor is the one who owns the lock, or null if this is a detailsOnly request and the lock was not found
+// :returns: A lock repsponse object
+// Example:
+// {
+//   status: 'owner' | false | true | null | 'details-only',
+//   lockData: Object
+// }
+// status: 'owner' - the lock was already claimed by the requestor
+// status: false - the lock was not claimed
+// status: true - the lock was claimed
+// status: null - no lock exists
+// status: 'details-only' - the lock details were returned, but the lock was not claimed
 async function lock(
   octokit,
   context,
@@ -11331,7 +11341,7 @@ async function lock(
     )
     if (globalLockOwner === false) {
       // If the requestor is not the owner of the global lock, return false
-      return false
+      return {status: false, lockData: null}
     } else {
       core.info('requestor is the owner of the global lock - continuing checks')
     }
@@ -11342,7 +11352,7 @@ async function lock(
 
   if (branchExists === false && detailsOnly === true) {
     // If the lock branch doesn't exist and this is a detailsOnly request, return null
-    return null
+    return {status: null, lockData: null}
   }
 
   if (branchExists) {
@@ -11351,10 +11361,10 @@ async function lock(
 
     if (lockData === false && detailsOnly === true) {
       // If the lock file doesn't exist and this is a detailsOnly request, return null
-      return null
+      return {status: null, lockData: null}
     } else if (lockData && detailsOnly) {
       // If the lock file exists and this is a detailsOnly request, return the lock data
-      return lockData
+      return {status: 'details-only', lockData: lockData}
     }
 
     if (lockData === false) {
@@ -11370,7 +11380,7 @@ async function lock(
         global,
         reactionId
       )
-      return true
+      return {status: true, lockData: null}
     } else {
       // If the lock file exists, check if the requestor is the one who owns the lock
       const lockOwner = await checkLockOwner(
@@ -11382,10 +11392,10 @@ async function lock(
       )
       if (lockOwner === true) {
         // If the requestor is the one who owns the lock, return 'owner'
-        return 'owner'
+        return {status: 'owner', lockData: lockData}
       } else {
         // If the requestor is not the one who owns the lock, return false
-        return false
+        return {status: false, lockData: lockData}
       }
     }
   }
@@ -11407,7 +11417,7 @@ async function lock(
     global,
     reactionId
   )
-  return true
+  return {status: true, lockData: null}
 }
 
 ;// CONCATENATED MODULE: ./src/functions/unlock.js
