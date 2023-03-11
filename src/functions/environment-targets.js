@@ -9,7 +9,14 @@ import {actionStatus} from './action-status'
 // :param stable_branch: The stable branch
 // :param environment: The default environment
 // :returns: The environment target if found, false otherwise
-async function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_trigger, stable_branch, environment) {
+async function onDeploymentChecks(
+  environment_targets_sanitized,
+  body,
+  trigger,
+  noop_trigger,
+  stable_branch,
+  environment
+) {
   // Loop through all the environment targets to see if an explicit target is being used
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
@@ -102,26 +109,33 @@ export async function environmentTargets(
     .map(target => target.trim())
 
   if (lockChecks === false) {
-    const environmentDetected = await onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_trigger, stable_branch, environment)
+    const environmentDetected = await onDeploymentChecks(
+      environment_targets_sanitized,
+      body,
+      trigger,
+      noop_trigger,
+      stable_branch,
+      environment
+    )
     if (environmentDetected !== false) {
       return environmentDetected
     }
+
+    // If we get here, then no valid environment target was found
+    const message =
+      'No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.'
+    core.warning(message)
+    core.saveState('bypass', 'true')
+
+    // Return the action status as a failure
+    await actionStatus(
+      context,
+      octokit,
+      reactionId,
+      `### ⚠️ Cannot proceed with deployment\n\n${message}`
+    )
+
+    // Return false to indicate that no environment target was found
+    return false
   }
-
-  // If we get here, then no valid environment target was found
-  const message =
-    'No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.'
-  core.warning(message)
-  core.saveState('bypass', 'true')
-
-  // Return the action status as a failure
-  await actionStatus(
-    context,
-    octokit,
-    reactionId,
-    `### ⚠️ Cannot proceed with deployment\n\n${message}`
-  )
-
-  // Return false to indicate that no environment target was found
-  return false
 }
