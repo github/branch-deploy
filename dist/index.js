@@ -12444,12 +12444,23 @@ async function run() {
               `the deployment lock is currently claimed by __${lockData.created_by}__`
             )
           } else if (lockStatus === null) {
+            // format the lock details message
+            var lockCommand
+            var lockTarget
+            if (lockResponse.global) {
+              lockTarget = 'global'
+              lockCommand = `${lock_trigger} ${lockResponse.globalFlag}`
+            } else {
+              lockTarget = lockResponse.environment
+              lockCommand = `${lock_trigger} ${lockTarget}`
+            }
+
             const lockMessage = lib_default()(`
             ### Lock Details 🔒
 
-            No active deployment locks found for the \`${owner}/${repo}\` repository
+            No active \`${lockTarget}\` deployment locks found for the \`${owner}/${repo}\` repository
 
-            > If you need to create a lock, please comment \`${lock_trigger}\`
+            > If you need to create a \`${lockTarget}\` lock, please comment \`${lockCommand}\`
             `)
 
             await actionStatus(
