@@ -285,9 +285,9 @@ export async function run() {
           } else if (lockData === null) {
             const lockMessage = dedent(`
             ### Lock Details 🔒
-        
+
             No active deployment locks found for the \`${owner}/${repo}\` repository
-        
+
             > If you need to create a lock, please comment \`${lock_trigger}\`
             `)
 
@@ -296,7 +296,7 @@ export async function run() {
               octokit,
               reactRes.data.id,
               // eslint-disable-next-line no-regex-spaces
-              lockMessage.replace(new RegExp('    ', 'g'), ''),
+              lockMessage,
               true,
               true
             )
