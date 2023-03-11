@@ -51,7 +51,13 @@ beforeEach(() => {
   process.env.INPUT_ENVIRONMENT = 'production'
   process.env.INPUT_LOCK_INFO_ALIAS = '.wcid'
 
-  createdLock = {lockData: null, status: true, globalFlag, environment}
+  createdLock = {
+    lockData: null,
+    status: true,
+    globalFlag,
+    environment,
+    global: false
+  }
   monalisaOwner = {
     lockData: {
       branch: 'cool-new-feature',
@@ -66,10 +72,23 @@ beforeEach(() => {
     },
     status: 'owner',
     globalFlag,
-    environment
+    environment,
+    global: false
   }
-  noLockFound = {lockData: null, status: null, globalFlag, environment}
-  failedToCreateLock = {lockData: null, status: false, globalFlag, environment}
+  noLockFound = {
+    lockData: null,
+    status: null,
+    globalFlag,
+    environment,
+    global: false
+  }
+  failedToCreateLock = {
+    lockData: null,
+    status: false,
+    globalFlag,
+    environment,
+    global: false
+  }
 
   octokit = {
     rest: {
@@ -171,6 +190,7 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a lo
 })
 
 test('Determines that another user has the lock (non-global) and exits - during a lock claim on deployment', async () => {
+  failedToCreateLock.global = false
   const actionStatusSpy = jest
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
@@ -236,7 +256,8 @@ test('Determines that another user has the lock (non-global) and exits - during 
     },
     status: false,
     globalFlag,
-    environment
+    environment,
+    global: false
   })
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
@@ -288,7 +309,8 @@ test('Request detailsOnly on the lock file and gets lock file data successfully'
     },
     status: 'details-only',
     environment,
-    globalFlag
+    globalFlag,
+    global: false
   })
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
@@ -328,7 +350,8 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
     },
     status: 'details-only',
     environment,
-    globalFlag
+    globalFlag,
+    global: false
   })
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
@@ -370,12 +393,87 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
     },
     status: 'details-only',
     environment,
-    globalFlag
+    globalFlag,
+    global: false
   })
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
   expect(debugMock).toHaveBeenCalledWith(
     `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
+})
+
+test('Request detailsOnly on the lock file and gets lock file data successfully -- .wcid --global', async () => {
+  context.payload.comment.body = '.wcid --global'
+
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}}) // succeeds looking for a global lock
+      }
+    }
+  }
+  expect(
+    await lock(octokit, context, ref, 123, null, null, true)
+  ).toStrictEqual({
+    lockData: {
+      branch: 'octocats-everywhere',
+      created_at: '2022-06-14T21:12:14.041Z',
+      created_by: 'octocat',
+      environment: null,
+      global: true,
+      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+      reason: 'Testing my new feature with lots of cats',
+      sticky: true,
+      unlock_command: '.unlock --global'
+    },
+    status: 'details-only',
+    environment: null,
+    globalFlag,
+    global: true
+  })
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: global-branch-deploy-lock`
+  )
+})
+
+test('Request detailsOnly on the lock file and does not find a lock --global', async () => {
+  context.payload.comment.body = '.lock -i --global'
+
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockRejectedValueOnce(new NotFoundError('file not found')) // fails looking for a global lock
+      }
+    }
+  }
+  expect(
+    await lock(octokit, context, ref, 123, null, null, true)
+  ).toStrictEqual({
+    lockData: null,
+    status: 'details-only',
+    environment: null,
+    globalFlag,
+    global: true
+  })
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: global-branch-deploy-lock`
   )
 })
 
@@ -412,7 +510,8 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
     },
     status: 'details-only',
     globalFlag,
-    environment
+    environment,
+    global: false
   })
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
@@ -653,6 +752,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file', async () => {
   context.payload.comment.body = '.lock --global'
   createdLock.environment = null
+  createdLock.global = true
   expect(await lock(octokit, context, ref, 123, true, null)).toStrictEqual(
     createdLock
   )
@@ -673,6 +773,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
   context.payload.comment.body =
     '.lock --reason because something is broken --global'
   createdLock.environment = null
+  createdLock.global = true
   expect(await lock(octokit, context, ref, 123, true, null)).toStrictEqual(
     createdLock
   )
@@ -694,6 +795,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
   context.payload.comment.body =
     '.lock --global  --reason because something is broken badly  '
   createdLock.environment = null
+  createdLock.global = true
   expect(await lock(octokit, context, ref, 123, true, null)).toStrictEqual(
     createdLock
   )

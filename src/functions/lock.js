@@ -408,6 +408,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
 //   lockData: Object,
 //   globalFlag: String (--global for example),
 //   environment: String (production for example)
+//   global: Boolean (true if the request is for a global lock)
 // }
 // status: 'owner' - the lock was already claimed by the requestor
 // status: false - the lock was not claimed
@@ -458,6 +459,27 @@ export async function lock(
     context,
     GLOBAL_LOCK_BRANCH
   )
+
+  if (globalLockData === false && detailsOnly === true && global === true) {
+    // If the global lock file doesn't exist and this is a detailsOnly request for the global lock return null
+    return {
+      status: 'details-only',
+      lockData: null,
+      globalFlag,
+      environment,
+      global
+    }
+  } else if (globalLockData && detailsOnly && global === true) {
+    // If the lock file exists and this is a detailsOnly request for the global lock, return the lock data
+    return {
+      status: 'details-only',
+      lockData: globalLockData,
+      globalFlag,
+      environment,
+      global
+    }
+  }
+
   // If the global lock exists, check if the requestor is the owner
   if (globalLockData) {
     // Check if the requestor is the owner of the global lock
@@ -470,7 +492,7 @@ export async function lock(
     )
     if (globalLockOwner === false) {
       // If the requestor is not the owner of the global lock, return false
-      return {status: false, lockData: null, globalFlag, environment}
+      return {status: false, lockData: null, globalFlag, environment, global}
     } else {
       core.info('requestor is the owner of the global lock - continuing checks')
     }
@@ -481,7 +503,7 @@ export async function lock(
 
   if (branchExists === false && detailsOnly === true) {
     // If the lock branch doesn't exist and this is a detailsOnly request, return null
-    return {status: null, lockData: null, globalFlag, environment}
+    return {status: null, lockData: null, globalFlag, environment, global}
   }
 
   if (branchExists) {
@@ -490,14 +512,15 @@ export async function lock(
 
     if (lockData === false && detailsOnly === true) {
       // If the lock file doesn't exist and this is a detailsOnly request, return null
-      return {status: null, lockData: null, globalFlag, environment}
+      return {status: null, lockData: null, globalFlag, environment, global}
     } else if (lockData && detailsOnly) {
       // If the lock file exists and this is a detailsOnly request, return the lock data
       return {
         status: 'details-only',
         lockData: lockData,
         globalFlag,
-        environment
+        environment,
+        global
       }
     }
 
@@ -514,7 +537,7 @@ export async function lock(
         global,
         reactionId
       )
-      return {status: true, lockData: null, globalFlag, environment}
+      return {status: true, lockData: null, globalFlag, environment, global}
     } else {
       // If the lock file exists, check if the requestor is the one who owns the lock
       const lockOwner = await checkLockOwner(
@@ -526,10 +549,22 @@ export async function lock(
       )
       if (lockOwner === true) {
         // If the requestor is the one who owns the lock, return 'owner'
-        return {status: 'owner', lockData: lockData, globalFlag, environment}
+        return {
+          status: 'owner',
+          lockData: lockData,
+          globalFlag,
+          environment,
+          global
+        }
       } else {
         // If the requestor is not the one who owns the lock, return false
-        return {status: false, lockData: lockData, globalFlag, environment}
+        return {
+          status: false,
+          lockData: lockData,
+          globalFlag,
+          environment,
+          global
+        }
       }
     }
   }
@@ -551,5 +586,5 @@ export async function lock(
     global,
     reactionId
   )
-  return {status: true, lockData: null, globalFlag, environment}
+  return {status: true, lockData: null, globalFlag, environment, global}
 }
