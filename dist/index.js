@@ -11281,7 +11281,9 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
 // Example:
 // {
 //   status: 'owner' | false | true | null | 'details-only',
-//   lockData: Object
+//   lockData: Object,
+//   globalFlag: String (--global for example),
+//   environment: String (production for example)
 // }
 // status: 'owner' - the lock was already claimed by the requestor
 // status: false - the lock was not claimed
@@ -11298,6 +11300,9 @@ async function lock(
   detailsOnly = false
 ) {
   var global
+
+  // find the global flag for returning
+  const globalFlag = core.getInput('global_lock_flag').trim()
 
   // Attempt to obtain a reason from the context for the lock - either a string or null
   const reason = await findReason(context, sticky)
@@ -11341,7 +11346,7 @@ async function lock(
     )
     if (globalLockOwner === false) {
       // If the requestor is not the owner of the global lock, return false
-      return {status: false, lockData: null}
+      return {status: false, lockData: null, globalFlag, environment}
     } else {
       core.info('requestor is the owner of the global lock - continuing checks')
     }
@@ -11352,7 +11357,7 @@ async function lock(
 
   if (branchExists === false && detailsOnly === true) {
     // If the lock branch doesn't exist and this is a detailsOnly request, return null
-    return {status: null, lockData: null}
+    return {status: null, lockData: null, globalFlag, environment}
   }
 
   if (branchExists) {
@@ -11361,10 +11366,15 @@ async function lock(
 
     if (lockData === false && detailsOnly === true) {
       // If the lock file doesn't exist and this is a detailsOnly request, return null
-      return {status: null, lockData: null}
+      return {status: null, lockData: null, globalFlag, environment}
     } else if (lockData && detailsOnly) {
       // If the lock file exists and this is a detailsOnly request, return the lock data
-      return {status: 'details-only', lockData: lockData}
+      return {
+        status: 'details-only',
+        lockData: lockData,
+        globalFlag,
+        environment
+      }
     }
 
     if (lockData === false) {
@@ -11380,7 +11390,7 @@ async function lock(
         global,
         reactionId
       )
-      return {status: true, lockData: null}
+      return {status: true, lockData: null, globalFlag, environment}
     } else {
       // If the lock file exists, check if the requestor is the one who owns the lock
       const lockOwner = await checkLockOwner(
@@ -11392,10 +11402,10 @@ async function lock(
       )
       if (lockOwner === true) {
         // If the requestor is the one who owns the lock, return 'owner'
-        return {status: 'owner', lockData: lockData}
+        return {status: 'owner', lockData: lockData, globalFlag, environment}
       } else {
         // If the requestor is not the one who owns the lock, return false
-        return {status: false, lockData: lockData}
+        return {status: false, lockData: lockData, globalFlag, environment}
       }
     }
   }
@@ -11417,7 +11427,7 @@ async function lock(
     global,
     reactionId
   )
-  return {status: true, lockData: null}
+  return {status: true, lockData: null, globalFlag, environment}
 }
 
 ;// CONCATENATED MODULE: ./src/functions/unlock.js
@@ -12294,7 +12304,7 @@ async function run() {
           isLockInfoAlias === true
         ) {
           // Get the lock details from the lock file
-          const lockData = await lock(
+          const lockResponse = await lock(
             octokit,
             github.context,
             null, // ref
@@ -12303,9 +12313,12 @@ async function run() {
             null, // environment (we will find this in the lock function)
             true // details only flag
           )
+          // extract values from the lock response
+          const lockData = lockResponse.lockData
+          const lockStatus = lockResponse.lockStatus
 
           // If a lock was found
-          if (lockData !== null) {
+          if (lockStatus !== null) {
             // Find the total time since the lock was created
             const totalTime = await timeDiff(
               lockData.created_at,
@@ -12360,7 +12373,7 @@ async function run() {
             core.info(
               `the deployment lock is currently claimed by __${lockData.created_by}__`
             )
-          } else if (lockData === null) {
+          } else if (lockStatus === null) {
             const lockMessage = lib_default()(`
             ### Lock Details 🔒
 

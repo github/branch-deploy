@@ -213,7 +213,7 @@ export async function run() {
           isLockInfoAlias === true
         ) {
           // Get the lock details from the lock file
-          const lockData = await lock(
+          const lockResponse = await lock(
             octokit,
             context,
             null, // ref
@@ -222,9 +222,12 @@ export async function run() {
             null, // environment (we will find this in the lock function)
             true // details only flag
           )
+          // extract values from the lock response
+          const lockData = lockResponse.lockData
+          const lockStatus = lockResponse.lockStatus
 
           // If a lock was found
-          if (lockData !== null) {
+          if (lockStatus !== null) {
             // Find the total time since the lock was created
             const totalTime = await timeDiff(
               lockData.created_at,
@@ -279,7 +282,7 @@ export async function run() {
             core.info(
               `the deployment lock is currently claimed by __${lockData.created_by}__`
             )
-          } else if (lockData === null) {
+          } else if (lockStatus === null) {
             const lockMessage = dedent(`
             ### Lock Details 🔒
 
