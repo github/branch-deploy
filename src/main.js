@@ -13,6 +13,7 @@ import {post} from './functions/post'
 import {timeDiff} from './functions/time-diff'
 import {identicalCommitCheck} from './functions/identical-commit-check'
 import {help} from './functions/help'
+import {LOCK_INFO_FLAGS} from './functions/lock-info-flags'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 import dedent from 'dedent-js'
@@ -20,9 +21,6 @@ import dedent from 'dedent-js'
 // Lock constants
 const LOCK_BRANCH = 'branch-deploy-lock'
 const LOCK_FILE = 'lock.json'
-
-// Lock info flags
-const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d']
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', or raises an error
 export async function run() {

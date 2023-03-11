@@ -10870,7 +10870,11 @@ async function timeDiff(firstDate, secondDate) {
   return `${days}d:${hours}h:${minutes}m:${seconds}s`
 }
 
+;// CONCATENATED MODULE: ./src/functions/lock-info-flags.js
+const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '--details', '--d', '-d']
+
 ;// CONCATENATED MODULE: ./src/functions/lock.js
+
 
 
 
@@ -10881,7 +10885,6 @@ const LOCK_BRANCH_SUFFIX = 'branch-deploy-lock'
 const GLOBAL_LOCK_BRANCH = `global-${LOCK_BRANCH_SUFFIX}`
 const LOCK_FILE = 'lock.json'
 const LOCK_COMMIT_MSG = 'lock'
-const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d']
 
 // Helper function to construct the branch name
 // :param environment: The name of the environment
@@ -12085,12 +12088,10 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 
+
 // Lock constants
 const LOCK_BRANCH = 'branch-deploy-lock'
 const main_LOCK_FILE = 'lock.json'
-
-// Lock info flags
-const main_LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d']
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', or raises an error
 async function run() {
@@ -12277,7 +12278,7 @@ async function run() {
       if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
         if (
-          main_LOCK_INFO_FLAGS.some(
+          LOCK_INFO_FLAGS.some(
             substring => body.includes(substring) === true
           ) ||
           isLockInfoAlias === true

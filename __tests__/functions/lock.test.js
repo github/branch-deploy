@@ -320,6 +320,43 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
   )
 })
 
+test('Request detailsOnly on the lock file and gets lock file data successfully with --details flag', async () => {
+  context.payload.comment.body = '.lock --details'
+
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
+          .mockReturnValueOnce({data: {content: lockBase64Octocat}}) // succeeds the second time looking for a 'local' lock for the environment
+      }
+    }
+  }
+  expect(
+    await lock(octokit, context, ref, 123, null, null, true)
+  ).toStrictEqual({
+    branch: 'octocats-everywhere',
+    created_at: '2022-06-14T21:12:14.041Z',
+    created_by: 'octocat',
+    environment: 'production',
+    global: false,
+    link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+    reason: 'Testing my new feature with lots of cats',
+    sticky: true,
+    unlock_command: '.unlock production'
+  })
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
+})
+
 test('Request detailsOnly on the lock file when the lock branch exists but no lock file exists', async () => {
   const octokit = {
     rest: {

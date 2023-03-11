@@ -2,13 +2,13 @@ import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {actionStatus} from './action-status'
 import {timeDiff} from './time-diff'
+import {LOCK_INFO_FLAGS} from './lock-info-flags'
 
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = 'branch-deploy-lock'
 const GLOBAL_LOCK_BRANCH = `global-${LOCK_BRANCH_SUFFIX}`
 const LOCK_FILE = 'lock.json'
 const LOCK_COMMIT_MSG = 'lock'
-const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '-d', '--details', '--d']
 
 // Helper function to construct the branch name
 // :param environment: The name of the environment
