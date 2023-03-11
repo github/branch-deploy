@@ -38,6 +38,7 @@ beforeEach(() => {
   process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
   process.env.INPUT_LOCK_TRIGGER = '.lock'
   process.env.INPUT_ENVIRONMENT = 'production'
+  process.env.INPUT_LOCK_INFO_ALIAS = '.wcid'
 })
 
 const context = {
@@ -51,8 +52,7 @@ const context = {
   },
   payload: {
     comment: {
-      body: '.lock',
-      id: 123
+      body: '.lock'
     }
   }
 }
@@ -247,6 +247,40 @@ test('Request detailsOnly on the lock file and gets lock file data successfully'
   )
 })
 
+test('Request detailsOnly on the lock file and gets lock file data successfully -- .wcid', async () => {
+  context.payload.comment.body = '.wcid'
+  
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
+          .mockReturnValueOnce({data: {content: lockBase64Octocat}}) // succeeds the second time looking for a 'local' lock for the environment
+      }
+    }
+  }
+  expect(
+    await lock(octokit, context, ref, 123, null, null, true)
+  ).toStrictEqual({
+    branch: 'octocats-everywhere',
+    created_at: '2022-06-14T21:12:14.041Z',
+    created_by: 'octocat',
+    link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+    reason: 'Testing my new feature with lots of cats',
+    sticky: true
+  })
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch: ${environment}-branch-deploy-lock`
+  )
+})
+
 test('Request detailsOnly on the lock file when the lock branch exists but no lock file exists', async () => {
   const octokit = {
     rest: {
@@ -276,22 +310,7 @@ test('Request detailsOnly on the lock file when the lock branch exists but no lo
 })
 
 test('Request detailsOnly on the lock file when no branch exists', async () => {
-  const context = {
-    actor: 'monalisa',
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        body: '.lock --details',
-        id: 123
-      }
-    }
-  }
+  context.payload.comment.body = '.lock --details'
   const octokit = {
     rest: {
       repos: {
@@ -324,22 +343,7 @@ test('Request detailsOnly on the lock file when no branch exists', async () => {
 })
 
 test('Request detailsOnly on the lock file when no branch exists and hits an error when trying to check the branch', async () => {
-  const context = {
-    actor: 'monalisa',
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        body: '.lock --details',
-        id: 123
-      }
-    }
-  }
+  context.payload.comment.body = '.lock --details'
   const octokit = {
     rest: {
       repos: {
@@ -470,22 +474,7 @@ test('Creates a lock when the lock branch exists but no lock file exists', async
 })
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file - with a --reason', async () => {
-  const context = {
-    actor: 'monalisa',
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        body: '.lock --reason testing a super cool new feature',
-        id: 123
-      }
-    }
-  }
+  context.payload.comment.body = '.lock --reason testing a super cool new feature'
   const octokit = {
     rest: {
       repos: {
@@ -521,22 +510,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
 })
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file - with an empty --reason', async () => {
-  const context = {
-    actor: 'monalisa',
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        body: '.lock --reason ',
-        id: 123
-      }
-    }
-  }
+  context.payload.comment.body = '.lock --reason '
   const octokit = {
     rest: {
       repos: {
@@ -572,22 +546,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
 })
 
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file', async () => {
-  const context = {
-    actor: 'monalisa',
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        body: '.lock --global',
-        id: 123
-      }
-    }
-  }
+  context.payload.comment.body = '.lock --global'
   const octokit = {
     rest: {
       repos: {
@@ -624,22 +583,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 })
 
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file with a --reason', async () => {
-  const context = {
-    actor: 'monalisa',
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        body: '.lock --reason because something is broken --global',
-        id: 123
-      }
-    }
-  }
+  context.payload.comment.body = '.lock --reason because something is broken --global'
   const octokit = {
     rest: {
       repos: {
@@ -677,22 +621,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 })
 
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file with a --reason at the end of the string', async () => {
-  const context = {
-    actor: 'monalisa',
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        body: '.lock --global  --reason because something is broken badly  ',
-        id: 123
-      }
-    }
-  }
+  context.payload.comment.body = '.lock --global  --reason because something is broken badly  '
   const octokit = {
     rest: {
       repos: {
@@ -732,22 +661,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 })
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file with a --reason at the end of the string', async () => {
-  const context = {
-    actor: 'monalisa',
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        body: '.lock development  --reason because something is broken badly  ',
-        id: 123
-      }
-    }
-  }
+  context.payload.comment.body = '.lock development  --reason because something is broken badly  '
   const octokit = {
     rest: {
       repos: {
@@ -787,22 +701,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
 })
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file with a --reason', async () => {
-  const context = {
-    actor: 'monalisa',
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        body: '.lock --reason because something is broken',
-        id: 123
-      }
-    }
-  }
+  context.payload.comment.body = '.lock --reason because something is broken'
   const octokit = {
     rest: {
       repos: {
