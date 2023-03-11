@@ -291,12 +291,19 @@ test('successfully runs the action in lock mode - details only', async () => {
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return {
-      branch: 'octocats-everywhere',
-      created_at: '2022-06-14T21:12:14.041Z',
-      created_by: 'octocat',
-      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
-      reason: 'Testing my new feature with lots of cats',
-      sticky: true
+      lockData: {
+        branch: 'octocats-everywhere',
+        created_at: '2022-06-14T21:12:14.041Z',
+        created_by: 'octocat',
+        environment: 'production',
+        global: false,
+        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+        reason: 'Testing my new feature with lots of cats',
+        sticky: true
+      },
+      status: 'details-only',
+      globalFlag: '--global',
+      environment: 'production'
     }
   })
   github.context.payload = {
@@ -335,14 +342,19 @@ test('successfully runs the action in lock mode - details only - for the develop
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return {
-      branch: 'octocats-everywhere',
-      created_at: '2022-06-14T21:12:14.041Z',
-      created_by: 'octocat',
-      global: false,
-      environment: 'development',
-      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
-      reason: 'Testing my new feature with lots of cats',
-      sticky: true
+      lockData: {
+        branch: 'octocats-everywhere',
+        created_at: '2022-06-14T21:12:14.041Z',
+        created_by: 'octocat',
+        global: false,
+        environment: 'development',
+        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+        reason: 'Testing my new feature with lots of cats',
+        sticky: true
+      },
+      status: 'details-only',
+      globalFlag: '--global',
+      environment: 'development'
     }
   })
   github.context.payload = {
@@ -384,12 +396,19 @@ test('successfully runs the action in lock mode - details only - --info flag', a
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return {
-      branch: 'octocats-everywhere',
-      created_at: '2022-06-14T21:12:14.041Z',
-      created_by: 'octocat',
-      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
-      reason: 'Testing my new feature with lots of cats',
-      sticky: true
+      lockData: {
+        branch: 'octocats-everywhere',
+        created_at: '2022-06-14T21:12:14.041Z',
+        created_by: 'octocat',
+        environment: 'production',
+        global: false,
+        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+        reason: 'Testing my new feature with lots of cats',
+        sticky: true
+      },
+      status: 'details-only',
+      globalFlag: '--global',
+      environment: 'production'
     }
   })
   github.context.payload = {
@@ -428,12 +447,19 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return {
-      branch: 'octocats-everywhere',
-      created_at: '2022-06-14T21:12:14.041Z',
-      created_by: 'octocat',
-      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
-      reason: 'Testing my new feature with lots of cats',
-      sticky: true
+      lockData: {
+        branch: 'octocats-everywhere',
+        created_at: '2022-06-14T21:12:14.041Z',
+        created_by: 'octocat',
+        environment: 'production',
+        global: false,
+        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+        reason: 'Testing my new feature with lots of cats',
+        sticky: true
+      },
+      environment: 'production',
+      globalFlag: '--global',
+      status: 'details-only'
     }
   })
   github.context.payload = {
@@ -472,14 +498,19 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return {
-      branch: 'octocats-everywhere',
-      created_at: '2022-06-14T21:12:14.041Z',
-      created_by: 'octocat',
-      global: true,
-      environment: null,
-      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
-      reason: 'Testing my new feature with lots of cats',
-      sticky: true
+      lockData: {
+        branch: 'octocats-everywhere',
+        created_at: '2022-06-14T21:12:14.041Z',
+        created_by: 'octocat',
+        global: true,
+        environment: null,
+        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+        reason: 'Testing my new feature with lots of cats',
+        sticky: true
+      },
+      status: 'details-only',
+      globalFlag: '--global',
+      environment: null
     }
   })
   github.context.payload = {
@@ -520,7 +551,12 @@ test('successfully runs the action in lock mode and finds no lock - details only
     return true
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
-    return null
+    return {
+      status: null,
+      lockData: null,
+      environment: 'production',
+      globalFlag: '--global'
+    }
   })
   github.context.payload = {
     issue: {

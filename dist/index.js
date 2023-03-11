@@ -12315,7 +12315,7 @@ async function run() {
           )
           // extract values from the lock response
           const lockData = lockResponse.lockData
-          const lockStatus = lockResponse.lockStatus
+          const lockStatus = lockResponse.status
 
           // If a lock was found
           if (lockStatus !== null) {
