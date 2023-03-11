@@ -83,7 +83,7 @@ async function createLock(
     let globalMsg = ''
     if (global === true) {
       globalMsg = dedent(
-        `This is a **global** deploy lock - All environments are locked
+        `This is a **global** deploy lock - All environments are now locked
 
       `
       )

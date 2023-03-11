@@ -10959,7 +10959,7 @@ async function createLock(
     let globalMsg = ''
     if (global === true) {
       globalMsg = lib_default()(
-        `This is a **global** deploy lock - All environments are locked
+        `This is a **global** deploy lock - All environments are now locked
 
       `
       )
@@ -12401,7 +12401,7 @@ async function run() {
             if (lockData.global === true) {
               globalMsg = lib_default()(`
 
-              This is a **global** deploy lock - All environments are locked
+              This is a **global** deploy lock - All environments are currently locked
 
               `)
               environmentMsg = lib_default()(`

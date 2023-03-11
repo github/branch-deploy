@@ -240,7 +240,7 @@ export async function run() {
             if (lockData.global === true) {
               globalMsg = dedent(`
 
-              This is a **global** deploy lock - All environments are locked
+              This is a **global** deploy lock - All environments are currently locked
 
               `)
               environmentMsg = dedent(`
