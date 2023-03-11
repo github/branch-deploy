@@ -21,13 +21,19 @@ This Action does the heavy lifting for you to enable branch deployments:
 - `.deploy noop` - Deploy a pull request in noop mode
 - `.deploy to <environment>` - Deploy a pull request to a specific environment
 - `.deploy <stable_branch>` - Trigger a rollback deploy to your stable branch (main, master, etc)
-- `.lock` - Create a deployment lock
-- `.lock --reason <text>` - Create a deployment lock with a custom reason
+- `.lock` - Create a deployment lock for the default environment
+- `.lock --reason <text>` - Create a deployment lock for the default environment with a custom reason
 - `.lock --details` - View details about a deployment lock
+- `.lock <environment>` - Create a deployment lock for a specific environment
+- `.lock --global` - Create a global deployment lock
 - `.unlock` - Remove a deployment lock
+- `.unlock <environment>` - Remove a deployment lock for a specific environment
+- `.unlock --global` - Remove a global deployment lock
 - `.help` - Get help with IssueOps commands with this Action
 
 > These commands are all fully customizable and are just an example using this Action's defaults
+
+For the full command usage, check out the [usage document](docs/usage.md)
 
 Alternate command syntax and shortcuts can be found at the bottom of this readme [here](#alternate-command-syntax)
 
@@ -430,6 +436,8 @@ YAML input example:
     environment_targets: "production,development,staging" # the environments that you can deploy to with explicit commands
 ```
 
+You can view additional details about the `environment_targets` input option in the [`action.yml`](action.yml) section above
+
 ## Rollbacks 🔄
 
 This Action supports rollback deployments out of the box. This is useful when you run a branch deployment (`.deploy`) and something goes wrong and you need to rollback to a previous known working state.
@@ -530,7 +538,7 @@ There are multiple ways to leverage this action for deployment locks! Let's take
 
 The suggested way to go about deployment locking is to use the built in locking feature in this Action!
 
-Just like how you can comment `.deploy` on a pull request to trigger a deployment, you can also comment `.lock` to lock deployments. This will prevent other users from triggering a deployment. The lock is associated with your GitHub handle, so you will be able to deploy any pull request in the repository and as many times as you want. Any other user who attempts a deployment while your lock is active will get a comment on their PR telling them that a lock is in effect
+Just like how you can comment `.deploy` on a pull request to trigger a deployment, you can also comment `.lock` to lock deployments. This will prevent other users from triggering a deployment. The lock is associated with your GitHub handle, so you will be able to deploy any pull request in the repository and as many times as you want. Any other user who attempts a deployment while your lock is active will get a comment on their PR telling them that a lock is in effect.
 
 To release the deployment lock, simply comment `.unlock` on any pull request in the repository at anytime. Please be aware that other users can run this same command to remove the lock (in case you get offline and forget to do so 😉)
 
@@ -543,6 +551,15 @@ These deployment locks come in two flavors:
 
 **non-sticky** locks are temporary locks that only exist during a deployment. This action will automatically create a **non-sticky** lock for you when you run `.deploy`. It does this to prevent another user from running `.deploy` in another pull request and creating a deployment conflict
 
+Deployment locks in relation to environments also come in two flavors:
+
+- environment specific
+- global
+
+**environment specific** locks are locks that are associated with a specific environment. This means that if you have two environments, `staging` and `production`, you can have a lock on `staging` and another lock on `production` at the same time. These locks are indepdent of each other and will not prevent you from deploying to the other environment if another user has a lock in effect.
+
+**global** locks are locks that are associated with the entire project/repository. This means that if you have two environments, `staging` and `production`, you can have a lock on the entire repository and prevent any deployments to either environment.
+
 #### Deployment Lock Core Concepts
 
 Let's review the core concepts of deployment locks in a short summary:
@@ -553,19 +570,20 @@ Let's review the core concepts of deployment locks in a short summary:
 - Locks are associated to a user's GitHub handle - This user can deploy any pull request in the repository and as many times as they want
 - Any user can remove a lock by commenting `.unlock` on any pull request in the repository
 - Details about a lock can be viewed with `.lock --details`
+- Locks can either be environment specific or global
 - Like all the features of this Action, users need `write` permissions or higher to use a command
 
 #### How do Deployment Locks Work?
 
 This Action uses GitHub branches to create a deployment lock. When you run `.lock` the following happens:
 
-1. The Action checks to see if a lock already exists
+1. The Action checks to see if a global lock already exists, if it doesn't it will then check to see if an environment specific lock exists
 2. If a lock does not exists it begins to create one for you
-3. The Action creates a new branch called `branch-deploy-lock`
+3. The Action creates a new branch called `<environment|global>-branch-deploy-lock`
 4. The Action then creates a lock file called `lock.json` on the new branch
 5. The `lock.json` file contains metadata about the lock
 
-Now when new deployments are run, they will check if a lock exists. If it does and it doesn't belong to you, your deployment is rejected. If the lock does belong to you, the deployment will continue.
+Now when new deployments are run, they will check if a lock exists. If it does and it doesn't belong to you, your deployment is rejected. If the lock does belong to you, then the deployment will continue.
 
 #### Deployment Lock Examples 📸
 
@@ -573,11 +591,31 @@ Here are a few examples of deployment locks in action!
 
 Lock Example:
 
-![lock](https://user-images.githubusercontent.com/23362539/174189284-e3207acb-e647-4467-9cf0-676a811b32f1.png)
+![lock](https://user-images.githubusercontent.com/23362539/224514302-f26c9142-6b80-4007-a7b4-1d4236f472f3.png)
 
 Unlock Example:
 
-![unlock](https://user-images.githubusercontent.com/23362539/174189384-6faadd57-9512-4056-91d7-c15c3032e1e6.png)
+![unlock](https://user-images.githubusercontent.com/23362539/224514330-c9951a9e-a571-4f16-bdd5-2f636185ad5a.png)
+
+Locking a specific environment (not just the default one):
+
+![lock-development](https://user-images.githubusercontent.com/23362539/224514369-51956c50-1ea5-4287-a8f5-772daf9931a1.png)
+
+Obtaining the lock details for development:
+
+![development-lock-details](https://user-images.githubusercontent.com/23362539/224514399-63fdbab1-6d49-4d02-8ac7-935fcb10cde5.png)
+
+Remove the lock for development:
+
+![remove-development-lock](https://user-images.githubusercontent.com/23362539/224514423-81d31af4-9243-42dc-8052-8c3436b28760.png)
+
+Creating a global deploy lock:
+
+![global-deploy-lock](https://user-images.githubusercontent.com/23362539/224514460-79dcd943-0b23-42b7-928f-a25b036a0c45.png)
+
+Removing the global deploy lock:
+
+![remove-global-deploy-lock](https://user-images.githubusercontent.com/23362539/224514485-e60605fd-0918-466e-9aab-7597fa32e7d9.png)
 
 ### Actions Concurrency
 
@@ -731,6 +769,9 @@ Here are a few alternate ways you can invoke commands:
 - `.deploy development` - Invoke a deployment to the development environment (notice how you can omit the "to" keyword)
 - `.deploy to development` - Invoke a deployment to the development environment (with the "to" keyword)
 - `.deploy` - Uses the default environment (usually "production")
+- `.wcid` - Alias for `.lock --details` meaning "where can I deploy?"
+
+Check out the [usage guide](docs/usage.md) for more information
 
 ## Testing Locally 🔨
 
