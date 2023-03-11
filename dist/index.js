@@ -9883,6 +9883,9 @@ async function reactEmote(reaction, context, octokit) {
   return reactRes
 }
 
+// EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
+var lib = __nccwpck_require__(3159);
+var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 ;// CONCATENATED MODULE: ./src/functions/action-status.js
 // Default failure reaction
 const thumbsDown = '-1'
@@ -9948,37 +9951,31 @@ async function actionStatus(
   })
 }
 
+;// CONCATENATED MODULE: ./src/functions/lock-info-flags.js
+const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '--details', '--d', '-d']
+
 ;// CONCATENATED MODULE: ./src/functions/environment-targets.js
 
 
 
-// A simple function that checks if an explicit environment target is being used
-// :param environment: The default environment from the Actions inputs
-// :param body: The comment body
-// :param trigger: The trigger prefix
-// :param noop_trigger: The noop trigger prefix
-// :param context: The context of the Action
-// :param octokit: The Octokit instance
-// :param reactionId: The ID of the initial comment reaction (Integer)
-// :returns: the environment target (String) or false if no environment target was found (fails)
-async function environmentTargets(
-  environment,
+
+
+// Helper function to that does environment checks specific to branch deploys
+// :param environment_targets_sanitized: The list of environment targets
+// :param body: The body of the comment
+// :param trigger: The trigger used to initiate the deployment
+// :param noop_trigger: The trigger used to initiate a noop deployment
+// :param stable_branch: The stable branch
+// :param environment: The default environment
+// :returns: The environment target if found, false otherwise
+async function onDeploymentChecks(
+  environment_targets_sanitized,
   body,
   trigger,
   noop_trigger,
   stable_branch,
-  context,
-  octokit,
-  reactionId
+  environment
 ) {
-  // Get the environment targets from the action inputs
-  const environment_targets = core.getInput('environment_targets')
-
-  // Sanitized the input to remove any whitespace and split into an array
-  const environment_targets_sanitized = environment_targets
-    .split(',')
-    .map(target => target.trim())
-
   // Loop through all the environment targets to see if an explicit target is being used
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
@@ -10039,21 +10036,174 @@ async function environmentTargets(
   }
 
   // If we get here, then no valid environment target was found
-  const message =
-    'No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.'
-  core.warning(message)
-  core.saveState('bypass', 'true')
-
-  // Return the action status as a failure
-  await actionStatus(
-    context,
-    octokit,
-    reactionId,
-    `### ⚠️ Cannot proceed with deployment\n\n${message}`
-  )
-
-  // Return false to indicate that no environment target was found
   return false
+}
+
+// Helper function to that does environment checks specific to lock/unlock commands
+// :param environment_targets_sanitized: The list of environment targets
+// :param body: The body of the comment
+// :param lock_trigger: The trigger used to initiate the lock command
+// :param unlock_trigger: The trigger used to initiate the unlock command
+// :param environment: The default environment from the Actions inputs
+// :returns: The environment target if found, false otherwise
+async function onLockChecks(
+  environment_targets_sanitized,
+  body,
+  lock_trigger,
+  unlock_trigger,
+  environment
+) {
+  // if the body contains the globalFlag, exit right away as environments are not relevant
+  const globalFlag = core.getInput('global_lock_flag').trim()
+  if (body.includes(globalFlag)) {
+    core.debug('Global lock flag found in environment target check')
+    return 'GLOBAL_REQUEST'
+  }
+
+  // remove any lock flags from the body
+  LOCK_INFO_FLAGS.forEach(flag => {
+    body = body.replace(flag, '').trim()
+  })
+
+  // Get the lock info alias from the action inputs
+  const lockInfoAlias = core.getInput('lock_info_alias')
+
+  // if the body matches the lock trigger exactly, just use the default environment
+  if (body.trim() === lock_trigger.trim()) {
+    core.debug('Using default environment for lock request')
+    return environment
+  }
+
+  // if the body matches the unlock trigger exactly, just use the default environment
+  if (body.trim() === unlock_trigger.trim()) {
+    core.debug('Using default environment for unlock request')
+    return environment
+  }
+
+  // if the body matches the lock info alias exactly, just use the default environment
+  if (body.trim() === lockInfoAlias.trim()) {
+    core.debug('Using default environment for lock info request')
+    return environment
+  }
+
+  // Loop through all the environment targets to see if an explicit target is being used
+  for (const target of environment_targets_sanitized) {
+    // If the body on a branch deploy contains the target
+    if (body.replace(lock_trigger, '').trim() === target) {
+      core.debug(`Found environment target for lock request: ${target}`)
+      return target
+    } else if (body.replace(unlock_trigger, '').trim() === target) {
+      core.debug(`Found environment target for unlock request: ${target}`)
+      return target
+    } else if (body.replace(lockInfoAlias, '').trim() === target) {
+      core.debug(`Found environment target for lock info request: ${target}`)
+      return target
+    }
+  }
+
+  // If we get here, then no valid environment target was found
+  return false
+}
+
+// A simple function that checks if an explicit environment target is being used
+// :param environment: The default environment from the Actions inputs
+// :param body: The comment body
+// :param trigger: The trigger prefix
+// :param alt_trigger: Usually the noop trigger prefix
+// :param stable_branch: The stable branch (only used for branch deploys)
+// :param context: The context of the Action
+// :param octokit: The Octokit instance
+// :param reactionId: The ID of the initial comment reaction (Integer)
+// :returns: the environment target (String) or false if no environment target was found (fails)
+async function environmentTargets(
+  environment,
+  body,
+  trigger,
+  alt_trigger,
+  stable_branch,
+  context,
+  octokit,
+  reactionId,
+  lockChecks = false
+) {
+  // Get the environment targets from the action inputs
+  const environment_targets = core.getInput('environment_targets')
+
+  // Sanitized the input to remove any whitespace and split into an array
+  const environment_targets_sanitized = environment_targets
+    .split(',')
+    .map(target => target.trim())
+
+  // convert the environment targets into an array joined on ,
+  const environment_targets_joined = environment_targets_sanitized.join(',')
+
+  // If lockChecks is set to true, this request is for either a lock/unlock command to check the body for an environment target
+  if (lockChecks === true) {
+    const environmentDetected = await onLockChecks(
+      environment_targets_sanitized,
+      body,
+      trigger,
+      alt_trigger,
+      environment
+    )
+    if (environmentDetected !== false) {
+      return environmentDetected
+    }
+
+    // If we get here, then no valid environment target was found
+    const message = lib_default()(`
+    No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
+
+    > The following environment targets are available: \`${environment_targets_joined}\`
+    `)
+    core.warning(message)
+    core.saveState('bypass', 'true')
+
+    // Return the action status as a failure
+    await actionStatus(
+      context,
+      octokit,
+      reactionId,
+      `### ⚠️ Cannot proceed with lock/unlock request\n\n${message}`
+    )
+
+    return false
+  }
+
+  // If lockChecks is set to false, this request is for a branch deploy to check the body for an environment target
+  if (lockChecks === false) {
+    const environmentDetected = await onDeploymentChecks(
+      environment_targets_sanitized,
+      body,
+      trigger,
+      alt_trigger,
+      stable_branch,
+      environment
+    )
+    if (environmentDetected !== false) {
+      return environmentDetected
+    }
+
+    // If we get here, then no valid environment target was found
+    const message = lib_default()(`
+    No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
+
+    > The following environment targets are available: \`${environment_targets_joined}\`
+    `)
+    core.warning(message)
+    core.saveState('bypass', 'true')
+
+    // Return the action status as a failure
+    await actionStatus(
+      context,
+      octokit,
+      reactionId,
+      `### ⚠️ Cannot proceed with deployment\n\n${message}`
+    )
+
+    // Return false to indicate that no environment target was found
+    return false
+  }
 }
 
 ;// CONCATENATED MODULE: ./src/functions/deployment.js
@@ -10089,9 +10239,6 @@ async function createDeploymentStatus(
   return result
 }
 
-// EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
-var lib = __nccwpck_require__(3159);
-var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 ;// CONCATENATED MODULE: ./src/functions/valid-permissions.js
 // Helper function to check if an actor has permissions to use this Action in a given repository
 // :param octokit: The octokit client
@@ -10869,9 +11016,6 @@ async function timeDiff(firstDate, secondDate) {
 
   return `${days}d:${hours}h:${minutes}m:${seconds}s`
 }
-
-;// CONCATENATED MODULE: ./src/functions/lock-info-flags.js
-const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '--details', '--d', '-d']
 
 ;// CONCATENATED MODULE: ./src/functions/lock.js
 
@@ -12398,6 +12542,25 @@ async function run() {
         core.saveState('bypass', 'true')
         core.setFailed(validPermissionsRes)
         return 'failure'
+      }
+
+      // Check if the environment being locked/unlocked is a valid environment
+      const lockEnvTargetCheck = await environmentTargets(
+        environment, // the default environment from the Actions inputs
+        body, // the body of the comment
+        lock_trigger,
+        unlock_trigger,
+        null, // the stable_branch is not used for lock/unlock
+        github.context, // the context object
+        octokit, // the octokit object
+        reactRes.data.id,
+        true // lockChecks set to true as this is for lock/unlock requests
+      )
+
+      // If the environment targets are not valid, then exit
+      if (!lockEnvTargetCheck) {
+        core.debug('No valid environment targets found for lock/unlock request')
+        return 'safe-exit'
       }
 
       // If it is a lock or lock info releated request

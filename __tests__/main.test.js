@@ -851,6 +851,44 @@ test('runs the .help command successfully', async () => {
   expect(setFailedMock).toHaveBeenCalledWith(permissionsMsg)
 })
 
+test('runs the action in lock mode and fails due to an invalid environment', async () => {
+  process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      id: 123,
+      body: '.lock --details super-production',
+      user: {
+        login: 'monalisa'
+      }
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(debugMock).toHaveBeenCalledWith(
+    'No valid environment targets found for lock/unlock request'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    '.lock --details super-production'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  process.env.INPUT_GLOBAL_LOCK_FLAG = ''
+})
+
 test('successfully runs in mergeDeployMode', async () => {
   process.env.INPUT_MERGE_DEPLOY_MODE = 'true'
   jest

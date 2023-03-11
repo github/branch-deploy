@@ -203,6 +203,25 @@ export async function run() {
         return 'failure'
       }
 
+      // Check if the environment being locked/unlocked is a valid environment
+      const lockEnvTargetCheck = await environmentTargets(
+        environment, // the default environment from the Actions inputs
+        body, // the body of the comment
+        lock_trigger,
+        unlock_trigger,
+        null, // the stable_branch is not used for lock/unlock
+        context, // the context object
+        octokit, // the octokit object
+        reactRes.data.id,
+        true // lockChecks set to true as this is for lock/unlock requests
+      )
+
+      // If the environment targets are not valid, then exit
+      if (!lockEnvTargetCheck) {
+        core.debug('No valid environment targets found for lock/unlock request')
+        return 'safe-exit'
+      }
+
       // If it is a lock or lock info releated request
       if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
