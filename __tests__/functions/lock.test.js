@@ -29,6 +29,8 @@ const debugMock = jest.spyOn(core, 'debug')
 
 const environment = 'production'
 
+var octokit
+
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'setFailed').mockImplementation(() => {})
@@ -39,6 +41,28 @@ beforeEach(() => {
   process.env.INPUT_LOCK_TRIGGER = '.lock'
   process.env.INPUT_ENVIRONMENT = 'production'
   process.env.INPUT_LOCK_INFO_ALIAS = '.wcid'
+
+  octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
+        getContent: jest
+          .fn()
+          .mockRejectedValue(new NotFoundError('file not found'))
+      },
+      git: {
+        createRef: jest.fn().mockReturnValue({status: 201})
+      },
+      issues: {
+        createComment: jest.fn().mockReturnValue({})
+      }
+    }
+  }
 })
 
 const context = {
@@ -476,27 +500,6 @@ test('Creates a lock when the lock branch exists but no lock file exists', async
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file - with a --reason', async () => {
   context.payload.comment.body =
     '.lock --reason testing a super cool new feature'
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: jest
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found'))
-      },
-      git: {
-        createRef: jest.fn().mockReturnValue({status: 201})
-      },
-      issues: {
-        createComment: jest.fn().mockReturnValue({})
-      }
-    }
-  }
   expect(await lock(octokit, context, ref, 123, true, environment)).toBe(true)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
@@ -512,27 +515,6 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file - with an empty --reason', async () => {
   context.payload.comment.body = '.lock --reason '
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: jest
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found'))
-      },
-      git: {
-        createRef: jest.fn().mockReturnValue({status: 201})
-      },
-      issues: {
-        createComment: jest.fn().mockReturnValue({})
-      }
-    }
-  }
   expect(await lock(octokit, context, ref, 123, true, environment)).toBe(true)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
@@ -548,27 +530,6 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
 
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file', async () => {
   context.payload.comment.body = '.lock --global'
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: jest
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found'))
-      },
-      git: {
-        createRef: jest.fn().mockReturnValue({status: 201})
-      },
-      issues: {
-        createComment: jest.fn().mockReturnValue({})
-      }
-    }
-  }
   expect(await lock(octokit, context, ref, 123, true, null)).toBe(true)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
@@ -586,27 +547,6 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file with a --reason', async () => {
   context.payload.comment.body =
     '.lock --reason because something is broken --global'
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: jest
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found'))
-      },
-      git: {
-        createRef: jest.fn().mockReturnValue({status: 201})
-      },
-      issues: {
-        createComment: jest.fn().mockReturnValue({})
-      }
-    }
-  }
   expect(await lock(octokit, context, ref, 123, true, null)).toBe(true)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
@@ -625,27 +565,6 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file with a --reason at the end of the string', async () => {
   context.payload.comment.body =
     '.lock --global  --reason because something is broken badly  '
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: jest
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found'))
-      },
-      git: {
-        createRef: jest.fn().mockReturnValue({status: 201})
-      },
-      issues: {
-        createComment: jest.fn().mockReturnValue({})
-      }
-    }
-  }
   expect(await lock(octokit, context, ref, 123, true, null)).toBe(true)
   expect(debugMock).toHaveBeenCalledWith(
     'reason: because something is broken badly'
@@ -666,27 +585,6 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file with a --reason at the end of the string', async () => {
   context.payload.comment.body =
     '.lock development  --reason because something is broken badly  '
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: jest
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found'))
-      },
-      git: {
-        createRef: jest.fn().mockReturnValue({status: 201})
-      },
-      issues: {
-        createComment: jest.fn().mockReturnValue({})
-      }
-    }
-  }
   expect(await lock(octokit, context, ref, 123, true, null)).toBe(true)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: development`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
@@ -706,27 +604,6 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file with a --reason', async () => {
   context.payload.comment.body = '.lock --reason because something is broken'
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: jest
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found'))
-      },
-      git: {
-        createRef: jest.fn().mockReturnValue({status: 201})
-      },
-      issues: {
-        createComment: jest.fn().mockReturnValue({})
-      }
-    }
-  }
   expect(await lock(octokit, context, ref, 123, true, null)).toBe(true)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
