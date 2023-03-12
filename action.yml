@@ -136,6 +136,10 @@ outputs:
     description: The reaction id for the initial reaction on the trigger comment
   actor_handle:
     description: The handle of the user who triggered the action
+  global_lock_claimed:
+    description: 'The string "true" if the global lock was claimed'
+  global_lock_released:
+    description: 'The string "true" if the global lock was released'
 runs:
   using: "node16"
   main: "dist/index.js"

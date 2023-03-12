@@ -19,6 +19,7 @@ beforeEach(() => {
   })
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
+  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   process.env.INPUT_ENVIRONMENT = 'production'
   process.env.INPUT_UNLOCK_TRIGGER = '.unlock'
   process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'

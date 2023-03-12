@@ -300,6 +300,8 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `fork_full_name` | The full name of the fork in "org/repo" format |
 | `initial_reaction_id` | The reaction id for the initial reaction on the trigger comment |
 | `actor_handle` | The handle of the user who triggered the action |
+| `global_lock_claimed` | The string "true" if the global lock was claimed |
+| `global_lock_released` | The string "true" if the global lock was released |
 
 ## Custom Deployment Messages ✏️
 

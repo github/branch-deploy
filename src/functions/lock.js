@@ -86,6 +86,7 @@ async function createLock(
       globalMsg =
         'This is a **global** deploy lock - All environments are now locked'
       lockMsg = '**globally**'
+      core.setOutput('global_lock_claimed', 'true')
     } else {
       lockMsg = `to the \`${environment}\` environment`
     }

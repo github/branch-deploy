@@ -11112,6 +11112,7 @@ async function createLock(
       globalMsg =
         'This is a **global** deploy lock - All environments are now locked'
       lockMsg = '**globally**'
+      core.setOutput('global_lock_claimed', 'true')
     } else {
       lockMsg = `to the \`${environment}\` environment`
     }
@@ -11751,6 +11752,11 @@ async function unlock(
       if (silent) {
         core.debug('removing lock silently')
         return 'removed lock - silent'
+      }
+
+      // If a global lock was successfully released, set the output
+      if (global === true) {
+        core.setOutput('global_lock_released', 'true')
       }
 
       // Construct the message to add to the issue comment

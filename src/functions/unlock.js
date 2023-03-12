@@ -100,6 +100,11 @@ export async function unlock(
         return 'removed lock - silent'
       }
 
+      // If a global lock was successfully released, set the output
+      if (global === true) {
+        core.setOutput('global_lock_released', 'true')
+      }
+
       // Construct the message to add to the issue comment
       const comment = dedent(`
       ### 🔓 Deployment Lock Removed

@@ -44,6 +44,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'setFailed').mockImplementation(() => {})
   jest.spyOn(core, 'saveState').mockImplementation(() => {})
+  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
