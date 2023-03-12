@@ -9951,8 +9951,14 @@ async function actionStatus(
   })
 }
 
-;// CONCATENATED MODULE: ./src/functions/lock-info-flags.js
-const LOCK_INFO_FLAGS = ['--info', '--i', '-i', '--details', '--d', '-d']
+;// CONCATENATED MODULE: ./src/functions/lock-metadata.js
+const LOCK_METADATA = {
+  lockInfoFlags: ['--info', '--i', '-i', '--details', '--d', '-d'],
+  lockBranchSuffix: 'branch-deploy-lock',
+  globalLockBranch: 'global-branch-deploy-lock',
+  lockCommitMsg: 'lock',
+  lockFile: 'lock.json'
+}
 
 ;// CONCATENATED MODULE: ./src/functions/environment-targets.js
 
@@ -10061,7 +10067,7 @@ async function onLockChecks(
   }
 
   // remove any lock flags from the body
-  LOCK_INFO_FLAGS.forEach(flag => {
+  LOCK_METADATA.lockInfoFlags.forEach(flag => {
     body = body.replace(flag, '').trim()
   })
 
@@ -11025,10 +11031,10 @@ async function timeDiff(firstDate, secondDate) {
 
 
 // Constants for the lock file
-const LOCK_BRANCH_SUFFIX = 'branch-deploy-lock'
-const GLOBAL_LOCK_BRANCH = `global-${LOCK_BRANCH_SUFFIX}`
-const LOCK_FILE = 'lock.json'
-const LOCK_COMMIT_MSG = 'lock'
+const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
+const GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
+const LOCK_FILE = LOCK_METADATA.lockFile
+const LOCK_COMMIT_MSG = LOCK_METADATA.lockCommitMsg
 
 // Helper function to construct the branch name
 // :param environment: The name of the environment
@@ -11169,7 +11175,7 @@ async function findEnvironment(context) {
   }
 
   // also remove any lock flags from the body
-  LOCK_INFO_FLAGS.forEach(flag => {
+  LOCK_METADATA.lockInfoFlags.forEach(flag => {
     body = body.replace(flag, '').trim()
   })
 
@@ -11649,9 +11655,10 @@ async function lock(
 
 
 
+
 // Constants for the lock file
-const unlock_LOCK_BRANCH_SUFFIX = 'branch-deploy-lock'
-const unlock_GLOBAL_LOCK_BRANCH = `global-${unlock_LOCK_BRANCH_SUFFIX}`
+const unlock_LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
+const unlock_GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
 
 // Helper function to find the environment to be unlocked (if any - otherwise, the default)
 // This function will also check if the global lock flag was provided
@@ -12359,10 +12366,6 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 
-// Lock constants
-const LOCK_BRANCH = 'branch-deploy-lock'
-const main_LOCK_FILE = 'lock.json'
-
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', or raises an error
 async function run() {
   try {
@@ -12567,7 +12570,7 @@ async function run() {
       if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
         if (
-          LOCK_INFO_FLAGS.some(
+          LOCK_METADATA.lockInfoFlags.some(
             substring => body.includes(substring) === true
           ) ||
           isLockInfoAlias === true
@@ -12597,6 +12600,7 @@ async function run() {
             // special comment for global deploy locks
             let globalMsg = ''
             let environmentMsg = `- __Environment__: \`${lockData.environment}\``
+            let lockBranchName = `${lockData.environment}-${LOCK_METADATA.lockBranchSuffix}`
             if (lockData.global === true) {
               globalMsg = lib_default()(`
 
@@ -12608,6 +12612,7 @@ async function run() {
               - __Global__: \`true\`
               `)
               core.info('there is a global deployment lock on this repository')
+              lockBranchName = `global-${LOCK_METADATA.globalLockBranch}`
             }
 
             // Format the lock details message
@@ -12623,7 +12628,7 @@ async function run() {
             - __Sticky__: \`${lockData.sticky}\`
             ${environmentMsg}
             - __Comment Link__: [click here](${lockData.link})
-            - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${main_LOCK_FILE})
+            - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${lockBranchName}/${LOCK_METADATA.lockFile})
 
             The current lock has been active for \`${totalTime}\`
 

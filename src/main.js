@@ -13,14 +13,10 @@ import {post} from './functions/post'
 import {timeDiff} from './functions/time-diff'
 import {identicalCommitCheck} from './functions/identical-commit-check'
 import {help} from './functions/help'
-import {LOCK_INFO_FLAGS} from './functions/lock-info-flags'
+import {LOCK_METADATA} from './functions/lock-metadata'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 import dedent from 'dedent-js'
-
-// Lock constants
-const LOCK_BRANCH = 'branch-deploy-lock'
-const LOCK_FILE = 'lock.json'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', or raises an error
 export async function run() {
@@ -226,7 +222,7 @@ export async function run() {
       if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
         if (
-          LOCK_INFO_FLAGS.some(
+          LOCK_METADATA.lockInfoFlags.some(
             substring => body.includes(substring) === true
           ) ||
           isLockInfoAlias === true
@@ -256,6 +252,7 @@ export async function run() {
             // special comment for global deploy locks
             let globalMsg = ''
             let environmentMsg = `- __Environment__: \`${lockData.environment}\``
+            let lockBranchName = `${lockData.environment}-${LOCK_METADATA.lockBranchSuffix}`
             if (lockData.global === true) {
               globalMsg = dedent(`
 
@@ -267,6 +264,7 @@ export async function run() {
               - __Global__: \`true\`
               `)
               core.info('there is a global deployment lock on this repository')
+              lockBranchName = `global-${LOCK_METADATA.globalLockBranch}`
             }
 
             // Format the lock details message
@@ -282,7 +280,7 @@ export async function run() {
             - __Sticky__: \`${lockData.sticky}\`
             ${environmentMsg}
             - __Comment Link__: [click here](${lockData.link})
-            - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${LOCK_BRANCH}/${LOCK_FILE})
+            - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${lockBranchName}/${LOCK_METADATA.lockFile})
 
             The current lock has been active for \`${totalTime}\`
 

@@ -2,13 +2,13 @@ import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {actionStatus} from './action-status'
 import {timeDiff} from './time-diff'
-import {LOCK_INFO_FLAGS} from './lock-info-flags'
+import {LOCK_METADATA} from './lock-metadata'
 
 // Constants for the lock file
-const LOCK_BRANCH_SUFFIX = 'branch-deploy-lock'
-const GLOBAL_LOCK_BRANCH = `global-${LOCK_BRANCH_SUFFIX}`
-const LOCK_FILE = 'lock.json'
-const LOCK_COMMIT_MSG = 'lock'
+const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
+const GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
+const LOCK_FILE = LOCK_METADATA.lockFile
+const LOCK_COMMIT_MSG = LOCK_METADATA.lockCommitMsg
 
 // Helper function to construct the branch name
 // :param environment: The name of the environment
@@ -149,7 +149,7 @@ async function findEnvironment(context) {
   }
 
   // also remove any lock flags from the body
-  LOCK_INFO_FLAGS.forEach(flag => {
+  LOCK_METADATA.lockInfoFlags.forEach(flag => {
     body = body.replace(flag, '').trim()
   })
 

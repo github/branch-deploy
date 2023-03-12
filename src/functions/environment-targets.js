@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {actionStatus} from './action-status'
-import {LOCK_INFO_FLAGS} from './lock-info-flags'
+import {LOCK_METADATA} from './lock-metadata'
 
 // Helper function to that does environment checks specific to branch deploys
 // :param environment_targets_sanitized: The list of environment targets
@@ -104,7 +104,7 @@ async function onLockChecks(
   }
 
   // remove any lock flags from the body
-  LOCK_INFO_FLAGS.forEach(flag => {
+  LOCK_METADATA.lockInfoFlags.forEach(flag => {
     body = body.replace(flag, '').trim()
   })
 

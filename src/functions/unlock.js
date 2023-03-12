@@ -1,10 +1,11 @@
 import * as core from '@actions/core'
 import {actionStatus} from './action-status'
 import dedent from 'dedent-js'
+import {LOCK_METADATA} from './lock-metadata'
 
 // Constants for the lock file
-const LOCK_BRANCH_SUFFIX = 'branch-deploy-lock'
-const GLOBAL_LOCK_BRANCH = `global-${LOCK_BRANCH_SUFFIX}`
+const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
+const GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
 
 // Helper function to find the environment to be unlocked (if any - otherwise, the default)
 // This function will also check if the global lock flag was provided
