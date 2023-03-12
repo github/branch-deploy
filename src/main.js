@@ -35,6 +35,7 @@ export async function run() {
     const unlock_trigger = core.getInput('unlock_trigger')
     const help_trigger = core.getInput('help_trigger')
     const lock_info_alias = core.getInput('lock_info_alias')
+    const global_lock_flag = core.getInput('global_lock_flag')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
     const allowForks = core.getInput('allow_forks') === 'true'
@@ -165,6 +166,7 @@ export async function run() {
         production_environment: production_environment,
         environment_targets: environment_targets,
         unlock_trigger: unlock_trigger,
+        global_lock_flag: global_lock_flag,
         help_trigger: help_trigger,
         lock_info_alias: lock_info_alias,
         update_branch: update_branch,
