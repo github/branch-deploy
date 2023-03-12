@@ -104,7 +104,9 @@ export async function help(octokit, context, reactionId, inputs) {
   - \`${inputs.lock_trigger} ${
     inputs.global_lock_flag
   } --details\` - Show information about the current global deployment lock (if one exists)
-  - \`${inputs.lock_info_alias}\` - Alias for \`${inputs.lock_trigger} --details\`
+  - \`${inputs.lock_info_alias}\` - Alias for \`${
+    inputs.lock_trigger
+  } --details\`
 
   ### 🌍 Environments
 
