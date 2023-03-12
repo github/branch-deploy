@@ -271,7 +271,6 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | admins_pat | no | false | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
 | merge_deploy_mode | no | false | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
 | skip_completing | no | false | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
-| auto_merge | no | true | If set to “false”, GitHub does not attempt to automatically merge the default branch into the requested ref even if requested ref is behind the default branch. |
 
 ## Outputs 📤
 

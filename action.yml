@@ -97,10 +97,6 @@ inputs:
     description: 'If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false"'
     required: false
     default: "false"
-  auto_merge:
-    description: 'If set to “false”, GitHub does not attempt to automatically merge the default branch into the requested ref even if requested ref is behind the default branch. Default is "true"'
-    required: false
-    default: "true"
 outputs:
   triggered:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
