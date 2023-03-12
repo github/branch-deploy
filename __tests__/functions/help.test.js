@@ -48,7 +48,9 @@ const defaultInputs = {
 test('successfully calls help with defaults', async () => {
   expect(await help(octokit, context, 123, defaultInputs))
 
-  expect(debugMock).toHaveBeenCalledWith(expect.stringMatching(/## 📚 Branch Deployment Help/))
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringMatching(/## 📚 Branch Deployment Help/)
+  )
 })
 
 test('successfully calls help with non-defaults', async () => {
@@ -76,7 +78,9 @@ test('successfully calls help with non-defaults', async () => {
 
   expect(await help(octokit, context, 123, inputs))
 
-  expect(debugMock).toHaveBeenCalledWith(expect.stringMatching(/## 📚 Branch Deployment Help/))
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringMatching(/## 📚 Branch Deployment Help/)
+  )
 })
 
 test('successfully calls help with non-defaults', async () => {
@@ -104,11 +108,15 @@ test('successfully calls help with non-defaults', async () => {
 
   expect(await help(octokit, context, 123, inputs))
 
-  expect(debugMock).toHaveBeenCalledWith(expect.stringMatching(/## 📚 Branch Deployment Help/))
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringMatching(/## 📚 Branch Deployment Help/)
+  )
 
   var inputsSecond = inputs
   inputsSecond.update_branch = 'disabled'
   expect(await help(octokit, context, 123, inputsSecond))
 
-  expect(debugMock).toHaveBeenCalledWith(expect.stringMatching(/## 📚 Branch Deployment Help/))
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringMatching(/## 📚 Branch Deployment Help/)
+  )
 })

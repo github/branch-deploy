@@ -12264,10 +12264,34 @@ async function help(octokit, context, reactionId, inputs) {
   - \`${
     inputs.lock_trigger
   } --reason <text>\` - Obtain the deployment lock with a reason (will persist until the lock is released)
+  - \`${
+    inputs.lock_trigger
+  } <environment>\` - Obtain the deployment lock for the specified environment (will persist until the lock is released)
+  - \`${
+    inputs.lock_trigger
+  } <environment> --reason <text>\` - Obtain the deployment lock for the specified environment with a reason (will persist until the lock is released)
+  - \`${inputs.lock_trigger} ${
+    inputs.global_lock_flag
+  }\` - Obtain a global deployment lock (will persist until the lock is released) - Blocks all environments
+  - \`${inputs.lock_trigger} ${
+    inputs.global_lock_flag
+  } --reason <text>\` - Obtain a global deployment lock with a reason (will persist until the lock is released) - Blocks all environments
   - \`${inputs.unlock_trigger}\` - Release the deployment lock (if one exists)
+  - \`${
+    inputs.unlock_trigger
+  } <environment>\` - Release the deployment lock for the specified environment (if one exists)
+  - \`${inputs.unlock_trigger} ${
+    inputs.global_lock_flag
+  }\` - Release the global deployment lock (if one exists)
   - \`${
     inputs.lock_trigger
   } --info\` - Show information about the current deployment lock (if one exists)
+  - \`${
+    inputs.lock_trigger
+  } <environment> --details\` - Get information about the current deployment lock for the specified environment (if one exists)
+  - \`${inputs.lock_trigger} ${
+    inputs.global_lock_flag
+  } --info\` - Show information about the current global deployment lock (if one exists)
   - \`${inputs.lock_info_alias}\` - Alias for \`${inputs.lock_trigger} --info\`
 
   ### 🌍 Environments
@@ -12299,10 +12323,22 @@ async function help(octokit, context, reactionId, inputs) {
   }\` - Deploy this branch to the \`${
     inputs.environment
   }\` environment in noop mode
-  - \`${inputs.trigger} to <${inputs.environment_targets.replace(
+  - \`${inputs.trigger} to <${inputs.environment_targets.replaceAll(
     ',',
     '|'
   )}>\` - Deploy this branch to the specified environment (note: the \`to\` keyword is optional)
+  - \`${inputs.lock_trigger} <${inputs.environment_targets.replaceAll(
+    ',',
+    '|'
+  )}>\` - Obtain the deployment lock for the specified environment
+  - \`${inputs.unlock_trigger} <${inputs.environment_targets.replaceAll(
+    ',',
+    '|'
+  )}>\` - Release the deployment lock for the specified environment
+  - \`${inputs.lock_trigger} <${inputs.environment_targets.replaceAll(
+    ',',
+    '|'
+  )}> --details\` - Get information about the deployment lock for the specified environment
 
   ### ⚙️ Configuration
 
@@ -12383,6 +12419,7 @@ async function run() {
     const unlock_trigger = core.getInput('unlock_trigger')
     const help_trigger = core.getInput('help_trigger')
     const lock_info_alias = core.getInput('lock_info_alias')
+    const global_lock_flag = core.getInput('global_lock_flag')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
     const allowForks = core.getInput('allow_forks') === 'true'
@@ -12513,6 +12550,7 @@ async function run() {
         production_environment: production_environment,
         environment_targets: environment_targets,
         unlock_trigger: unlock_trigger,
+        global_lock_flag: global_lock_flag,
         help_trigger: help_trigger,
         lock_info_alias: lock_info_alias,
         update_branch: update_branch,
