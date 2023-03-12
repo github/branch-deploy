@@ -11777,7 +11777,6 @@ async function run() {
     const skipReviews = core.getInput('skip_reviews')
     const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
     const admins = core.getInput('admins')
-    const auto_merge = core.getInput('auto_merge') === 'true'
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
@@ -11908,8 +11907,7 @@ async function run() {
         allowForks: allowForks,
         skipCi: skipCi,
         skipReviews: skipReviews,
-        admins: admins,
-        auto_merge: auto_merge
+        admins: admins
       }
 
       // Run the help command and exit
@@ -12174,6 +12172,9 @@ async function run() {
       productionEnvironment = true
     }
     core.debug(`production_environment: ${productionEnvironment}`)
+
+    // if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
+    const auto_merge = update_branch === 'disabled' ? false : true
 
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
