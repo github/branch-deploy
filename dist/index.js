@@ -12173,11 +12173,15 @@ async function run() {
     }
     core.debug(`production_environment: ${productionEnvironment}`)
 
+    // if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
+    const auto_merge = update_branch === 'disabled' ? false : true
+
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
       repo: repo,
       ref: precheckResults.ref,
+      auto_merge: auto_merge,
       required_contexts: requiredContexts,
       environment: environment,
       // description: "",
