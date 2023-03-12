@@ -254,52 +254,52 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 
 | Input | Required? | Default | Description |
 | ----- | --------- | ------- | ----------- |
-| github_token | yes | ${{ github.token }} | The GitHub token used to create an authenticated client - Provided for you by default! |
-| status | yes | ${{ job.status }} | The status of the GitHub Actions - For use in the post run workflow - Provided for you by default! |
-| reaction | no | eyes | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
-| trigger | no | .deploy | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
-| noop_trigger | no | noop | The string to look for in comments as an IssueOps noop trigger. Example: "noop" - The usage would then be ".deploy noop" |
-| lock_trigger | no | .lock | The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: ".lock" |
-| unlock_trigger | no | .unlock | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: ".unlock" |
-| help_trigger | no | .help | The string to look for in comments as an IssueOps help trigger. Example: ".help" |
-| lock_info_alias | no | .wcid | An alias or shortcut to get details about the current lock (if it exists) Example: ".info" - Hubbers will find the ".wcid" default helpful ("where can I deploy") |
-| global_lock_flag | no | --global | The flag to pass into the lock command to lock all environments. Example: "--global" |
-| environment | no | production | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
-| environment_targets | no | production,development,staging | Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging` |
-| production_environment | no | production | The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name. |
-| stable_branch | no | main | The name of a stable branch to deploy to (rollbacks). Example: "main" |
-| prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
-| update_branch | no | warn | Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself |
-| required_contexts | no | false | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option |
-| skip_ci | no | "" | A comma separated list of environments that will not use passing CI as a requirement for deployment. Use this option to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
-| skip_reviews | no | "" | A comma separated list of environment that will not use reviews/approvals as a requirement for deployment. Use this options to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
-| allow_forks | no | true | Allow branch deployments to run on repository forks. If you want to harden your workflows, this option can be set to false. Default is "true" |
-| admins | no | false | A comma separated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team" |
-| admins_pat | no | false | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
-| merge_deploy_mode | no | false | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
-| skip_completing | no | false | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
+| `github_token` | `true` | `${{ github.token }}` | The GitHub token used to create an authenticated client - Provided for you by default! |
+| `status` | `true` | `${{ job.status }}` | The status of the GitHub Actions - For use in the post run workflow - Provided for you by default! |
+| `reaction` | `false` | `eyes` | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
+| `trigger` | `false` | `.deploy` | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
+| `noop_trigger` | `false` | `noop` | The string to look for in comments as an IssueOps noop trigger. Example: "noop" - The usage would then be ".deploy noop" |
+| `lock_trigger` | `false` | `.lock` | The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: ".lock" |
+| `unlock_trigger` | `false` | `.unlock` | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: ".unlock" |
+| `help_trigger` | `false` | `.help` | The string to look for in comments as an IssueOps help trigger. Example: ".help" |
+| `lock_info_alias` | `false` | `.wcid` | An alias or shortcut to get details about the current lock (if it exists) Example: ".info" - Hubbers will find the ".wcid" default helpful ("where can I deploy") |
+| `global_lock_flag` | `false` | `--global` | The flag to pass into the lock command to lock all environments. Example: "--global" |
+| `environment` | `false` | `production` | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
+| `environment_targets` | `false` | `production,development,staging` | Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging` |
+| `production_environment` | `false` | `production` | The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name. |
+| `stable_branch` | `false` | `main` | The name of a stable branch to deploy to (rollbacks). Example: "main" |
+| `prefix_only` | `false` | `"true"` | If "false", the trigger can match anywhere in the comment |
+| `update_branch` | `false` | `warn` | Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself |
+| `required_contexts` | `false` | `"false"` | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option |
+| `skip_ci` | `false` | `""` | A comma separated list of environments that will not use passing CI as a requirement for deployment. Use this option to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
+| `skip_reviews` | `false` | `""` | A comma separated list of environment that will not use reviews/approvals as a requirement for deployment. Use this options to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
+| `allow_forks` | `false` | `"true"` | Allow branch deployments to run on repository forks. If you want to harden your workflows, this option can be set to false. Default is "true" |
+| `admins` | `false` | `"false"` | A comma separated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team" |
+| `admins_pat` | `false` | `"false"` | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
+| `merge_deploy_mode` | `false` | `"false"` | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
+| `skip_completing` | `false` | `"false"` | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
 
 ## Outputs 📤
 
 | Output | Description |
 | ------ | ----------- |
-| triggered | The string "true" if the trigger was found, otherwise the string "false" |
-| comment_body | The comment body |
-| environment | The environment that has been selected for a deployment |
-| noop | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
-| sha | The sha of the branch to be deployed |
-| ref | The ref (branch or sha) to use with deployment |
-| comment_id | The comment id which triggered this deployment |
-| deployment_id | The ID of the deployment created by running this action |
-| type | The type of trigger that was detected (examples: deploy, lock, unlock) |
-| continue | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
-| fork | The string "true" if the pull request is a fork, otherwise "false" |
-| fork_ref | The true ref of the fork |
-| fork_label | The API label field returned for the fork |
-| fork_checkout | The console command presented in the GitHub UI to checkout a given fork locally |
-| fork_full_name | The full name of the fork in "org/repo" format |
-| initial_reaction_id | The reaction id for the initial reaction on the trigger comment |
-| actor_handle | The handle of the user who triggered the action |
+| `triggered` | The string "true" if the trigger was found, otherwise the string "false" |
+| `comment_body` | The comment body |
+| `environment` | The environment that has been selected for a deployment |
+| `noop` | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
+| `sha` | The sha of the branch to be deployed |
+| `ref` | The ref (branch or sha) to use with deployment |
+| `comment_id` | The comment id which triggered this deployment |
+| `deployment_id` | The ID of the deployment created by running this action |
+| `type` | The type of trigger that was detected (examples: deploy, lock, unlock) |
+| `continue` | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
+| `fork` | The string "true" if the pull request is a fork, otherwise "false" |
+| `fork_ref` | The true ref of the fork |
+| `fork_label` | The API label field returned for the fork |
+| `fork_checkout` | The console command presented in the GitHub UI to checkout a given fork locally |
+| `fork_full_name` | The full name of the fork in "org/repo" format |
+| `initial_reaction_id` | The reaction id for the initial reaction on the trigger comment |
+| `actor_handle` | The handle of the user who triggered the action |
 
 ## Custom Deployment Messages ✏️
 
