@@ -381,6 +381,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
   // dynamic lock text
   let lockText = ''
   let environmentText = ''
+  var lockBranchForLink
   if (lockData.global === true) {
     lockText = dedent(
       `the \`global\` deployment lock is currently claimed by __${lockData.created_by}__
@@ -388,9 +389,11 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
       A \`global\` deployment lock prevents all other users from deploying to any environment except for the owner of the lock
       `
     )
+    lockBranchForLink = GLOBAL_LOCK_BRANCH
   } else {
     lockText = `the \`${lockData.environment}\` environment deployment lock is currently claimed by __${lockData.created_by}__`
     environmentText = `- __Environment__: \`${lockData.environment}\``
+    lockBranchForLink = `${lockData.environment}-${LOCK_BRANCH_SUFFIX}`
   }
 
   // Construct the comment to add to the issue, alerting that the lock is already claimed
@@ -409,7 +412,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
   - __Sticky__: \`${lockData.sticky}\`
   - __Global__: \`${lockData.global}\`
   - __Comment Link__: [click here](${lockData.link})
-  - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${LOCK_BRANCH_SUFFIX}/${LOCK_FILE})
+  - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${lockBranchForLink}/${LOCK_FILE})
 
   The current lock has been active for \`${totalTime}\`
 
