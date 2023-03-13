@@ -266,7 +266,7 @@ export async function run() {
               - __Global__: \`true\`
               `)
               core.info('there is a global deployment lock on this repository')
-              lockBranchName = `global-${LOCK_METADATA.globalLockBranch}`
+              lockBranchName = LOCK_METADATA.globalLockBranch
             }
 
             // Format the lock details message
