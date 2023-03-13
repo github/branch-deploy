@@ -12,7 +12,7 @@ beforeEach(() => {
     return undefined
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
-    return {sticky: true}
+    return {lockData: {sticky: true}}
   })
   jest
     .spyOn(createDeploymentStatus, 'createDeploymentStatus')
@@ -113,7 +113,7 @@ test('successfully completes a production branch deployment', async () => {
 
 test('successfully completes a production branch deployment and removes a non-sticky lock', async () => {
   const lockSpy = jest.spyOn(lock, 'lock').mockImplementation(() => {
-    return {sticky: false}
+    return {lockData: {sticky: false}}
   })
   jest.spyOn(unlock, 'unlock').mockImplementation(() => {
     return true
@@ -184,7 +184,7 @@ test('successfully completes a production branch deployment and removes a non-st
 
 test('successfully completes a noop branch deployment and removes a non-sticky lock', async () => {
   const lockSpy = jest.spyOn(lock, 'lock').mockImplementation(() => {
-    return {sticky: false}
+    return {lockData: {sticky: false}}
   })
   jest.spyOn(unlock, 'unlock').mockImplementation(() => {
     return true

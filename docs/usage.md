@@ -4,6 +4,12 @@ This document is a quick guide / cheatsheet for using the `branch-deploy` Action
 
 > This guide assumes default configuration options
 
+## Help 🗨️
+
+To view your available commands, environment targets, and how your workflow is specifically configured, you can run the following command:
+
+`.help`
+
 ## Deployment 🚀
 
 Deployments respect your repository's branch protection settings. You can trigger either a regular or noop deployment:
@@ -18,13 +24,22 @@ Deployments respect your repository's branch protection settings. You can trigge
 
 If you need to lock deployments so that only you can trigger them, you can use the following set of commands:
 
-- `.lock` - Locks deployments (sticky) so that only you can trigger them
-- `.lock --reason <text>` - Lock deployments with a reason
-- `.unlock` - Removes the current deployment lock (if one exists)
-- `.lock --info` - Displays info about the current deployment lock if one exists
-- `.wcid` - An alias for `.lock --info`, it means "where can I deploy"
+- `.lock` - Locks deployments (sticky) so that only you can trigger them - uses the default environment (usually production)
+- `.lock --reason <text>` - Lock deployments with a reason (sticky) - uses the default environment (usually production)
+- `.unlock` - Removes the current deployment lock (if one exists) - uses the default environment (usually production)
+- `.lock --info` - Displays info about the current deployment lock if one exists - uses the default environment (usually production)
+- `.wcid` - An alias for `.lock --info`, it means "where can I deploy" - uses the default environment (usually production)
+- `.lock <environment>` - Locks deployments (sticky) so that only you can trigger them - uses the specified environment
+- `.lock <environment> --reason <text>` - Lock deployments with a reason (sticky) - uses the specified environment
+- `.lock <environment> --info` - Displays info about the current deployment lock if one exists - uses the specified environment
+- `.unlock <environment>` - Removes the current deployment lock (if one exists) - uses the specified environment
+- `.lock --global` - Locks deployments globally (sticky) so that only you can trigger them - blocks all environments
+- `.lock --global --reason <text>` - Lock deployments globally with a reason (sticky) - blocks all environments
+- `.unlock --global` - Removes the current global deployment lock (if one exists)
 
 > Note: A deployment lock blocks deploys for all environments. **sticky** locks will also persist until someone removes them with `.unlock`
+
+It should be noted that anytime you use a `.lock`, `.unlock`, or `.lock --details` command without an environment, it will use the default environment target. This is usually `production` and can be configured in your branch-deploy workflow definition.
 
 ## Deployment Rollbacks 🔙
 
@@ -33,9 +48,13 @@ If something goes wrong and you need to redeploy the main/master/base branch of 
 - `.deploy main` - Rolls back to the `main` branch in production
 - `.deploy main to <environment>` - Rolls back to the `main` branch in the specified environment
 
+> Note: The `stable_branch` option can be configured in your branch-deploy workflow definition. By default it is the `main` branch but it can be changed to `master` or any other branch name.
+
 ## Environment Targets 🏝️
 
 Environment targets are used to target specific environments for deployments. These are specifically defined in the Actions workflow and could be anything you want. Common examples are `production`, `staging`, `development`, etc.
+
+To view what environments are available in your workflow, you can run the `.help` command.
 
 `.deploy` will always use the default environment target unless you specify one. If you are ever unsure what environment to use, please contact your team member who setup the workflow.
 
@@ -51,6 +70,8 @@ In order to run any branch deployment commands, you need the following permissio
 ## Example Workflow 📑
 
 An example workflow for using this Action might look like this:
+
+> All commands assume the default environment target of `production`
 
 1. A user creates an awesome new feature for their website
 2. The user creates a branch, commits their changes, and pushes the branch to GitHub

@@ -9,49 +9,91 @@ class NotFoundError extends Error {
   }
 }
 
+let octokit
+let context
+
 beforeEach(() => {
+  jest.clearAllMocks()
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
   })
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
-})
+  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
+  process.env.INPUT_ENVIRONMENT = 'production'
+  process.env.INPUT_UNLOCK_TRIGGER = '.unlock'
+  process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
 
-const context = {
-  repo: {
-    owner: 'corp',
-    repo: 'test'
-  },
-  issue: {
-    number: 1
-  }
-}
-
-const octokit = {
-  rest: {
-    git: {
-      deleteRef: jest.fn().mockReturnValue({status: 204})
+  octokit = {
+    rest: {
+      git: {
+        deleteRef: jest.fn().mockReturnValue({status: 204})
+      }
     }
   }
-}
+
+  context = {
+    repo: {
+      owner: 'corp',
+      repo: 'test'
+    },
+    issue: {
+      number: 1
+    },
+    payload: {
+      comment: {
+        body: '.unlock'
+      }
+    }
+  }
+})
 
 test('successfully releases a deployment lock with the unlock function', async () => {
   expect(await unlock(octokit, context, 123)).toBe(true)
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',
-    ref: 'heads/branch-deploy-lock'
+    ref: 'heads/production-branch-deploy-lock'
+  })
+})
+
+test('successfully releases a deployment lock with the unlock function and a passed in environment', async () => {
+  expect(await unlock(octokit, context, 123, 'staging')).toBe(true)
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/staging-branch-deploy-lock'
+  })
+})
+
+test('successfully releases a GLOBAL deployment lock with the unlock function', async () => {
+  context.payload.comment.body = '.unlock --global'
+  expect(await unlock(octokit, context, 123)).toBe(true)
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/global-branch-deploy-lock'
+  })
+})
+
+test('successfully releases a development environment deployment lock with the unlock function', async () => {
+  context.payload.comment.body = '.unlock development'
+  expect(await unlock(octokit, context, 123)).toBe(true)
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/development-branch-deploy-lock'
   })
 })
 
 test('successfully releases a deployment lock with the unlock function - silent mode', async () => {
-  expect(await unlock(octokit, context, 123, true)).toBe(
+  expect(await unlock(octokit, context, 123, null, true)).toBe(
     'removed lock - silent'
   )
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',
-    ref: 'heads/branch-deploy-lock'
+    ref: 'heads/production-branch-deploy-lock'
   })
 })
 
@@ -63,14 +105,9 @@ test('fails to release a deployment lock due to a bad HTTP code from the GitHub 
       }
     }
   }
-  expect(await unlock(badHttpOctokitMock, context, 123, true)).toBe(
+  expect(await unlock(badHttpOctokitMock, context, 123, null, true)).toBe(
     'failed to delete lock (bad status code) - silent'
   )
-  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
-    owner: 'corp',
-    repo: 'test',
-    ref: 'heads/branch-deploy-lock'
-  })
 })
 
 test('throws an error if an unhandled exception occurs - silent mode', async () => {
@@ -82,7 +119,7 @@ test('throws an error if an unhandled exception occurs - silent mode', async () 
     }
   }
   try {
-    await unlock(errorOctokitMock, context, 123, true)
+    await unlock(errorOctokitMock, context, 123, null, true)
   } catch (e) {
     expect(e.message).toBe('Error: oh no')
   }
@@ -98,7 +135,7 @@ test('Does not find a deployment lock branch so it lets the user know - silent m
       }
     }
   }
-  expect(await unlock(noBranchOctokitMock, context, 123, true)).toBe(
+  expect(await unlock(noBranchOctokitMock, context, 123, null, true)).toBe(
     'no deployment lock currently set - silent'
   )
 })
@@ -112,11 +149,6 @@ test('fails to release a deployment lock due to a bad HTTP code from the GitHub 
     }
   }
   expect(await unlock(badHttpOctokitMock, context, 123)).toBe(false)
-  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
-    owner: 'corp',
-    repo: 'test',
-    ref: 'heads/branch-deploy-lock'
-  })
 })
 
 test('Does not find a deployment lock branch so it lets the user know', async () => {
@@ -139,7 +171,34 @@ test('Does not find a deployment lock branch so it lets the user know', async ()
     context,
     noBranchOctokitMock,
     123,
-    '🔓 There is currently no deployment lock set',
+    '🔓 There is currently no `production` deployment lock set',
+    true,
+    true
+  )
+})
+
+test('Does not find a deployment lock branch so it lets the user know', async () => {
+  context.payload.comment.body = '.unlock --global'
+  const actionStatusSpy = jest
+    .spyOn(actionStatus, 'actionStatus')
+    .mockImplementation(() => {
+      return undefined
+    })
+  const noBranchOctokitMock = {
+    rest: {
+      git: {
+        deleteRef: jest
+          .fn()
+          .mockRejectedValue(new NotFoundError('Reference does not exist'))
+      }
+    }
+  }
+  expect(await unlock(noBranchOctokitMock, context, 123)).toBe(true)
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    context,
+    noBranchOctokitMock,
+    123,
+    '🔓 There is currently no `global` deployment lock set',
     true,
     true
   )

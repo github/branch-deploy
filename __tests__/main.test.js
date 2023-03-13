@@ -291,12 +291,19 @@ test('successfully runs the action in lock mode - details only', async () => {
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return {
-      branch: 'octocats-everywhere',
-      created_at: '2022-06-14T21:12:14.041Z',
-      created_by: 'octocat',
-      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
-      reason: 'Testing my new feature with lots of cats',
-      sticky: true
+      lockData: {
+        branch: 'octocats-everywhere',
+        created_at: '2022-06-14T21:12:14.041Z',
+        created_by: 'octocat',
+        environment: 'production',
+        global: false,
+        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+        reason: 'Testing my new feature with lots of cats',
+        sticky: true
+      },
+      status: 'details-only',
+      globalFlag: '--global',
+      environment: 'production'
     }
   })
   github.context.payload = {
@@ -325,6 +332,60 @@ test('successfully runs the action in lock mode - details only', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })
 
+test('successfully runs the action in lock mode - details only - for the development environment', async () => {
+  const infoSpy = jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {
+      lockData: {
+        branch: 'octocats-everywhere',
+        created_at: '2022-06-14T21:12:14.041Z',
+        created_by: 'octocat',
+        global: false,
+        environment: 'development',
+        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+        reason: 'Testing my new feature with lots of cats',
+        sticky: true
+      },
+      status: 'details-only',
+      globalFlag: '--global',
+      environment: 'development'
+    }
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.lock development --details',
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    '.lock development --details'
+  )
+  expect(infoSpy).toHaveBeenCalledWith(
+    'the deployment lock is currently claimed by __octocat__'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
 test('successfully runs the action in lock mode - details only - --info flag', async () => {
   const infoSpy = jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
@@ -335,12 +396,19 @@ test('successfully runs the action in lock mode - details only - --info flag', a
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return {
-      branch: 'octocats-everywhere',
-      created_at: '2022-06-14T21:12:14.041Z',
-      created_by: 'octocat',
-      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
-      reason: 'Testing my new feature with lots of cats',
-      sticky: true
+      lockData: {
+        branch: 'octocats-everywhere',
+        created_at: '2022-06-14T21:12:14.041Z',
+        created_by: 'octocat',
+        environment: 'production',
+        global: false,
+        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+        reason: 'Testing my new feature with lots of cats',
+        sticky: true
+      },
+      status: 'details-only',
+      globalFlag: '--global',
+      environment: 'production'
     }
   })
   github.context.payload = {
@@ -379,12 +447,19 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return {
-      branch: 'octocats-everywhere',
-      created_at: '2022-06-14T21:12:14.041Z',
-      created_by: 'octocat',
-      link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
-      reason: 'Testing my new feature with lots of cats',
-      sticky: true
+      lockData: {
+        branch: 'octocats-everywhere',
+        created_at: '2022-06-14T21:12:14.041Z',
+        created_by: 'octocat',
+        environment: 'production',
+        global: false,
+        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+        reason: 'Testing my new feature with lots of cats',
+        sticky: true
+      },
+      environment: 'production',
+      globalFlag: '--global',
+      status: 'details-only'
     }
   })
   github.context.payload = {
@@ -413,6 +488,60 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })
 
+test('successfully runs the action in lock mode - details only - lock alias wcid - and finds a global lock', async () => {
+  const infoSpy = jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {
+      lockData: {
+        branch: 'octocats-everywhere',
+        created_at: '2022-06-14T21:12:14.041Z',
+        created_by: 'octocat',
+        global: true,
+        environment: null,
+        link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+        reason: 'Testing my new feature with lots of cats',
+        sticky: true
+      },
+      status: 'details-only',
+      globalFlag: '--global',
+      environment: null
+    }
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.wcid production',
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.wcid production')
+  expect(infoSpy).toHaveBeenCalledWith(
+    'there is a global deployment lock on this repository'
+  )
+  expect(infoSpy).toHaveBeenCalledWith(
+    'the deployment lock is currently claimed by __octocat__'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock-info-alias')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
 test('successfully runs the action in lock mode and finds no lock - details only', async () => {
   const infoSpy = jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
@@ -422,7 +551,12 @@ test('successfully runs the action in lock mode and finds no lock - details only
     return true
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
-    return null
+    return {
+      status: null,
+      lockData: null,
+      environment: 'production',
+      globalFlag: '--global'
+    }
   })
   github.context.payload = {
     issue: {
@@ -448,9 +582,53 @@ test('successfully runs the action in lock mode and finds no lock - details only
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })
 
+test('successfully runs the action in lock mode and finds no GLOBAL lock - details only', async () => {
+  const infoSpy = jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {
+      status: null,
+      lockData: null,
+      environment: null,
+      global: true,
+      globalFlag: '--global'
+    }
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      body: '.lock --global --details',
+      id: 123,
+      user: {
+        login: 'monalisa'
+      }
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    '.lock --global --details'
+  )
+  expect(infoSpy).toHaveBeenCalledWith('no active deployment locks found')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
 test('fails to aquire the lock on a deploy so it exits', async () => {
   jest.spyOn(lock, 'lock').mockImplementation(() => {
-    return false
+    return {status: false}
   })
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
@@ -671,6 +849,44 @@ test('runs the .help command successfully', async () => {
   expect(await run()).toBe('failure')
   expect(debugMock).toHaveBeenCalledWith('help command detected')
   expect(setFailedMock).toHaveBeenCalledWith(permissionsMsg)
+})
+
+test('runs the action in lock mode and fails due to an invalid environment', async () => {
+  process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      id: 123,
+      body: '.lock --details super-production',
+      user: {
+        login: 'monalisa'
+      }
+    }
+  }
+  expect(await run()).toBe('safe-exit')
+  expect(debugMock).toHaveBeenCalledWith(
+    'No valid environment targets found for lock/unlock request'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    '.lock --details super-production'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  process.env.INPUT_GLOBAL_LOCK_FLAG = ''
 })
 
 test('successfully runs in mergeDeployMode', async () => {

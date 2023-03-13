@@ -21,13 +21,19 @@ This Action does the heavy lifting for you to enable branch deployments:
 - `.deploy noop` - Deploy a pull request in noop mode
 - `.deploy to <environment>` - Deploy a pull request to a specific environment
 - `.deploy <stable_branch>` - Trigger a rollback deploy to your stable branch (main, master, etc)
-- `.lock` - Create a deployment lock
-- `.lock --reason <text>` - Create a deployment lock with a custom reason
+- `.lock` - Create a deployment lock for the default environment
+- `.lock --reason <text>` - Create a deployment lock for the default environment with a custom reason
 - `.lock --details` - View details about a deployment lock
+- `.lock <environment>` - Create a deployment lock for a specific environment
+- `.lock --global` - Create a global deployment lock
 - `.unlock` - Remove a deployment lock
+- `.unlock <environment>` - Remove a deployment lock for a specific environment
+- `.unlock --global` - Remove a global deployment lock
 - `.help` - Get help with IssueOps commands with this Action
 
 > These commands are all fully customizable and are just an example using this Action's defaults
+
+For the full command usage, check out the [usage document](docs/usage.md)
 
 Alternate command syntax and shortcuts can be found at the bottom of this readme [here](#alternate-command-syntax)
 
@@ -248,104 +254,58 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 
 | Input | Required? | Default | Description |
 | ----- | --------- | ------- | ----------- |
-| github_token | yes | ${{ github.token }} | The GitHub token used to create an authenticated client - Provided for you by default! |
-| status | yes | ${{ job.status }} | The status of the GitHub Actions - For use in the post run workflow - Provided for you by default! |
-| reaction | no | eyes | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
-| trigger | no | .deploy | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
-| noop_trigger | no | noop | The string to look for in comments as an IssueOps noop trigger. Example: "noop" - The usage would then be ".deploy noop" |
-| lock_trigger | no | .lock | The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: ".lock" |
-| unlock_trigger | no | .unlock | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: ".unlock" |
-| help_trigger | no | .help | The string to look for in comments as an IssueOps help trigger. Example: ".help" |
-| lock_info_alias | no | .wcid | An alias or shortcut to get details about the current lock (if it exists) Example: ".info" - Hubbers will find the ".wcid" default helpful ("where can I deploy") |
-| environment | no | production | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
-| environment_targets | no | production,development,staging | Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging` |
-| production_environment | no | production | The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name. |
-| stable_branch | no | main | The name of a stable branch to deploy to (rollbacks). Example: "main" |
-| prefix_only | no | true | If "false", the trigger can match anywhere in the comment |
-| update_branch | no | warn | Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself |
-| required_contexts | no | false | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option |
-| skip_ci | no | "" | A comma separated list of environments that will not use passing CI as a requirement for deployment. Use this option to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
-| skip_reviews | no | "" | A comma separated list of environment that will not use reviews/approvals as a requirement for deployment. Use this options to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
-| allow_forks | no | true | Allow branch deployments to run on repository forks. If you want to harden your workflows, this option can be set to false. Default is "true" |
-| admins | no | false | A comma separated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team" |
-| admins_pat | no | false | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
-| merge_deploy_mode | no | false | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
-| skip_completing | no | false | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
+| `github_token` | `true` | `${{ github.token }}` | The GitHub token used to create an authenticated client - Provided for you by default! |
+| `status` | `true` | `${{ job.status }}` | The status of the GitHub Actions - For use in the post run workflow - Provided for you by default! |
+| `reaction` | `false` | `eyes` | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
+| `trigger` | `false` | `.deploy` | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
+| `noop_trigger` | `false` | `noop` | The string to look for in comments as an IssueOps noop trigger. Example: "noop" - The usage would then be ".deploy noop" |
+| `lock_trigger` | `false` | `.lock` | The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: ".lock" |
+| `unlock_trigger` | `false` | `.unlock` | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: ".unlock" |
+| `help_trigger` | `false` | `.help` | The string to look for in comments as an IssueOps help trigger. Example: ".help" |
+| `lock_info_alias` | `false` | `.wcid` | An alias or shortcut to get details about the current lock (if it exists) Example: ".info" - Hubbers will find the ".wcid" default helpful ("where can I deploy") |
+| `global_lock_flag` | `false` | `--global` | The flag to pass into the lock command to lock all environments. Example: "--global" |
+| `environment` | `false` | `production` | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
+| `environment_targets` | `false` | `production,development,staging` | Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging` |
+| `production_environment` | `false` | `production` | The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name. |
+| `stable_branch` | `false` | `main` | The name of a stable branch to deploy to (rollbacks). Example: "main" |
+| `prefix_only` | `false` | `"true"` | If "false", the trigger can match anywhere in the comment |
+| `update_branch` | `false` | `warn` | Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself |
+| `required_contexts` | `false` | `"false"` | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option |
+| `skip_ci` | `false` | `""` | A comma separated list of environments that will not use passing CI as a requirement for deployment. Use this option to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
+| `skip_reviews` | `false` | `""` | A comma separated list of environment that will not use reviews/approvals as a requirement for deployment. Use this options to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
+| `allow_forks` | `false` | `"true"` | Allow branch deployments to run on repository forks. If you want to harden your workflows, this option can be set to false. Default is "true" |
+| `admins` | `false` | `"false"` | A comma separated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team" |
+| `admins_pat` | `false` | `"false"` | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
+| `merge_deploy_mode` | `false` | `"false"` | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
+| `skip_completing` | `false` | `"false"` | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
 
 ## Outputs 📤
 
 | Output | Description |
 | ------ | ----------- |
-| triggered | The string "true" if the trigger was found, otherwise the string "false" |
-| comment_body | The comment body |
-| environment | The environment that has been selected for a deployment |
-| noop | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
-| sha | The sha of the branch to be deployed |
-| ref | The ref (branch or sha) to use with deployment |
-| comment_id | The comment id which triggered this deployment |
-| deployment_id | The ID of the deployment created by running this action |
-| type | The type of trigger that was detected (examples: deploy, lock, unlock) |
-| continue | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
-| fork | The string "true" if the pull request is a fork, otherwise "false" |
-| fork_ref | The true ref of the fork |
-| fork_label | The API label field returned for the fork |
-| fork_checkout | The console command presented in the GitHub UI to checkout a given fork locally |
-| fork_full_name | The full name of the fork in "org/repo" format |
-| initial_reaction_id | The reaction id for the initial reaction on the trigger comment |
-| actor_handle | The handle of the user who triggered the action |
+| `triggered` | The string "true" if the trigger was found, otherwise the string "false" |
+| `comment_body` | The comment body |
+| `environment` | The environment that has been selected for a deployment |
+| `noop` | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
+| `sha` | The sha of the branch to be deployed |
+| `ref` | The ref (branch or sha) to use with deployment |
+| `comment_id` | The comment id which triggered this deployment |
+| `deployment_id` | The ID of the deployment created by running this action |
+| `type` | The type of trigger that was detected (examples: deploy, lock, unlock) |
+| `continue` | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
+| `fork` | The string "true" if the pull request is a fork, otherwise "false" |
+| `fork_ref` | The true ref of the fork |
+| `fork_label` | The API label field returned for the fork |
+| `fork_checkout` | The console command presented in the GitHub UI to checkout a given fork locally |
+| `fork_full_name` | The full name of the fork in "org/repo" format |
+| `initial_reaction_id` | The reaction id for the initial reaction on the trigger comment |
+| `actor_handle` | The handle of the user who triggered the action |
+| `global_lock_claimed` | The string "true" if the global lock was claimed |
+| `global_lock_released` | The string "true" if the global lock was released |
 
 ## Custom Deployment Messages ✏️
 
-> This is useful to display to the user the status of your deployment. For example, you could display the results of a `terraform apply` in the deployment comment
-
-You can use the GitHub Actions environment to export custom deployment messages from your workflow to be referenced in the post run workflow for the `branch-deploy` Action that comments results back to your PR
-
-Simply set the environment variable `DEPLOY_MESSAGE` to the message you want to be displayed in the post run workflow
-
-Bash Example:
-
-```bash
-echo "DEPLOY_MESSAGE=<message>" >> $GITHUB_ENV
-```
-
-Actions Workflow Example:
-
-```yaml
-# Do some fake "noop" deployment logic here
-- name: fake noop deploy
-  if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
-  run: |
-    echo "DEPLOY_MESSAGE=I would have **updated** 1 server" >> $GITHUB_ENV
-    echo "I am doing a fake noop deploy"
-```
-
-### Additional Custom Message Examples 📚
-
-#### Adding newlines to your message
-
-```bash
-echo "DEPLOY_MESSAGE=NOOP Result:\nI would have **updated** 1 server" >> $GITHUB_ENV
-```
-
-#### Multi-line strings ([reference](https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#example-2))
-
-```bash
-echo 'DEPLOY_MESSAGE<<EOF' >> $GITHUB_ENV
-echo "$SOME_MULTI_LINE_STRING_HERE" >> $GITHUB_ENV
-echo 'EOF' >> $GITHUB_ENV
-```
-
-> Where `$SOME_MULTI_LINE_STRING_HERE` is a bash variable containing a multi-line string
-
-#### Adding a code block to your message
-
-```bash
-echo "DEPLOY_MESSAGE=\`\`\`yaml\nname: value\n\`\`\`" >> $GITHUB_ENV
-```
-
-### How does this work? 🤔
-
-To add custom messages to our final deployment message we need to use the GitHub Actions environment. This is so that we can dynamically pass data into the post action workflow that leaves a comment on our PR. The post action workflow will look to see if this environment variable is set (`DEPLOY_MESSAGE`). If the variable is set, it adds to to the PR comment. Otherwise, it will use a simple comment body that doesn't include the custom message.
+For documentation on how to customize the deployment messages, see the [custom deployment messages docs](./docs/custom-deployment-messages.md).
 
 ## About Environments 🌎
 
@@ -428,6 +388,8 @@ YAML input example:
     environment: production # the default environment
     environment_targets: "production,development,staging" # the environments that you can deploy to with explicit commands
 ```
+
+You can view additional details about the `environment_targets` input option in the [`action.yml`](action.yml) section above
 
 ## Rollbacks 🔄
 
@@ -521,159 +483,13 @@ You can also pin to an exact commit SHA as well using a third party tool such as
 
 ## Deployment Locks and Actions Concurrency 🔓
 
-> Only run one deployment at a time
+For full details about how this Action handles deployment locks and concurrency, please see the [deployment locks and concurrency](docs/locks.md) documentation
 
-There are multiple ways to leverage this action for deployment locks! Let's take a look at each option
-
-### Deployment Locks
-
-The suggested way to go about deployment locking is to use the built in locking feature in this Action!
-
-Just like how you can comment `.deploy` on a pull request to trigger a deployment, you can also comment `.lock` to lock deployments. This will prevent other users from triggering a deployment. The lock is associated with your GitHub handle, so you will be able to deploy any pull request in the repository and as many times as you want. Any other user who attempts a deployment while your lock is active will get a comment on their PR telling them that a lock is in effect
-
-To release the deployment lock, simply comment `.unlock` on any pull request in the repository at anytime. Please be aware that other users can run this same command to remove the lock (in case you get offline and forget to do so 😉)
-
-These deployment locks come in two flavors:
-
-- `sticky`
-- `non-sticky`
-
-**sticky** locks are locks that persist until you remove them. As seen in the example above, the `.lock` command creates a **sticky** lock that will persist until someone runs `.unlock`
-
-**non-sticky** locks are temporary locks that only exist during a deployment. This action will automatically create a **non-sticky** lock for you when you run `.deploy`. It does this to prevent another user from running `.deploy` in another pull request and creating a deployment conflict
-
-#### Deployment Lock Core Concepts
-
-Let's review the core concepts of deployment locks in a short summary:
-
-- Deployment locks are used to prevent multiple deployments from running at the same time and breaking things
-- Non-sticky locks are created automatically when running `.deploy` or `.deploy noop`
-- Sticky locks are created manually by commenting `.lock` on a pull request - They will persist until you remove them with `.unlock`
-- Locks are associated to a user's GitHub handle - This user can deploy any pull request in the repository and as many times as they want
-- Any user can remove a lock by commenting `.unlock` on any pull request in the repository
-- Details about a lock can be viewed with `.lock --details`
-- Like all the features of this Action, users need `write` permissions or higher to use a command
-
-#### How do Deployment Locks Work?
-
-This Action uses GitHub branches to create a deployment lock. When you run `.lock` the following happens:
-
-1. The Action checks to see if a lock already exists
-2. If a lock does not exists it begins to create one for you
-3. The Action creates a new branch called `branch-deploy-lock`
-4. The Action then creates a lock file called `lock.json` on the new branch
-5. The `lock.json` file contains metadata about the lock
-
-Now when new deployments are run, they will check if a lock exists. If it does and it doesn't belong to you, your deployment is rejected. If the lock does belong to you, the deployment will continue.
-
-#### Deployment Lock Examples 📸
-
-Here are a few examples of deployment locks in action!
-
-Lock Example:
-
-![lock](https://user-images.githubusercontent.com/23362539/174189284-e3207acb-e647-4467-9cf0-676a811b32f1.png)
-
-Unlock Example:
-
-![unlock](https://user-images.githubusercontent.com/23362539/174189384-6faadd57-9512-4056-91d7-c15c3032e1e6.png)
-
-### Actions Concurrency
-
-> Note: Using the locking mechanism included in this Action (above) is highly recommended over Actions concurrency. The section below will be included anyways should you have a valid reason to use it instead of the deploy lock features this Action provides
-
-If your workflows need some level of concurrency or locking, you can leverage the native GitHub Actions concurrency feature ([documentation](https://docs.github.com/en/actions/using-jobs/using-concurrency)) to enable this.
-
-For example, if you have two users run `.deploy` on two separate PRs at the same time, it will trigger two deployments. In some cases, this will break things and you may not want this. By using Actions concurrency, you can prevent multiple workflows from running at once
-
-The default behavior for Actions is to run the first job that was triggered and to set the other one as `pending`. If you want to cancel the other job, that can be configured as well. Below you will see an example where we setup a concurrency group which only allows one deployment at a time and cancels all other workflows triggered while our deployment is running:
-
-```yaml
-concurrency: 
-  group: production
-  cancel-in-progress: true
-```
-
-### Need More Deployment Lock Control?
-
-If you need more control over when, how, and why deployment locks are set, you can use the [github/lock](https://github.com/github/lock) Action!
-
-This Action allows you to set a lock via an issue comment, custom condition, on merges, etc. You have full control over when and how the lock is set and removed!
+> This linked document also contains usage, setup details, and examples
 
 ## Merge Commit Workflow Strategy
 
-> Note: This section is rather advanced and entirely optional
-
-At GitHub, we use custom logic to compare the latest deployment with the merge commit created when a pull request is merged to our default branch. This helps to save CI time, and prevent redundant deployments. If a user deploys a pull request, it succeeds, and then the pull request is merged, we will not deploy the merge commit. This is because the merge commit is the same as the latest deployment.
-
-This Action comes bundled with an alternate workflow to help facilitate exactly this. Before explaining how this works, let's first review why this might be useful.
-
-Example scenario 1:
-
-1. You have a pull request with a branch deployment created by this Action
-2. No one else except for you has created a deployment
-3. You click the merge button on the pull request you just deployed
-4. The "merge commit workflow strategy" is triggered on merge to your default branch
-5. The workflow compares the latest deployment with the merge commit and finds they are identical
-6. The workflow uses logic to exit as it does not need to deploy the merge commit since it is the same as the latest deployment
-
-Example scenario 2:
-
-1. You have a pull request with a branch deployment created by this Action
-2. You create a deployment on your pull request
-3. You go to make a cup of coffee and while doing so, your teammate creates a deployment on their own (different) pull request
-4. You click the merge button on the pull request you just deployed (which is now silently out of date)
-5. The "merge commit workflow strategy" is triggered on merge to your default branch
-6. The workflow compares the latest deployment with the merge commit and finds they are different
-7. The workflow uses logic to deploy the merge commit since it is different than the latest deployment
-
-This should help explain why this strategy is useful. It helps to save CI time and prevent redundant deployments. If you are not using this strategy, you will end up deploying the merge commit even if it is the same as the latest deployment if you do a deployment every time a pull request is merged (rather common).
-
-### Using the Merge Commit Workflow Strategy
-
-To use the advanced merge commit workflow strategy, you will need to do the following:
-
-1. Create a new Actions workflow file in your repository that will be triggered on merge to your default branch
-2. Add a job that calls the branch-deploy Action
-3. Add configuration to the Action telling it to use the custom merge commit workflow strategy
-
-Below is a sample workflow with plenty of in-line comments to help you along:
-
-```yaml
-name: deploy
-on:
-  push:
-    branches:
-      - main # <-- This is the default branch for your repository
-
-jobs:
-  deploy:
-    if: github.event_name == 'push' # Merge commits will trigger a push event
-    environment: production # You can configure this to whatever you call your production environment
-    runs-on: ubuntu-latest
-    steps:
-      # Call the branch-deploy Action - name it something else if you want (I did here for clarity)
-      - name: deployment check
-        uses: github/branch-deploy@vX.X.X # replace with the latest version of this Action
-        id: deployment-check # ensure you have an 'id' set so you can reference the output of the Action later on
-        with:
-          merge_deploy_mode: "true" # required, tells the Action to use the merge commit workflow strategy
-          environment: production # optional, defaults to 'production'
-
-      # Now we can conditionally 'gate' our deployment logic based on the output of the Action
-      # If the Action returns 'true' for the 'continue' output, we can continue with our deployment logic
-      # Otherwise, all subsequent steps will be skipped
-
-      # Check out the repository
-      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
-        if: ${{ steps.deployment-check.outputs.continue == 'true' }} # only run if the Action returned 'true' for the 'continue' output
-
-      # Do your deployment here! (However you want to do it)
-      # This could be deployment logic via SSH, Terraform, AWS, Heroku, etc.
-      - name: fake regular deploy
-        if: ${{ steps.deployment-check.outputs.continue == 'true' }} # only run if the Action returned 'true' for the 'continue' output
-        run: echo "I am doing a fake regular deploy"
-```
+Checkout the [merge commit workflow strategy](docs/merge-commit-strategy.md) for more information on how to use this Action with a merge commit workflow strategy.
 
 ## Manual Deployment Control
 
@@ -730,28 +546,9 @@ Here are a few alternate ways you can invoke commands:
 - `.deploy development` - Invoke a deployment to the development environment (notice how you can omit the "to" keyword)
 - `.deploy to development` - Invoke a deployment to the development environment (with the "to" keyword)
 - `.deploy` - Uses the default environment (usually "production")
+- `.wcid` - Alias for `.lock --details` meaning "where can I deploy?"
 
-## Testing Locally 🔨
-
-Steps for testing the Action locally for development
-
-### Using NPM
-
-```console
-npm run test
-```
-
-> Note: This has been tested on node 16.x and npm 8.x
-
-### Using Act
-
-> This is a not fully supported
-
-Test with [act](https://github.com/nektos/act) locally to simulate a GitHub Actions event
-
-```bash
-act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test
-```
+Check out the [usage guide](docs/usage.md) for more information
 
 ---
 

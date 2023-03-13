@@ -76,11 +76,37 @@ export async function help(octokit, context, reactionId, inputs) {
   - \`${
     inputs.lock_trigger
   } --reason <text>\` - Obtain the deployment lock with a reason (will persist until the lock is released)
-  - \`${inputs.unlock_trigger}\` - Release the deployment lock (if one exists)
   - \`${
     inputs.lock_trigger
-  } --info\` - Show information about the current deployment lock (if one exists)
-  - \`${inputs.lock_info_alias}\` - Alias for \`${inputs.lock_trigger} --info\`
+  } <environment>\` - Obtain the deployment lock for the specified environment (will persist until the lock is released)
+  - \`${
+    inputs.lock_trigger
+  } <environment> --reason <text>\` - Obtain the deployment lock for the specified environment with a reason (will persist until the lock is released)
+  - \`${inputs.lock_trigger} ${
+    inputs.global_lock_flag
+  }\` - Obtain a global deployment lock (will persist until the lock is released) - Blocks all environments
+  - \`${inputs.lock_trigger} ${
+    inputs.global_lock_flag
+  } --reason <text>\` - Obtain a global deployment lock with a reason (will persist until the lock is released) - Blocks all environments
+  - \`${inputs.unlock_trigger}\` - Release the deployment lock (if one exists)
+  - \`${
+    inputs.unlock_trigger
+  } <environment>\` - Release the deployment lock for the specified environment (if one exists)
+  - \`${inputs.unlock_trigger} ${
+    inputs.global_lock_flag
+  }\` - Release the global deployment lock (if one exists)
+  - \`${
+    inputs.lock_trigger
+  } --details\` - Show information about the current deployment lock (if one exists)
+  - \`${
+    inputs.lock_trigger
+  } <environment> --details\` - Get information about the current deployment lock for the specified environment (if one exists)
+  - \`${inputs.lock_trigger} ${
+    inputs.global_lock_flag
+  } --details\` - Show information about the current global deployment lock (if one exists)
+  - \`${inputs.lock_info_alias}\` - Alias for \`${
+    inputs.lock_trigger
+  } --details\`
 
   ### 🌍 Environments
 
@@ -111,10 +137,22 @@ export async function help(octokit, context, reactionId, inputs) {
   }\` - Deploy this branch to the \`${
     inputs.environment
   }\` environment in noop mode
-  - \`${inputs.trigger} to <${inputs.environment_targets.replace(
+  - \`${inputs.trigger} to <${inputs.environment_targets.replaceAll(
     ',',
     '|'
   )}>\` - Deploy this branch to the specified environment (note: the \`to\` keyword is optional)
+  - \`${inputs.lock_trigger} <${inputs.environment_targets.replaceAll(
+    ',',
+    '|'
+  )}>\` - Obtain the deployment lock for the specified environment
+  - \`${inputs.unlock_trigger} <${inputs.environment_targets.replaceAll(
+    ',',
+    '|'
+  )}>\` - Release the deployment lock for the specified environment
+  - \`${inputs.lock_trigger} <${inputs.environment_targets.replaceAll(
+    ',',
+    '|'
+  )}> --details\` - Get information about the deployment lock for the specified environment
 
   ### ⚙️ Configuration
 

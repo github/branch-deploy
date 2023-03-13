@@ -53,6 +53,10 @@ inputs:
     description: 'An alias or shortcut to get details about the current lock (if it exists) Example: ".info"'
     required: false
     default: ".wcid"
+  global_lock_flag:
+    description: 'The flag to pass into the lock command to lock all environments. Example: "--global"'
+    required: false
+    default: "--global"
   stable_branch:
     description: 'The name of a stable branch to deploy to (rollbacks). Example: "main"'
     required: false
@@ -132,6 +136,10 @@ outputs:
     description: The reaction id for the initial reaction on the trigger comment
   actor_handle:
     description: The handle of the user who triggered the action
+  global_lock_claimed:
+    description: 'The string "true" if the global lock was claimed'
+  global_lock_released:
+    description: 'The string "true" if the global lock was released'
 runs:
   using: "node16"
   main: "dist/index.js"
