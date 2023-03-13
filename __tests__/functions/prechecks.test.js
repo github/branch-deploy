@@ -2654,3 +2654,81 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
     sha: 'abc123'
   })
 })
+
+test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS) and a noop deploy and does not update the branch', async () => {
+  var octonocommitchecks = octokit
+  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'HAS_HOOKS',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        ref: 'test-ref',
+        sha: 'abc123'
+      },
+      base: {
+        ref: 'main'
+      }
+    },
+    status: 200
+  })
+  octonocommitchecks['rest']['repos']['getBranch'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+  octonocommitchecks['rest']['repos']['compareCommits'] = jest
+    .fn()
+    .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
+  octonocommitchecks['rest']['pulls']['updateBranch'] = jest
+    .fn()
+    .mockReturnValue({
+      data: {
+        message: 'Updating pull request branch.',
+        url: 'https://api.github.com/repos/foo/bar/pulls/123'
+      },
+      status: 202
+    })
+  expect(
+    await prechecks(
+      '.deploy noop',
+      '.deploy',
+      'noop',
+      'force',
+      'main',
+      '123',
+      true,
+      '',
+      '',
+      'production',
+      context,
+      octonocommitchecks
+    )
+  ).toStrictEqual({
+    message: '✔️ PR is approved and all CI checks passed - OK',
+    status: true,
+    noopMode: true,
+    ref: 'test-ref',
+    sha: 'abc123'
+  })
+})

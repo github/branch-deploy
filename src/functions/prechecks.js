@@ -258,8 +258,8 @@ export async function prechecks(
 
   // Check to see if the branch is behind the base branch
   var behind = false
-  // if the mergeStateStatus is 'BLOCKED' check to see if the branch is out-of-date with the base branch
-  if (mergeStateStatus === 'BLOCKED') {
+  // if the mergeStateStatus is 'BLOCKED' or 'HAS_HOOKS' check to see if the branch is out-of-date with the base branch
+  if (mergeStateStatus === 'BLOCKED' || mergeStateStatus === 'HAS_HOOKS') {
     // Make an API call to get the base branch
     const baseBranch = await octokit.rest.repos.getBranch({
       ...context.repo,
