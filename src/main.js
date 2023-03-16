@@ -556,7 +556,8 @@ export async function run() {
       precheckResults.ref,
       'in_progress',
       createDeploy.id,
-      environment
+      environment,
+      environmentObj.environmentUrl // environment_url (can be a '')
     )
 
     core.setOutput('continue', 'true')
