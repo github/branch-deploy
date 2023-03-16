@@ -43,6 +43,7 @@ export async function run() {
     const skipReviews = core.getInput('skip_reviews')
     const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
     const admins = core.getInput('admins')
+    const environment_urls = core.getInput('environment_urls')
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
@@ -202,7 +203,7 @@ export async function run() {
       }
 
       // Check if the environment being locked/unlocked is a valid environment
-      const lockEnvTargetCheck = await environmentTargets(
+      const lockEnvTargetCheckObj = await environmentTargets(
         environment, // the default environment from the Actions inputs
         body, // the body of the comment
         lock_trigger,
@@ -213,6 +214,9 @@ export async function run() {
         reactRes.data.id,
         true // lockChecks set to true as this is for lock/unlock requests
       )
+
+      // extract the environment target from the lockEnvTargetCheckObj
+      const lockEnvTargetCheck = lockEnvTargetCheckObj.environment
 
       // If the environment targets are not valid, then exit
       if (!lockEnvTargetCheck) {
@@ -368,16 +372,21 @@ export async function run() {
     }
 
     // Check if the default environment is being overwritten by an explicit environment
-    environment = await environmentTargets(
-      environment,
-      body,
-      trigger,
-      noop_trigger,
-      stable_branch,
-      context,
-      octokit,
-      reactRes.data.id
+    const environmentObj = await environmentTargets(
+      environment, // environment
+      body, // comment body
+      trigger, // trigger
+      noop_trigger, // noop trigger
+      stable_branch, // ref
+      context, // context object
+      octokit, // octokit object
+      reactRes.data.id, // reaction id
+      false, // lockChecks set to false as this is for a deployment
+      environment_urls // environment_urls action input
     )
+
+    // deconstruct the environment object to get the environment
+    environment = environmentObj.environment
 
     // If the environment targets are not valid, then exit
     if (!environment) {
@@ -547,7 +556,8 @@ export async function run() {
       precheckResults.ref,
       'in_progress',
       createDeploy.id,
-      environment
+      environment,
+      environmentObj.environmentUrl // environment_url (can be a '')
     )
 
     core.setOutput('continue', 'true')

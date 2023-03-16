@@ -266,6 +266,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `global_lock_flag` | `false` | `--global` | The flag to pass into the lock command to lock all environments. Example: "--global" |
 | `environment` | `false` | `production` | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
 | `environment_targets` | `false` | `production,development,staging` | Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging` |
+| `environment_urls` | `false` | `""` | Optional target environment URLs to use with deployments. This input option is a mapping of environment names to URLs and the environment names **must** match the `environment_targets` input option. This option is a comma separated list with pipes (`\|`) separating the environment from the URL. Format: `"<environment1>\|<url1>,<environment2>\|<url2>,etc"` Example: `"production\|https://myapp.com,development\|https://dev.myapp.com,staging\|https://staging.myapp.com"` |
 | `production_environment` | `false` | `production` | The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name. |
 | `stable_branch` | `false` | `main` | The name of a stable branch to deploy to (rollbacks). Example: "main" |
 | `prefix_only` | `false` | `"true"` | If "false", the trigger can match anywhere in the comment |
@@ -291,6 +292,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `ref` | The ref (branch or sha) to use with deployment |
 | `comment_id` | The comment id which triggered this deployment |
 | `deployment_id` | The ID of the deployment created by running this action |
+| `environment_url` | The environment URL detected and used for the deployment (sourced from the environment_urls input) |
 | `type` | The type of trigger that was detected (examples: deploy, lock, unlock) |
 | `continue` | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
 | `fork` | The string "true" if the pull request is a fork, otherwise "false" |
@@ -364,7 +366,7 @@ This can be achieved with the `environment_targets` input
 
 With this option, you can specify a comma separated list of environments that you can deploy to besides just the default with `.deploy`
 
-The defaults that are used are: `production,development,staging`. However, you can configure this to be whatever you like!
+The defaults that are used are: [`production,development,staging`](https://github.com/github/branch-deploy/blob/e3cbb8f0137bfd7933492f12616c0cf91c7cf051/action.yml#L23). However, you can configure this to be whatever you like!
 
 To use a deployment with a specific environment, you would invoke your commands like so:
 
@@ -390,6 +392,20 @@ YAML input example:
 ```
 
 You can view additional details about the `environment_targets` input option in the [`action.yml`](action.yml) section above
+
+### Environment URLs
+
+Environment URLs can be confirgured and mapped to matching `environment_targets` using the `environment_urls` input.
+
+This input option is a mapping of environment names to URLs and the environment names **must** match the [`environment_targets`](https://github.com/github/branch-deploy#environment-targets) input option. This option is a comma separated list with pipes (`|`) separating the environment from the URL.
+
+Format: `"<environment1>|<url1>,<environment2>|<url2>,etc"`
+
+Example: `"production|https://myapp.com,development|https://dev.myapp.com,staging|https://staging.myapp.com"`
+
+> This option is especially useful when your deployment targets are services with a URL (website, API, etc)
+
+By enabling this option, you will get a "clickable" link on success (non-noop) deployment messages on pull requests. You will also be able to click the "View deployment" button in your repository's deployments page and be taken to the URL of the environment you deployed to.
 
 ## Rollbacks 🔄
 

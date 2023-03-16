@@ -5,6 +5,7 @@
 // :param state: The state of the deployment
 // :param deploymentId: The id of the deployment
 // :param environment: The environment of the deployment
+// :param environment_url: The environment url of the deployment (default '')
 // :returns: The result of the deployment status creation (Object)
 export async function createDeploymentStatus(
   octokit,
@@ -12,7 +13,8 @@ export async function createDeploymentStatus(
   ref,
   state,
   deploymentId,
-  environment
+  environment,
+  environment_url = ''
 ) {
   // Get the owner and the repo from the context
   const {owner, repo} = context.repo
@@ -24,7 +26,8 @@ export async function createDeploymentStatus(
     deployment_id: deploymentId,
     state: state,
     INPUT_LOG_URL: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${context.runId}`,
-    environment: environment
+    environment: environment,
+    environment_url: environment_url
   })
 
   return result
