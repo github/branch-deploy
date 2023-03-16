@@ -3,7 +3,6 @@ import {identicalCommitCheck} from '../../src/functions/identical-commit-check'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')
-// const debugMock = jest.spyOn(core, 'debug')
 
 beforeEach(() => {
   jest.clearAllMocks()
