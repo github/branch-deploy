@@ -22,7 +22,7 @@ const setWarningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
 const setInfoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
 
 beforeEach(() => {
-  jest.resetAllMocks()
+  jest.clearAllMocks()
   jest.spyOn(core, 'error').mockImplementation(() => {})
   jest.spyOn(core, 'getInput').mockImplementation(name => {
     return validInputs[name]

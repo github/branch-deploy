@@ -1,11 +1,12 @@
 import {stringToArray} from '../../src/functions/string-to-array'
 import * as core from '@actions/core'
 
+const debugMock = jest.spyOn(core, 'debug')
+
 beforeEach(() => {
+  jest.clearAllMocks()
   jest.spyOn(core, 'debug').mockImplementation(() => {})
 })
-
-const debugMock = jest.spyOn(core, 'debug')
 
 test('successfully converts a string to an array', async () => {
   expect(await stringToArray('production,staging,development')).toStrictEqual([

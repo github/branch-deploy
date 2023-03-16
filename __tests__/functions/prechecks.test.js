@@ -3,74 +3,83 @@ import * as isAdmin from '../../src/functions/admin'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 
+// Globals for testing
+const infoMock = jest.spyOn(core, 'info')
+
+var context
+var getCollabOK
+var getPullsOK
+var graphQLOK
+var octokit
+
 beforeEach(() => {
-  // jest.resetAllMocks()
+  jest.clearAllMocks()
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
-})
 
-// Globals for testing
-const infoMock = jest.spyOn(core, 'info')
-const context = {
-  actor: 'monalisa',
-  repo: {
-    owner: 'corp',
-    repo: 'test'
-  },
-  issue: {
-    number: 123
-  }
-}
-const getCollabOK = jest
-  .fn()
-  .mockReturnValue({data: {permission: 'admin'}, status: 200})
-const getPullsOK = jest.fn().mockReturnValue({
-  data: {
-    head: {
-      ref: 'test-ref',
-      sha: 'abc123'
+  context = {
+    actor: 'monalisa',
+    repo: {
+      owner: 'corp',
+      repo: 'test'
     },
-    base: {
-      ref: 'base-ref'
+    issue: {
+      number: 123
     }
-  },
-  status: 200
-})
-const graphQLOK = jest.fn().mockReturnValue({
-  repository: {
-    pullRequest: {
-      reviewDecision: 'APPROVED',
-      mergeStateStatus: 'CLEAN',
-      commits: {
-        nodes: [
-          {
-            commit: {
-              checkSuites: {
-                totalCount: 3
-              },
-              statusCheckRollup: {
-                state: 'SUCCESS'
+  }
+
+  getCollabOK = jest
+    .fn()
+    .mockReturnValue({data: {permission: 'write'}, status: 200})
+  getPullsOK = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        ref: 'test-ref',
+        sha: 'abc123'
+      },
+      base: {
+        ref: 'base-ref'
+      }
+    },
+    status: 200
+  })
+
+  graphQLOK = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'CLEAN',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 3
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
               }
             }
-          }
-        ]
+          ]
+        }
       }
     }
+  })
+
+  octokit = {
+    rest: {
+      repos: {
+        getCollaboratorPermissionLevel: getCollabOK
+      },
+      pulls: {
+        get: getPullsOK
+      }
+    },
+    graphql: graphQLOK
   }
 })
-
-const octokit = {
-  rest: {
-    repos: {
-      getCollaboratorPermissionLevel: getCollabOK
-    },
-    pulls: {
-      get: getPullsOK
-    }
-  },
-  graphql: graphQLOK
-}
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment', async () => {
   expect(
@@ -98,8 +107,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a rollback deployment', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['rest']['repos']['getBranch'] = jest
+  octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
 
@@ -116,7 +124,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message: '✔️ Deployment to the **stable** branch requested - OK',
@@ -183,8 +191,7 @@ test('runs prechecks and does not find any matching command', async () => {
 })
 
 test('runs prechecks and finds that the IssueOps command is valid without defined CI checks', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValueOnce({
+  octokit.graphql = jest.fn().mockReturnValueOnce({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED'
@@ -204,7 +211,7 @@ test('runs prechecks and finds that the IssueOps command is valid without define
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -220,8 +227,7 @@ test('runs prechecks and finds that the IssueOps command is valid without define
 })
 
 test('runs prechecks and fails due to bad user permissions', async () => {
-  var octobadperms = octokit
-  octobadperms['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+  octokit.rest.repos.getCollaboratorPermissionLevel = jest
     .fn()
     .mockReturnValueOnce({data: {permission: 'read'}, status: 200})
   expect(
@@ -237,7 +243,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
       '',
       'production',
       context,
-      octobadperms
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -247,13 +253,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
 })
 
 test('runs prechecks and fails due to a bad pull request', async () => {
-  var octobadpull = octokit
-  octobadpull['rest']['pulls']['get'] = jest
-    .fn()
-    .mockReturnValueOnce({status: 500})
-  octobadpull['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
+  octokit.rest.pulls.get = jest.fn().mockReturnValueOnce({status: 500})
   expect(
     await prechecks(
       '.deploy',
@@ -267,7 +267,7 @@ test('runs prechecks and fails due to a bad pull request', async () => {
       '',
       'production',
       context,
-      octobadpull
+      octokit
     )
   ).toStrictEqual({
     message: 'Could not retrieve PR info: 500',
@@ -278,20 +278,12 @@ test('runs prechecks and fails due to a bad pull request', async () => {
 // Review checks and CI checks
 
 test('runs prechecks and finds that reviews and CI checks have not been defined', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValueOnce({
+  octokit.graphql = jest.fn().mockReturnValueOnce({
     repository: {
       pullRequest: {
         reviewDecision: null
       }
     }
-  })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -306,7 +298,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -328,8 +320,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
 })
 
 test('runs prechecks and finds CI checks pass but reviews are not defined', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -350,13 +341,6 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -370,7 +354,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -380,20 +364,13 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
     ref: 'test-ref',
     sha: 'abc123'
   })
-  expect(infoMock).toHaveBeenCalledWith(
-    "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    'Skipping commit status check and proceeding...'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
+  expect(infoMock).toHaveBeenLastCalledWith(
     '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
   )
 })
 
 test('runs prechecks and finds CI is passing and the PR has not been reviewed BUT it is a noop deploy', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -414,13 +391,6 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -434,7 +404,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message: '✔️ All CI checks passed and **noop** requested - OK',
@@ -446,8 +416,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment and is from a forked repository', async () => {
-  var pullRequestFromFork = octokit
-  pullRequestFromFork['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -468,10 +437,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       }
     }
   })
-  pullRequestFromFork['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  pullRequestFromFork['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {
       head: {
         sha: 'abcde12345',
@@ -497,7 +463,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       '',
       'production',
       context,
-      pullRequestFromFork
+      octokit
     )
   ).toStrictEqual({
     message: '✔️ PR is approved and all CI checks passed - OK',
@@ -509,8 +475,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is on a PR from a forked repo and is not allowed', async () => {
-  var pullRequestFromFork = octokit
-  pullRequestFromFork['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -531,10 +496,7 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
       }
     }
   })
-  pullRequestFromFork['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  pullRequestFromFork['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {
       head: {
         sha: 'abcde12345',
@@ -559,7 +521,7 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
       '',
       'production',
       context,
-      pullRequestFromFork
+      octokit
     )
   ).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`,
@@ -568,8 +530,7 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
 })
 
 test('runs prechecks and finds CI is pending and the PR has not been reviewed BUT it is a noop deploy', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -590,13 +551,6 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -610,7 +564,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -620,8 +574,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
 })
 
 test('runs prechecks and finds CI checks are pending, the PR has not been reviewed, and it is not a noop deploy', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -642,13 +595,6 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -662,7 +608,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -672,8 +618,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
 })
 
 test('runs prechecks and finds CI is pending and reviewers have not been defined', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -694,13 +639,6 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -714,7 +652,7 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -724,20 +662,12 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
 })
 
 test('runs prechecks and finds CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED'
       }
     }
-  })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -752,7 +682,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message: '✔️ CI checks have not been defined and **noop** requested - OK',
@@ -764,22 +694,14 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
 })
 
 test('runs prechecks and deploys to the stable branch', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: null
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
-  octonocommitchecks['rest']['repos']['getBranch'] = jest
+  octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
   expect(
@@ -795,7 +717,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message: '✔️ Deployment to the **stable** branch requested - OK',
@@ -807,8 +729,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
 })
 
 test('runs prechecks and finds the PR has been approved but CI checks are pending and it is not a noop deploy', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -829,13 +750,6 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -849,7 +763,7 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -859,8 +773,7 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
 })
 
 test('runs prechecks and finds CI is passing but the PR is missing an approval', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -881,13 +794,6 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -901,7 +807,7 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -911,8 +817,7 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
 })
 
 test('runs prechecks and finds the PR is approved but CI is failing', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -933,13 +838,6 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -953,7 +851,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -963,8 +861,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
 })
 
 test('runs prechecks and finds the PR does not require approval but CI is failing', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -985,13 +882,6 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -1005,7 +895,7 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1015,20 +905,12 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
 })
 
 test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT been defined and NOT a noop deploy', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED'
       }
     }
-  })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -1043,7 +925,7 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1053,8 +935,7 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
 })
 
 test('runs prechecks and finds the PR is behind the stable branch and a noop deploy and force updates the branch', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1076,22 +957,13 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
+    data: {
+      message: 'Updating pull request branch.',
+      url: 'https://api.github.com/repos/foo/bar/pulls/123'
+    },
+    status: 202
   })
-  octonocommitchecks['rest']['pulls']['updateBranch'] = jest
-    .fn()
-    .mockReturnValue({
-      data: {
-        message: 'Updating pull request branch.',
-        url: 'https://api.github.com/repos/foo/bar/pulls/123'
-      },
-      status: 202
-    })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1105,7 +977,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1115,8 +987,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
 })
 
 test('runs prechecks and finds the PR is un-mergable and a noop deploy', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1138,13 +1009,6 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1158,7 +1022,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1168,8 +1032,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
 })
 
 test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails to update the branch', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1191,22 +1054,13 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
+    data: {
+      message: 'merge conflict between base and head',
+      url: 'https://api.github.com/repos/foo/bar/pulls/123'
+    },
+    status: 422
   })
-  octonocommitchecks['rest']['pulls']['updateBranch'] = jest
-    .fn()
-    .mockReturnValue({
-      data: {
-        message: 'merge conflict between base and head',
-        url: 'https://api.github.com/repos/foo/bar/pulls/123'
-      },
-      status: 422
-    })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1220,7 +1074,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1230,8 +1084,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
 })
 
 test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an error when force updating the branch', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1253,16 +1106,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
-  octonocommitchecks['rest']['pulls']['updateBranch'] = jest
-    .fn()
-    .mockReturnValue(null)
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue(null)
   expect(
     await prechecks(
       '.deploy noop',
@@ -1276,7 +1120,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1286,8 +1130,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
 })
 
 test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_branch is set to warn', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1308,13 +1151,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
         }
       }
     }
-  })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -1329,7 +1165,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1339,8 +1175,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
 })
 
 test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1362,10 +1197,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {
       head: {
         ref: 'test-ref',
@@ -1378,10 +1210,10 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
     },
     status: 200
   })
-  octonocommitchecks['rest']['repos']['getBranch'] = jest
+  octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
-  octonocommitchecks['rest']['repos']['compareCommits'] = jest
+  octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
   expect(
@@ -1397,7 +1229,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1407,8 +1239,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
 })
 
 test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit status is null', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1430,13 +1261,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1450,7 +1274,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1460,8 +1284,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
 })
 
 test('runs prechecks and finds the PR is BEHIND and a full deploy and update_branch is set to warn', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1482,13 +1305,6 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
         }
       }
     }
-  })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -1503,7 +1319,7 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1513,8 +1329,7 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
 })
 
 test('runs prechecks and finds the PR is behind the stable branch and a full deploy and force updates the branch', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1536,22 +1351,13 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
+    data: {
+      message: 'Updating pull request branch.',
+      url: 'https://api.github.com/repos/foo/bar/pulls/123'
+    },
+    status: 202
   })
-  octonocommitchecks['rest']['pulls']['updateBranch'] = jest
-    .fn()
-    .mockReturnValue({
-      data: {
-        message: 'Updating pull request branch.',
-        url: 'https://api.github.com/repos/foo/bar/pulls/123'
-      },
-      status: 202
-    })
   expect(
     await prechecks(
       '.deploy',
@@ -1565,7 +1371,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1575,8 +1381,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
 })
 
 test('runs prechecks and fails with a non 200 permissionRes.status', async () => {
-  var octobadres = octokit
-  octobadres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+  octokit.rest.repos.getCollaboratorPermissionLevel = jest
     .fn()
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 500})
   expect(
@@ -1592,7 +1397,7 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
       '',
       'production',
       context,
-      octobadres
+      octokit
     )
   ).toStrictEqual({
     message: 'Permission check returns non-200 status: 500',
@@ -1601,15 +1406,7 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid and from a defined admin', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -1646,7 +1443,7 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
       '',
       'production',
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1659,15 +1456,7 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -1704,7 +1493,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       '',
       'production',
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1719,15 +1508,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -1764,7 +1545,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       '',
       'production',
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message: '✔️ All CI checks passed and **noop** requested - OK',
@@ -1779,15 +1560,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin when CI is not defined', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -1824,7 +1597,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       '',
       'production',
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1835,12 +1608,13 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     sha: 'abc123'
   })
 
-  expect(infoMock).toHaveBeenCalledWith('issueops command used with parameters')
+  expect(infoMock).toHaveBeenLastCalledWith(
+    '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
+  )
 })
 
 test('runs prechecks and finds that no CI checks exist and reviews are not defined', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -1859,13 +1633,6 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -1879,7 +1646,7 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1889,23 +1656,13 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
     ref: 'test-ref',
     sha: 'abc123'
   })
-  expect(infoMock).toHaveBeenCalledWith(
-    'No CI checks have been defined for this pull request, proceeding - OK'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    'Skipping commit status check and proceeding...'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+  expect(infoMock).toHaveBeenLastCalledWith(
+    '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
   )
 })
 
-test('runs prechecks and finds that no CI checks exist but reviews are defined', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+test('runs prechecks and finds that no CI checks exist but reviews are defined and it is from an admin', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1924,13 +1681,6 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -1944,7 +1694,7 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1954,20 +1704,13 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
     ref: 'test-ref',
     sha: 'abc123'
   })
-  expect(infoMock).toHaveBeenCalledWith(
-    'No CI checks have been defined for this pull request, proceeding - OK'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    'Skipping commit status check and proceeding...'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+  expect(infoMock).toHaveBeenLastCalledWith(
+    '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
   )
 })
 
 test('runs prechecks and finds that no CI checks exist and the PR is not approved, but it is from an admin', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -1986,13 +1729,6 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -2006,7 +1742,7 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -2016,20 +1752,13 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
     ref: 'test-ref',
     sha: 'abc123'
   })
-  expect(infoMock).toHaveBeenCalledWith(
-    'No CI checks have been defined for this pull request, proceeding - OK'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    'Skipping commit status check and proceeding...'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+  expect(infoMock).toHaveBeenLastCalledWith(
+    '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
   )
 })
 
 test('runs prechecks and finds that skip_ci is set and the PR has been approved', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2048,13 +1777,6 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy to development',
@@ -2068,7 +1790,7 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
       '', // skip_reviews
       'development', // the environment the deployment was sent to
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -2084,15 +1806,7 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
 })
 
 test('runs prechecks and finds that the commit status is success and skip_reviews is set for the environment', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -2129,7 +1843,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
       'staging', // skip_reviews
       'staging', // the environment the deployment was sent to
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -2146,15 +1860,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
 })
 
 test('runs prechecks and finds that skip_ci is set and now reviews are defined', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -2191,7 +1897,7 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
       'staging', // skip_reviews
       'development', // the environment the deployment was sent to
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -2208,15 +1914,7 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
 })
 
 test('runs prechecks and finds that skip_ci is set, reviews are required, and its a noop deploy', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -2253,7 +1951,7 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
       '', // skip_reviews
       'development', // the environment the deployment was sent to
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -2270,15 +1968,7 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
 })
 
 test('runs prechecks and finds that skip_ci is set and skip_reviews is set', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -2315,7 +2005,7 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
       'development,staging', // skip_reviews
       'development', // the environment the deployment was sent to
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -2332,15 +2022,7 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
 })
 
 test('runs prechecks and finds that skip_ci is set and the deployer is an admin', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['rest']['pulls']['get'] = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -2377,7 +2059,7 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
       '', // skip_reviews
       'development', // the environment the deployment was sent to
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -2394,11 +2076,7 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
 })
 
 test('runs prechecks and finds that CI is pending and reviewers have not been defined and it IS a noop deploy', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -2435,7 +2113,7 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
       '', // skip_reviews
       'production', // the environment the deployment was sent to
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`null\`\n- commitStatus: \`PENDING\`\n\n> CI checks must be passing in order to continue`,
@@ -2448,11 +2126,7 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
 })
 
 test('runs prechecks and finds that the PR is NOT reviewed and CI checks have been disabled and it is NOT a noop deploy', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -2489,7 +2163,7 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
       'production', // skip_reviews
       'staging', // the environment the deployment was sent to
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`REVIEW_REQUIRED\`\n- commitStatus: \`skip_ci\`\n\n> Your pull request is missing required approvals`,
@@ -2502,8 +2176,7 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
 })
 
 test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and a noop deploy and force updates the branch', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2525,10 +2198,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {
       head: {
         ref: 'test-ref',
@@ -2540,21 +2210,19 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
     },
     status: 200
   })
-  octonocommitchecks['rest']['repos']['getBranch'] = jest
+  octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
-  octonocommitchecks['rest']['repos']['compareCommits'] = jest
+  octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValueOnce({data: {behind_by: 1}, status: 200})
-  octonocommitchecks['rest']['pulls']['updateBranch'] = jest
-    .fn()
-    .mockReturnValue({
-      data: {
-        message: 'Updating pull request branch.',
-        url: 'https://api.github.com/repos/foo/bar/pulls/123'
-      },
-      status: 202
-    })
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
+    data: {
+      message: 'Updating pull request branch.',
+      url: 'https://api.github.com/repos/foo/bar/pulls/123'
+    },
+    status: 202
+  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -2568,7 +2236,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -2578,8 +2246,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
 })
 
 test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) and a noop deploy and does not update the branch', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2601,10 +2268,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {
       head: {
         ref: 'test-ref',
@@ -2616,21 +2280,19 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
     },
     status: 200
   })
-  octonocommitchecks['rest']['repos']['getBranch'] = jest
+  octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
-  octonocommitchecks['rest']['repos']['compareCommits'] = jest
+  octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
-  octonocommitchecks['rest']['pulls']['updateBranch'] = jest
-    .fn()
-    .mockReturnValue({
-      data: {
-        message: 'Updating pull request branch.',
-        url: 'https://api.github.com/repos/foo/bar/pulls/123'
-      },
-      status: 202
-    })
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
+    data: {
+      message: 'Updating pull request branch.',
+      url: 'https://api.github.com/repos/foo/bar/pulls/123'
+    },
+    status: 202
+  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -2644,7 +2306,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message: '✔️ PR is approved and all CI checks passed - OK',
@@ -2656,8 +2318,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
 })
 
 test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS) and a noop deploy and does not update the branch', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2679,10 +2340,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {
       head: {
         ref: 'test-ref',
@@ -2694,21 +2352,19 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
     },
     status: 200
   })
-  octonocommitchecks['rest']['repos']['getBranch'] = jest
+  octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
-  octonocommitchecks['rest']['repos']['compareCommits'] = jest
+  octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
-  octonocommitchecks['rest']['pulls']['updateBranch'] = jest
-    .fn()
-    .mockReturnValue({
-      data: {
-        message: 'Updating pull request branch.',
-        url: 'https://api.github.com/repos/foo/bar/pulls/123'
-      },
-      status: 202
-    })
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
+    data: {
+      message: 'Updating pull request branch.',
+      url: 'https://api.github.com/repos/foo/bar/pulls/123'
+    },
+    status: 202
+  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -2722,7 +2378,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message: '✔️ PR is approved and all CI checks passed - OK',

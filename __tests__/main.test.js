@@ -16,6 +16,9 @@ const saveStateMock = jest.spyOn(core, 'saveState')
 const setFailedMock = jest.spyOn(core, 'setFailed')
 const debugMock = jest.spyOn(core, 'debug')
 
+const permissionsMsg =
+  '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
+
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
@@ -120,18 +123,7 @@ test('successfully runs the action', async () => {
 })
 
 test('successfully runs the action on a deployment to development', async () => {
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.deploy to development',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.deploy to development'
 
   expect(await run()).toBe('success')
   expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
@@ -157,17 +149,7 @@ test('successfully runs the action on a deployment to development', async () => 
 
 test('fails due to multiple commands in one message', async () => {
   process.env.INPUT_PREFIX_ONLY = 'false'
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.deploy .lock',
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.deploy .lock'
   expect(await run()).toBe('failure')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy .lock')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'false')
@@ -188,18 +170,9 @@ test('successfully runs the action in noop mode', async () => {
       noopMode: true
     }
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.deploy noop',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+
+  github.context.payload.comment.body = '.deploy noop'
+
   expect(await run()).toBe('success - noop')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy noop')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
@@ -217,26 +190,15 @@ test('successfully runs the action in noop mode', async () => {
 })
 
 test('runs the action in lock mode and fails due to bad permissions', async () => {
-  const permissionsMsg =
-    '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
   jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
     return permissionsMsg
   })
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.lock',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+
+  github.context.payload.comment.body = '.lock'
+
   expect(await run()).toBe('failure')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
@@ -255,18 +217,9 @@ test('successfully runs the action in lock mode', async () => {
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return true
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.lock --reason testing a new feature',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+
+  github.context.payload.comment.body = '.lock --reason testing a new feature'
+
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith(
     'comment_body',
@@ -299,25 +252,17 @@ test('successfully runs the action in lock mode - details only', async () => {
         global: false,
         link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
         reason: 'Testing my new feature with lots of cats',
-        sticky: true
+        sticky: true,
+        unlock_command: '.unlock production'
       },
       status: 'details-only',
       globalFlag: '--global',
       environment: 'production'
     }
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.lock --details',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+
+  github.context.payload.comment.body = '.lock --details'
+
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --details')
   expect(infoSpy).toHaveBeenCalledWith(
@@ -350,25 +295,15 @@ test('successfully runs the action in lock mode - details only - for the develop
         environment: 'development',
         link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
         reason: 'Testing my new feature with lots of cats',
-        sticky: true
+        sticky: true,
+        unlock_command: '.unlock development'
       },
       status: 'details-only',
       globalFlag: '--global',
       environment: 'development'
     }
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.lock development --details',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.lock development --details'
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith(
     'comment_body',
@@ -404,25 +339,15 @@ test('successfully runs the action in lock mode - details only - --info flag', a
         global: false,
         link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
         reason: 'Testing my new feature with lots of cats',
-        sticky: true
+        sticky: true,
+        unlock_command: '.unlock production'
       },
       status: 'details-only',
       globalFlag: '--global',
       environment: 'production'
     }
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.lock --info',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.lock --info'
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --info')
   expect(infoSpy).toHaveBeenCalledWith(
@@ -455,25 +380,15 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
         global: false,
         link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
         reason: 'Testing my new feature with lots of cats',
-        sticky: true
+        sticky: true,
+        unlock_command: '.unlock production'
       },
       environment: 'production',
       globalFlag: '--global',
       status: 'details-only'
     }
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.wcid',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.wcid'
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.wcid')
   expect(infoSpy).toHaveBeenCalledWith(
@@ -506,25 +421,15 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
         environment: null,
         link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
         reason: 'Testing my new feature with lots of cats',
-        sticky: true
+        sticky: true,
+        unlock_command: '.unlock --global'
       },
       status: 'details-only',
       globalFlag: '--global',
       environment: null
     }
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.wcid production',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.wcid production'
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.wcid production')
   expect(infoSpy).toHaveBeenCalledWith(
@@ -558,18 +463,7 @@ test('successfully runs the action in lock mode and finds no lock - details only
       globalFlag: '--global'
     }
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.lock --details',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.lock --details'
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --details')
   expect(infoSpy).toHaveBeenCalledWith('no active deployment locks found')
@@ -599,18 +493,7 @@ test('successfully runs the action in lock mode and finds no GLOBAL lock - detai
       globalFlag: '--global'
     }
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.lock --global --details',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.lock --global --details'
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith(
     'comment_body',
@@ -641,18 +524,7 @@ test('fails to aquire the lock on a deploy so it exits', async () => {
 })
 
 test('runs with the unlock trigger', async () => {
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.unlock',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.unlock'
   jest.spyOn(unlock, 'unlock').mockImplementation(() => {
     return true
   })
@@ -676,17 +548,7 @@ test('successfully runs the action after trimming the body', async () => {
       noopMode: true
     }
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.deploy noop    \n\t\n   ',
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.deploy noop    \n\t\n   '
   expect(await run()).toBe('success - noop')
   // other expects are similar to previous tests.
 })
@@ -757,18 +619,7 @@ test('fails due to a bad context', async () => {
 })
 
 test('fails due to no valid environment targets being found in the comment body', async () => {
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.deploy to chaos',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.deploy to chaos'
   expect(await run()).toBe('safe-exit')
   expect(debugMock).toHaveBeenCalledWith('No valid environment targets found')
 })
@@ -799,48 +650,22 @@ test('fails prechecks', async () => {
 })
 
 test('runs the .help command successfully', async () => {
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.help',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
-
+  github.context.payload.comment.body = '.help'
   jest.spyOn(help, 'help').mockImplementation(() => {
     return undefined
   })
-
   expect(await run()).toBe('safe-exit')
   expect(debugMock).toHaveBeenCalledWith('help command detected')
 })
 
 test('runs the .help command successfully', async () => {
-  const permissionsMsg =
-    '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
   jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
     return permissionsMsg
   })
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      body: '.help',
-      id: 123,
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.help'
 
   jest.spyOn(help, 'help').mockImplementation(() => {
     return undefined
@@ -859,18 +684,7 @@ test('runs the action in lock mode and fails due to an invalid environment', asy
   jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
     return true
   })
-  github.context.payload = {
-    issue: {
-      number: 123
-    },
-    comment: {
-      id: 123,
-      body: '.lock --details super-production',
-      user: {
-        login: 'monalisa'
-      }
-    }
-  }
+  github.context.payload.comment.body = '.lock --details super-production'
   expect(await run()).toBe('safe-exit')
   expect(debugMock).toHaveBeenCalledWith(
     'No valid environment targets found for lock/unlock request'

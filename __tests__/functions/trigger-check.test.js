@@ -1,14 +1,15 @@
 import {triggerCheck} from '../../src/functions/trigger-check'
 import * as core from '@actions/core'
 
+const setOutputMock = jest.spyOn(core, 'setOutput')
+const debugMock = jest.spyOn(core, 'debug')
+
 beforeEach(() => {
+  jest.clearAllMocks()
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   jest.spyOn(core, 'saveState').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
 })
-
-const setOutputMock = jest.spyOn(core, 'setOutput')
-const debugMock = jest.spyOn(core, 'debug')
 
 test('checks a message and finds a prefix trigger', async () => {
   const prefixOnly = true
