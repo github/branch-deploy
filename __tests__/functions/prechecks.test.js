@@ -3,74 +3,83 @@ import * as isAdmin from '../../src/functions/admin'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 
+// Globals for testing
+const infoMock = jest.spyOn(core, 'info')
+
+var context
+var getCollabOK
+var getPullsOK
+var graphQLOK
+var octokit
+
 beforeEach(() => {
-  // jest.resetAllMocks()
+  jest.clearAllMocks()
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
-})
 
-// Globals for testing
-const infoMock = jest.spyOn(core, 'info')
-const context = {
-  actor: 'monalisa',
-  repo: {
-    owner: 'corp',
-    repo: 'test'
-  },
-  issue: {
-    number: 123
-  }
-}
-const getCollabOK = jest
-  .fn()
-  .mockReturnValue({data: {permission: 'admin'}, status: 200})
-const getPullsOK = jest.fn().mockReturnValue({
-  data: {
-    head: {
-      ref: 'test-ref',
-      sha: 'abc123'
+  context = {
+    actor: 'monalisa',
+    repo: {
+      owner: 'corp',
+      repo: 'test'
     },
-    base: {
-      ref: 'base-ref'
+    issue: {
+      number: 123
     }
-  },
-  status: 200
-})
-const graphQLOK = jest.fn().mockReturnValue({
-  repository: {
-    pullRequest: {
-      reviewDecision: 'APPROVED',
-      mergeStateStatus: 'CLEAN',
-      commits: {
-        nodes: [
-          {
-            commit: {
-              checkSuites: {
-                totalCount: 3
-              },
-              statusCheckRollup: {
-                state: 'SUCCESS'
+  }
+
+  getCollabOK = jest
+    .fn()
+    .mockReturnValue({data: {permission: 'admin'}, status: 200})
+  getPullsOK = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        ref: 'test-ref',
+        sha: 'abc123'
+      },
+      base: {
+        ref: 'base-ref'
+      }
+    },
+    status: 200
+  })
+
+  graphQLOK = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'CLEAN',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 3
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
               }
             }
-          }
-        ]
+          ]
+        }
       }
     }
+  })
+
+  octokit = {
+    rest: {
+      repos: {
+        getCollaboratorPermissionLevel: getCollabOK
+      },
+      pulls: {
+        get: getPullsOK
+      }
+    },
+    graphql: graphQLOK
   }
 })
-
-const octokit = {
-  rest: {
-    repos: {
-      getCollaboratorPermissionLevel: getCollabOK
-    },
-    pulls: {
-      get: getPullsOK
-    }
-  },
-  graphql: graphQLOK
-}
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment', async () => {
   expect(
@@ -1966,8 +1975,7 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
 })
 
 test('runs prechecks and finds that no CI checks exist and the PR is not approved, but it is from an admin', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -1986,10 +1994,10 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+  octokit.rest.repos.getCollaboratorPermissionLevel = jest
     .fn()
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {head: {ref: 'test-ref', sha: 'abc123'}},
     status: 200
   })
@@ -2006,7 +2014,7 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -2016,14 +2024,8 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
     ref: 'test-ref',
     sha: 'abc123'
   })
-  expect(infoMock).toHaveBeenCalledWith(
-    'No CI checks have been defined for this pull request, proceeding - OK'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    'Skipping commit status check and proceeding...'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+  expect(infoMock).toHaveBeenLastCalledWith(
+    '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
   )
 })
 
