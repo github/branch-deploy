@@ -10111,6 +10111,36 @@ async function onLockChecks(
   return false
 }
 
+// Helper function to find the environment URL for a given environment target (if it exists)
+// :param environment: The environment target
+// :param environment_urls: The environment URLs from the action inputs
+// :returns: The environment URL if found, an empty string otherwise
+async function findEnvironmentUrl(environment, environment_urls) {
+  // The structure: "<environment1>|<url1>,<environment2>|<url2>,etc"
+
+  // If the environment URLs are empty, just return an empty string
+  if (environment_urls.trim() === '') {
+    return ''
+  }
+
+  // Split the environment URLs into an array
+  const environment_urls_array = environment_urls.trim().split(',')
+
+  // Loop through the array and find the environment URL for the given environment target
+  for (const environment_url of environment_urls_array) {
+    const environment_url_array = environment_url.trim().split('|')
+    if (environment_url_array[0] === environment) {
+      return environment_url_array[1]
+    }
+  }
+
+  // If we get here, then no environment URL was found
+  core.warning(
+    `no environment URL found for environment: ${environment} - setting environment URL to empty string - please check your 'environment_urls' input`
+  )
+  return ''
+}
+
 // A simple function that checks if an explicit environment target is being used
 // :param environment: The default environment from the Actions inputs
 // :param body: The comment body
@@ -10120,7 +10150,9 @@ async function onLockChecks(
 // :param context: The context of the Action
 // :param octokit: The Octokit instance
 // :param reactionId: The ID of the initial comment reaction (Integer)
-// :returns: the environment target (String) or false if no environment target was found (fails)
+// :param lockChecks: Whether or not this is a lock/unlock command (Boolean)
+// :param environment_urls: The environment URLs from the action inputs
+// :returns: An object containing the environment target and environment URL
 async function environmentTargets(
   environment,
   body,
@@ -10130,7 +10162,8 @@ async function environmentTargets(
   context,
   octokit,
   reactionId,
-  lockChecks = false
+  lockChecks = false,
+  environment_urls = ''
 ) {
   // Get the environment targets from the action inputs
   const environment_targets = core.getInput('environment_targets')
@@ -10153,7 +10186,7 @@ async function environmentTargets(
       environment
     )
     if (environmentDetected !== false) {
-      return environmentDetected
+      return {environment: environmentDetected, environmentUrl: ''}
     }
 
     // If we get here, then no valid environment target was found
@@ -10173,7 +10206,7 @@ async function environmentTargets(
       `### ⚠️ Cannot proceed with lock/unlock request\n\n${message}`
     )
 
-    return false
+    return {environment: false, environmentUrl: ''}
   }
 
   // If lockChecks is set to false, this request is for a branch deploy to check the body for an environment target
@@ -10186,29 +10219,35 @@ async function environmentTargets(
       stable_branch,
       environment
     )
-    if (environmentDetected !== false) {
-      return environmentDetected
+
+    // If no environment target was found, let the user know via a comment and return false
+    if (environmentDetected === false) {
+      const message = lib_default()(`
+        No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
+
+        > The following environment targets are available: \`${environment_targets_joined}\`
+      `)
+      core.warning(message)
+      core.saveState('bypass', 'true')
+
+      // Return the action status as a failure
+      await actionStatus(
+        context,
+        octokit,
+        reactionId,
+        `### ⚠️ Cannot proceed with deployment\n\n${message}`
+      )
+      return {environment: false, environmentUrl: ''}
     }
 
-    // If we get here, then no valid environment target was found
-    const message = lib_default()(`
-    No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
-
-    > The following environment targets are available: \`${environment_targets_joined}\`
-    `)
-    core.warning(message)
-    core.saveState('bypass', 'true')
-
-    // Return the action status as a failure
-    await actionStatus(
-      context,
-      octokit,
-      reactionId,
-      `### ⚠️ Cannot proceed with deployment\n\n${message}`
+    // Attempt to get the environment URL from the environment_urls input using the environment target as the key
+    const environmentUrl = await findEnvironmentUrl(
+      environmentDetected,
+      environment_urls
     )
 
-    // Return false to indicate that no environment target was found
-    return false
+    // Return the environment target
+    return {environment: environmentDetected, environmentUrl: environmentUrl}
   }
 }
 
@@ -12452,6 +12491,7 @@ async function run() {
     const skipReviews = core.getInput('skip_reviews')
     const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
     const admins = core.getInput('admins')
+    const environment_urls = core.getInput('environment_urls')
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
@@ -12611,7 +12651,7 @@ async function run() {
       }
 
       // Check if the environment being locked/unlocked is a valid environment
-      const lockEnvTargetCheck = await environmentTargets(
+      const lockEnvTargetCheckObj = await environmentTargets(
         environment, // the default environment from the Actions inputs
         body, // the body of the comment
         lock_trigger,
@@ -12622,6 +12662,9 @@ async function run() {
         reactRes.data.id,
         true // lockChecks set to true as this is for lock/unlock requests
       )
+
+      // extract the environment target from the lockEnvTargetCheckObj
+      const lockEnvTargetCheck = lockEnvTargetCheckObj.environment
 
       // If the environment targets are not valid, then exit
       if (!lockEnvTargetCheck) {
@@ -12777,16 +12820,21 @@ async function run() {
     }
 
     // Check if the default environment is being overwritten by an explicit environment
-    environment = await environmentTargets(
-      environment,
-      body,
-      trigger,
-      noop_trigger,
-      stable_branch,
-      github.context,
-      octokit,
-      reactRes.data.id
+    const environmentObj = await environmentTargets(
+      environment, // environment
+      body, // comment body
+      trigger, // trigger
+      noop_trigger, // noop trigger
+      stable_branch, // ref
+      github.context, // context object
+      octokit, // octokit object
+      reactRes.data.id, // reaction id
+      false, // lockChecks set to false as this is for a deployment
+      environment_urls // environment_urls action input
     )
+
+    // deconstruct the environment object to get the environment
+    environment = environmentObj.environment
 
     // If the environment targets are not valid, then exit
     if (!environment) {
