@@ -31,7 +31,7 @@ beforeEach(() => {
 
   getCollabOK = jest
     .fn()
-    .mockReturnValue({data: {permission: 'admin'}, status: 200})
+    .mockReturnValue({data: {permission: 'write'}, status: 200})
   getPullsOK = jest.fn().mockReturnValue({
     data: {
       head: {
