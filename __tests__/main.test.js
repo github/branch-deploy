@@ -17,7 +17,7 @@ const setFailedMock = jest.spyOn(core, 'setFailed')
 const debugMock = jest.spyOn(core, 'debug')
 
 const permissionsMsg =
-    '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
+  '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
 
 beforeEach(() => {
   jest.clearAllMocks()
