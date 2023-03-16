@@ -285,10 +285,6 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -345,10 +341,6 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -398,10 +390,6 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
         }
       }
     }
-  })
-  octokit.rest.repos.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -563,10 +551,6 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -610,10 +594,6 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
         }
       }
     }
-  })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -659,10 +639,6 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -692,10 +668,6 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
         reviewDecision: 'REVIEW_REQUIRED'
       }
     }
-  })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -728,10 +700,6 @@ test('runs prechecks and deploys to the stable branch', async () => {
         reviewDecision: null
       }
     }
-  })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   octokit.rest.repos.getBranch = jest
     .fn()
@@ -782,10 +750,6 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -829,10 +793,6 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
         }
       }
     }
-  })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -878,10 +838,6 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -926,10 +882,6 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -959,10 +911,6 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
         reviewDecision: 'REVIEW_REQUIRED'
       }
     }
-  })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -1008,10 +956,6 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
         }
       }
     }
-  })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
     data: {
@@ -1065,10 +1009,6 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1113,10 +1053,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
         }
       }
     }
-  })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
     data: {
@@ -1170,10 +1106,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue(null)
   expect(
     await prechecks(
@@ -1219,10 +1151,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
         }
       }
     }
-  })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -1333,10 +1261,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1382,10 +1306,6 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -1430,10 +1350,6 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
         }
       }
     }
-  })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
     data: {
@@ -1490,10 +1406,6 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid and from a defined admin', async () => {
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1544,10 +1456,6 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin', async () => {
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1600,10 +1508,6 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin', async () => {
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1656,10 +1560,6 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin when CI is not defined', async () => {
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1733,10 +1633,6 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -1784,10 +1680,6 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
         }
       }
     }
-  })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
   })
   expect(
     await prechecks(
@@ -1837,10 +1729,6 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy',
@@ -1889,10 +1777,6 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
       }
     }
   })
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   expect(
     await prechecks(
       '.deploy to development',
@@ -1922,10 +1806,6 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
 })
 
 test('runs prechecks and finds that the commit status is success and skip_reviews is set for the environment', async () => {
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1980,10 +1860,6 @@ test('runs prechecks and finds that the commit status is success and skip_review
 })
 
 test('runs prechecks and finds that skip_ci is set and now reviews are defined', async () => {
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -2038,10 +1914,6 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
 })
 
 test('runs prechecks and finds that skip_ci is set, reviews are required, and its a noop deploy', async () => {
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -2096,10 +1968,6 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
 })
 
 test('runs prechecks and finds that skip_ci is set and skip_reviews is set', async () => {
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -2154,10 +2022,6 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
 })
 
 test('runs prechecks and finds that skip_ci is set and the deployer is an admin', async () => {
-  octokit.rest.pulls.get = jest.fn().mockReturnValue({
-    data: {head: {ref: 'test-ref', sha: 'abc123'}},
-    status: 200
-  })
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
