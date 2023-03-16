@@ -5,10 +5,10 @@ import dedent from 'dedent-js'
 
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
 const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
-const saveStateMock = jest.spyOn(core, 'saveState')
+const saveStateMock = jest.spyOn(core, 'saveState').mockImplementation(() => {})
 
 beforeEach(() => {
-  jest.resetAllMocks()
+  jest.clearAllMocks()
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
   })
