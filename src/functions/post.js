@@ -17,6 +17,8 @@ export async function post() {
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
     const skip_completing = core.getInput('skip_completing')
+    const environment_url_in_comment =
+      core.getInput('environment_url_in_comment') === 'true'
     const deployMessage = process.env.DEPLOY_MESSAGE
 
     // If bypass is set, exit the workflow
@@ -61,7 +63,8 @@ export async function post() {
       noop,
       deployment_id,
       environment,
-      environment_url
+      environment_url,
+      environment_url_in_comment
     )
 
     return

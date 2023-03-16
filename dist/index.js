@@ -11912,6 +11912,7 @@ async function unlock(
 // :param deployment_id: The id of the deployment (String)
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
+// :param environment_url_in_comment: Indicates whether the environment url should be added to the comment (Boolean)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 async function postDeploy(
   context,
@@ -11924,7 +11925,8 @@ async function postDeploy(
   noop,
   deployment_id,
   environment,
-  environment_url
+  environment_url,
+  environment_url_in_comment
 ) {
   // Check the inputs to ensure they are valid
   if (!comment_id || comment_id.length === 0) {
@@ -12005,7 +12007,8 @@ async function postDeploy(
     environment_url.length > 0 &&
     environment_url.trim() !== '' &&
     status === 'success' &&
-    noop !== 'true'
+    noop !== 'true' &&
+    environment_url_in_comment === true
   ) {
     const environment_url_short = environment_url
       .replace('https://', '')
@@ -12127,6 +12130,8 @@ async function post() {
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
     const skip_completing = core.getInput('skip_completing')
+    const environment_url_in_comment =
+      core.getInput('environment_url_in_comment') === 'true'
     const deployMessage = process.env.DEPLOY_MESSAGE
 
     // If bypass is set, exit the workflow
@@ -12171,7 +12176,8 @@ async function post() {
       noop,
       deployment_id,
       environment,
-      environment_url
+      environment_url,
+      environment_url_in_comment
     )
 
     return

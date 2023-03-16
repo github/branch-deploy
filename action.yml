@@ -25,6 +25,10 @@ inputs:
     description: 'Optional target environment URLs to use with deployments. This input option is a mapping of environment names to URLs and the environment names must match the "environment_targets" input option. This option is a comma separated list with pipes (|) separating the environment from the URL. Format: "<environment1>|<url1>,<environment2>|<url2>,etc" Example: "production|https://myapp.com,development|https://dev.myapp.com,staging|https://staging.myapp.com"'
     required: false
     default: ""
+  environment_url_in_comment:
+    description: 'If the environment_url detected in the deployment should be appended to the successful deployment comment or not. Examples: "true" or "false"'
+    required: false
+    default: "true"
   production_environment:
     description: 'The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name.'
     required: false
