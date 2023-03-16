@@ -1912,9 +1912,8 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
   )
 })
 
-test('runs prechecks and finds that no CI checks exist but reviews are defined', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+test('runs prechecks and finds that no CI checks exist but reviews are defined and it is from an admin', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1933,10 +1932,10 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+  octokit.rest.repos.getCollaboratorPermissionLevel = jest
     .fn()
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+    octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {head: {ref: 'test-ref', sha: 'abc123'}},
     status: 200
   })
@@ -1953,7 +1952,7 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1963,15 +1962,7 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined',
     ref: 'test-ref',
     sha: 'abc123'
   })
-  expect(infoMock).toHaveBeenCalledWith(
-    'No CI checks have been defined for this pull request, proceeding - OK'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    'Skipping commit status check and proceeding...'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
-  )
+  expect(infoMock).toHaveBeenLastCalledWith('✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK')
 })
 
 test('runs prechecks and finds that no CI checks exist and the PR is not approved, but it is from an admin', async () => {
