@@ -16,6 +16,15 @@ async function findEnvironment(context) {
   // Get the body of the comment
   var body = context.payload.comment.body.trim()
 
+  // remove the --reason <text> from the body if it exists
+  if (body.includes('--reason')) {
+    core.debug(
+      `'--reason' found in unlock comment body: ${body} - attempting to remove for environment checks`
+    )
+    body = body.split('--reason')[0]
+    core.debug(`comment body after '--reason' removal: ${body}`)
+  }
+
   // Get the global lock flag from the Action input
   const globalFlag = core.getInput('global_lock_flag').trim()
 
