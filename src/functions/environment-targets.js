@@ -108,6 +108,15 @@ async function onLockChecks(
     body = body.replace(flag, '').trim()
   })
 
+  // remove the --reason <text> from the body if it exists
+  if (body.includes('--reason')) {
+    core.debug(
+      `'--reason' found in comment body: ${body} - attempting to remove for environment checks`
+    )
+    body = body.split('--reason')[0]
+    core.debug(`comment body after '--reason' removal: ${body}`)
+  }
+
   // Get the lock info alias from the action inputs
   const lockInfoAlias = core.getInput('lock_info_alias')
 

@@ -369,6 +369,44 @@ test('checks the comment body on a lock request and uses the default environment
   )
 })
 
+test('checks the comment body on a lock request with a reason and uses the default environment', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.lock --reason making a small change to our api because reasons', // comment body
+      '.lock', // lock trigger
+      '.unlock', // unlock trigger
+      null, // stable_branch not used for lock/unlock requests
+      null, // context
+      null, // octokit
+      null, // reaction_id
+      true // enable lockChecks
+    )
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
+  expect(debugMock).toHaveBeenCalledWith(
+    'Using default environment for lock request'
+  )
+})
+
+test('checks the comment body on a lock request with a reason and uses the explict environment with a bunch of horrible formatting', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.lock  production    --reason small change to mappings for risk rating - - 92*91-2408|  ', // comment body
+      '.lock', // lock trigger
+      '.unlock', // unlock trigger
+      null, // stable_branch not used for lock/unlock requests
+      null, // context
+      null, // octokit
+      null, // reaction_id
+      true // enable lockChecks
+    )
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
+  expect(debugMock).toHaveBeenCalledWith(
+    'Found environment target for lock request: production'
+  )
+})
+
 test('checks the comment body on an unlock request and uses the default environment', async () => {
   expect(
     await environmentTargets(
@@ -385,6 +423,44 @@ test('checks the comment body on an unlock request and uses the default environm
   ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for unlock request'
+  )
+})
+
+test('checks the comment body on an unlock request and uses the default environment (and uses --reason) even though it does not need to', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.unlock --reason oh wait this command does not need a reason.. oops', // comment body
+      '.lock', // lock trigger
+      '.unlock', // unlock trigger
+      null, // stable_branch not used for lock/unlock requests
+      null, // context
+      null, // octokit
+      null, // reaction_id
+      true // enable lockChecks
+    )
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
+  expect(debugMock).toHaveBeenCalledWith(
+    'Using default environment for unlock request'
+  )
+})
+
+test('checks the comment body on an unlock request and uses the development environment (and uses --reason) even though it does not need to', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.unlock development --reason oh wait this command does not need a reason.. oops', // comment body
+      '.lock', // lock trigger
+      '.unlock', // unlock trigger
+      null, // stable_branch not used for lock/unlock requests
+      null, // context
+      null, // octokit
+      null, // reaction_id
+      true // enable lockChecks
+    )
+  ).toStrictEqual({environment: 'development', environmentUrl: null})
+  expect(debugMock).toHaveBeenCalledWith(
+    'Found environment target for unlock request: development'
   )
 })
 

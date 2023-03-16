@@ -48,7 +48,7 @@ export async function post() {
       environment_url === 'null' ||
       environment_url.trim() === ''
     ) {
-      core.info('environment_url not set, setting to null')
+      core.debug('environment_url not set, setting to null')
       environment_url = null
     }
 
