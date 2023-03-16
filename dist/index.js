@@ -11989,11 +11989,13 @@ async function postDeploy(
   }
 
   // Conditionally add the environment url to the message body
+  // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
   if (
     environment_url &&
     environment_url.length > 0 &&
     environment_url.trim() !== '' &&
-    status === 'success'
+    status === 'success' &&
+    noop !== 'true'
   ) {
     const environment_url_short = environment_url
       .replace('https://', '')
