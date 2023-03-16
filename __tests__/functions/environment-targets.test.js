@@ -25,7 +25,7 @@ const trigger = '.deploy'
 const noop_trigger = 'noop'
 const stable_branch = 'main'
 const environmentUrls =
-  'production|example.com,development|dev.example.com,staging|staging.example.com'
+  'production|https://example.com,development|https://dev.example.com,staging|http://staging.example.com'
 
 test('checks the comment body and does not find an explicit environment target', async () => {
   expect(
@@ -88,21 +88,21 @@ test('checks the comment body and finds an explicit environment target for stagi
     )
   ).toStrictEqual({
     environment: 'staging',
-    environmentUrl: 'staging.example.com'
+    environmentUrl: 'http://staging.example.com'
   })
   expect(infoMock).toHaveBeenCalledWith(
-    'environment url detected: staging.example.com'
+    'environment url detected: http://staging.example.com'
   )
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for noop trigger: staging'
   )
   expect(saveStateMock).toHaveBeenCalledWith(
     'environment_url',
-    'staging.example.com'
+    'http://staging.example.com'
   )
   expect(setOutputMock).toHaveBeenCalledWith(
     'environment_url',
-    'staging.example.com'
+    'http://staging.example.com'
   )
 })
 
@@ -120,13 +120,24 @@ test('checks the comment body and uses the default production environment target
       false, // lockChecks disabled
       environmentUrls
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: 'example.com'})
-  expect(infoMock).toHaveBeenCalledWith('environment url detected: example.com')
+  ).toStrictEqual({
+    environment: 'production',
+    environmentUrl: 'https://example.com'
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    'environment url detected: https://example.com'
+  )
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for branch deployment'
   )
-  expect(saveStateMock).toHaveBeenCalledWith('environment_url', 'example.com')
-  expect(setOutputMock).toHaveBeenCalledWith('environment_url', 'example.com')
+  expect(saveStateMock).toHaveBeenCalledWith(
+    'environment_url',
+    'https://example.com'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'environment_url',
+    'https://example.com'
+  )
 })
 
 test('checks the comment body and finds an explicit environment target for a production deploy with environment_urls set but no valid url', async () => {
@@ -148,7 +159,35 @@ test('checks the comment body and finds an explicit environment target for a pro
     'Found environment target for branch deploy: production'
   )
   expect(warningMock).toHaveBeenCalledWith(
-    "no environment URL found for environment: production - setting environment URL to 'null' - please check your 'environment_urls' input"
+    "no valid environment URL found for environment: production - setting environment URL to 'null' - please check your 'environment_urls' input"
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('environment_url', 'null')
+  expect(setOutputMock).toHaveBeenCalledWith('environment_url', 'null')
+})
+
+test('checks the comment body and finds an explicit environment target for a production deploy with environment_urls set but a url with a non-http(s) schema is provided', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy production',
+      trigger,
+      noop_trigger,
+      stable_branch,
+      null,
+      null,
+      null,
+      false, // lockChecks disabled
+      'production|example.com,development|dev.example.com,staging|'
+    )
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
+  expect(debugMock).toHaveBeenCalledWith(
+    'Found environment target for branch deploy: production'
+  )
+  expect(warningMock).toHaveBeenCalledWith(
+    'environment url does not match http(s) schema: example.com'
+  )
+  expect(warningMock).toHaveBeenCalledWith(
+    "no valid environment URL found for environment: production - setting environment URL to 'null' - please check your 'environment_urls' input"
   )
   expect(saveStateMock).toHaveBeenCalledWith('environment_url', 'null')
   expect(setOutputMock).toHaveBeenCalledWith('environment_url', 'null')

@@ -10131,6 +10131,15 @@ async function findEnvironmentUrl(environment, environment_urls) {
     const environment_url_array = environment_url.trim().split('|')
     if (environment_url_array[0] === environment) {
       const environment_url = environment_url_array[1]
+
+      // if the environment url does not match the http(s) schema, log a warning and continue
+      if (!environment_url.match(/^https?:\/\//)) {
+        core.warning(
+          `environment url does not match http(s) schema: ${environment_url}`
+        )
+        continue
+      }
+
       core.saveState('environment_url', environment_url)
       core.setOutput('environment_url', environment_url)
       core.info(`environment url detected: ${environment_url}`)
@@ -10140,7 +10149,7 @@ async function findEnvironmentUrl(environment, environment_urls) {
 
   // If we get here, then no environment URL was found
   core.warning(
-    `no environment URL found for environment: ${environment} - setting environment URL to 'null' - please check your 'environment_urls' input`
+    `no valid environment URL found for environment: ${environment} - setting environment URL to 'null' - please check your 'environment_urls' input`
   )
   core.saveState('environment_url', 'null')
   core.setOutput('environment_url', 'null')
