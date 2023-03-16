@@ -174,7 +174,6 @@ async function findEnvironmentUrl(environment, environment_urls) {
         core.info(`environment url for ${environment} is explicitly disabled`)
         core.saveState('environment_url', 'null')
         core.setOutput('environment_url', 'null')
-        core.info(`environment url detected: ${environment_url}`)
         return null
       }
 
