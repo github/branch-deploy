@@ -1,44 +1,45 @@
 import {actionStatus} from '../../src/functions/action-status'
 
-process.env.GITHUB_SERVER_URL = 'https://github.com'
-process.env.GITHUB_RUN_ID = '12345'
-
+var context
+var octokit
 beforeEach(() => {
-  jest.resetAllMocks()
-})
+  jest.clearAllMocks()
+  process.env.GITHUB_SERVER_URL = 'https://github.com'
+  process.env.GITHUB_RUN_ID = '12345'
 
-const context = {
-  repo: {
-    owner: 'corp',
-    repo: 'test'
-  },
-  issue: {
-    number: 1
-  },
-  payload: {
-    comment: {
-      id: '1'
-    }
-  }
-}
-
-const octokit = {
-  rest: {
-    reactions: {
-      createForIssueComment: jest.fn().mockReturnValueOnce({
-        data: {}
-      }),
-      deleteForIssueComment: jest.fn().mockReturnValueOnce({
-        data: {}
-      })
+  context = {
+    repo: {
+      owner: 'corp',
+      repo: 'test'
     },
-    issues: {
-      createComment: jest.fn().mockReturnValueOnce({
-        data: {}
-      })
+    issue: {
+      number: 1
+    },
+    payload: {
+      comment: {
+        id: '1'
+      }
     }
   }
-}
+
+  octokit = {
+    rest: {
+      reactions: {
+        createForIssueComment: jest.fn().mockReturnValueOnce({
+          data: {}
+        }),
+        deleteForIssueComment: jest.fn().mockReturnValueOnce({
+          data: {}
+        })
+      },
+      issues: {
+        createComment: jest.fn().mockReturnValueOnce({
+          data: {}
+        })
+      }
+    }
+  }
+})
 
 test('adds a successful status message for a deployment', async () => {
   expect(
