@@ -426,6 +426,44 @@ test('checks the comment body on an unlock request and uses the default environm
   )
 })
 
+test('checks the comment body on an unlock request and uses the default environment (and uses --reason) even though it does not need to', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.unlock --reason oh wait this command does not need a reason.. oops', // comment body
+      '.lock', // lock trigger
+      '.unlock', // unlock trigger
+      null, // stable_branch not used for lock/unlock requests
+      null, // context
+      null, // octokit
+      null, // reaction_id
+      true // enable lockChecks
+    )
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
+  expect(debugMock).toHaveBeenCalledWith(
+    'Using default environment for unlock request'
+  )
+})
+
+test('checks the comment body on an unlock request and uses the development environment (and uses --reason) even though it does not need to', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.unlock development --reason oh wait this command does not need a reason.. oops', // comment body
+      '.lock', // lock trigger
+      '.unlock', // unlock trigger
+      null, // stable_branch not used for lock/unlock requests
+      null, // context
+      null, // octokit
+      null, // reaction_id
+      true // enable lockChecks
+    )
+  ).toStrictEqual({environment: 'development', environmentUrl: null})
+  expect(debugMock).toHaveBeenCalledWith(
+    'Found environment target for unlock request: development'
+  )
+})
+
 test('checks the comment body on a lock info alias request and uses the default environment', async () => {
   expect(
     await environmentTargets(
