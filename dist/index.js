@@ -10119,8 +10119,8 @@ async function findEnvironmentUrl(environment, environment_urls) {
   // The structure: "<environment1>|<url1>,<environment2>|<url2>,etc"
 
   // If the environment URLs are empty, just return an empty string
-  if (environment_urls.trim() === '') {
-    return ''
+  if (environment_urls === null || environment_urls.trim() === '') {
+    return null
   }
 
   // Split the environment URLs into an array
@@ -10133,17 +10133,18 @@ async function findEnvironmentUrl(environment, environment_urls) {
       const environment_url = environment_url_array[1]
       core.saveState('environment_url', environment_url)
       core.setOutput('environment_url', environment_url)
+      core.info(`environment url detected: ${environment_url}`)
       return environment_url
     }
   }
 
   // If we get here, then no environment URL was found
   core.warning(
-    `no environment URL found for environment: ${environment} - setting environment URL to empty string - please check your 'environment_urls' input`
+    `no environment URL found for environment: ${environment} - setting environment URL to 'null' - please check your 'environment_urls' input`
   )
-  core.saveState('environment_url', '')
-  core.setOutput('environment_url', '')
-  return ''
+  core.saveState('environment_url', 'null')
+  core.setOutput('environment_url', 'null')
+  return null
 }
 
 // A simple function that checks if an explicit environment target is being used
@@ -10168,7 +10169,7 @@ async function environmentTargets(
   octokit,
   reactionId,
   lockChecks = false,
-  environment_urls = ''
+  environment_urls = null
 ) {
   // Get the environment targets from the action inputs
   const environment_targets = core.getInput('environment_targets')
@@ -10191,7 +10192,7 @@ async function environmentTargets(
       environment
     )
     if (environmentDetected !== false) {
-      return {environment: environmentDetected, environmentUrl: ''}
+      return {environment: environmentDetected, environmentUrl: null}
     }
 
     // If we get here, then no valid environment target was found
@@ -10211,7 +10212,7 @@ async function environmentTargets(
       `### ⚠️ Cannot proceed with lock/unlock request\n\n${message}`
     )
 
-    return {environment: false, environmentUrl: ''}
+    return {environment: false, environmentUrl: null}
   }
 
   // If lockChecks is set to false, this request is for a branch deploy to check the body for an environment target
@@ -10242,7 +10243,7 @@ async function environmentTargets(
         reactionId,
         `### ⚠️ Cannot proceed with deployment\n\n${message}`
       )
-      return {environment: false, environmentUrl: ''}
+      return {environment: false, environmentUrl: null}
     }
 
     // Attempt to get the environment URL from the environment_urls input using the environment target as the key
@@ -10273,7 +10274,7 @@ async function createDeploymentStatus(
   state,
   deploymentId,
   environment,
-  environment_url = ''
+  environment_url = null
 ) {
   // Get the owner and the repo from the context
   const {owner, repo} = context.repo
@@ -12061,7 +12062,7 @@ async function postDeploy(
     deploymentStatus,
     deployment_id,
     environment,
-    environment_url
+    environment_url // can be null
   )
 
   // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
@@ -12112,7 +12113,7 @@ async function post() {
     const noop = core.getState('noop')
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
-    const environment_url = core.getState('environment_url')
+    var environment_url = core.getState('environment_url')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
@@ -12138,6 +12139,17 @@ async function post() {
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
+
+    // Set the environment_url
+    if (
+      !environment_url ||
+      environment_url.length === 0 ||
+      environment_url === 'null' ||
+      environment_url.trim() === ''
+    ) {
+      core.info('environment_url not set, setting to null')
+      environment_url = null
+    }
 
     await postDeploy(
       github.context,
@@ -13025,7 +13037,7 @@ async function run() {
       'in_progress',
       createDeploy.id,
       environment,
-      environmentObj.environmentUrl // environment_url (can be a '')
+      environmentObj.environmentUrl // environment_url (can be null)
     )
 
     core.setOutput('continue', 'true')

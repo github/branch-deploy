@@ -156,8 +156,8 @@ async function findEnvironmentUrl(environment, environment_urls) {
   // The structure: "<environment1>|<url1>,<environment2>|<url2>,etc"
 
   // If the environment URLs are empty, just return an empty string
-  if (environment_urls.trim() === '') {
-    return ''
+  if (environment_urls === null || environment_urls.trim() === '') {
+    return null
   }
 
   // Split the environment URLs into an array
@@ -170,17 +170,18 @@ async function findEnvironmentUrl(environment, environment_urls) {
       const environment_url = environment_url_array[1]
       core.saveState('environment_url', environment_url)
       core.setOutput('environment_url', environment_url)
+      core.info(`environment url detected: ${environment_url}`)
       return environment_url
     }
   }
 
   // If we get here, then no environment URL was found
   core.warning(
-    `no environment URL found for environment: ${environment} - setting environment URL to empty string - please check your 'environment_urls' input`
+    `no environment URL found for environment: ${environment} - setting environment URL to 'null' - please check your 'environment_urls' input`
   )
-  core.saveState('environment_url', '')
-  core.setOutput('environment_url', '')
-  return ''
+  core.saveState('environment_url', 'null')
+  core.setOutput('environment_url', 'null')
+  return null
 }
 
 // A simple function that checks if an explicit environment target is being used
@@ -205,7 +206,7 @@ export async function environmentTargets(
   octokit,
   reactionId,
   lockChecks = false,
-  environment_urls = ''
+  environment_urls = null
 ) {
   // Get the environment targets from the action inputs
   const environment_targets = core.getInput('environment_targets')
@@ -228,7 +229,7 @@ export async function environmentTargets(
       environment
     )
     if (environmentDetected !== false) {
-      return {environment: environmentDetected, environmentUrl: ''}
+      return {environment: environmentDetected, environmentUrl: null}
     }
 
     // If we get here, then no valid environment target was found
@@ -248,7 +249,7 @@ export async function environmentTargets(
       `### ⚠️ Cannot proceed with lock/unlock request\n\n${message}`
     )
 
-    return {environment: false, environmentUrl: ''}
+    return {environment: false, environmentUrl: null}
   }
 
   // If lockChecks is set to false, this request is for a branch deploy to check the body for an environment target
@@ -279,7 +280,7 @@ export async function environmentTargets(
         reactionId,
         `### ⚠️ Cannot proceed with deployment\n\n${message}`
       )
-      return {environment: false, environmentUrl: ''}
+      return {environment: false, environmentUrl: null}
     }
 
     // Attempt to get the environment URL from the environment_urls input using the environment target as the key

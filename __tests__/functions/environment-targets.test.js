@@ -3,6 +3,7 @@ import * as actionStatus from '../../src/functions/action-status'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 
+const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
 const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
 const saveStateMock = jest.spyOn(core, 'saveState').mockImplementation(() => {})
@@ -35,7 +36,7 @@ test('checks the comment body and does not find an explicit environment target',
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: ''})
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for branch deployment'
   )
@@ -50,7 +51,7 @@ test('checks the comment body and finds an explicit environment target for devel
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: 'development', environmentUrl: ''})
+  ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for branch deploy: development'
   )
@@ -65,7 +66,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: 'staging', environmentUrl: ''})
+  ).toStrictEqual({environment: 'staging', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for noop trigger: staging'
   )
@@ -89,6 +90,9 @@ test('checks the comment body and finds an explicit environment target for stagi
     environment: 'staging',
     environmentUrl: 'staging.example.com'
   })
+  expect(infoMock).toHaveBeenCalledWith(
+    'environment url detected: staging.example.com'
+  )
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for noop trigger: staging'
   )
@@ -117,6 +121,7 @@ test('checks the comment body and uses the default production environment target
       environmentUrls
     )
   ).toStrictEqual({environment: 'production', environmentUrl: 'example.com'})
+  expect(infoMock).toHaveBeenCalledWith('environment url detected: example.com')
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for branch deployment'
   )
@@ -138,15 +143,15 @@ test('checks the comment body and finds an explicit environment target for a pro
       false, // lockChecks disabled
       'evil-production|example.com,development|dev.example.com,staging|'
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: ''})
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for branch deploy: production'
   )
   expect(warningMock).toHaveBeenCalledWith(
-    "no environment URL found for environment: production - setting environment URL to empty string - please check your 'environment_urls' input"
+    "no environment URL found for environment: production - setting environment URL to 'null' - please check your 'environment_urls' input"
   )
-  expect(saveStateMock).toHaveBeenCalledWith('environment_url', '')
-  expect(setOutputMock).toHaveBeenCalledWith('environment_url', '')
+  expect(saveStateMock).toHaveBeenCalledWith('environment_url', 'null')
+  expect(setOutputMock).toHaveBeenCalledWith('environment_url', 'null')
 })
 
 test('checks the comment body and finds an explicit environment target for staging on a noop deploy with "to"', async () => {
@@ -158,7 +163,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: 'staging', environmentUrl: ''})
+  ).toStrictEqual({environment: 'staging', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     "Found environment target for noop trigger (with 'to'): staging"
   )
@@ -173,7 +178,7 @@ test('checks the comment body and finds an explicit environment target for produ
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: ''})
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     "Found environment target for branch deploy (with 'to'): production"
   )
@@ -188,7 +193,7 @@ test('checks the comment body on a noop deploy and does not find an explicit env
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: ''})
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for noop trigger'
   )
@@ -203,7 +208,7 @@ test('checks the comment body on a deployment and does not find any matching env
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: false, environmentUrl: ''})
+  ).toStrictEqual({environment: false, environmentUrl: null})
 
   const msg = dedent(`
   No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
@@ -224,7 +229,7 @@ test('checks the comment body on a stable branch deployment and finds a matching
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: ''})
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     "Found environment target for stable branch deploy (with 'to'): production"
   )
@@ -239,7 +244,7 @@ test('checks the comment body on a stable branch deployment and finds a matching
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: ''})
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for stable branch deploy: production'
   )
@@ -254,7 +259,7 @@ test('checks the comment body on a stable branch deployment and uses the default
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: ''})
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for stable branch deployment'
   )
@@ -269,7 +274,7 @@ test('checks the comment body on a stable branch deployment and does not find a 
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: false, environmentUrl: ''})
+  ).toStrictEqual({environment: false, environmentUrl: null})
 
   const msg = dedent(`
   No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
@@ -294,7 +299,7 @@ test('checks the comment body on a lock request and uses the default environment
       null, // reaction_id
       true // enable lockChecks
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: ''})
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for lock request'
   )
@@ -313,7 +318,7 @@ test('checks the comment body on an unlock request and uses the default environm
       null, // reaction_id
       true // enable lockChecks
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: ''})
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for unlock request'
   )
@@ -332,7 +337,7 @@ test('checks the comment body on a lock info alias request and uses the default 
       null, // reaction_id
       true // enable lockChecks
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: ''})
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for lock info request'
   )
@@ -351,7 +356,7 @@ test('checks the comment body on a lock request and uses the production environm
       null, // reaction_id
       true // enable lockChecks
     )
-  ).toStrictEqual({environment: 'production', environmentUrl: ''})
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for lock request: production'
   )
@@ -370,7 +375,7 @@ test('checks the comment body on an unlock request and uses the development envi
       null, // reaction_id
       true // enable lockChecks
     )
-  ).toStrictEqual({environment: 'development', environmentUrl: ''})
+  ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for unlock request: development'
   )
@@ -389,7 +394,7 @@ test('checks the comment body on a lock info alias request and uses the developm
       null, // reaction_id
       true // enable lockChecks
     )
-  ).toStrictEqual({environment: 'development', environmentUrl: ''})
+  ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for lock info request: development'
   )
@@ -408,7 +413,7 @@ test('checks the comment body on a lock info request and uses the development en
       null, // reaction_id
       true // enable lockChecks
     )
-  ).toStrictEqual({environment: 'development', environmentUrl: ''})
+  ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for lock request: development'
   )
@@ -427,7 +432,7 @@ test('checks the comment body on a lock info request and uses the development en
       null, // reaction_id
       true // enable lockChecks
     )
-  ).toStrictEqual({environment: 'development', environmentUrl: ''})
+  ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for lock request: development'
   )

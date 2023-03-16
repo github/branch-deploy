@@ -12,7 +12,7 @@ export async function post() {
     const noop = core.getState('noop')
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
-    const environment_url = core.getState('environment_url')
+    var environment_url = core.getState('environment_url')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
@@ -38,6 +38,17 @@ export async function post() {
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
+
+    // Set the environment_url
+    if (
+      !environment_url ||
+      environment_url.length === 0 ||
+      environment_url === 'null' ||
+      environment_url.trim() === ''
+    ) {
+      core.info('environment_url not set, setting to null')
+      environment_url = null
+    }
 
     await postDeploy(
       context,

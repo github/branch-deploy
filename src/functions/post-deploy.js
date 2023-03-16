@@ -176,7 +176,7 @@ export async function postDeploy(
     deploymentStatus,
     deployment_id,
     environment,
-    environment_url
+    environment_url // can be null
   )
 
   // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock

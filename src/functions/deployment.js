@@ -14,7 +14,7 @@ export async function createDeploymentStatus(
   state,
   deploymentId,
   environment,
-  environment_url = ''
+  environment_url = null
 ) {
   // Get the owner and the repo from the context
   const {owner, repo} = context.repo
