@@ -157,6 +157,8 @@ async function onLockChecks(
 // :param context: The context of the Action
 // :param octokit: The Octokit instance
 // :param reactionId: The ID of the initial comment reaction (Integer)
+// :param lockChecks: Whether or not this is a lock/unlock command (Boolean)
+// :param environment_urls: The environment URLs from the action inputs
 // :returns: the environment target (String) or false if no environment target was found (fails)
 export async function environmentTargets(
   environment,
@@ -167,7 +169,8 @@ export async function environmentTargets(
   context,
   octokit,
   reactionId,
-  lockChecks = false
+  lockChecks = false,
+  environment_urls = ''
 ) {
   // Get the environment targets from the action inputs
   const environment_targets = core.getInput('environment_targets')
@@ -223,28 +226,28 @@ export async function environmentTargets(
       stable_branch,
       environment
     )
-    if (environmentDetected !== false) {
-      return environmentDetected
+
+    // If no environment target was found, let the user know via a comment and return false
+    if (environmentDetected === false) {
+      const message = dedent(`
+        No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
+
+        > The following environment targets are available: \`${environment_targets_joined}\`
+      `)
+      core.warning(message)
+      core.saveState('bypass', 'true')
+
+      // Return the action status as a failure
+      await actionStatus(
+        context,
+        octokit,
+        reactionId,
+        `### ⚠️ Cannot proceed with deployment\n\n${message}`
+      )
+      return false
     }
 
-    // If we get here, then no valid environment target was found
-    const message = dedent(`
-    No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
-
-    > The following environment targets are available: \`${environment_targets_joined}\`
-    `)
-    core.warning(message)
-    core.saveState('bypass', 'true')
-
-    // Return the action status as a failure
-    await actionStatus(
-      context,
-      octokit,
-      reactionId,
-      `### ⚠️ Cannot proceed with deployment\n\n${message}`
-    )
-
-    // Return false to indicate that no environment target was found
-    return false
+    // Return the environment target
+    return environmentDetected
   }
 }
