@@ -1118,15 +1118,13 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
     data: {head: {ref: 'test-ref', sha: 'abc123'}},
     status: 200
   })
-  octokit.rest.pulls.updateBranch = jest
-    .fn()
-    .mockReturnValue({
-      data: {
-        message: 'merge conflict between base and head',
-        url: 'https://api.github.com/repos/foo/bar/pulls/123'
-      },
-      status: 422
-    })
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
+    data: {
+      message: 'merge conflict between base and head',
+      url: 'https://api.github.com/repos/foo/bar/pulls/123'
+    },
+    status: 422
+  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -1176,9 +1174,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
     data: {head: {ref: 'test-ref', sha: 'abc123'}},
     status: 200
   })
-  octokit.rest.pulls.updateBranch = jest
-    .fn()
-    .mockReturnValue(null)
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue(null)
   expect(
     await prechecks(
       '.deploy noop',
@@ -1289,7 +1285,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
   octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
-    octokit.rest.repos.compareCommits = jest
+  octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
   expect(
@@ -1439,15 +1435,13 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
     data: {head: {ref: 'test-ref', sha: 'abc123'}},
     status: 200
   })
-  octokit.rest.pulls.updateBranch = jest
-    .fn()
-    .mockReturnValue({
-      data: {
-        message: 'Updating pull request branch.',
-        url: 'https://api.github.com/repos/foo/bar/pulls/123'
-      },
-      status: 202
-    })
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
+    data: {
+      message: 'Updating pull request branch.',
+      url: 'https://api.github.com/repos/foo/bar/pulls/123'
+    },
+    status: 202
+  })
   expect(
     await prechecks(
       '.deploy',
@@ -2355,18 +2349,16 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
   octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
-    octokit.rest.repos.compareCommits = jest
+  octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValueOnce({data: {behind_by: 1}, status: 200})
-    octokit.rest.pulls.updateBranch = jest
-    .fn()
-    .mockReturnValue({
-      data: {
-        message: 'Updating pull request branch.',
-        url: 'https://api.github.com/repos/foo/bar/pulls/123'
-      },
-      status: 202
-    })
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
+    data: {
+      message: 'Updating pull request branch.',
+      url: 'https://api.github.com/repos/foo/bar/pulls/123'
+    },
+    status: 202
+  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -2427,18 +2419,16 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
   octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
-    octokit.rest.repos.compareCommits = jest
+  octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
-    octokit.rest.pulls.updateBranch = jest
-    .fn()
-    .mockReturnValue({
-      data: {
-        message: 'Updating pull request branch.',
-        url: 'https://api.github.com/repos/foo/bar/pulls/123'
-      },
-      status: 202
-    })
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
+    data: {
+      message: 'Updating pull request branch.',
+      url: 'https://api.github.com/repos/foo/bar/pulls/123'
+    },
+    status: 202
+  })
   expect(
     await prechecks(
       '.deploy noop',
@@ -2504,15 +2494,13 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
   octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
-  octokit.rest.pulls.updateBranch = jest
-    .fn()
-    .mockReturnValue({
-      data: {
-        message: 'Updating pull request branch.',
-        url: 'https://api.github.com/repos/foo/bar/pulls/123'
-      },
-      status: 202
-    })
+  octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
+    data: {
+      message: 'Updating pull request branch.',
+      url: 'https://api.github.com/repos/foo/bar/pulls/123'
+    },
+    status: 202
+  })
   expect(
     await prechecks(
       '.deploy noop',
