@@ -22,7 +22,7 @@ inputs:
     required: false
     default: "production,development,staging"
   environment_urls:
-    description: 'Optional target environment URLs to use with deployments. This input option is a mapping of environment names to URLs and the environment names must match the "environment_targets" input option. This option is a comma separated list with pipes (|) separating the environment from the URL. Format: "<environment1>|<url1>,<environment2>|<url2>,etc" Example: "production|https://myapp.com,development|https://dev.myapp.com,staging|https://staging.myapp.com"'
+    description: 'Optional target environment URLs to use with deployments. This input option is a mapping of environment names to URLs and the environment names must match the "environment_targets" input option. This option is a comma separated list with pipes (|) separating the environment from the URL. Note: "disabled" is a special keyword to disable an environment url if you enable this option. Format: "<environment1>|<url1>,<environment2>|<url2>,etc" Example: "production|https://myapp.com,development|https://dev.myapp.com,staging|disabled"'
     required: false
     default: ""
   environment_url_in_comment:
