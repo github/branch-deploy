@@ -253,10 +253,8 @@ test('runs prechecks and fails due to bad user permissions', async () => {
 })
 
 test('runs prechecks and fails due to a bad pull request', async () => {
-  octokit.rest.pulls.get = jest
-    .fn()
-    .mockReturnValueOnce({status: 500})
-    octokit.rest.repos.getCollaboratorPermissionLevel = jest
+  octokit.rest.pulls.get = jest.fn().mockReturnValueOnce({status: 500})
+  octokit.rest.repos.getCollaboratorPermissionLevel = jest
     .fn()
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
   expect(
@@ -293,7 +291,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
   octokit.rest.repos.getCollaboratorPermissionLevel = jest
     .fn()
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-    octokit['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+  octokit['rest']['pulls']['get'] = jest.fn().mockReturnValue({
     data: {head: {ref: 'test-ref', sha: 'abc123'}},
     status: 200
   })
