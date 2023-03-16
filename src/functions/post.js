@@ -12,11 +12,13 @@ export async function post() {
     const noop = core.getState('noop')
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
-    const environment_url = core.getState('environment_url')
+    var environment_url = core.getState('environment_url')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
     const skip_completing = core.getInput('skip_completing')
+    const environment_url_in_comment =
+      core.getInput('environment_url_in_comment') === 'true'
     const deployMessage = process.env.DEPLOY_MESSAGE
 
     // If bypass is set, exit the workflow
@@ -39,6 +41,17 @@ export async function post() {
     // Create an octokit client
     const octokit = github.getOctokit(token)
 
+    // Set the environment_url
+    if (
+      !environment_url ||
+      environment_url.length === 0 ||
+      environment_url === 'null' ||
+      environment_url.trim() === ''
+    ) {
+      core.info('environment_url not set, setting to null')
+      environment_url = null
+    }
+
     await postDeploy(
       context,
       octokit,
@@ -50,7 +63,8 @@ export async function post() {
       noop,
       deployment_id,
       environment,
-      environment_url
+      environment_url,
+      environment_url_in_comment
     )
 
     return

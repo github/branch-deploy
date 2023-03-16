@@ -54,7 +54,7 @@ test('creates an in_progress deployment status', async () => {
     deployment_id: deploymentId,
     state: 'in_progress',
     environment: environment,
-    environment_url: '',
+    environment_url: null,
     INPUT_LOG_URL: logUrl
   })
 })

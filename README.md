@@ -266,7 +266,8 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `global_lock_flag` | `false` | `--global` | The flag to pass into the lock command to lock all environments. Example: "--global" |
 | `environment` | `false` | `production` | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
 | `environment_targets` | `false` | `production,development,staging` | Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging` |
-| `environment_urls` | `false` | `""` | Optional target environment URLs to use with deployments. This input option is a mapping of environment names to URLs and the environment names **must** match the `environment_targets` input option. This option is a comma separated list with pipes (`\|`) separating the environment from the URL. Format: `"<environment1>\|<url1>,<environment2>\|<url2>,etc"` Example: `"production\|https://myapp.com,development\|https://dev.myapp.com,staging\|https://staging.myapp.com"` |
+| `environment_urls` | `false` | `""` | Optional target environment URLs to use with deployments. This input option is a mapping of environment names to URLs and the environment names **must** match the `environment_targets` input option. This option is a comma separated list with pipes (`\|`) separating the environment from the URL. Note: `disabled` is a special keyword to disable an environment url if you enable this option. Format: `"<environment1>\|<url1>,<environment2>\|<url2>,etc"` Example: `"production\|https://myapp.com,development\|https://dev.myapp.com,staging\|disabled"` - See the [environment urls](#environment-urls) section for more details |
+| `environment_url_in_comment` | `false` | `"true` | If the `environment_url` detected in the deployment should be appended to the successful deployment comment or not. Examples: `"true"` or `"false"` - See the [environment urls](#environment-urls) section for more details |
 | `production_environment` | `false` | `production` | The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name. |
 | `stable_branch` | `false` | `main` | The name of a stable branch to deploy to (rollbacks). Example: "main" |
 | `prefix_only` | `false` | `"true"` | If "false", the trigger can match anywhere in the comment |
@@ -399,13 +400,17 @@ Environment URLs can be confirgured and mapped to matching `environment_targets`
 
 This input option is a mapping of environment names to URLs and the environment names **must** match the [`environment_targets`](https://github.com/github/branch-deploy#environment-targets) input option. This option is a comma separated list with pipes (`|`) separating the environment from the URL.
 
+Note: `disabled` is a special keyword to disable an environment url if you enable this option but not all environments have a url.
+
 Format: `"<environment1>|<url1>,<environment2>|<url2>,etc"`
 
-Example: `"production|https://myapp.com,development|https://dev.myapp.com,staging|https://staging.myapp.com"`
+Example: `"production|https://myapp.com,development|https://dev.myapp.com,staging|disabled"`
 
 > This option is especially useful when your deployment targets are services with a URL (website, API, etc)
 
 By enabling this option, you will get a "clickable" link on success (non-noop) deployment messages on pull requests. You will also be able to click the "View deployment" button in your repository's deployments page and be taken to the URL of the environment you deployed to.
+
+If you wish to disable the "clickable" link on the successful deloyment message, you can set the `environment_url_in_comment` input to `"false"`.
 
 ## Rollbacks 🔄
 

@@ -131,7 +131,8 @@ test('successfully completes a production branch deployment with an environment 
       'false',
       456,
       'production',
-      'https://example.com' // environment_url
+      'https://example.com', // environment_url
+      true // environment url in comment
     )
   ).toBe('success')
 
