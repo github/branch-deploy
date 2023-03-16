@@ -16,6 +16,9 @@ const saveStateMock = jest.spyOn(core, 'saveState')
 const setFailedMock = jest.spyOn(core, 'setFailed')
 const debugMock = jest.spyOn(core, 'debug')
 
+const permissionsMsg =
+    '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
+
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
@@ -187,8 +190,6 @@ test('successfully runs the action in noop mode', async () => {
 })
 
 test('runs the action in lock mode and fails due to bad permissions', async () => {
-  const permissionsMsg =
-    '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
   jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
     return permissionsMsg
   })
@@ -251,7 +252,8 @@ test('successfully runs the action in lock mode - details only', async () => {
         global: false,
         link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
         reason: 'Testing my new feature with lots of cats',
-        sticky: true
+        sticky: true,
+        unlock_command: '.unlock production'
       },
       status: 'details-only',
       globalFlag: '--global',
@@ -293,7 +295,8 @@ test('successfully runs the action in lock mode - details only - for the develop
         environment: 'development',
         link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
         reason: 'Testing my new feature with lots of cats',
-        sticky: true
+        sticky: true,
+        unlock_command: '.unlock development'
       },
       status: 'details-only',
       globalFlag: '--global',
@@ -336,7 +339,8 @@ test('successfully runs the action in lock mode - details only - --info flag', a
         global: false,
         link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
         reason: 'Testing my new feature with lots of cats',
-        sticky: true
+        sticky: true,
+        unlock_command: '.unlock production'
       },
       status: 'details-only',
       globalFlag: '--global',
@@ -376,7 +380,8 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
         global: false,
         link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
         reason: 'Testing my new feature with lots of cats',
-        sticky: true
+        sticky: true,
+        unlock_command: '.unlock production'
       },
       environment: 'production',
       globalFlag: '--global',
@@ -416,7 +421,8 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
         environment: null,
         link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
         reason: 'Testing my new feature with lots of cats',
-        sticky: true
+        sticky: true,
+        unlock_command: '.unlock --global'
       },
       status: 'details-only',
       globalFlag: '--global',
@@ -653,8 +659,6 @@ test('runs the .help command successfully', async () => {
 })
 
 test('runs the .help command successfully', async () => {
-  const permissionsMsg =
-    '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
   jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
     return permissionsMsg
   })
