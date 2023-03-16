@@ -12,6 +12,7 @@ export async function post() {
     const noop = core.getState('noop')
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
+    const environment_url = core.getState('environment_url')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
@@ -48,7 +49,8 @@ export async function post() {
       ref,
       noop,
       deployment_id,
-      environment
+      environment,
+      environment_url
     )
 
     return

@@ -64,7 +64,8 @@ test('successfully completes a production branch deployment', async () => {
       'test-ref',
       'false',
       456,
-      'production'
+      'production',
+      '' // environment_url
     )
   ).toBe('success')
 
@@ -107,7 +108,8 @@ test('successfully completes a production branch deployment', async () => {
     'test-ref',
     'success',
     456,
-    'production'
+    'production',
+    '' // environment_url
   )
 })
 
@@ -134,7 +136,8 @@ test('successfully completes a production branch deployment and removes a non-st
       'test-ref',
       'false',
       456,
-      'production'
+      'production',
+      '' // environment_url
     )
   ).toBe('success')
 
@@ -178,7 +181,8 @@ test('successfully completes a production branch deployment and removes a non-st
     'test-ref',
     'success',
     456,
-    'production'
+    'production',
+    '' // environment_url
   )
 })
 

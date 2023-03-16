@@ -14,6 +14,9 @@ import dedent from 'dedent-js'
 // :param message: A custom string to add as the deployment status message (String)
 // :param ref: The ref (branch) which is being used for deployment (String)
 // :param noop: Indicates whether the deployment is a noop or not (String)
+// :param deployment_id: The id of the deployment (String)
+// :param environment: The environment of the deployment (String)
+// :param environment_url: The environment url of the deployment (String)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(
   context,
@@ -25,7 +28,8 @@ export async function postDeploy(
   ref,
   noop,
   deployment_id,
-  environment
+  environment,
+  environment_url
 ) {
   // Check the inputs to ensure they are valid
   if (!comment_id || comment_id.length === 0) {
@@ -156,7 +160,8 @@ export async function postDeploy(
     ref,
     deploymentStatus,
     deployment_id,
-    environment
+    environment,
+    environment_url
   )
 
   // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
