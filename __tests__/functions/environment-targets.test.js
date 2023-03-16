@@ -92,8 +92,14 @@ test('checks the comment body and finds an explicit environment target for stagi
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for noop trigger: staging'
   )
-  expect(saveStateMock).toHaveBeenCalledWith('environment_url', 'staging.example.com')
-  expect(setOutputMock).toHaveBeenCalledWith('environment_url', 'staging.example.com')
+  expect(saveStateMock).toHaveBeenCalledWith(
+    'environment_url',
+    'staging.example.com'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'environment_url',
+    'staging.example.com'
+  )
 })
 
 test('checks the comment body and uses the default production environment target with environment_urls set', async () => {

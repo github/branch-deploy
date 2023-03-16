@@ -10130,7 +10130,10 @@ async function findEnvironmentUrl(environment, environment_urls) {
   for (const environment_url of environment_urls_array) {
     const environment_url_array = environment_url.trim().split('|')
     if (environment_url_array[0] === environment) {
-      return environment_url_array[1]
+      const environment_url = environment_url_array[1]
+      core.saveState('environment_url', environment_url)
+      core.setOutput('environment_url', environment_url)
+      return environment_url
     }
   }
 
@@ -10138,6 +10141,8 @@ async function findEnvironmentUrl(environment, environment_urls) {
   core.warning(
     `no environment URL found for environment: ${environment} - setting environment URL to empty string - please check your 'environment_urls' input`
   )
+  core.saveState('environment_url', '')
+  core.setOutput('environment_url', '')
   return ''
 }
 
@@ -13004,7 +13009,8 @@ async function run() {
       precheckResults.ref,
       'in_progress',
       createDeploy.id,
-      environment
+      environment,
+      environmentObj.environmentUrl // environment_url (can be a '')
     )
 
     core.setOutput('continue', 'true')
