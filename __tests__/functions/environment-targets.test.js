@@ -6,6 +6,7 @@ import dedent from 'dedent-js'
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
 const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
 const saveStateMock = jest.spyOn(core, 'saveState').mockImplementation(() => {})
+const setOutputMock = jest.spyOn(core, 'setOutput').mockImplementation(() => {})
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -91,6 +92,8 @@ test('checks the comment body and finds an explicit environment target for stagi
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for noop trigger: staging'
   )
+  expect(saveStateMock).toHaveBeenCalledWith('environment_url', 'staging.example.com')
+  expect(setOutputMock).toHaveBeenCalledWith('environment_url', 'staging.example.com')
 })
 
 test('checks the comment body and uses the default production environment target with environment_urls set', async () => {
@@ -111,6 +114,8 @@ test('checks the comment body and uses the default production environment target
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for branch deployment'
   )
+  expect(saveStateMock).toHaveBeenCalledWith('environment_url', 'example.com')
+  expect(setOutputMock).toHaveBeenCalledWith('environment_url', 'example.com')
 })
 
 test('checks the comment body and finds an explicit environment target for a production deploy with environment_urls set but no valid url', async () => {
@@ -134,6 +139,8 @@ test('checks the comment body and finds an explicit environment target for a pro
   expect(warningMock).toHaveBeenCalledWith(
     "no environment URL found for environment: production - setting environment URL to empty string - please check your 'environment_urls' input"
   )
+  expect(saveStateMock).toHaveBeenCalledWith('environment_url', '')
+  expect(setOutputMock).toHaveBeenCalledWith('environment_url', '')
 })
 
 test('checks the comment body and finds an explicit environment target for staging on a noop deploy with "to"', async () => {
