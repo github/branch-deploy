@@ -193,6 +193,31 @@ test('checks the comment body and finds an explicit environment target for a pro
   expect(setOutputMock).toHaveBeenCalledWith('environment_url', 'null')
 })
 
+test('checks the comment body and finds an explicit environment target for a production deploy with environment_urls set but the environment url for the given environment is disabled', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy production',
+      trigger,
+      noop_trigger,
+      stable_branch,
+      null,
+      null,
+      null,
+      false, // lockChecks disabled
+      'production|disabled,development|dev.example.com,staging|'
+    )
+  ).toStrictEqual({environment: 'production', environmentUrl: null})
+  expect(debugMock).toHaveBeenCalledWith(
+    'Found environment target for branch deploy: production'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    'environment url for production is explicitly disabled'
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('environment_url', 'null')
+  expect(setOutputMock).toHaveBeenCalledWith('environment_url', 'null')
+})
+
 test('checks the comment body and finds an explicit environment target for staging on a noop deploy with "to"', async () => {
   expect(
     await environmentTargets(

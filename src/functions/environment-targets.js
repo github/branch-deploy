@@ -169,6 +169,15 @@ async function findEnvironmentUrl(environment, environment_urls) {
     if (environment_url_array[0] === environment) {
       const environment_url = environment_url_array[1]
 
+      // if the environment url exactly matches 'disabled' then return null
+      if (environment_url === 'disabled') {
+        core.info(`environment url for ${environment} is explicitly disabled`)
+        core.saveState('environment_url', 'null')
+        core.setOutput('environment_url', 'null')
+        core.info(`environment url detected: ${environment_url}`)
+        return null
+      }
+
       // if the environment url does not match the http(s) schema, log a warning and continue
       if (!environment_url.match(/^https?:\/\//)) {
         core.warning(
