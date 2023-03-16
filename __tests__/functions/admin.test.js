@@ -19,35 +19,40 @@ class WildError extends Error {
   }
 }
 
+var context
+var octokit
 beforeEach(() => {
-  jest.resetAllMocks()
+  jest.clearAllMocks()
   process.env.INPUT_ADMINS_PAT = 'faketoken'
   process.env.INPUT_ADMINS =
     'MoNaLiSa,@lisamona,octoawesome/octo-awEsome-team,bad$user'
-  jest.spyOn(github, 'getOctokit').mockImplementation(() => {
-    return {
-      request: jest.fn().mockReturnValueOnce({
-        status: 204
-      }),
-      rest: {
-        orgs: {
-          get: jest.fn().mockReturnValueOnce({
-            data: {id: '12345'}
-          })
-        },
-        teams: {
-          getByName: jest.fn().mockReturnValueOnce({
-            data: {id: '567890'}
-          })
-        }
+
+  context = {
+    actor: 'monalisa'
+  }
+
+  octokit = {
+    request: jest.fn().mockReturnValueOnce({
+      status: 204
+    }),
+    rest: {
+      orgs: {
+        get: jest.fn().mockReturnValueOnce({
+          data: {id: '12345'}
+        })
+      },
+      teams: {
+        getByName: jest.fn().mockReturnValueOnce({
+          data: {id: '567890'}
+        })
       }
     }
+  }
+
+  jest.spyOn(github, 'getOctokit').mockImplementation(() => {
+    return octokit
   })
 })
-
-const context = {
-  actor: 'monalisa'
-}
 
 test('runs isAdmin checks and finds a valid admin via handle reference', async () => {
   expect(await isAdmin(context)).toStrictEqual(true)
