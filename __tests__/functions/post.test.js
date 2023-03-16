@@ -19,11 +19,12 @@ const validStates = {
 
 const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation(() => {})
 const setWarningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
-const setInfoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
+const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
 
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'error').mockImplementation(() => {})
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'getInput').mockImplementation(name => {
     return validInputs[name]
   })
@@ -71,7 +72,7 @@ test('skips the process of completing a deployment', async () => {
     return skipped[name]
   })
   expect(await post()).toBeUndefined()
-  expect(setInfoMock).toHaveBeenCalledWith('skip_completing set, exiting')
+  expect(infoMock).toHaveBeenCalledWith('skip_completing set, exiting')
 })
 
 test('throws an error', async () => {
