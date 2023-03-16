@@ -86,6 +86,17 @@ test('successfully releases a development environment deployment lock with the u
   })
 })
 
+test('successfully releases a development environment deployment lock with the unlock function even when a non-need --reason flag is passed in', async () => {
+  context.payload.comment.body =
+    '.unlock development --reason because i said so'
+  expect(await unlock(octokit, context, 123)).toBe(true)
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/development-branch-deploy-lock'
+  })
+})
+
 test('successfully releases a deployment lock with the unlock function - silent mode', async () => {
   expect(await unlock(octokit, context, 123, null, true)).toBe(
     'removed lock - silent'
