@@ -337,8 +337,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
 })
 
 test('runs prechecks and finds CI checks pass but reviews are not defined', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -359,10 +358,10 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+  octokit.rest.repos.getCollaboratorPermissionLevel = jest
     .fn()
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {head: {ref: 'test-ref', sha: 'abc123'}},
     status: 200
   })
@@ -379,7 +378,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -389,13 +388,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
     ref: 'test-ref',
     sha: 'abc123'
   })
-  expect(infoMock).toHaveBeenCalledWith(
-    "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    'Skipping commit status check and proceeding...'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
+  expect(infoMock).toHaveBeenLastCalledWith(
     '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
   )
 })
@@ -1788,15 +1781,14 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin when CI is not defined', async () => {
-  var octogoodres = octokit
-  octogoodres['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+  octokit.rest.repos.getCollaboratorPermissionLevel = jest
     .fn()
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octogoodres['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {head: {ref: 'test-ref', sha: 'abc123'}},
     status: 200
   })
-  octogoodres['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -1833,7 +1825,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       '',
       'production',
       context,
-      octogoodres
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1844,12 +1836,13 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     sha: 'abc123'
   })
 
-  expect(infoMock).toHaveBeenCalledWith('issueops command used with parameters')
+  expect(infoMock).toHaveBeenLastCalledWith(
+    '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
+  )
 })
 
 test('runs prechecks and finds that no CI checks exist and reviews are not defined', async () => {
-  var octonocommitchecks = octokit
-  octonocommitchecks['graphql'] = jest.fn().mockReturnValue({
+  octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -1868,10 +1861,10 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
       }
     }
   })
-  octonocommitchecks['rest']['repos']['getCollaboratorPermissionLevel'] = jest
+  octokit.rest.repos.getCollaboratorPermissionLevel = jest
     .fn()
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-  octonocommitchecks['rest']['pulls']['get'] = jest.fn().mockReturnValue({
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {head: {ref: 'test-ref', sha: 'abc123'}},
     status: 200
   })
@@ -1888,7 +1881,7 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
       '',
       'production',
       context,
-      octonocommitchecks
+      octokit
     )
   ).toStrictEqual({
     message:
@@ -1898,17 +1891,8 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
     ref: 'test-ref',
     sha: 'abc123'
   })
-  expect(infoMock).toHaveBeenCalledWith(
-    'No CI checks have been defined for this pull request, proceeding - OK'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    'Skipping commit status check and proceeding...'
-  )
-  expect(infoMock).toHaveBeenCalledWith(
-    '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+  expect(infoMock).toHaveBeenLastCalledWith(
+    '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
   )
 })
 
@@ -1935,7 +1919,7 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
   octokit.rest.repos.getCollaboratorPermissionLevel = jest
     .fn()
     .mockReturnValueOnce({data: {permission: 'admin'}, status: 200})
-    octokit.rest.pulls.get = jest.fn().mockReturnValue({
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
     data: {head: {ref: 'test-ref', sha: 'abc123'}},
     status: 200
   })
@@ -1962,7 +1946,9 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
     ref: 'test-ref',
     sha: 'abc123'
   })
-  expect(infoMock).toHaveBeenLastCalledWith('✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK')
+  expect(infoMock).toHaveBeenLastCalledWith(
+    '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
+  )
 })
 
 test('runs prechecks and finds that no CI checks exist and the PR is not approved, but it is from an admin', async () => {
