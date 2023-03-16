@@ -103,6 +103,19 @@ export async function postDeploy(
     `)
   }
 
+  // Conditionally add the environment url to the message body
+  if (
+    environment_url &&
+    environment_url.length > 0 &&
+    environment_url.trim() !== '' &&
+    status === 'success'
+  ) {
+    const environment_url_short = environment_url
+      .replace('https://', '')
+      .replace('http://', '')
+    message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${environment_url})`
+  }
+
   // Update the action status to indicate the result of the deployment as a comment
   await actionStatus(
     context,

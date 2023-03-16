@@ -113,6 +113,72 @@ test('successfully completes a production branch deployment', async () => {
   )
 })
 
+test('successfully completes a production branch deployment with an environment url', async () => {
+  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
+  const createDeploymentStatusSpy = jest.spyOn(
+    createDeploymentStatus,
+    'createDeploymentStatus'
+  )
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'success',
+      'Deployment has created 1 new server',
+      'test-ref',
+      'false',
+      456,
+      'production',
+      'https://example.com' // environment_url
+    )
+  ).toBe('success')
+
+  expect(actionStatusSpy).toHaveBeenCalled()
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    12345,
+    '  ### Deployment Results ✅\n\n  **monalisa** successfully deployed branch `test-ref` to **production**\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>\n\n> **Environment URL:** [example.com](https://example.com)',
+    true
+  )
+  expect(createDeploymentStatusSpy).toHaveBeenCalled()
+  expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    'test-ref',
+    'success',
+    456,
+    'production',
+    'https://example.com' // environment_url
+  )
+})
+
 test('successfully completes a production branch deployment and removes a non-sticky lock', async () => {
   const lockSpy = jest.spyOn(lock, 'lock').mockImplementation(() => {
     return {lockData: {sticky: false}}
