@@ -366,7 +366,7 @@ This can be achieved with the `environment_targets` input
 
 With this option, you can specify a comma separated list of environments that you can deploy to besides just the default with `.deploy`
 
-The defaults that are used are: `production,development,staging`. However, you can configure this to be whatever you like!
+The defaults that are used are: [`production,development,staging`](https://github.com/github/branch-deploy/blob/e3cbb8f0137bfd7933492f12616c0cf91c7cf051/action.yml#L23). However, you can configure this to be whatever you like!
 
 To use a deployment with a specific environment, you would invoke your commands like so:
 
