@@ -525,7 +525,7 @@ jobs:
 
 ## Multiple Jobs with GitHub Pages
 
-A detailed example using multiple jobs, custom deployment status creation, and comments
+A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments
 
 > This live example can be found [here](https://github.com/GrantBirki/blog/blob/25a51aff28c066e378844992c20afc6c58131e26/.github/workflows/branch-deploy.yml)
 
@@ -677,6 +677,16 @@ jobs:
             repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
             -f environment='${{ needs.trigger.outputs.environment }}' \
             -f state=${DEPLOY_STATUS}
+
+      # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
+      - name: Remove a non-sticky lock
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method DELETE \
+            repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
       # this reaction is added by the branch-deploy action by default
