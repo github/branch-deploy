@@ -530,6 +530,9 @@ This section contains real world examples of how this Action can be used
 - [SSH](docs/examples.md#ssh)
 - [Cloudflare Pages](docs/examples.md#cloudflare-pages)
 - [Cloudflare Workers](docs/examples.md#cloudflare-workers)
+- [Hugo](docs/examples.md#multiple-jobs-with-gitHub-pages-and-hugo)
+- [Astro](docs/examples.md#multiple-jobs-with-gitHub-pages-and-astro)
+- [Multiple Jobs](docs/examples.md#multiple-jobs) (advanced)
 
 > Checkout the [examples document](docs/examples.md) for more examples
 
