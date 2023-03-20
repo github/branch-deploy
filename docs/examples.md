@@ -744,7 +744,7 @@ jobs:
 
 A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments - Using [Astro](https://astro.build)
 
-> A live example can be found [here]()
+> A live example can be found [here](https://github.com/GrantBirki/astrowind/blob/72eb4890cfd6eda6b4f6f66c62f24a2f141ee49a/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch deploy
