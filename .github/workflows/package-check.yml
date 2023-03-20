@@ -12,15 +12,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # pin@v3.3.0
 
-      - name: Setup Node.js 18.x
-        uses: actions/setup-node@2fddd8803e2f5c9604345a0b591c3020ee971a93 # pin@v3.4.1
+      # check the node version from the .node-version file
+      - name: fetch node version
+        id: node-version
+        run: |
+          version=$(cat .node-version)
+          echo "version=${version}" >> $GITHUB_OUTPUT
+
+      - name: setup node
+        uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # pin@v3.6.0
         with:
-          node-version: 18.x
+          node-version: ${{ steps.node-version.outputs.version }}
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: install dependencies
         run: npm ci
 
       - name: Rebuild the dist/ directory
@@ -36,7 +43,7 @@ jobs:
         id: diff
 
       # If index.js was different than expected, upload the expected version as an artifact
-      - uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # pin@v2
+      - uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # pin@v3.1.2
         if: ${{ failure() && steps.diff.conclusion == 'failure' }}
         with:
           name: dist

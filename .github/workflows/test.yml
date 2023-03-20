@@ -10,14 +10,20 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # pin@v3.3.0
 
-      - uses: actions/cache@48af2dc4a9e8278b89d7fa154b955c30c6aaab09 # pin@v3
+      # check the node version from the .node-version file
+      - name: fetch node version
+        id: node-version
+        run: |
+          version=$(cat .node-version)
+          echo "version=${version}" >> $GITHUB_OUTPUT
+
+      - name: setup node
+        uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # pin@v3.6.0
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: ${{ steps.node-version.outputs.version }}
+          cache: 'npm'
 
       - name: install dependencies
         run: npm ci
