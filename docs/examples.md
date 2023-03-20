@@ -39,7 +39,7 @@ jobs:
         uses: github/branch-deploy@vX.X.X
         
         # If the branch-deploy Action was triggered, checkout our branch
-      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
+      - uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -98,7 +98,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -196,7 +196,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -249,7 +249,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -305,7 +305,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -360,7 +360,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -433,7 +433,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -491,10 +491,10 @@ jobs:
       environment: ${{ steps.branch-deploy.outputs.environment }}
 
     steps:
-    - uses: github/branch-deploy@vX.X.X
-      id: branch-deploy
-      with:
-        skip_completing: 'true'
+      - uses: github/branch-deploy@vX.X.X
+        id: branch-deploy
+        with:
+          skip_completing: 'true'
 
   deploy:
     needs: trigger
@@ -502,8 +502,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: fake regular deploy
-      run: echo "I am doing a fake regular deploy"
+      - name: fake regular deploy
+        run: echo "I am doing a fake regular deploy"
 
   result:
     needs: [trigger, deploy]
@@ -511,16 +511,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Create a deployment status
-      run: |
-        gh api \
-          --method POST \
-          repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
-          -f environment='${{ needs.trigger.outputs.environment }}' \
-          -f state='${{ (needs.deploy.result == 'success' && 'success') || 'failure' }}'
-      env:
-        GH_REPO: ${{ github.repository }}
-        GH_TOKEN: ${{ github.token }}
+      - name: Create a deployment status
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
+            -f environment='${{ needs.trigger.outputs.environment }}' \
+            -f state='${{ (needs.deploy.result == 'success' && 'success') || 'failure' }}'
 ```
 
 ## Multiple Jobs with GitHub Pages
@@ -590,7 +590,7 @@ jobs:
     steps:
       # checkout the project's repository based on the ref provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # pin@v3.3.0
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ needs.trigger.outputs.ref }}
 
