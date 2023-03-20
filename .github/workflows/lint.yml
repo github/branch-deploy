@@ -12,10 +12,17 @@ jobs:
     steps:
       - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # pin@v3.3.0
 
-      - name: Setup Node.js 18.x
+      # check the node version from the .node-version file
+      - name: fetch node version
+        id: node-version
+        run: |
+          version=$(cat .node-version)
+          echo "version=${version}" >> $GITHUB_OUTPUT
+
+      - name: setup node
         uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # pin@v3.6.0
         with:
-          node-version: 18.x
+          node-version: ${{ steps.node-version.outputs.version }}
           cache: 'npm'
 
       - name: install dependencies
