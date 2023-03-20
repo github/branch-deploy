@@ -523,7 +523,7 @@ jobs:
             -f state='${{ (needs.deploy.result == 'success' && 'success') || 'failure' }}'
 ```
 
-## Multiple Jobs with GitHub Pages
+## Multiple Jobs with GitHub Pages and Hugo
 
 A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments
 
