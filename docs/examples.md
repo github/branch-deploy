@@ -39,7 +39,7 @@ jobs:
         uses: github/branch-deploy@vX.X.X
         
         # If the branch-deploy Action was triggered, checkout our branch
-      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3.0.2
+      - uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -98,7 +98,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -196,7 +196,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -249,7 +249,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -305,7 +305,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -360,7 +360,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -433,7 +433,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # pin@v2
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -491,10 +491,10 @@ jobs:
       environment: ${{ steps.branch-deploy.outputs.environment }}
 
     steps:
-    - uses: github/branch-deploy@vX.X.X
-      id: branch-deploy
-      with:
-        skip_completing: 'true'
+      - uses: github/branch-deploy@vX.X.X
+        id: branch-deploy
+        with:
+          skip_completing: 'true'
 
   deploy:
     needs: trigger
@@ -502,8 +502,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: fake regular deploy
-      run: echo "I am doing a fake regular deploy"
+      - name: fake regular deploy
+        run: echo "I am doing a fake regular deploy"
 
   result:
     needs: [trigger, deploy]
@@ -511,19 +511,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Create a deployment status
-      run: |
-        gh api \
-          --method POST \
-          repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
-          -f environment='${{ needs.trigger.outputs.environment }}' \
-          -f state='${{ (needs.deploy.result == 'success' && 'success') || 'failure' }}'
-      env:
-        GH_REPO: ${{ github.repository }}
-        GH_TOKEN: ${{ github.token }}
+      - name: Create a deployment status
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
+            -f environment='${{ needs.trigger.outputs.environment }}' \
+            -f state='${{ (needs.deploy.result == 'success' && 'success') || 'failure' }}'
 ```
 
-## Multiple Jobs with GitHub Pages
+## Multiple Jobs with GitHub Pages and Hugo
 
 A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments
 
@@ -548,7 +548,7 @@ permissions:
 
 # set an environment variable for use in the jobs pointing to my blog
 env:
-  blog_url: https://blog.birki.io
+  blog_url: https://blog.birki.io # <--- CHANGE THIS TO YOUR BLOG URL
 
 jobs:
   # branch-deploy trigger job
@@ -590,7 +590,7 @@ jobs:
     steps:
       # checkout the project's repository based on the ref provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # pin@v3.3.0
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ needs.trigger.outputs.ref }}
 
@@ -727,6 +727,190 @@ jobs:
             **${{ needs.trigger.outputs.actor_handle }}** successfully deployed branch `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
 
             > [View Live Deployment](${{ env.blog_url }}) :link:
+
+      # if the deployment was not successful, add a 'failure' comment
+      - name: failure comment
+        if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS == 'failure' }}
+        uses: peter-evans/create-or-update-comment@67dcc547d311b736a8e6c5c236542148a47adc3d # pin@v2.1.1
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ### Deployment Results ❌
+
+            **${{ needs.trigger.outputs.actor_handle }}** had a failure when deploying `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
+```
+
+## Multiple Jobs with GitHub Pages and Astro
+
+A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments - Using [Astro](https://astro.build)
+
+> A live example can be found [here](https://github.com/GrantBirki/astrowind/blob/72eb4890cfd6eda6b4f6f66c62f24a2f141ee49a/.github/workflows/branch-deploy.yml)
+
+```yaml
+name: branch deploy
+
+# The workflow to execute on is comments that are newly created
+on:
+  issue_comment:
+    types: [ created ]
+
+# Permissions needed for reacting and adding comments for IssueOps commands
+permissions:
+  pull-requests: write
+  deployments: write
+  contents: write
+  checks: read
+  pages: write
+  id-token: write
+
+# set an environment variable for use in the jobs pointing the site_url
+env:
+  site_url: https://astro-demo.birki.io # <--- change this to your site url
+
+jobs:
+  # branch-deploy trigger job
+  trigger:
+    if: # only run on pull request comments and very specific comment body string as defined in our branch-deploy settings
+      ${{ github.event.issue.pull_request &&
+      (contains(github.event.comment.body, '.deploy') ||
+      contains(github.event.comment.body, '.lock') ||
+      contains(github.event.comment.body, '.wcid') ||
+      contains(github.event.comment.body, '.unlock')) }}
+    runs-on: ubuntu-latest
+    outputs: # set outputs for use in downstream jobs
+      continue: ${{ steps.branch-deploy.outputs.continue }}
+      noop: ${{ steps.branch-deploy.outputs.noop }}
+      deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
+      environment: ${{ steps.branch-deploy.outputs.environment }}
+      ref: ${{ steps.branch-deploy.outputs.ref }}
+      comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
+      initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
+      actor_handle: ${{ steps.branch-deploy.outputs.actor_handle }}
+
+    steps:
+      # execute the branch-deploy action
+      - uses: github/branch-deploy@vX.X.X
+        id: branch-deploy
+        with:
+          trigger: ".deploy"
+          environment: "github-pages"
+          production_environment: "github-pages"
+          environment_targets: "github-pages"
+          skip_completing: "true" # we will complete the deployment manually in the 'result' job
+          admins: "false" # <--- add your GitHub username here (if you want to use the admins feature)
+
+  # build the github-pages site with hugo
+  build:
+    needs: trigger
+    if: ${{ needs.trigger.outputs.continue == 'true' }} # only run if the trigger job set continue to true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # pin@v3.3.0
+        with:
+          ref: ${{ needs.trigger.outputs.ref }}
+
+      - name: build with astro
+        uses: withastro/action@dc081df9eacdb11181ea51e5d05853faa5aee891 # pin@v0.2.0
+
+  # deploy to GitHub Pages
+  deploy:
+    needs: [ trigger, build ]
+    if: ${{ needs.trigger.outputs.continue == 'true' }} # only run if the trigger job set continue to true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      # deploy the site to GitHub Pages
+      - name: deploy
+        id: deployment
+        uses: actions/deploy-pages@497da40f5225e762159b457c9ae5d6f75a136f5c # pin@v1.2.5
+
+  # update the deployment result - manually complete the deployment that was created by the branch-deploy action
+  result:
+    needs: [ trigger, build, deploy ]
+    runs-on: ubuntu-latest
+    # run even on failures but only if the trigger job set continue to true
+    if: ${{ always() && needs.trigger.outputs.continue == 'true' }}
+
+    steps:
+      # if a previous step failed, set a variable to use as the deployment status
+      - name: set deployment status
+        id: deploy-status
+        if: ${{ needs.trigger.result == 'failure' || needs.build.result == 'failure' ||
+          needs.deploy.result == 'failure' }}
+        run: |
+          echo "DEPLOY_STATUS=failure" >> $GITHUB_OUTPUT
+
+      # use the GitHub CLI to update the deployment status that was initiated by the branch-deploy action
+      - name: Create a deployment status
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_STATUS: ${{ steps.deploy-status.outputs.DEPLOY_STATUS }}
+        run: |
+          if [ -z "${DEPLOY_STATUS}" ]; then
+            DEPLOY_STATUS="success"
+          fi
+
+          gh api \
+            --method POST \
+            repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
+            -f environment='${{ needs.trigger.outputs.environment }}' \
+            -f state=${DEPLOY_STATUS}
+      
+      # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
+      - name: Remove a non-sticky lock
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method DELETE \
+            repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+
+      # remove the default 'eyes' reaction from the comment that triggered the deployment
+      # this reaction is added by the branch-deploy action by default
+      - name: remove eyes reaction
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method DELETE \
+            repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+
+      # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
+      - name: rocket reaction
+        if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS != 'failure' }}
+        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        with:
+          comment-id: ${{ needs.trigger.outputs.comment_id }}
+          reactions: rocket
+
+      # if the deployment failed, add a '-1' (thumbs down) reaction to the comment that triggered the deployment
+      - name: failure reaction
+        if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS == 'failure' }}
+        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        with:
+          comment-id: ${{ needs.trigger.outputs.comment_id }}
+          reactions: "-1"
+
+      # if the deployment was successful, add a 'success' comment
+      - name: success comment
+        if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS != 'failure' }}
+        uses: peter-evans/create-or-update-comment@67dcc547d311b736a8e6c5c236542148a47adc3d # pin@v2.1.1
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ### Deployment Results ✅
+
+            **${{ needs.trigger.outputs.actor_handle }}** successfully deployed branch `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
+
+            > [View Live Deployment](${{ env.site_url }}) :link:
 
       # if the deployment was not successful, add a 'failure' comment
       - name: failure comment
