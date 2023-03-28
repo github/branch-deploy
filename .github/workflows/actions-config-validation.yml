@@ -1,0 +1,24 @@
+name: actions-config-validation
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write # enable write permissions for pull request comments
+
+jobs:
+  actions-config-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.5.0
+
+      - name: actions-config-validation
+        uses: GrantBirki/json-yaml-validate@v1.2.0
+        with:
+          comment: "true" # enable comment mode
+          yaml_schema: "__tests__/schemas/action.schema.yml"
+          yaml_exclude_regex: "^(?!./action.yml$).*$"
