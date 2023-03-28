@@ -30,7 +30,338 @@ runs:
 
 # inputs section
 inputs:
-  required: true
+  github_token:
+    description:
+      type: string
+      required: true
+    default:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+  status:
+    description:
+      type: string
+      required: true
+    default:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+  environment:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  environment_targets:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  environment_urls:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  environment_url_in_comment:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  production_environment:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  reaction:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  trigger:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  noop_trigger:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  lock_trigger:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  unlock_trigger:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+  help_trigger:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  lock_info_alias:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  global_lock_flag:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  stable_branch:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  prefix_only:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  update_branch:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  required_contexts:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  skip_ci:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  skip_reviews:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  allow_forks:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  admins:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  admins_pat:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  merge_deploy_mode:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  skip_completing:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
 
 outputs:
-  required: true
+  triggered:
+    description:
+      type: string
+      required: true
+  comment_body:
+    description:
+      type: string
+      required: true
+  environment:
+    description:
+      type: string
+      required: true
+  noop:
+    description:
+      type: string
+      required: true
+  sha:
+    description:
+      type: string
+      required: true
+  ref:
+    description:
+      type: string
+      required: true
+  comment_id:
+    description:
+      type: string
+      required: true
+  type:
+    description:
+      type: string
+      required: true
+  continue:
+    description:
+      type: string
+      required: true
+  fork:
+    description:
+      type: string
+      required: true
+  fork_ref:
+    description:
+      type: string
+      required: true
+  fork_label:
+    description:
+      type: string
+      required: true
+  fork_checkout:
+    description:
+      type: string
+      required: true
+  deployment_id:
+    description:
+      type: string
+      required: true
+  environment_url:
+    description:
+      type: string
+      required: true
+  initial_reaction_id:
+    description:
+      type: string
+      required: true
+  actor_handle:
+    description:
+      type: string
+      required: true
+  global_lock_claimed:
+    description:
+      type: string
+      required: true
+  global_lock_released:
+    description:
+      type: string
+      required: true
