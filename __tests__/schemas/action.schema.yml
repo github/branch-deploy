@@ -27,3 +27,10 @@ runs:
   post:
     type: string
     required: true
+
+# inputs section
+inputs:
+  required: true
+
+outputs:
+  required: true
