@@ -1,0 +1,16 @@
+name:
+  type: string
+  required: true
+description:
+  type: string
+  required: true
+branding:
+  type: object
+  required: true
+  properties:
+    icon:
+      type: string
+      required: true
+    color:
+      type: string
+      required: true
