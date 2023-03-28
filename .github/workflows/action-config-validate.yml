@@ -1,0 +1,22 @@
+name: action-config-validate
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write # enable write permissions for pull request comments
+
+jobs:
+  action-config-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.5.0
+
+      - name: action-config-validate
+        uses: GrantBirki/json-yaml-validate@v1.2.0
+        with:
+          comment: "true" # enable comment mode
