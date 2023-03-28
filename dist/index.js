@@ -12632,7 +12632,7 @@ async function run() {
       // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
-      core.debug('No trigger found')
+      core.info('no trigger detected in comment - exiting')
       return 'safe-exit'
     } else if (isDeploy) {
       core.setOutput('type', 'deploy')

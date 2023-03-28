@@ -14,6 +14,7 @@ import * as core from '@actions/core'
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const saveStateMock = jest.spyOn(core, 'saveState')
 const setFailedMock = jest.spyOn(core, 'setFailed')
+const infoMock = jest.spyOn(core, 'info')
 const debugMock = jest.spyOn(core, 'debug')
 
 const permissionsMsg =
@@ -628,7 +629,9 @@ test('fails due to no valid environment targets being found in the comment body'
 test('fails due to no trigger being found', async () => {
   process.env.INPUT_TRIGGER = '.shipit'
   expect(await run()).toBe('safe-exit')
-  expect(debugMock).toHaveBeenCalledWith('No trigger found')
+  expect(infoMock).toHaveBeenCalledWith(
+    'no trigger detected in comment - exiting'
+  )
 })
 
 test('fails prechecks', async () => {
