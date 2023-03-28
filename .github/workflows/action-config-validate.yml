@@ -21,4 +21,4 @@ jobs:
         with:
           comment: "true" # enable comment mode
           yaml_schema: "__tests__/schemas/action.schema.yml"
-          yaml_exclude_regex: "^(?!action.yml$).*$"
+          yaml_exclude_regex: "^(?!./action.yml$).*$"
