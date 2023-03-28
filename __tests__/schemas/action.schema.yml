@@ -79,7 +79,7 @@ inputs:
       required: true
     default:
       type: string
-      required: true
+      required: false
   environment_url_in_comment:
     description:
       type: string
@@ -146,6 +146,9 @@ inputs:
       required: true
     required:
       type: boolean
+      required: true
+    default:
+      type: string
       required: true
   help_trigger:
     description:
@@ -226,7 +229,7 @@ inputs:
       required: true
     default:
       type: string
-      required: true
+      required: false
   skip_reviews:
     description:
       type: string
@@ -236,7 +239,7 @@ inputs:
       required: true
     default:
       type: string
-      required: true
+      required: false
   allow_forks:
     description:
       type: string
@@ -288,6 +291,7 @@ inputs:
       type: string
       required: true
 
+# outputs section
 outputs:
   triggered:
     description:
@@ -338,6 +342,10 @@ outputs:
       type: string
       required: true
   fork_checkout:
+    description:
+      type: string
+      required: true
+  fork_full_name:
     description:
       type: string
       required: true
