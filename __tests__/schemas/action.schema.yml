@@ -1,3 +1,4 @@
+# Action base info
 name:
   type: string
   required: true
@@ -14,13 +15,15 @@ branding:
   color:
     type: string
     required: true
-  runs:
-    using:
-      type: string
-      required: true
-    main:
-      type: string
-      required: true
-    post:
-      type: string
-      required: true
+
+# runs section
+runs:
+  using:
+    type: string
+    required: true
+  main:
+    type: string
+    required: true
+  post:
+    type: string
+    required: true
