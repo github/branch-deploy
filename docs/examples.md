@@ -4,6 +4,23 @@ This section contains real world and common examples of how you could use this A
 
 > Note: In all examples, we will be using `uses: github/branch-deploy@vX.X.X`. Replace `X.X.X` with the [latest version](https://github.com/marketplace/actions/branch-deploy) of this Action
 
+## Table of Contents
+
+Quick links below to jump to a specific branch-deploy example:
+
+- [Examples](#examples)
+  - [Table of Contents](#table-of-contents)
+  - [Simple Example](#simple-example)
+  - [Terraform](#terraform)
+  - [Heroku](#heroku)
+  - [Railway](#railway)
+  - [SSH](#ssh)
+  - [Cloudflare Pages](#cloudflare-pages)
+  - [Cloudflare Workers](#cloudflare-workers)
+  - [Multiple Jobs](#multiple-jobs)
+  - [Multiple Jobs with GitHub Pages and Hugo](#multiple-jobs-with-github-pages-and-hugo)
+  - [Multiple Jobs with GitHub Pages and Astro](#multiple-jobs-with-github-pages-and-astro)
+
 ## Simple Example
 
 This is the simplest possible example of how you could use the branch-deploy Action for reference
@@ -39,7 +56,7 @@ jobs:
         uses: github/branch-deploy@vX.X.X
         
         # If the branch-deploy Action was triggered, checkout our branch
-      - uses: actions/checkout@v3.3.0
+      - uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -98,7 +115,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -106,7 +123,7 @@ jobs:
       - uses: hashicorp/setup-terraform@ed3a0531877aca392eb870f440d9ae7aba83a6bd # pin@v1
         if: steps.branch-deploy.outputs.continue == 'true'
         with:
-          terraform_version: 1.1.7
+          terraform_version: 1.1.7 # use the version of Terraform your project uses here
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
         # Run Terraform init in our working directory
@@ -196,7 +213,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -249,7 +266,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -305,7 +322,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -360,7 +377,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -433,7 +450,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -510,7 +527,7 @@ jobs:
     steps:
       # checkout the project's repository based on the ref provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ needs.trigger.outputs.ref }}
 
@@ -612,7 +629,7 @@ jobs:
 
 ## Multiple Jobs with GitHub Pages and Hugo
 
-A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments
+A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments. This example showcases building a static site with [hugo](https://gohugo.io/) and deploying it to [GitHub Pages](https://pages.github.com/).
 
 > This live example can be found [here](https://github.com/GrantBirki/blog/blob/25a51aff28c066e378844992c20afc6c58131e26/.github/workflows/branch-deploy.yml)
 
@@ -635,7 +652,7 @@ permissions:
 
 # set an environment variable for use in the jobs pointing to my blog
 env:
-  blog_url: https://blog.birki.io # <--- CHANGE THIS TO YOUR BLOG URL
+  blog_url: https://test.example.com # <--- CHANGE THIS TO YOUR BLOG URL
 
 jobs:
   # branch-deploy trigger job
@@ -666,7 +683,7 @@ jobs:
           environment: "github-pages"
           production_environment: "github-pages"
           skip_completing: "true" # we will complete the deployment manually in the 'result' job
-          admins: "GrantBirki"
+          admins: "false" # <--- add your GitHub username here (if you want to use the admins feature)
 
   # build the github-pages site with hugo
   build:
@@ -677,7 +694,7 @@ jobs:
     steps:
       # checkout the project's repository based on the ref provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ needs.trigger.outputs.ref }}
 
@@ -829,7 +846,7 @@ jobs:
 
 ## Multiple Jobs with GitHub Pages and Astro
 
-A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments - Using [Astro](https://astro.build)
+A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments - Using [Astro](https://astro.build) to create a static site and deploying to [GitHub Pages](https://pages.github.com/)
 
 > A live example can be found [here](https://github.com/GrantBirki/astrowind/blob/72eb4890cfd6eda6b4f6f66c62f24a2f141ee49a/.github/workflows/branch-deploy.yml)
 
@@ -852,7 +869,7 @@ permissions:
 
 # set an environment variable for use in the jobs pointing the site_url
 env:
-  site_url: https://astro-demo.birki.io # <--- change this to your site url
+  site_url: https://test.example.com # <--- change this to your site url
 
 jobs:
   # branch-deploy trigger job
@@ -894,7 +911,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # pin@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ needs.trigger.outputs.ref }}
 
