@@ -39,7 +39,7 @@ jobs:
         uses: github/branch-deploy@vX.X.X
         
         # If the branch-deploy Action was triggered, checkout our branch
-      - uses: actions/checkout@v3.3.0
+      - uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -98,7 +98,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -196,7 +196,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -249,7 +249,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -305,7 +305,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -360,7 +360,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -433,7 +433,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -510,7 +510,7 @@ jobs:
     steps:
       # checkout the project's repository based on the ref provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ needs.trigger.outputs.ref }}
 
@@ -677,7 +677,7 @@ jobs:
     steps:
       # checkout the project's repository based on the ref provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ needs.trigger.outputs.ref }}
 
@@ -894,7 +894,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # pin@v3.3.0
+        uses: actions/checkout@v3
         with:
           ref: ${{ needs.trigger.outputs.ref }}
 
