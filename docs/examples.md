@@ -4,6 +4,23 @@ This section contains real world and common examples of how you could use this A
 
 > Note: In all examples, we will be using `uses: github/branch-deploy@vX.X.X`. Replace `X.X.X` with the [latest version](https://github.com/marketplace/actions/branch-deploy) of this Action
 
+## Table of Contents
+
+Quick links below to jump to a specific branch-deploy example:
+
+- [Examples](#examples)
+  - [Table of Contents](#table-of-contents)
+  - [Simple Example](#simple-example)
+  - [Terraform](#terraform)
+  - [Heroku](#heroku)
+  - [Railway](#railway)
+  - [SSH](#ssh)
+  - [Cloudflare Pages](#cloudflare-pages)
+  - [Cloudflare Workers](#cloudflare-workers)
+  - [Multiple Jobs](#multiple-jobs)
+  - [Multiple Jobs with GitHub Pages and Hugo](#multiple-jobs-with-github-pages-and-hugo)
+  - [Multiple Jobs with GitHub Pages and Astro](#multiple-jobs-with-github-pages-and-astro)
+
 ## Simple Example
 
 This is the simplest possible example of how you could use the branch-deploy Action for reference
