@@ -215,8 +215,11 @@ test('runs prechecks and finds that the IssueOps command is valid without define
     )
   ).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `null`\n\n> This is usually caused by missing PR approvals or CI checks failing',
-    status: false
+      '✔️ CI checks have not been defined but the PR has been approved - OK',
+    status: true,
+    noopMode: false,
+    ref: 'test-ref',
+    sha: 'abc123'
   })
   expect(infoMock).toHaveBeenCalledWith(
     "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
@@ -931,6 +934,39 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `null`\n\n> Your pull request is missing required approvals',
     status: false
+  })
+})
+
+test('runs prechecks and finds the PR is approved and CI checks have NOT been defined and NOT a noop deploy', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED'
+      }
+    }
+  })
+  expect(
+    await prechecks(
+      '.deploy',
+      '.deploy',
+      'noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      '',
+      '',
+      'production',
+      context,
+      octokit
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI checks have not been defined but the PR has been approved - OK',
+    status: true,
+    noopMode: false,
+    ref: 'test-ref',
+    sha: 'abc123'
   })
 })
 

@@ -12,28 +12,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3.5.0
-
-      # check the node version from the .node-version file
-      - name: fetch node version
-        id: node-version
-        run: |
-          version=$(cat .node-version)
-          echo "version=${version}" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v3
 
       - name: setup node
         uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # pin@v3.6.0
         with:
-          node-version: ${{ steps.node-version.outputs.version }}
+          node-version-file: .node-version
           cache: 'npm'
 
       - name: install dependencies
         run: npm ci
 
-      - name: Rebuild the dist/ directory
+      - name: rebuild the dist/ directory
         run: npm run bundle
 
-      - name: Compare the expected and actual dist/ directories
+      - name: compare the expected and actual dist/ directories
         run: |
           if [ "$(git diff --ignore-space-at-eol dist/ | wc -l)" -gt "0" ]; then
             echo "Detected uncommitted changes after build.  See status below:"
