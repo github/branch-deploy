@@ -435,6 +435,12 @@ export async function prechecks(
       '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
     core.info(message)
 
+    // If CI has not been defined but the PR has been approved
+  } else if (commitStatus === null && reviewDecision === 'APPROVED') {
+    message =
+      '✔️ CI checks have not been defined but the PR has been approved - OK'
+    core.info(message)
+
     // If CI is pending and the PR has not been reviewed BUT it is a noop deploy
   } else if (
     reviewDecision === 'REVIEW_REQUIRED' &&
