@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v3.5.0
 
       - name: actions-config-validation
-        uses: GrantBirki/json-yaml-validate@78e22e5c6549059f267f96aea1aaf97132896c04 # pin@v1.3.0
+        uses: GrantBirki/json-yaml-validate@9a228501b1e80369c582764187fbefdc2f7fbac1 # pin@v1.3.1
         with:
           comment: "true" # enable comment mode
           yaml_schema: "__tests__/schemas/action.schema.yml"
