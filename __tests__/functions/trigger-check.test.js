@@ -41,6 +41,42 @@ test('checks a message and finds a global trigger', async () => {
   )
 })
 
+test('checks a message and finds a global trigger with an environment', async () => {
+  const prefixOnly = false
+  const trigger = '.deploy'
+  expect(await triggerCheck(prefixOnly, 'something .deploy dev', trigger)).toBe(
+    true
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    'something .deploy dev'
+  )
+
+  expect(await triggerCheck(prefixOnly, 'something .deploy', trigger)).toBe(
+    true
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    'something .deploy'
+  )
+
+  expect(await triggerCheck(prefixOnly, '.deploy dev something', trigger)).toBe(
+    true
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    '.deploy dev something'
+  )
+
+  expect(
+    await triggerCheck(prefixOnly, 'something .deploy dev something', trigger)
+  ).toBe(true)
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'comment_body',
+    'something .deploy dev something'
+  )
+})
+
 test('checks a message and does not find global trigger', async () => {
   const prefixOnly = false
   const body = 'I want to .ping a website'
