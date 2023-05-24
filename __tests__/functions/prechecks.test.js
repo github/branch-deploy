@@ -1895,6 +1895,36 @@ test('runs prechecks and finds that the commit status is success and skip_review
   )
 })
 
+test('runs prechecks on a custom deploy comment with a custom variable at the end', async () => {
+  expect(
+    await prechecks(
+      '.deploy dev something', // comment with a custom variable at the end
+      '.deploy', // trigger
+      'noop', // noop trigger
+      'disabled', // update_branch
+      'main', // stable_branch
+      '123', // issue_number
+      true, // allowForks
+      'dev', // skip_ci
+      'dev', // skip_reviews
+      'dev', // the environment the deployment was sent to
+      context, // event context
+      octokit // octokit instance
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true,
+    sha: 'abc123'
+  })
+
+  expect(infoMock).toHaveBeenCalledWith(
+    '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK'
+  )
+})
+
 test('runs prechecks and finds that skip_ci is set and now reviews are defined', async () => {
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
