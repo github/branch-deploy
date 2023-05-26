@@ -34,6 +34,8 @@ async function onDeploymentChecks(
     core.setOutput('params', paramsTrim)
   }
 
+  // TODO add more tests using the param seperator here
+
   // Loop through all the environment targets to see if an explicit target is being used
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
