@@ -56,6 +56,7 @@ async function onDeploymentChecks(
       )
       return target
     }
+
     // If the body on a stable branch deploy contains the target
     if (body.replace(`${trigger} ${stable_branch}`, '').trim() === target) {
       core.debug(`Found environment target for stable branch deploy: ${target}`)
@@ -75,6 +76,26 @@ async function onDeploymentChecks(
     else if (body.trim() === `${trigger} ${stable_branch}`) {
       core.debug('Using default environment for stable branch deployment')
       return environment
+    }
+
+    // in the case where variables follow the trigger, we need to check the string and ignore the variables
+    // in order to avoid counting environments as variables, we need to skip them
+    // test case: .deploy dev <variable> <variable> <variable>
+    // test case: .deploy to dev <variable> <variable> <variable>
+    // test case: .deploy <variable> <variable> <variable>
+    // check to see if the comment matches any of the above cases
+    const body_split = body.split(' ')
+    if (body_split[0] === trigger) {
+      // if the body matches the trigger phrase exactly, just use the default environment
+      if (body_split[1] === target) {
+        core.debug(`Found environment target for branch deploy: ${target}`)
+        return environment
+      }
+      // if the body matches the trigger phrase exactly, just use the default environment
+      else if (`${body_split[1]} ${body_split[2]}` === `to ${target}`) {
+        core.debug(`Found environment target for branch deploy: ${target}`)
+        return environment
+      }
     }
   }
 

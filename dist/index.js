@@ -9894,21 +9894,16 @@ var core = __nccwpck_require__(2186);
 
 
 // A simple function that checks the body of the message against the trigger
-// :param prefixOnly: Input that determines if the whole comment should be checked for the trigger or just check if the trigger is the prefix of the message
 // :param body: The content body of the message being checked (String)
 // :param trigger: The "trigger" phrase which is searched for in the body of the message
 // :returns: true if a message activates the trigger, false otherwise
-async function triggerCheck(prefixOnly, body, trigger) {
+async function triggerCheck(body, trigger) {
   // Set the output of the comment body for later use with other actions
   core.setOutput('comment_body', body)
 
   // If the trigger is not activated, set the output to false and return with false
-  if ((prefixOnly && !body.startsWith(trigger)) || !body.includes(trigger)) {
-    if (prefixOnly) {
-      core.debug(`Trigger "${trigger}" not found as comment prefix`)
-    } else {
-      core.debug(`Trigger "${trigger}" not found in the comment body`)
-    }
+  if (!body.startsWith(trigger)) {
+    core.debug(`Trigger "${trigger}" not found in the comment body`)
     return false
   }
 
@@ -10124,6 +10119,7 @@ async function onDeploymentChecks(
       )
       return target
     }
+
     // If the body on a stable branch deploy contains the target
     if (body.replace(`${trigger} ${stable_branch}`, '').trim() === target) {
       core.debug(`Found environment target for stable branch deploy: ${target}`)
@@ -10143,6 +10139,26 @@ async function onDeploymentChecks(
     else if (body.trim() === `${trigger} ${stable_branch}`) {
       core.debug('Using default environment for stable branch deployment')
       return environment
+    }
+
+    // in the case where variables follow the trigger, we need to check the string and ignore the variables
+    // in order to avoid counting environments as variables, we need to skip them
+    // test case: .deploy dev <variable> <variable> <variable>
+    // test case: .deploy to dev <variable> <variable> <variable>
+    // test case: .deploy <variable> <variable> <variable>
+    // check to see if the comment matches any of the above cases
+    const body_split = body.split(' ')
+    if (body_split[0] === trigger) {
+      // if the body matches the trigger phrase exactly, just use the default environment
+      if (body_split[1] === target) {
+        core.debug(`Found environment target for branch deploy: ${target}`)
+        return environment
+      }
+      // if the body matches the trigger phrase exactly, just use the default environment
+      else if (`${body_split[1]} ${body_split[2]}` === `to ${target}`) {
+        core.debug(`Found environment target for branch deploy: ${target}`)
+        return environment
+      }
     }
   }
 
@@ -12602,11 +12618,6 @@ async function help(octokit, context, reactionId, inputs) {
   - \`allowForks: ${inputs.allowForks}\` - This Action will ${
     inputs.allowForks === 'true' ? 'run' : 'not run'
   } on forked repositories
-  - \`prefixOnly: ${inputs.prefixOnly}\` - This Action will ${
-    inputs.prefixOnly === 'true'
-      ? 'only run if the comment starts with the trigger'
-      : 'run if the comment contains the trigger anywhere in the comment body'
-  }
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`admins: ${inputs.admins}\` - ${admins_message}
@@ -12656,7 +12667,6 @@ async function run() {
     // Get the inputs for the branch-deploy Action
     const trigger = core.getInput('trigger')
     const reaction = core.getInput('reaction')
-    const prefixOnly = core.getInput('prefix_only') === 'true'
     const token = core.getInput('github_token', {required: true})
     var environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
@@ -12705,15 +12715,11 @@ async function run() {
     const {owner, repo} = github.context.repo
 
     // Check if the comment is a trigger and what type of trigger it is
-    const isDeploy = await triggerCheck(prefixOnly, body, trigger)
-    const isLock = await triggerCheck(prefixOnly, body, lock_trigger)
-    const isUnlock = await triggerCheck(prefixOnly, body, unlock_trigger)
-    const isHelp = await triggerCheck(prefixOnly, body, help_trigger)
-    const isLockInfoAlias = await triggerCheck(
-      prefixOnly,
-      body,
-      lock_info_alias
-    )
+    const isDeploy = await triggerCheck(body, trigger)
+    const isLock = await triggerCheck(body, lock_trigger)
+    const isUnlock = await triggerCheck(body, unlock_trigger)
+    const isHelp = await triggerCheck(body, help_trigger)
+    const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
     // Loop through all the triggers and check if there are multiple triggers
     // If multiple triggers are activated, exit (this is not allowed)
@@ -12791,7 +12797,6 @@ async function run() {
       const inputs = {
         trigger: trigger,
         reaction: reaction,
-        prefixOnly: prefixOnly,
         environment: environment,
         stable_branch: stable_branch,
         noop_trigger: noop_trigger,

@@ -32,7 +32,6 @@ beforeEach(() => {
   process.env.INPUT_GITHUB_TOKEN = 'faketoken'
   process.env.INPUT_TRIGGER = '.deploy'
   process.env.INPUT_REACTION = 'eyes'
-  process.env.INPUT_PREFIX_ONLY = 'true'
   process.env.INPUT_ENVIRONMENT = 'production'
   process.env.INPUT_ENVIRONMENT_TARGETS = 'production,development,staging'
   process.env.INPUT_ENVIRONMENT_URLS = ''
@@ -147,20 +146,6 @@ test('successfully runs the action on a deployment to development', async () => 
   expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
   expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
   expect(debugMock).toHaveBeenCalledWith('production_environment: false')
-})
-
-test('fails due to multiple commands in one message', async () => {
-  process.env.INPUT_PREFIX_ONLY = 'false'
-  github.context.payload.comment.body = '.deploy .lock'
-  expect(await run()).toBe('failure')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy .lock')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'false')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  expect(setFailedMock).toHaveBeenCalledWith(
-    'IssueOps message contains multiple commands, only one is allowed'
-  )
 })
 
 test('successfully runs the action in noop mode', async () => {

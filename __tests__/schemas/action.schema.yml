@@ -190,16 +190,6 @@ inputs:
     default:
       type: string
       required: true
-  prefix_only:
-    description:
-      type: string
-      required: true
-    required:
-      type: boolean
-      required: true
-    default:
-      type: string
-      required: true
   update_branch:
     description:
       type: string

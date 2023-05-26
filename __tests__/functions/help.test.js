@@ -26,7 +26,6 @@ const octokit = {}
 const defaultInputs = {
   trigger: '.deploy',
   reaction: 'eyes',
-  prefixOnly: 'true',
   environment: 'production',
   stable_branch: 'main',
   noop_trigger: 'noop',
@@ -57,7 +56,6 @@ test('successfully calls help with non-defaults', async () => {
   const inputs = {
     trigger: '.deploy',
     reaction: 'eyes',
-    prefixOnly: 'false',
     environment: 'production',
     stable_branch: 'main',
     noop_trigger: 'noop',
@@ -87,7 +85,6 @@ test('successfully calls help with non-defaults', async () => {
   const inputs = {
     trigger: '.deploy',
     reaction: 'eyes',
-    prefixOnly: 'false',
     environment: 'production',
     stable_branch: 'main',
     noop_trigger: 'noop',

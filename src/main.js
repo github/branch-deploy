@@ -24,7 +24,6 @@ export async function run() {
     // Get the inputs for the branch-deploy Action
     const trigger = core.getInput('trigger')
     const reaction = core.getInput('reaction')
-    const prefixOnly = core.getInput('prefix_only') === 'true'
     const token = core.getInput('github_token', {required: true})
     var environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
@@ -73,15 +72,11 @@ export async function run() {
     const {owner, repo} = context.repo
 
     // Check if the comment is a trigger and what type of trigger it is
-    const isDeploy = await triggerCheck(prefixOnly, body, trigger)
-    const isLock = await triggerCheck(prefixOnly, body, lock_trigger)
-    const isUnlock = await triggerCheck(prefixOnly, body, unlock_trigger)
-    const isHelp = await triggerCheck(prefixOnly, body, help_trigger)
-    const isLockInfoAlias = await triggerCheck(
-      prefixOnly,
-      body,
-      lock_info_alias
-    )
+    const isDeploy = await triggerCheck(body, trigger)
+    const isLock = await triggerCheck(body, lock_trigger)
+    const isUnlock = await triggerCheck(body, unlock_trigger)
+    const isHelp = await triggerCheck(body, help_trigger)
+    const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
     // Loop through all the triggers and check if there are multiple triggers
     // If multiple triggers are activated, exit (this is not allowed)
@@ -159,7 +154,6 @@ export async function run() {
       const inputs = {
         trigger: trigger,
         reaction: reaction,
-        prefixOnly: prefixOnly,
         environment: environment,
         stable_branch: stable_branch,
         noop_trigger: noop_trigger,

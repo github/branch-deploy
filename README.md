@@ -71,7 +71,6 @@ Advanced usage with custom configuration:
     environment: "production"
     noop_trigger: "noop"
     stable_branch: "main"
-    prefix_only: "true"
 ```
 
 ### Example 📚
@@ -270,7 +269,6 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `environment_url_in_comment` | `false` | `"true` | If the `environment_url` detected in the deployment should be appended to the successful deployment comment or not. Examples: `"true"` or `"false"` - See the [environment urls](#environment-urls) section for more details |
 | `production_environment` | `false` | `production` | The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name. |
 | `stable_branch` | `false` | `main` | The name of a stable branch to deploy to (rollbacks). Example: "main" |
-| `prefix_only` | `false` | `"true"` | If "false", the trigger can match anywhere in the comment |
 | `update_branch` | `false` | `warn` | Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself |
 | `required_contexts` | `false` | `"false"` | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option |
 | `skip_ci` | `false` | `""` | A comma separated list of environments that will not use passing CI as a requirement for deployment. Use this option to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
