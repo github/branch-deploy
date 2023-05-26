@@ -78,30 +78,6 @@ export async function run() {
     const isHelp = await triggerCheck(body, help_trigger)
     const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
-    // Loop through all the triggers and check if there are multiple triggers
-    // If multiple triggers are activated, exit (this is not allowed)
-    var multipleTriggers = false
-    for (const trigger of [
-      isDeploy,
-      isLock,
-      isUnlock,
-      isHelp,
-      isLockInfoAlias
-    ]) {
-      if (trigger) {
-        if (multipleTriggers) {
-          core.saveState('bypass', 'true')
-          core.setOutput('triggered', 'false')
-          core.info(`body: ${body}`)
-          core.setFailed(
-            'IssueOps message contains multiple commands, only one is allowed'
-          )
-          return 'failure'
-        }
-        multipleTriggers = true
-      }
-    }
-
     if (!isDeploy && !isLock && !isUnlock && !isHelp && !isLockInfoAlias) {
       // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
