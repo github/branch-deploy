@@ -10141,24 +10141,29 @@ async function onDeploymentChecks(
       return environment
     }
 
-    // in the case where variables follow the trigger, we need to check the string and ignore the variables
-    // in order to avoid counting environments as variables, we need to skip them
-    // test case: .deploy dev <variable> <variable> <variable>
+    // in the case where variables follow the trigger, we need to check this usecase
+    // test case: .deploy main to dev <variable> <variable> <variable>
     // test case: .deploy to dev <variable> <variable> <variable>
+    // test case: .deploy dev <variable> <variable> <variable>
     // test case: .deploy <variable> <variable> <variable>
     // check to see if the comment matches any of the above cases
-    const body_split = body.split(' ')
-    if (body_split[0] === trigger) {
-      // if the body matches the trigger phrase exactly, just use the default environment
-      if (body_split[1] === target) {
-        core.debug(`Found environment target for branch deploy: ${target}`)
-        return environment
+    // order here is important!
+    //
+    // first, check for stable branch deploys with 'to' and a target
+    const stable_branch_with_target_match = `${trigger} ${stable_branch} to ${target}`
+    if (body.startsWith(stable_branch_with_target_match)) {
+      core.debug(`Found environment target for stable branch deploy: ${target}`)
+      var customVariables = body
+        .split(stable_branch_with_target_match)[1]
+        .trim()
+      if (
+        customVariables !== null &&
+        customVariables !== undefined &&
+        customVariables != ''
+      ) {
+        core.debug(`Found custom variables in command: '${customVariables}'`)
       }
-      // if the body matches the trigger phrase exactly, just use the default environment
-      else if (`${body_split[1]} ${body_split[2]}` === `to ${target}`) {
-        core.debug(`Found environment target for branch deploy: ${target}`)
-        return environment
-      }
+      return target
     }
   }
 
@@ -12720,30 +12725,6 @@ async function run() {
     const isUnlock = await triggerCheck(body, unlock_trigger)
     const isHelp = await triggerCheck(body, help_trigger)
     const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
-
-    // Loop through all the triggers and check if there are multiple triggers
-    // If multiple triggers are activated, exit (this is not allowed)
-    var multipleTriggers = false
-    for (const trigger of [
-      isDeploy,
-      isLock,
-      isUnlock,
-      isHelp,
-      isLockInfoAlias
-    ]) {
-      if (trigger) {
-        if (multipleTriggers) {
-          core.saveState('bypass', 'true')
-          core.setOutput('triggered', 'false')
-          core.info(`body: ${body}`)
-          core.setFailed(
-            'IssueOps message contains multiple commands, only one is allowed'
-          )
-          return 'failure'
-        }
-        multipleTriggers = true
-      }
-    }
 
     if (!isDeploy && !isLock && !isUnlock && !isHelp && !isLockInfoAlias) {
       // If the comment does not activate any triggers, exit

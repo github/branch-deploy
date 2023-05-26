@@ -61,14 +61,17 @@ test('checks the comment body where custom variables are used and finds a match'
   expect(
     await environmentTargets(
       environment,
-      '.deploy development something',
+      '.deploy main to development something',
       trigger,
       noop_trigger,
       stable_branch
     )
   ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
-    'Found environment target for branch deploy: development'
+    'Found environment target for stable branch deploy: development'
+  )
+  expect(debugMock).toHaveBeenCalledWith(
+    `Found custom variables in command: 'something'`
   )
 })
 
