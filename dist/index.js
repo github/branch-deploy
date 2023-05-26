@@ -10080,22 +10080,41 @@ async function onDeploymentChecks(
   trigger,
   noop_trigger,
   stable_branch,
-  environment
+  environment,
+  param_seperator = '|'
 ) {
+  var bodyFmt = body
+
+  // Seperate the issueops command on the 'param_seperator'
+  var paramCheck = body.split(param_seperator)
+  paramCheck.shift() // remove everything before the 'param_seperator'
+  const params = paramCheck.join(param_seperator) // join it all back together (in case there is another seperator)
+  // if there is anything after the 'param_seperator'; output it, log it, and remove it from the body for env checks
+  if (params !== '') {
+    bodyFmt = body.split(`${param_seperator}${params}`)[0].trim()
+    const paramsTrim = params.trim()
+    core.info(`Detected parameters in command: '${paramsTrim}'`)
+    core.setOutput('params', paramsTrim)
+  }
+
+  // TODO add more tests using the param seperator here
+
   // Loop through all the environment targets to see if an explicit target is being used
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
-    if (body.replace(trigger, '').trim() === target) {
+    if (bodyFmt.replace(trigger, '').trim() === target) {
       core.debug(`Found environment target for branch deploy: ${target}`)
       return target
     }
     // If the body on a noop trigger contains the target
-    else if (body.replace(`${trigger} ${noop_trigger}`, '').trim() === target) {
+    else if (
+      bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() === target
+    ) {
       core.debug(`Found environment target for noop trigger: ${target}`)
       return target
     }
     // If the body with 'to <target>' contains the target on a branch deploy
-    else if (body.replace(trigger, '').trim() === `to ${target}`) {
+    else if (bodyFmt.replace(trigger, '').trim() === `to ${target}`) {
       core.debug(
         `Found environment target for branch deploy (with 'to'): ${target}`
       )
@@ -10103,7 +10122,8 @@ async function onDeploymentChecks(
     }
     // If the body with 'to <target>' contains the target on a noop trigger
     else if (
-      body.replace(`${trigger} ${noop_trigger}`, '').trim() === `to ${target}`
+      bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() ===
+      `to ${target}`
     ) {
       core.debug(
         `Found environment target for noop trigger (with 'to'): ${target}`
@@ -10112,7 +10132,8 @@ async function onDeploymentChecks(
     }
     // If the body with 'to <target>' contains the target on a stable branch deploy
     else if (
-      body.replace(`${trigger} ${stable_branch}`, '').trim() === `to ${target}`
+      bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() ===
+      `to ${target}`
     ) {
       core.debug(
         `Found environment target for stable branch deploy (with 'to'): ${target}`
@@ -10121,49 +10142,24 @@ async function onDeploymentChecks(
     }
 
     // If the body on a stable branch deploy contains the target
-    if (body.replace(`${trigger} ${stable_branch}`, '').trim() === target) {
+    if (bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() === target) {
       core.debug(`Found environment target for stable branch deploy: ${target}`)
       return target
     }
     // If the body matches the trigger phrase exactly, just use the default environment
-    else if (body.trim() === trigger) {
+    else if (bodyFmt.trim() === trigger) {
       core.debug('Using default environment for branch deployment')
       return environment
     }
     // If the body matches the noop trigger phrase exactly, just use the default environment
-    else if (body.trim() === `${trigger} ${noop_trigger}`) {
+    else if (bodyFmt.trim() === `${trigger} ${noop_trigger}`) {
       core.debug('Using default environment for noop trigger')
       return environment
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
-    else if (body.trim() === `${trigger} ${stable_branch}`) {
+    else if (bodyFmt.trim() === `${trigger} ${stable_branch}`) {
       core.debug('Using default environment for stable branch deployment')
       return environment
-    }
-
-    // in the case where variables follow the trigger, we need to check this usecase
-    // test case: .deploy main to dev <variable> <variable> <variable>
-    // test case: .deploy to dev <variable> <variable> <variable>
-    // test case: .deploy dev <variable> <variable> <variable>
-    // test case: .deploy <variable> <variable> <variable>
-    // check to see if the comment matches any of the above cases
-    // order here is important!
-    //
-    // first, check for stable branch deploys with 'to' and a target
-    const stable_branch_with_target_match = `${trigger} ${stable_branch} to ${target}`
-    if (body.startsWith(stable_branch_with_target_match)) {
-      core.debug(`Found environment target for stable branch deploy: ${target}`)
-      var customVariables = body
-        .split(stable_branch_with_target_match)[1]
-        .trim()
-      if (
-        customVariables !== null &&
-        customVariables !== undefined &&
-        customVariables != ''
-      ) {
-        core.debug(`Found custom variables in command: '${customVariables}'`)
-      }
-      return target
     }
   }
 

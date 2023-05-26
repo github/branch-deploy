@@ -18,7 +18,7 @@ async function onDeploymentChecks(
   noop_trigger,
   stable_branch,
   environment,
-  param_seperator = "|"
+  param_seperator = '|'
 ) {
   var bodyFmt = body
 
@@ -44,7 +44,9 @@ async function onDeploymentChecks(
       return target
     }
     // If the body on a noop trigger contains the target
-    else if (bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() === target) {
+    else if (
+      bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() === target
+    ) {
       core.debug(`Found environment target for noop trigger: ${target}`)
       return target
     }
@@ -57,7 +59,8 @@ async function onDeploymentChecks(
     }
     // If the body with 'to <target>' contains the target on a noop trigger
     else if (
-      bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() === `to ${target}`
+      bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() ===
+      `to ${target}`
     ) {
       core.debug(
         `Found environment target for noop trigger (with 'to'): ${target}`
@@ -66,7 +69,8 @@ async function onDeploymentChecks(
     }
     // If the body with 'to <target>' contains the target on a stable branch deploy
     else if (
-      bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() === `to ${target}`
+      bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() ===
+      `to ${target}`
     ) {
       core.debug(
         `Found environment target for stable branch deploy (with 'to'): ${target}`
