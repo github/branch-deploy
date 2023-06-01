@@ -2,9 +2,9 @@ import * as core from '@actions/core'
 import {unlockOnMerge} from '../../src/functions/unlock-on-merge'
 
 // const setOutputMock = jest.spyOn(core, 'setOutput')
-// const infoMock = jest.spyOn(core, 'info')
+const infoMock = jest.spyOn(core, 'info')
 const setFailedMock = jest.spyOn(core, 'setFailed')
-const debugMock = jest.spyOn(core, 'debug')
+// const debugMock = jest.spyOn(core, 'debug')
 
 var context
 var octokit
@@ -84,7 +84,7 @@ test('fails due to the context not being a PR merge', async () => {
   context.payload.pull_request.merged = false
   context.payload.eventName = 'pull_request'
   expect(await unlockOnMerge(octokit, context)).toStrictEqual(false)
-  expect(debugMock).toHaveBeenCalledWith(
+  expect(infoMock).toHaveBeenCalledWith(
     'event name: pull_request, action: opened, merged: false'
   )
   expect(setFailedMock).toHaveBeenCalledWith(

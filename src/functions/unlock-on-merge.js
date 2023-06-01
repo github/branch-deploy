@@ -11,7 +11,7 @@ export async function unlockOnMerge(octokit, context) {
     context?.payload?.action !== 'closed' ||
     context?.payload?.pull_request?.merged !== true
   ) {
-    core.debug(
+    core.info(
       `event name: ${context?.eventName}, action: ${context?.payload?.action}, merged: ${context?.payload?.pull_request?.merged}`
     )
     core.setFailed(
