@@ -10,6 +10,7 @@ import {LOCK_METADATA} from './lock-metadata'
 // :param noop_trigger: The trigger used to initiate a noop deployment
 // :param stable_branch: The stable branch
 // :param environment: The default environment
+// :param param_seperator: The seperator used to seperate the command from the parameters
 // :returns: The environment target if found, false otherwise
 async function onDeploymentChecks(
   environment_targets_sanitized,
@@ -18,7 +19,7 @@ async function onDeploymentChecks(
   noop_trigger,
   stable_branch,
   environment,
-  param_seperator = '|'
+  param_seperator
 ) {
   var bodyFmt = body
 
@@ -243,6 +244,7 @@ async function findEnvironmentUrl(environment, environment_urls) {
 // :param reactionId: The ID of the initial comment reaction (Integer)
 // :param lockChecks: Whether or not this is a lock/unlock command (Boolean)
 // :param environment_urls: The environment URLs from the action inputs
+// :param param_seperator: The seperator used to split the environment targets (String) - defaults to '|'
 // :returns: An object containing the environment target and environment URL
 export async function environmentTargets(
   environment,
@@ -254,7 +256,8 @@ export async function environmentTargets(
   octokit,
   reactionId,
   lockChecks = false,
-  environment_urls = null
+  environment_urls = null,
+  param_seperator = '|'
 ) {
   // Get the environment targets from the action inputs
   const environment_targets = core.getInput('environment_targets')
@@ -308,7 +311,8 @@ export async function environmentTargets(
       trigger,
       alt_trigger,
       stable_branch,
-      environment
+      environment,
+      param_seperator
     )
 
     // If no environment target was found, let the user know via a comment and return false
