@@ -5,6 +5,7 @@ import * as prechecks from '../src/functions/prechecks'
 import * as help from '../src/functions/help'
 import * as validPermissions from '../src/functions/valid-permissions'
 import * as identicalCommitCheck from '../src/functions/identical-commit-check'
+import * as unlockOnMerge from '../src/functions/unlock-on-merge'
 import * as lock from '../src/functions/lock'
 import * as unlock from '../src/functions/unlock'
 import * as actionStatus from '../src/functions/action-status'
@@ -708,11 +709,9 @@ test('successfully runs in mergeDeployMode', async () => {
 
 test('successfully runs in unlockOnMergeMode', async () => {
   process.env.INPUT_UNLOCK_ON_MERGE_MODE = 'true'
-  jest
-    .spyOn(identicalCommitCheck, 'identicalCommitCheck')
-    .mockImplementation(() => {
-      return true
-    })
+  jest.spyOn(unlockOnMerge, 'unlockOnMerge').mockImplementation(() => {
+    return true
+  })
   expect(await run()).toBe('success - unlock on merge mode')
   expect(infoMock).toHaveBeenCalledWith(`running in 'unlock on merge' mode`)
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')

@@ -12453,6 +12453,32 @@ async function identicalCommitCheck(octokit, context, environment) {
   return result
 }
 
+;// CONCATENATED MODULE: ./src/functions/unlock-on-merge.js
+
+
+// Helper function to automatically find, and release a deployment lock when a pull request is merged
+// :param octokit: the authenticated octokit instance
+// :param context: the context object
+// :return: true if all locks were released successfully, false otherwise
+async function unlockOnMerge(octokit, context) {
+  // first, check the context to ensure that the event is a pull request 'closed' event and that the pull request was merged
+  if (
+    context?.eventName !== 'pull_request' ||
+    context?.payload?.action !== 'closed' ||
+    context?.payload?.pull_request?.merged !== true
+  ) {
+    core.debug(
+      `event name: ${context?.eventName}, action: ${context?.payload?.action}, merged: ${context?.payload?.pull_request?.merged}`
+    )
+    core.setFailed(
+      'This workflow can only run in the context of a merged pull request'
+    )
+    return false
+  }
+}
+
+// core.setOutput('environment', environment)
+
 ;// CONCATENATED MODULE: ./src/functions/help.js
 
 
@@ -12667,7 +12693,8 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 
-// :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', or raises an error
+
+// :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
     // Get the inputs for the branch-deploy Action
@@ -12690,6 +12717,7 @@ async function run() {
     const skipCi = core.getInput('skip_ci')
     const skipReviews = core.getInput('skip_reviews')
     const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
+    const unlockOnMergeMode = core.getInput('unlock_on_merge_mode') === 'true'
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')
@@ -12701,9 +12729,18 @@ async function run() {
     core.saveState('isPost', 'true')
     core.saveState('actionsToken', token)
 
+    // If we are running in the 'unlock on merge' mode, run auto-unlock logic
+    if (unlockOnMergeMode) {
+      core.info(`running in 'unlock on merge' mode`)
+      await unlockOnMerge(octokit, github.context)
+      core.saveState('bypass', 'true')
+      return 'success - unlock on merge mode'
+    }
+
     // If we are running in the merge deploy mode, run commit checks
     if (mergeDeployMode) {
-      identicalCommitCheck(octokit, github.context, environment)
+      core.info(`running in 'merge deploy' mode`)
+      await identicalCommitCheck(octokit, github.context, environment)
       // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
       core.saveState('bypass', 'true')
       return 'success - merge deploy mode'
