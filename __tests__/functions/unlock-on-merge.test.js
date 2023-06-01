@@ -79,7 +79,10 @@ test('successfully unlocks development and production on a pull request merge', 
   expect(infoMock).toHaveBeenCalledWith(
     'removed lock - environment: production'
   )
-  expect(setOutputMock).toHaveBeenCalledWith('unlocked_environments', 'development,production')
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'unlocked_environments',
+    'development,production'
+  )
 })
 
 test('exits early when there are no deployments for a pull request', async () => {
