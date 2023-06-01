@@ -40,18 +40,6 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
-        get: jest.fn().mockReturnValue({
-          data: {
-            default_branch: 'main'
-          }
-        }),
-        getBranch: jest.fn().mockReturnValue({
-          data: {
-            commit: {
-              sha: 'deadbeef'
-            }
-          }
-        }),
         listDeployments: jest.fn().mockReturnValue({
           data: [
             {
@@ -71,6 +59,10 @@ beforeEach(() => {
                 type: 'branch-deploy'
               },
               environment: 'production'
+            },
+            {
+              sha: 'ohno',
+              environment: null
             }
           ]
         })

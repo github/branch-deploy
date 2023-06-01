@@ -45,6 +45,7 @@ export async function unlockOnMerge(octokit, context) {
   })
 
   // loop through all environments and release the lock
+  var releasedEnvironments = []
   for (const environment of environments) {
     // skip if the environment is null or undefined
     if (environment === null || environment === undefined) {
@@ -60,6 +61,11 @@ export async function unlockOnMerge(octokit, context) {
       true // silent
     )
 
+    // if the result is 'removed lock - silent', then the lock was successfully removed - appead to the array for later use
+    if (result === 'removed lock - silent') {
+      releasedEnvironments.push(environment)
+    }
+
     // log the result and format the output as it will always be a string ending with '- silent'
     var resultFmt = result.replace('- silent', '')
     core.info(`${resultFmt.trim()} - environment: ${environment}`)
@@ -68,5 +74,3 @@ export async function unlockOnMerge(octokit, context) {
   // if we get here, all locks were made a best effort to be released
   return true
 }
-
-// core.setOutput('environment', environment)
