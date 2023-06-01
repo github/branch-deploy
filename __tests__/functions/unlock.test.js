@@ -18,6 +18,7 @@ beforeEach(() => {
     return undefined
   })
   jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   process.env.INPUT_ENVIRONMENT = 'production'
