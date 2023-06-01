@@ -1,0 +1,18 @@
+name: Question
+description: Open an issue to ask a question or start a discussion
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Question ❓
+
+        Thanks for taking the time to open an issue!
+
+        This issue template is just for asking questions or starting a discussion. If you have a bug report, please use the bug template instead.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Details
+      description: Add details about your question here
