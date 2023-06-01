@@ -23,6 +23,7 @@ export async function unlockOnMerge(octokit, context) {
 
   // find the head_ref from the context
   const headRef = context?.payload?.pull_request?.head?.ref
+  core.debug(`head ref of pull request: ${headRef}`)
 
   // using the octokit rest api, find all deployments with the same head_ref as the pull request
   // doing this ensures that we only release locks for deployments that were created by this pull request
@@ -34,21 +35,25 @@ export async function unlockOnMerge(octokit, context) {
   // if there are no deployments, then there is nothing to do so we can exit early
   if (deployments.data.length === 0) {
     core.info(
-      `No deployments found for ${context.repo.owner}/${context.repo.repo} with ref ${headRef}`
+      `No deployments found for ${context.repo.owner}/${context.repo.repo} with ref ${headRef} - OK`
     )
     return true
+  } else {
+    core.debug(`deployments found: ${deployments.data.length}`)
   }
 
   // loop through all deployments and create an array of the environment names
   const environments = deployments.data.map(deployment => {
     return deployment.environment
   })
+  core.debug(`environments found: ${environments.length}`)
 
   // loop through all environments and release the lock
   var releasedEnvironments = []
   for (const environment of environments) {
     // skip if the environment is null or undefined
     if (environment === null || environment === undefined) {
+      core.debug(`environment is null or undefined - skipping`)
       continue
     }
 
@@ -72,5 +77,6 @@ export async function unlockOnMerge(octokit, context) {
   }
 
   // if we get here, all locks were made a best effort to be released
+  core.setOutput('unlocked_environments', releasedEnvironments.join(','))
   return true
 }

@@ -2,7 +2,7 @@ import * as core from '@actions/core'
 import * as unlock from '../../src/functions/unlock'
 import {unlockOnMerge} from '../../src/functions/unlock-on-merge'
 
-// const setOutputMock = jest.spyOn(core, 'setOutput')
+const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')
 const setFailedMock = jest.spyOn(core, 'setFailed')
 // const debugMock = jest.spyOn(core, 'debug')
@@ -79,6 +79,7 @@ test('successfully unlocks development and production on a pull request merge', 
   expect(infoMock).toHaveBeenCalledWith(
     'removed lock - environment: production'
   )
+  expect(setOutputMock).toHaveBeenCalledWith('unlocked_environments', 'development,production')
 })
 
 test('exits early when there are no deployments for a pull request', async () => {
@@ -87,7 +88,7 @@ test('exits early when there are no deployments for a pull request', async () =>
   })
   expect(await unlockOnMerge(octokit, context)).toStrictEqual(true)
   expect(infoMock).toHaveBeenCalledWith(
-    'No deployments found for corp/test with ref deadbeef'
+    'No deployments found for corp/test with ref deadbeef - OK'
   )
 })
 
