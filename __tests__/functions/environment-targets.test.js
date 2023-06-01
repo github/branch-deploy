@@ -79,7 +79,7 @@ test('checks the comment body and finds an explicit environment target for devel
   )
 })
 
-test('checks the comment body and finds an explicit environment target for development to stable_branch with params and a custom seperator', async () => {
+test('checks the comment body and finds an explicit environment target for development to stable_branch with params and a custom separator', async () => {
   expect(
     await environmentTargets(
       environment,
@@ -92,7 +92,7 @@ test('checks the comment body and finds an explicit environment target for devel
       null,
       false, // lockChecks disabled
       null, // environmentUrls
-      '+' // custom seperator
+      '+' // custom separator
     )
   ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(

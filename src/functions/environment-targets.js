@@ -10,7 +10,7 @@ import {LOCK_METADATA} from './lock-metadata'
 // :param noop_trigger: The trigger used to initiate a noop deployment
 // :param stable_branch: The stable branch
 // :param environment: The default environment
-// :param param_seperator: The seperator used to seperate the command from the parameters
+// :param param_separator: The separator used to seperate the command from the parameters
 // :returns: The environment target if found, false otherwise
 async function onDeploymentChecks(
   environment_targets_sanitized,
@@ -19,23 +19,24 @@ async function onDeploymentChecks(
   noop_trigger,
   stable_branch,
   environment,
-  param_seperator
+  param_separator
 ) {
   var bodyFmt = body
 
-  // Seperate the issueops command on the 'param_seperator'
-  var paramCheck = body.split(param_seperator)
-  paramCheck.shift() // remove everything before the 'param_seperator'
-  const params = paramCheck.join(param_seperator) // join it all back together (in case there is another seperator)
-  // if there is anything after the 'param_seperator'; output it, log it, and remove it from the body for env checks
+  // Seperate the issueops command on the 'param_separator'
+  var paramCheck = body.split(param_separator)
+  paramCheck.shift() // remove everything before the 'param_separator'
+  const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
+  // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
   if (params !== '') {
-    bodyFmt = body.split(`${param_seperator}${params}`)[0].trim()
+    bodyFmt = body.split(`${param_separator}${params}`)[0].trim()
     const paramsTrim = params.trim()
     core.info(`Detected parameters in command: '${paramsTrim}'`)
     core.setOutput('params', paramsTrim)
+  } else {
+    core.debug('No parameters detected in command')
+    core.setOutput('params', '')
   }
-
-  // TODO add more tests using the param seperator here
 
   // Loop through all the environment targets to see if an explicit target is being used
   for (const target of environment_targets_sanitized) {
@@ -244,7 +245,7 @@ async function findEnvironmentUrl(environment, environment_urls) {
 // :param reactionId: The ID of the initial comment reaction (Integer)
 // :param lockChecks: Whether or not this is a lock/unlock command (Boolean)
 // :param environment_urls: The environment URLs from the action inputs
-// :param param_seperator: The seperator used to split the environment targets (String) - defaults to '|'
+// :param param_separator: The separator used to split the environment targets (String) - defaults to '|'
 // :returns: An object containing the environment target and environment URL
 export async function environmentTargets(
   environment,
@@ -257,7 +258,7 @@ export async function environmentTargets(
   reactionId,
   lockChecks = false,
   environment_urls = null,
-  param_seperator = '|'
+  param_separator = '|'
 ) {
   // Get the environment targets from the action inputs
   const environment_targets = core.getInput('environment_targets')
@@ -312,7 +313,7 @@ export async function environmentTargets(
       alt_trigger,
       stable_branch,
       environment,
-      param_seperator
+      param_separator
     )
 
     // If no environment target was found, let the user know via a comment and return false
