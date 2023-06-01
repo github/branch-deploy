@@ -54,7 +54,8 @@ export async function run() {
 
     // If we are running in the merge deploy mode, run commit checks
     if (mergeDeployMode) {
-      identicalCommitCheck(octokit, context, environment)
+      core.info(`running in 'merge deploy' mode`)
+      await identicalCommitCheck(octokit, context, environment)
       // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
       core.saveState('bypass', 'true')
       return 'success - merge deploy mode'
