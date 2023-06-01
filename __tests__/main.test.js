@@ -702,7 +702,21 @@ test('successfully runs in mergeDeployMode', async () => {
     })
   expect(await run()).toBe('success - merge deploy mode')
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  expect(infoMock).toHaveBeenCalledWith(`running in 'merge deploy' mode`)
   process.env.INPUT_MERGE_DEPLOY_MODE = 'false' // reset
+})
+
+test('successfully runs in unlockOnMergeMode', async () => {
+  process.env.INPUT_UNLOCK_ON_MERGE_MODE = 'true'
+  jest
+    .spyOn(identicalCommitCheck, 'identicalCommitCheck')
+    .mockImplementation(() => {
+      return true
+    })
+  expect(await run()).toBe('success - unlock on merge mode')
+  expect(infoMock).toHaveBeenCalledWith(`running in 'unlock on merge' mode`)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  process.env.INPUT_UNLOCK_ON_MERGE_MODE = 'false' // reset
 })
 
 test('handles and unexpected error and exits', async () => {
