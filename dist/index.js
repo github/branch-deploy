@@ -2016,7 +2016,6 @@ async function auth(token) {
   };
 }
 
-
 /**
  * Prefix token for usage in the Authorization header
  *
