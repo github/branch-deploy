@@ -170,6 +170,16 @@ inputs:
     default:
       type: string
       required: true
+  param_separator:
+    description:
+      type: string
+      required: true
+    default:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
   global_lock_flag:
     description:
       type: string
@@ -292,6 +302,10 @@ outputs:
       type: string
       required: true
   environment:
+    description:
+      type: string
+      required: true
+  params:
     description:
       type: string
       required: true
