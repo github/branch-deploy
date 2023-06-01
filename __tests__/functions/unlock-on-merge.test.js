@@ -1,4 +1,5 @@
 import * as core from '@actions/core'
+import * as unlock from '../../src/functions/unlock'
 import {unlockOnMerge} from '../../src/functions/unlock-on-merge'
 
 // const setOutputMock = jest.spyOn(core, 'setOutput')
@@ -15,6 +16,9 @@ beforeEach(() => {
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'error').mockImplementation(() => {})
+  jest.spyOn(unlock, 'unlock').mockImplementation(() => {
+    return 'removed lock - silent'
+  })
 
   context = {
     eventName: 'pull_request',
@@ -25,7 +29,10 @@ beforeEach(() => {
     payload: {
       action: 'closed',
       pull_request: {
-        merged: true
+        merged: true,
+        head: {
+          ref: 'deadbeef'
+        }
       }
     }
   }
@@ -45,38 +52,51 @@ beforeEach(() => {
             }
           }
         }),
-        listCommits: jest.fn().mockReturnValue({
-          data: [
-            {
-              sha: 'deadbeef',
-              parents: [
-                {
-                  sha: 'beefdead'
-                }
-              ]
-            }
-          ]
-        }),
         listDeployments: jest.fn().mockReturnValue({
           data: [
             {
-              sha: 'beefdead',
+              sha: 'deadbeef',
               id: 785395609,
               created_at: '2023-02-01T20:26:33Z',
               payload: {
                 type: 'branch-deploy'
-              }
+              },
+              environment: 'development'
+            },
+            {
+              sha: 'deadbeef',
+              id: 785395610,
+              created_at: '2023-02-01T21:26:33Z',
+              payload: {
+                type: 'branch-deploy'
+              },
+              environment: 'production'
             }
           ]
-        }),
-        compareCommitsWithBasehead: jest.fn().mockReturnValue({
-          data: {
-            status: 'identical'
-          }
         })
       }
     }
   }
+})
+
+test('successfully unlocks development and production on a pull request merge', async () => {
+  expect(await unlockOnMerge(octokit, context)).toStrictEqual(true)
+  expect(infoMock).toHaveBeenCalledWith(
+    'removed lock - environment: development'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    'removed lock - environment: production'
+  )
+})
+
+test('exits early when there are no deployments for a pull request', async () => {
+  octokit.rest.repos.listDeployments = jest.fn().mockReturnValue({
+    data: []
+  })
+  expect(await unlockOnMerge(octokit, context)).toStrictEqual(true)
+  expect(infoMock).toHaveBeenCalledWith(
+    'No deployments found for corp/test with ref deadbeef'
+  )
 })
 
 test('fails due to the context not being a PR merge', async () => {
