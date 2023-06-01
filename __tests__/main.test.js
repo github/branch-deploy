@@ -35,6 +35,7 @@ beforeEach(() => {
   process.env.INPUT_ENVIRONMENT = 'production'
   process.env.INPUT_ENVIRONMENT_TARGETS = 'production,development,staging'
   process.env.INPUT_ENVIRONMENT_URLS = ''
+  process.env.INPUT_PARAM_SEPARATOR = '|'
   process.env.INPUT_PRODUCTION_ENVIRONMENT = 'production'
   process.env.INPUT_STABLE_BRANCH = 'main'
   process.env.INPUT_NOOP_TRIGGER = 'noop'
