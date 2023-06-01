@@ -133,7 +133,7 @@ export async function unlock(
 
       // If silent, exit here
       if (silent) {
-        core.debug('failed to delete lock (bad status code) - silent')
+        core.warning('failed to delete lock (bad status code) - silent')
         return 'failed to delete lock (bad status code) - silent'
       }
 

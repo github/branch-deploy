@@ -12001,7 +12001,7 @@ async function unlock(
 
       // If silent, exit here
       if (silent) {
-        core.debug('failed to delete lock (bad status code) - silent')
+        core.warning('failed to delete lock (bad status code) - silent')
         return 'failed to delete lock (bad status code) - silent'
       }
 
@@ -12453,6 +12453,90 @@ async function identicalCommitCheck(octokit, context, environment) {
   return result
 }
 
+;// CONCATENATED MODULE: ./src/functions/unlock-on-merge.js
+
+
+
+// Helper function to automatically find, and release a deployment lock when a pull request is merged
+// :param octokit: the authenticated octokit instance
+// :param context: the context object
+// :return: true if all locks were released successfully, false otherwise
+async function unlockOnMerge(octokit, context) {
+  // first, check the context to ensure that the event is a pull request 'closed' event and that the pull request was merged
+  if (
+    context?.eventName !== 'pull_request' ||
+    context?.payload?.action !== 'closed' ||
+    context?.payload?.pull_request?.merged !== true
+  ) {
+    core.info(
+      `event name: ${context?.eventName}, action: ${context?.payload?.action}, merged: ${context?.payload?.pull_request?.merged}`
+    )
+    core.setFailed(
+      'This workflow can only run in the context of a merged pull request'
+    )
+    return false
+  }
+
+  // find the head_ref from the context
+  const headRef = context?.payload?.pull_request?.head?.ref
+  core.debug(`head ref of pull request: ${headRef}`)
+
+  // using the octokit rest api, find all deployments with the same head_ref as the pull request
+  // doing this ensures that we only release locks for deployments that were created by this pull request
+  const deployments = await octokit.rest.repos.listDeployments({
+    ...context.repo,
+    ref: headRef
+  })
+
+  // if there are no deployments, then there is nothing to do so we can exit early
+  if (deployments.data.length === 0) {
+    core.info(
+      `No deployments found for ${context.repo.owner}/${context.repo.repo} with ref ${headRef} - OK`
+    )
+    return true
+  } else {
+    core.debug(`deployments found: ${deployments.data.length}`)
+  }
+
+  // loop through all deployments and create an array of the environment names
+  const environments = deployments.data.map(deployment => {
+    return deployment.environment
+  })
+  core.debug(`environments found: ${environments.length}`)
+
+  // loop through all environments and release the lock
+  var releasedEnvironments = []
+  for (const environment of environments) {
+    // skip if the environment is null or undefined
+    if (environment === null || environment === undefined) {
+      core.debug(`environment is null or undefined - skipping`)
+      continue
+    }
+
+    // release the lock
+    var result = await unlock(
+      octokit,
+      context,
+      null, // reactionId
+      environment,
+      true // silent
+    )
+
+    // if the result is 'removed lock - silent', then the lock was successfully removed - appead to the array for later use
+    if (result === 'removed lock - silent') {
+      releasedEnvironments.push(environment)
+    }
+
+    // log the result and format the output as it will always be a string ending with '- silent'
+    var resultFmt = result.replace('- silent', '')
+    core.info(`${resultFmt.trim()} - environment: ${environment}`)
+  }
+
+  // if we get here, all locks were made a best effort to be released
+  core.setOutput('unlocked_environments', releasedEnvironments.join(','))
+  return true
+}
+
 ;// CONCATENATED MODULE: ./src/functions/help.js
 
 
@@ -12667,7 +12751,8 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 
-// :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', or raises an error
+
+// :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
     // Get the inputs for the branch-deploy Action
@@ -12690,6 +12775,7 @@ async function run() {
     const skipCi = core.getInput('skip_ci')
     const skipReviews = core.getInput('skip_reviews')
     const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
+    const unlockOnMergeMode = core.getInput('unlock_on_merge_mode') === 'true'
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')
@@ -12701,9 +12787,18 @@ async function run() {
     core.saveState('isPost', 'true')
     core.saveState('actionsToken', token)
 
+    // If we are running in the 'unlock on merge' mode, run auto-unlock logic
+    if (unlockOnMergeMode) {
+      core.info(`running in 'unlock on merge' mode`)
+      await unlockOnMerge(octokit, github.context)
+      core.saveState('bypass', 'true')
+      return 'success - unlock on merge mode'
+    }
+
     // If we are running in the merge deploy mode, run commit checks
     if (mergeDeployMode) {
-      identicalCommitCheck(octokit, github.context, environment)
+      core.info(`running in 'merge deploy' mode`)
+      await identicalCommitCheck(octokit, github.context, environment)
       // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
       core.saveState('bypass', 'true')
       return 'success - merge deploy mode'

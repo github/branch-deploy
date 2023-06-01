@@ -12,13 +12,14 @@ import {unlock} from './functions/unlock'
 import {post} from './functions/post'
 import {timeDiff} from './functions/time-diff'
 import {identicalCommitCheck} from './functions/identical-commit-check'
+import {unlockOnMerge} from './functions/unlock-on-merge'
 import {help} from './functions/help'
 import {LOCK_METADATA} from './functions/lock-metadata'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 import dedent from 'dedent-js'
 
-// :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', or raises an error
+// :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
   try {
     // Get the inputs for the branch-deploy Action
@@ -41,6 +42,7 @@ export async function run() {
     const skipCi = core.getInput('skip_ci')
     const skipReviews = core.getInput('skip_reviews')
     const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
+    const unlockOnMergeMode = core.getInput('unlock_on_merge_mode') === 'true'
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')
@@ -52,9 +54,18 @@ export async function run() {
     core.saveState('isPost', 'true')
     core.saveState('actionsToken', token)
 
+    // If we are running in the 'unlock on merge' mode, run auto-unlock logic
+    if (unlockOnMergeMode) {
+      core.info(`running in 'unlock on merge' mode`)
+      await unlockOnMerge(octokit, context)
+      core.saveState('bypass', 'true')
+      return 'success - unlock on merge mode'
+    }
+
     // If we are running in the merge deploy mode, run commit checks
     if (mergeDeployMode) {
-      identicalCommitCheck(octokit, context, environment)
+      core.info(`running in 'merge deploy' mode`)
+      await identicalCommitCheck(octokit, context, environment)
       // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
       core.saveState('bypass', 'true')
       return 'success - merge deploy mode'

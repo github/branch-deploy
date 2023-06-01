@@ -280,6 +280,16 @@ inputs:
     default:
       type: string
       required: true
+  unlock_on_merge_mode:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
   skip_completing:
     description:
       type: string
@@ -374,6 +384,10 @@ outputs:
       type: string
       required: true
   global_lock_released:
+    description:
+      type: string
+      required: true
+  unlocked_environments:
     description:
       type: string
       required: true

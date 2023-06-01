@@ -105,6 +105,10 @@ inputs:
     description: This is an advanced option that is an alternate workflow bundled into this Action. You can control how merge commits are handled when a PR is merged into your repository's default branch. If the merge commit SHA matches the latest deployment for the same environment, then the 'continue' output will be set to 'false' which indicates that a deployment should not be performed again as the latest deployment is identical. If the merge commit SHA does not match the latest deployment for the same environment, then the 'continue' output will be set to 'true' which indicates that a deployment should be performed. With this option, the 'environment' output is also set for subsequent steps to reference
     required: false
     default: "false"
+  unlock_on_merge_mode:
+    description: This is an advanced option that is an alternate workflow bundled into this Action. You can optionally use this mode in a custom workflow to automatically release all locks that came from a pull request when the pull request is merged. This is useful if you want to ensure that locks are not left behind when a pull request is merged.
+    required: false
+    default: "false"
   skip_completing:
     description: 'If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false"'
     required: false
@@ -152,6 +156,8 @@ outputs:
     description: 'The string "true" if the global lock was claimed'
   global_lock_released:
     description: 'The string "true" if the global lock was released'
+  unlocked_environments:
+    description: 'Only exposed when using the "unlock on merge" mode - This output variable will contain a comma separated list of the environments that were unlocked'
 runs:
   using: "node16"
   main: "dist/index.js"

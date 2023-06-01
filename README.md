@@ -278,6 +278,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `admins` | `false` | `"false"` | A comma separated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team" |
 | `admins_pat` | `false` | `"false"` | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
 | `merge_deploy_mode` | `false` | `"false"` | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
+| `unlock_on_merge_mode` | `false` | `"false"` | Advanced configuration option for automatically releasing locks associated with a pull request when that pull request is merged. See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
 | `skip_completing` | `false` | `"false"` | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
 
 ## Outputs 📤
@@ -305,6 +306,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `actor_handle` | The handle of the user who triggered the action |
 | `global_lock_claimed` | The string "true" if the global lock was claimed |
 | `global_lock_released` | The string "true" if the global lock was released |
+| `unlocked_environments` | Only exposed when using the "unlock on merge" mode - This output variable will contain a comma separated list of the environments that were unlocked - See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
 
 ## Custom Deployment Messages ✏️
 

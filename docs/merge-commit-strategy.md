@@ -1,6 +1,6 @@
 # Merge Commit Workflow Strategy
 
-> Note: This section is rather advanced and entirely optional
+> Note: This section is rather advanced and entirely optional. This workflow also complements the other alternate workflow called "[Unlock on Merge Mode](unlock-on-merge.md)".
 
 At GitHub, we use custom logic to compare the latest deployment with the merge commit created when a pull request is merged to our default branch. This helps to save CI time, and prevent redundant deployments. If a user deploys a pull request, it succeeds, and then the pull request is merged, we will not deploy the merge commit. This is because the merge commit is the same as the latest deployment.
 
