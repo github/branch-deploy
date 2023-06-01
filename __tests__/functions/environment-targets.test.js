@@ -57,6 +57,56 @@ test('checks the comment body and finds an explicit environment target for devel
   )
 })
 
+test('checks the comment body and finds an explicit environment target for development with params', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy development | something1 something2 something3',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({environment: 'development', environmentUrl: null})
+  expect(debugMock).toHaveBeenCalledWith(
+    'Found environment target for branch deploy: development'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `Detected parameters in command: 'something1 something2 something3'`
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'params',
+    'something1 something2 something3'
+  )
+})
+
+test('checks the comment body and finds an explicit environment target for development to stable_branch with params and a custom separator', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy main development + something1 | something2 something3',
+      trigger,
+      noop_trigger,
+      stable_branch,
+      null,
+      null,
+      null,
+      false, // lockChecks disabled
+      null, // environmentUrls
+      '+' // custom separator
+    )
+  ).toStrictEqual({environment: 'development', environmentUrl: null})
+  expect(debugMock).toHaveBeenCalledWith(
+    'Found environment target for stable branch deploy: development'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `Detected parameters in command: 'something1 | something2 something3'`
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'params',
+    'something1 | something2 something3'
+  )
+})
+
 test('checks the comment body and finds an explicit environment target for staging on a noop deploy', async () => {
   expect(
     await environmentTargets(

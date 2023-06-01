@@ -168,11 +168,6 @@ export async function help(octokit, context, reactionId, inputs) {
   - \`allowForks: ${inputs.allowForks}\` - This Action will ${
     inputs.allowForks === 'true' ? 'run' : 'not run'
   } on forked repositories
-  - \`prefixOnly: ${inputs.prefixOnly}\` - This Action will ${
-    inputs.prefixOnly === 'true'
-      ? 'only run if the comment starts with the trigger'
-      : 'run if the comment contains the trigger anywhere in the comment body'
-  }
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`admins: ${inputs.admins}\` - ${admins_message}

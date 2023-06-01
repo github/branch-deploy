@@ -71,7 +71,6 @@ Advanced usage with custom configuration:
     environment: "production"
     noop_trigger: "noop"
     stable_branch: "main"
-    prefix_only: "true"
 ```
 
 ### Example 📚
@@ -263,6 +262,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `unlock_trigger` | `false` | `.unlock` | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: ".unlock" |
 | `help_trigger` | `false` | `.help` | The string to look for in comments as an IssueOps help trigger. Example: ".help" |
 | `lock_info_alias` | `false` | `.wcid` | An alias or shortcut to get details about the current lock (if it exists) Example: ".info" - Hubbers will find the ".wcid" default helpful ("where can I deploy") |
+| `param_separator` | `false` | `\|` | The separator to use for parsing parameters in comments in deployment requests. Parameters will are saved as outputs and can be used in subsequent steps - See [Parameters](docs/parameters.md) for additional details |
 | `global_lock_flag` | `false` | `--global` | The flag to pass into the lock command to lock all environments. Example: "--global" |
 | `environment` | `false` | `production` | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
 | `environment_targets` | `false` | `production,development,staging` | Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging` |
@@ -270,7 +270,6 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `environment_url_in_comment` | `false` | `"true` | If the `environment_url` detected in the deployment should be appended to the successful deployment comment or not. Examples: `"true"` or `"false"` - See the [environment urls](#environment-urls) section for more details |
 | `production_environment` | `false` | `production` | The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name. |
 | `stable_branch` | `false` | `main` | The name of a stable branch to deploy to (rollbacks). Example: "main" |
-| `prefix_only` | `false` | `"true"` | If "false", the trigger can match anywhere in the comment |
 | `update_branch` | `false` | `warn` | Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself |
 | `required_contexts` | `false` | `"false"` | Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option |
 | `skip_ci` | `false` | `""` | A comma separated list of environments that will not use passing CI as a requirement for deployment. Use this option to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
@@ -288,6 +287,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `triggered` | The string "true" if the trigger was found, otherwise the string "false" |
 | `comment_body` | The comment body |
 | `environment` | The environment that has been selected for a deployment |
+| `params` | The raw parameters that were passed into the deployment command (see param_separator) - Futher [documentation](docs/parameters.md) |
 | `noop` | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
 | `sha` | The sha of the branch to be deployed |
 | `ref` | The ref (branch or sha) to use with deployment |

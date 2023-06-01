@@ -9894,21 +9894,16 @@ var core = __nccwpck_require__(2186);
 
 
 // A simple function that checks the body of the message against the trigger
-// :param prefixOnly: Input that determines if the whole comment should be checked for the trigger or just check if the trigger is the prefix of the message
 // :param body: The content body of the message being checked (String)
 // :param trigger: The "trigger" phrase which is searched for in the body of the message
 // :returns: true if a message activates the trigger, false otherwise
-async function triggerCheck(prefixOnly, body, trigger) {
+async function triggerCheck(body, trigger) {
   // Set the output of the comment body for later use with other actions
   core.setOutput('comment_body', body)
 
   // If the trigger is not activated, set the output to false and return with false
-  if ((prefixOnly && !body.startsWith(trigger)) || !body.includes(trigger)) {
-    if (prefixOnly) {
-      core.debug(`Trigger "${trigger}" not found as comment prefix`)
-    } else {
-      core.debug(`Trigger "${trigger}" not found in the comment body`)
-    }
+  if (!body.startsWith(trigger)) {
+    core.debug(`Trigger "${trigger}" not found in the comment body`)
     return false
   }
 
@@ -10078,6 +10073,7 @@ const LOCK_METADATA = {
 // :param noop_trigger: The trigger used to initiate a noop deployment
 // :param stable_branch: The stable branch
 // :param environment: The default environment
+// :param param_separator: The separator used to seperate the command from the parameters
 // :returns: The environment target if found, false otherwise
 async function onDeploymentChecks(
   environment_targets_sanitized,
@@ -10085,22 +10081,42 @@ async function onDeploymentChecks(
   trigger,
   noop_trigger,
   stable_branch,
-  environment
+  environment,
+  param_separator
 ) {
+  var bodyFmt = body
+
+  // Seperate the issueops command on the 'param_separator'
+  var paramCheck = body.split(param_separator)
+  paramCheck.shift() // remove everything before the 'param_separator'
+  const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
+  // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
+  if (params !== '') {
+    bodyFmt = body.split(`${param_separator}${params}`)[0].trim()
+    const paramsTrim = params.trim()
+    core.info(`Detected parameters in command: '${paramsTrim}'`)
+    core.setOutput('params', paramsTrim)
+  } else {
+    core.debug('No parameters detected in command')
+    core.setOutput('params', '')
+  }
+
   // Loop through all the environment targets to see if an explicit target is being used
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
-    if (body.replace(trigger, '').trim() === target) {
+    if (bodyFmt.replace(trigger, '').trim() === target) {
       core.debug(`Found environment target for branch deploy: ${target}`)
       return target
     }
     // If the body on a noop trigger contains the target
-    else if (body.replace(`${trigger} ${noop_trigger}`, '').trim() === target) {
+    else if (
+      bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() === target
+    ) {
       core.debug(`Found environment target for noop trigger: ${target}`)
       return target
     }
     // If the body with 'to <target>' contains the target on a branch deploy
-    else if (body.replace(trigger, '').trim() === `to ${target}`) {
+    else if (bodyFmt.replace(trigger, '').trim() === `to ${target}`) {
       core.debug(
         `Found environment target for branch deploy (with 'to'): ${target}`
       )
@@ -10108,7 +10124,8 @@ async function onDeploymentChecks(
     }
     // If the body with 'to <target>' contains the target on a noop trigger
     else if (
-      body.replace(`${trigger} ${noop_trigger}`, '').trim() === `to ${target}`
+      bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() ===
+      `to ${target}`
     ) {
       core.debug(
         `Found environment target for noop trigger (with 'to'): ${target}`
@@ -10117,30 +10134,32 @@ async function onDeploymentChecks(
     }
     // If the body with 'to <target>' contains the target on a stable branch deploy
     else if (
-      body.replace(`${trigger} ${stable_branch}`, '').trim() === `to ${target}`
+      bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() ===
+      `to ${target}`
     ) {
       core.debug(
         `Found environment target for stable branch deploy (with 'to'): ${target}`
       )
       return target
     }
+
     // If the body on a stable branch deploy contains the target
-    if (body.replace(`${trigger} ${stable_branch}`, '').trim() === target) {
+    if (bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() === target) {
       core.debug(`Found environment target for stable branch deploy: ${target}`)
       return target
     }
     // If the body matches the trigger phrase exactly, just use the default environment
-    else if (body.trim() === trigger) {
+    else if (bodyFmt.trim() === trigger) {
       core.debug('Using default environment for branch deployment')
       return environment
     }
     // If the body matches the noop trigger phrase exactly, just use the default environment
-    else if (body.trim() === `${trigger} ${noop_trigger}`) {
+    else if (bodyFmt.trim() === `${trigger} ${noop_trigger}`) {
       core.debug('Using default environment for noop trigger')
       return environment
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
-    else if (body.trim() === `${trigger} ${stable_branch}`) {
+    else if (bodyFmt.trim() === `${trigger} ${stable_branch}`) {
       core.debug('Using default environment for stable branch deployment')
       return environment
     }
@@ -10289,6 +10308,7 @@ async function findEnvironmentUrl(environment, environment_urls) {
 // :param reactionId: The ID of the initial comment reaction (Integer)
 // :param lockChecks: Whether or not this is a lock/unlock command (Boolean)
 // :param environment_urls: The environment URLs from the action inputs
+// :param param_separator: The separator used to split the environment targets (String) - defaults to '|'
 // :returns: An object containing the environment target and environment URL
 async function environmentTargets(
   environment,
@@ -10300,7 +10320,8 @@ async function environmentTargets(
   octokit,
   reactionId,
   lockChecks = false,
-  environment_urls = null
+  environment_urls = null,
+  param_separator = '|'
 ) {
   // Get the environment targets from the action inputs
   const environment_targets = core.getInput('environment_targets')
@@ -10354,7 +10375,8 @@ async function environmentTargets(
       trigger,
       alt_trigger,
       stable_branch,
-      environment
+      environment,
+      param_separator
     )
 
     // If no environment target was found, let the user know via a comment and return false
@@ -12602,11 +12624,6 @@ async function help(octokit, context, reactionId, inputs) {
   - \`allowForks: ${inputs.allowForks}\` - This Action will ${
     inputs.allowForks === 'true' ? 'run' : 'not run'
   } on forked repositories
-  - \`prefixOnly: ${inputs.prefixOnly}\` - This Action will ${
-    inputs.prefixOnly === 'true'
-      ? 'only run if the comment starts with the trigger'
-      : 'run if the comment contains the trigger anywhere in the comment body'
-  }
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`admins: ${inputs.admins}\` - ${admins_message}
@@ -12656,7 +12673,6 @@ async function run() {
     // Get the inputs for the branch-deploy Action
     const trigger = core.getInput('trigger')
     const reaction = core.getInput('reaction')
-    const prefixOnly = core.getInput('prefix_only') === 'true'
     const token = core.getInput('github_token', {required: true})
     var environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
@@ -12676,6 +12692,7 @@ async function run() {
     const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
+    const param_separator = core.getInput('param_separator')
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
@@ -12705,39 +12722,11 @@ async function run() {
     const {owner, repo} = github.context.repo
 
     // Check if the comment is a trigger and what type of trigger it is
-    const isDeploy = await triggerCheck(prefixOnly, body, trigger)
-    const isLock = await triggerCheck(prefixOnly, body, lock_trigger)
-    const isUnlock = await triggerCheck(prefixOnly, body, unlock_trigger)
-    const isHelp = await triggerCheck(prefixOnly, body, help_trigger)
-    const isLockInfoAlias = await triggerCheck(
-      prefixOnly,
-      body,
-      lock_info_alias
-    )
-
-    // Loop through all the triggers and check if there are multiple triggers
-    // If multiple triggers are activated, exit (this is not allowed)
-    var multipleTriggers = false
-    for (const trigger of [
-      isDeploy,
-      isLock,
-      isUnlock,
-      isHelp,
-      isLockInfoAlias
-    ]) {
-      if (trigger) {
-        if (multipleTriggers) {
-          core.saveState('bypass', 'true')
-          core.setOutput('triggered', 'false')
-          core.info(`body: ${body}`)
-          core.setFailed(
-            'IssueOps message contains multiple commands, only one is allowed'
-          )
-          return 'failure'
-        }
-        multipleTriggers = true
-      }
-    }
+    const isDeploy = await triggerCheck(body, trigger)
+    const isLock = await triggerCheck(body, lock_trigger)
+    const isUnlock = await triggerCheck(body, unlock_trigger)
+    const isHelp = await triggerCheck(body, help_trigger)
+    const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
     if (!isDeploy && !isLock && !isUnlock && !isHelp && !isLockInfoAlias) {
       // If the comment does not activate any triggers, exit
@@ -12791,7 +12780,6 @@ async function run() {
       const inputs = {
         trigger: trigger,
         reaction: reaction,
-        prefixOnly: prefixOnly,
         environment: environment,
         stable_branch: stable_branch,
         noop_trigger: noop_trigger,
@@ -12838,13 +12826,15 @@ async function run() {
       const lockEnvTargetCheckObj = await environmentTargets(
         environment, // the default environment from the Actions inputs
         body, // the body of the comment
-        lock_trigger,
-        unlock_trigger,
+        lock_trigger, // the lock_trigger
+        unlock_trigger, // the unlock_trigger
         null, // the stable_branch is not used for lock/unlock
         github.context, // the context object
         octokit, // the octokit object
-        reactRes.data.id,
-        true // lockChecks set to true as this is for lock/unlock requests
+        reactRes.data.id, // the reaction id
+        true, // lockChecks set to true as this is for lock/unlock requests
+        null, // environment_url is not used for lock/unlock
+        null // param_separator is not used for lock/unlock
       )
 
       // extract the environment target from the lockEnvTargetCheckObj
@@ -13014,7 +13004,8 @@ async function run() {
       octokit, // octokit object
       reactRes.data.id, // reaction id
       false, // lockChecks set to false as this is for a deployment
-      environment_urls // environment_urls action input
+      environment_urls, // environment_urls action input
+      param_separator // param_separator action input
     )
 
     // deconstruct the environment object to get the environment

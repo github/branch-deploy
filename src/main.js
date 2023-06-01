@@ -24,7 +24,6 @@ export async function run() {
     // Get the inputs for the branch-deploy Action
     const trigger = core.getInput('trigger')
     const reaction = core.getInput('reaction')
-    const prefixOnly = core.getInput('prefix_only') === 'true'
     const token = core.getInput('github_token', {required: true})
     var environment = core.getInput('environment', {required: true})
     const stable_branch = core.getInput('stable_branch')
@@ -44,6 +43,7 @@ export async function run() {
     const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
+    const param_separator = core.getInput('param_separator')
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
@@ -73,39 +73,11 @@ export async function run() {
     const {owner, repo} = context.repo
 
     // Check if the comment is a trigger and what type of trigger it is
-    const isDeploy = await triggerCheck(prefixOnly, body, trigger)
-    const isLock = await triggerCheck(prefixOnly, body, lock_trigger)
-    const isUnlock = await triggerCheck(prefixOnly, body, unlock_trigger)
-    const isHelp = await triggerCheck(prefixOnly, body, help_trigger)
-    const isLockInfoAlias = await triggerCheck(
-      prefixOnly,
-      body,
-      lock_info_alias
-    )
-
-    // Loop through all the triggers and check if there are multiple triggers
-    // If multiple triggers are activated, exit (this is not allowed)
-    var multipleTriggers = false
-    for (const trigger of [
-      isDeploy,
-      isLock,
-      isUnlock,
-      isHelp,
-      isLockInfoAlias
-    ]) {
-      if (trigger) {
-        if (multipleTriggers) {
-          core.saveState('bypass', 'true')
-          core.setOutput('triggered', 'false')
-          core.info(`body: ${body}`)
-          core.setFailed(
-            'IssueOps message contains multiple commands, only one is allowed'
-          )
-          return 'failure'
-        }
-        multipleTriggers = true
-      }
-    }
+    const isDeploy = await triggerCheck(body, trigger)
+    const isLock = await triggerCheck(body, lock_trigger)
+    const isUnlock = await triggerCheck(body, unlock_trigger)
+    const isHelp = await triggerCheck(body, help_trigger)
+    const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
     if (!isDeploy && !isLock && !isUnlock && !isHelp && !isLockInfoAlias) {
       // If the comment does not activate any triggers, exit
@@ -159,7 +131,6 @@ export async function run() {
       const inputs = {
         trigger: trigger,
         reaction: reaction,
-        prefixOnly: prefixOnly,
         environment: environment,
         stable_branch: stable_branch,
         noop_trigger: noop_trigger,
@@ -206,13 +177,15 @@ export async function run() {
       const lockEnvTargetCheckObj = await environmentTargets(
         environment, // the default environment from the Actions inputs
         body, // the body of the comment
-        lock_trigger,
-        unlock_trigger,
+        lock_trigger, // the lock_trigger
+        unlock_trigger, // the unlock_trigger
         null, // the stable_branch is not used for lock/unlock
         context, // the context object
         octokit, // the octokit object
-        reactRes.data.id,
-        true // lockChecks set to true as this is for lock/unlock requests
+        reactRes.data.id, // the reaction id
+        true, // lockChecks set to true as this is for lock/unlock requests
+        null, // environment_url is not used for lock/unlock
+        null // param_separator is not used for lock/unlock
       )
 
       // extract the environment target from the lockEnvTargetCheckObj
@@ -382,7 +355,8 @@ export async function run() {
       octokit, // octokit object
       reactRes.data.id, // reaction id
       false, // lockChecks set to false as this is for a deployment
-      environment_urls // environment_urls action input
+      environment_urls, // environment_urls action input
+      param_separator // param_separator action input
     )
 
     // deconstruct the environment object to get the environment

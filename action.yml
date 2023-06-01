@@ -61,6 +61,10 @@ inputs:
     description: 'An alias or shortcut to get details about the current lock (if it exists) Example: ".info"'
     required: false
     default: ".wcid"
+  param_separator:
+    description: 'The separator to use for parsing parameters in comments in deployment requests. Parameters will are saved as outputs and can be used in subsequent steps'
+    required: false
+    default: "|"
   global_lock_flag:
     description: 'The flag to pass into the lock command to lock all environments. Example: "--global"'
     required: false
@@ -69,10 +73,6 @@ inputs:
     description: 'The name of a stable branch to deploy to (rollbacks). Example: "main"'
     required: false
     default: "main"
-  prefix_only:
-    description: 'If "false", the trigger can match anywhere in the comment'
-    required: false
-    default: "true"
   update_branch:
     description: 'Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself'
     required: false
@@ -116,6 +116,8 @@ outputs:
     description: The comment body
   environment:
     description: The environment that has been selected for a deployment
+  params:
+    description: The raw parameters that were passed into the deployment command (see param_separator)
   noop:
     description: 'The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not'
   sha:
