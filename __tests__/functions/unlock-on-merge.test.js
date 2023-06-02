@@ -6,7 +6,7 @@ import {unlockOnMerge} from '../../src/functions/unlock-on-merge'
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')
 const setFailedMock = jest.spyOn(core, 'setFailed')
-// const debugMock = jest.spyOn(core, 'debug')
+const debugMock = jest.spyOn(core, 'debug')
 
 const environment_targets = 'production,development,staging'
 
@@ -64,6 +64,28 @@ test('successfully unlocks all environments on a pull request merge', async () =
     'unlocked_environments',
     'production,development,staging'
   )
+})
+
+test('only unlocks one environment because the other has no lock and the other is not associated with the pull request', async () => {
+  checkLockFile.checkLockFile.mockImplementationOnce(() => {
+    return {
+      link: 'https://github.com/corp/test/pull/111#issuecomment-123456789'
+    }
+  })
+  checkLockFile.checkLockFile.mockImplementationOnce(() => {
+    return false
+  })
+
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(true)
+  expect(debugMock).toHaveBeenCalledWith(
+    'detected lock for PR 111 (env: production) is not associated with PR 123 - skipping...'
+  )
+  expect(debugMock).toHaveBeenCalledWith(
+    'no lock found for environment development - skipping...'
+  )
+  expect(infoMock).toHaveBeenCalledWith('removed lock - environment: staging')
 })
 
 test('fails due to the context not being a PR merge', async () => {

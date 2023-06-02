@@ -12521,7 +12521,7 @@ async function unlockOnMerge(octokit, context, environment_targets) {
         core.info(`${resultFmt.trim()} - environment: ${environment}`)
       } else {
         core.debug(
-          `detected lock for PR ${prNumber} is not associated with PR ${context.payload.pull_request.number} - skipping...`
+          `detected lock for PR ${prNumber} (env: ${environment}) is not associated with PR ${context.payload.pull_request.number} - skipping...`
         )
       }
     } else {
