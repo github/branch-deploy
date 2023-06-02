@@ -57,7 +57,7 @@ export async function run() {
     // If we are running in the 'unlock on merge' mode, run auto-unlock logic
     if (unlockOnMergeMode) {
       core.info(`running in 'unlock on merge' mode`)
-      await unlockOnMerge(octokit, context)
+      await unlockOnMerge(octokit, context, environment_targets)
       core.saveState('bypass', 'true')
       return 'success - unlock on merge mode'
     }

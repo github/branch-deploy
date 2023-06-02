@@ -1,11 +1,14 @@
 import * as core from '@actions/core'
 import * as unlock from '../../src/functions/unlock'
+import * as checkLockFile from '../../src/functions/check-lock-file'
 import {unlockOnMerge} from '../../src/functions/unlock-on-merge'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')
 const setFailedMock = jest.spyOn(core, 'setFailed')
-// const debugMock = jest.spyOn(core, 'debug')
+const debugMock = jest.spyOn(core, 'debug')
+
+const environment_targets = 'production,development,staging'
 
 var context
 var octokit
@@ -19,6 +22,11 @@ beforeEach(() => {
   jest.spyOn(unlock, 'unlock').mockImplementation(() => {
     return 'removed lock - silent'
   })
+  jest.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
+    return {
+      link: 'https://github.com/corp/test/pull/123#issuecomment-123456789'
+    }
+  })
 
   context = {
     eventName: 'pull_request',
@@ -30,6 +38,7 @@ beforeEach(() => {
       action: 'closed',
       pull_request: {
         merged: true,
+        number: 123,
         head: {
           ref: 'deadbeef'
         }
@@ -37,42 +46,14 @@ beforeEach(() => {
     }
   }
 
-  octokit = {
-    rest: {
-      repos: {
-        listDeployments: jest.fn().mockReturnValue({
-          data: [
-            {
-              sha: 'deadbeef',
-              id: 785395609,
-              created_at: '2023-02-01T20:26:33Z',
-              payload: {
-                type: 'branch-deploy'
-              },
-              environment: 'development'
-            },
-            {
-              sha: 'deadbeef',
-              id: 785395610,
-              created_at: '2023-02-01T21:26:33Z',
-              payload: {
-                type: 'branch-deploy'
-              },
-              environment: 'production'
-            },
-            {
-              sha: 'ohno',
-              environment: null
-            }
-          ]
-        })
-      }
-    }
-  }
+  octokit = {}
 })
 
-test('successfully unlocks development and production on a pull request merge', async () => {
-  expect(await unlockOnMerge(octokit, context)).toStrictEqual(true)
+test('successfully unlocks all environments on a pull request merge', async () => {
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(true)
+  expect(infoMock).toHaveBeenCalledWith('removed lock - environment: staging')
   expect(infoMock).toHaveBeenCalledWith(
     'removed lock - environment: development'
   )
@@ -81,25 +62,39 @@ test('successfully unlocks development and production on a pull request merge', 
   )
   expect(setOutputMock).toHaveBeenCalledWith(
     'unlocked_environments',
-    'development,production'
+    'production,development,staging'
   )
 })
 
-test('exits early when there are no deployments for a pull request', async () => {
-  octokit.rest.repos.listDeployments = jest.fn().mockReturnValue({
-    data: []
+test('only unlocks one environment because the other has no lock and the other is not associated with the pull request', async () => {
+  checkLockFile.checkLockFile.mockImplementationOnce(() => {
+    return {
+      link: 'https://github.com/corp/test/pull/111#issuecomment-123456789'
+    }
   })
-  expect(await unlockOnMerge(octokit, context)).toStrictEqual(true)
-  expect(infoMock).toHaveBeenCalledWith(
-    'No deployments found for corp/test with ref deadbeef - OK'
+  checkLockFile.checkLockFile.mockImplementationOnce(() => {
+    return false
+  })
+
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(true)
+  expect(debugMock).toHaveBeenCalledWith(
+    'detected lock for PR 111 (env: production) is not associated with PR 123 - skipping...'
   )
+  expect(debugMock).toHaveBeenCalledWith(
+    'no lock found for environment development - skipping...'
+  )
+  expect(infoMock).toHaveBeenCalledWith('removed lock - environment: staging')
 })
 
 test('fails due to the context not being a PR merge', async () => {
   context.payload.action = 'opened'
   context.payload.pull_request.merged = false
   context.payload.eventName = 'pull_request'
-  expect(await unlockOnMerge(octokit, context)).toStrictEqual(false)
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(false)
   expect(infoMock).toHaveBeenCalledWith(
     'event name: pull_request, action: opened, merged: false'
   )

@@ -11209,6 +11209,43 @@ async function prechecks(
   }
 }
 
+;// CONCATENATED MODULE: ./src/functions/check-lock-file.js
+
+
+const LOCK_FILE = LOCK_METADATA.lockFile
+
+// Helper function to check if a lock file exists and decodes it if it does
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param branchName: The name of the branch to check
+// :return: The lock file contents if it exists, false if not
+async function checkLockFile(octokit, context, branchName) {
+  // If the lock branch exists, check if a lock file exists
+  try {
+    // Get the lock file contents
+    const response = await octokit.rest.repos.getContent({
+      ...context.repo,
+      path: LOCK_FILE,
+      ref: branchName
+    })
+
+    // decode the file contents to json
+    const lockData = JSON.parse(
+      Buffer.from(response.data.content, 'base64').toString()
+    )
+
+    return lockData
+  } catch (error) {
+    // If the lock file doesn't exist, return false
+    if (error.status === 404) {
+      return false
+    }
+
+    // If some other error occurred, throw it
+    throw new Error(error)
+  }
+}
+
 ;// CONCATENATED MODULE: ./src/functions/time-diff.js
 // Helper function to calculate the time difference between two dates
 // :param firstDate: ISO 8601 formatted date string
@@ -11237,10 +11274,11 @@ async function timeDiff(firstDate, secondDate) {
 
 
 
+
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
 const GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
-const LOCK_FILE = LOCK_METADATA.lockFile
+const lock_LOCK_FILE = LOCK_METADATA.lockFile
 const LOCK_COMMIT_MSG = LOCK_METADATA.lockCommitMsg
 
 // Helper function to construct the branch name
@@ -11298,7 +11336,7 @@ async function createLock(
   // Create the lock file
   const result = await octokit.rest.repos.createOrUpdateFileContents({
     ...context.repo,
-    path: LOCK_FILE,
+    path: lock_LOCK_FILE,
     message: LOCK_COMMIT_MSG,
     content: Buffer.from(JSON.stringify(lockData)).toString('base64'),
     branch: await constructBranchName(environment, global)
@@ -11506,38 +11544,6 @@ async function createBranch(octokit, context, branchName) {
   core.info(`Created lock branch: ${branchName}`)
 }
 
-// Helper function to check if a lock file exists and decodes it if it does
-// :param octokit: The octokit client
-// :param context: The GitHub Actions event context
-// :param branchName: The name of the branch to check
-// :return: The lock file contents if it exists, false if not
-async function checkLockFile(octokit, context, branchName) {
-  // If the lock branch exists, check if a lock file exists
-  try {
-    // Get the lock file contents
-    const response = await octokit.rest.repos.getContent({
-      ...context.repo,
-      path: LOCK_FILE,
-      ref: branchName
-    })
-
-    // decode the file contents to json
-    const lockData = JSON.parse(
-      Buffer.from(response.data.content, 'base64').toString()
-    )
-
-    return lockData
-  } catch (error) {
-    // If the lock file doesn't exist, return false
-    if (error.status === 404) {
-      return false
-    }
-
-    // If some other error occurred, throw it
-    throw new Error(error)
-  }
-}
-
 // Helper function to check the lock owner
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
@@ -11645,7 +11651,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
   - __Sticky__: \`${lockData.sticky}\`
   - __Global__: \`${lockData.global}\`
   - __Comment Link__: [click here](${lockData.link})
-  - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${lockBranchForLink}/${LOCK_FILE})
+  - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${lockBranchForLink}/${lock_LOCK_FILE})
 
   The current lock has been active for \`${totalTime}\`
 
@@ -12457,11 +12463,14 @@ async function identicalCommitCheck(octokit, context, environment) {
 
 
 
+
+
 // Helper function to automatically find, and release a deployment lock when a pull request is merged
 // :param octokit: the authenticated octokit instance
 // :param context: the context object
+// :param environment_targets: the environment targets to check for unlocking
 // :return: true if all locks were released successfully, false otherwise
-async function unlockOnMerge(octokit, context) {
+async function unlockOnMerge(octokit, context, environment_targets) {
   // first, check the context to ensure that the event is a pull request 'closed' event and that the pull request was merged
   if (
     context?.eventName !== 'pull_request' ||
@@ -12477,59 +12486,47 @@ async function unlockOnMerge(octokit, context) {
     return false
   }
 
-  // find the head_ref from the context
-  const headRef = context?.payload?.pull_request?.head?.ref
-  core.debug(`head ref of pull request: ${headRef}`)
-
-  // using the octokit rest api, find all deployments with the same head_ref as the pull request
-  // doing this ensures that we only release locks for deployments that were created by this pull request
-  const deployments = await octokit.rest.repos.listDeployments({
-    ...context.repo,
-    ref: headRef
-  })
-
-  // if there are no deployments, then there is nothing to do so we can exit early
-  if (deployments.data.length === 0) {
-    core.info(
-      `No deployments found for ${context.repo.owner}/${context.repo.repo} with ref ${headRef} - OK`
-    )
-    return true
-  } else {
-    core.debug(`deployments found: ${deployments.data.length}`)
-  }
-
-  // loop through all deployments and create an array of the environment names
-  const environments = deployments.data.map(deployment => {
-    return deployment.environment
-  })
-  core.debug(`environments found: ${environments.length}`)
-
-  // loop through all environments and release the lock
+  // loop through all the environment targets and check each one for a lock associated with this merged pull request
   var releasedEnvironments = []
-  for (const environment of environments) {
-    // skip if the environment is null or undefined
-    if (environment === null || environment === undefined) {
-      core.debug(`environment is null or undefined - skipping`)
-      continue
+  for (const environment of environment_targets.split(',')) {
+    // construct the lock branch name for this environment
+    var lockBranch = `${environment}-${LOCK_METADATA.lockBranchSuffix}`
+
+    // attempt to fetch the lockFile for this branch
+    var lockFile = await checkLockFile(octokit, context, lockBranch)
+
+    // check to see if the lockFile exists and if it does, check to see if it has a link property
+    if (lockFile && lockFile?.link) {
+      // if the lockFile has a link property, find the PR number from the link
+      var prNumber = lockFile.link.split('/pull/')[1].split('#issuecomment')[0]
+
+      // if the PR number matches the PR number of the merged pull request, then this lock is associated with the merged pull request
+      if (prNumber === context.payload.pull_request.number.toString()) {
+        // release the lock
+        var result = await unlock(
+          octokit,
+          context,
+          null, // reactionId
+          environment,
+          true // silent
+        )
+
+        // if the result is 'removed lock - silent', then the lock was successfully removed - appead to the array for later use
+        if (result === 'removed lock - silent') {
+          releasedEnvironments.push(environment)
+        }
+
+        // log the result and format the output as it will always be a string ending with '- silent'
+        var resultFmt = result.replace('- silent', '')
+        core.info(`${resultFmt.trim()} - environment: ${environment}`)
+      } else {
+        core.debug(
+          `detected lock for PR ${prNumber} (env: ${environment}) is not associated with PR ${context.payload.pull_request.number} - skipping...`
+        )
+      }
+    } else {
+      core.debug(`no lock found for environment ${environment} - skipping...`)
     }
-
-    // release the lock
-    var result = await unlock(
-      octokit,
-      context,
-      null, // reactionId
-      environment,
-      true // silent
-    )
-
-    // if the result is 'removed lock - silent', then the lock was successfully removed - appead to the array for later use
-    if (result === 'removed lock - silent') {
-      releasedEnvironments.push(environment)
-    }
-
-    // log the result and format the output as it will always be a string ending with '- silent'
-    var resultFmt = result.replace('- silent', '')
-    core.info(`${resultFmt.trim()} - environment: ${environment}`)
   }
 
   // if we get here, all locks were made a best effort to be released
@@ -12790,7 +12787,7 @@ async function run() {
     // If we are running in the 'unlock on merge' mode, run auto-unlock logic
     if (unlockOnMergeMode) {
       core.info(`running in 'unlock on merge' mode`)
-      await unlockOnMerge(octokit, github.context)
+      await unlockOnMerge(octokit, github.context, environment_targets)
       core.saveState('bypass', 'true')
       return 'success - unlock on merge mode'
     }
