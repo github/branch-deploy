@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 import {unlock} from './unlock'
 import {LOCK_METADATA} from './lock-metadata'
-import {checkLockFile} from './lock'
+import {checkLockFile} from './check-lock-file'
 
 // Helper function to automatically find, and release a deployment lock when a pull request is merged
 // :param octokit: the authenticated octokit instance
