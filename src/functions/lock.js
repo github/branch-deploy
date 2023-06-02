@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
-import { checkLockFile } from './check-lock-file'
+import {checkLockFile} from './check-lock-file'
 import {actionStatus} from './action-status'
 import {timeDiff} from './time-diff'
 import {LOCK_METADATA} from './lock-metadata'

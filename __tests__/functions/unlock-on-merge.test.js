@@ -50,10 +50,10 @@ beforeEach(() => {
 })
 
 test('successfully unlocks all environments on a pull request merge', async () => {
-  expect(await unlockOnMerge(octokit, context, environment_targets)).toStrictEqual(true)
-  expect(infoMock).toHaveBeenCalledWith(
-    'removed lock - environment: staging'
-  )
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(true)
+  expect(infoMock).toHaveBeenCalledWith('removed lock - environment: staging')
   expect(infoMock).toHaveBeenCalledWith(
     'removed lock - environment: development'
   )
@@ -70,7 +70,9 @@ test('fails due to the context not being a PR merge', async () => {
   context.payload.action = 'opened'
   context.payload.pull_request.merged = false
   context.payload.eventName = 'pull_request'
-  expect(await unlockOnMerge(octokit, context, environment_targets)).toStrictEqual(false)
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(false)
   expect(infoMock).toHaveBeenCalledWith(
     'event name: pull_request, action: opened, merged: false'
   )

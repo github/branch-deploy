@@ -11209,6 +11209,43 @@ async function prechecks(
   }
 }
 
+;// CONCATENATED MODULE: ./src/functions/check-lock-file.js
+
+
+const LOCK_FILE = LOCK_METADATA.lockFile
+
+// Helper function to check if a lock file exists and decodes it if it does
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param branchName: The name of the branch to check
+// :return: The lock file contents if it exists, false if not
+async function checkLockFile(octokit, context, branchName) {
+  // If the lock branch exists, check if a lock file exists
+  try {
+    // Get the lock file contents
+    const response = await octokit.rest.repos.getContent({
+      ...context.repo,
+      path: LOCK_FILE,
+      ref: branchName
+    })
+
+    // decode the file contents to json
+    const lockData = JSON.parse(
+      Buffer.from(response.data.content, 'base64').toString()
+    )
+
+    return lockData
+  } catch (error) {
+    // If the lock file doesn't exist, return false
+    if (error.status === 404) {
+      return false
+    }
+
+    // If some other error occurred, throw it
+    throw new Error(error)
+  }
+}
+
 ;// CONCATENATED MODULE: ./src/functions/time-diff.js
 // Helper function to calculate the time difference between two dates
 // :param firstDate: ISO 8601 formatted date string
@@ -11237,10 +11274,11 @@ async function timeDiff(firstDate, secondDate) {
 
 
 
+
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
 const GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
-const LOCK_FILE = LOCK_METADATA.lockFile
+const lock_LOCK_FILE = LOCK_METADATA.lockFile
 const LOCK_COMMIT_MSG = LOCK_METADATA.lockCommitMsg
 
 // Helper function to construct the branch name
@@ -11298,7 +11336,7 @@ async function createLock(
   // Create the lock file
   const result = await octokit.rest.repos.createOrUpdateFileContents({
     ...context.repo,
-    path: LOCK_FILE,
+    path: lock_LOCK_FILE,
     message: LOCK_COMMIT_MSG,
     content: Buffer.from(JSON.stringify(lockData)).toString('base64'),
     branch: await constructBranchName(environment, global)
@@ -11506,38 +11544,6 @@ async function createBranch(octokit, context, branchName) {
   core.info(`Created lock branch: ${branchName}`)
 }
 
-// Helper function to check if a lock file exists and decodes it if it does
-// :param octokit: The octokit client
-// :param context: The GitHub Actions event context
-// :param branchName: The name of the branch to check
-// :return: The lock file contents if it exists, false if not
-async function checkLockFile(octokit, context, branchName) {
-  // If the lock branch exists, check if a lock file exists
-  try {
-    // Get the lock file contents
-    const response = await octokit.rest.repos.getContent({
-      ...context.repo,
-      path: LOCK_FILE,
-      ref: branchName
-    })
-
-    // decode the file contents to json
-    const lockData = JSON.parse(
-      Buffer.from(response.data.content, 'base64').toString()
-    )
-
-    return lockData
-  } catch (error) {
-    // If the lock file doesn't exist, return false
-    if (error.status === 404) {
-      return false
-    }
-
-    // If some other error occurred, throw it
-    throw new Error(error)
-  }
-}
-
 // Helper function to check the lock owner
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
@@ -11645,7 +11651,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
   - __Sticky__: \`${lockData.sticky}\`
   - __Global__: \`${lockData.global}\`
   - __Comment Link__: [click here](${lockData.link})
-  - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${lockBranchForLink}/${LOCK_FILE})
+  - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${lockBranchForLink}/${lock_LOCK_FILE})
 
   The current lock has been active for \`${totalTime}\`
 
