@@ -278,7 +278,7 @@ async function createBranch(octokit, context, branchName) {
 // :param context: The GitHub Actions event context
 // :param branchName: The name of the branch to check
 // :return: The lock file contents if it exists, false if not
-async function checkLockFile(octokit, context, branchName) {
+export async function checkLockFile(octokit, context, branchName) {
   // If the lock branch exists, check if a lock file exists
   try {
     // Get the lock file contents
