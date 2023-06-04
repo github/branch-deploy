@@ -11319,8 +11319,9 @@ async function createLock(
 
   // Construct the file contents for the lock file
   // Use the 'sticky' flag to determine whether the lock is sticky or not
-  // Sticky locks will persist forever
-  // Non-sticky locks will be removed if the branch that claimed the lock is deleted / merged
+  // Sticky locks will persist forever unless the 'unlock on merge' mode is being utilized
+  // non-sticky locks are tempory and only exist during the deployment process to prevent other deployments...
+  // ... to the same environment
   const lockData = {
     reason: reason,
     branch: ref,
@@ -12214,10 +12215,13 @@ async function postDeploy(
     // Obtain the lockData from the lock response
     const lockData = lockResponse.lockData
 
-    // If the lock is sticky, we will not remove it
-    if (lockData.sticky) {
+    core.debug(JSON.stringify(lockData))
+
+    // If the lock is sticky, we will NOT remove it
+    if (lockData.sticky === true) {
       core.info('sticky lock detected, will not remove lock')
-    } else if (lockData.sticky === false) {
+    } else {
+      core.info('non-sticky lock detected, will remove lock')
       // Remove the lock - use silent mode
       await unlock(
         octokit,
