@@ -154,7 +154,7 @@ export async function postDeploy(
     // Obtain the lockData from the lock response
     const lockData = lockResponse.lockData
 
-    // If the lock is sticky, we will not remove it
+    // If the lock is sticky, we will NOT remove it
     if (lockData.sticky) {
       core.info('sticky lock detected, will not remove lock')
     } else if (lockData.sticky === false) {

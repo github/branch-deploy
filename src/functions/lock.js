@@ -49,8 +49,9 @@ async function createLock(
 
   // Construct the file contents for the lock file
   // Use the 'sticky' flag to determine whether the lock is sticky or not
-  // Sticky locks will persist forever
-  // Non-sticky locks will be removed if the branch that claimed the lock is deleted / merged
+  // Sticky locks will persist forever unless the 'unlock on merge' mode is being utilized
+  // non-sticky locks are tempory and only exist during the deployment process to prevent other deployments...
+  // ... to the same environment
   const lockData = {
     reason: reason,
     branch: ref,
