@@ -12214,7 +12214,6 @@ async function postDeploy(
 
     // Obtain the lockData from the lock response
     const lockData = lockResponse.lockData
-
     core.debug(JSON.stringify(lockData))
 
     // If the lock is sticky, we will NOT remove it
@@ -12260,11 +12259,13 @@ async function postDeploy(
 
   // Obtain the lockData from the lock response
   const lockData = lockResponse.lockData
+  core.debug(JSON.stringify(lockData))
 
-  // If the lock is sticky, we will not remove it
-  if (lockData.sticky) {
+  // If the lock is sticky, we will NOT remove it
+  if (lockData.sticky === true) {
     core.info('sticky lock detected, will not remove lock')
-  } else if (lockData.sticky === false) {
+  } else {
+    core.info('non-sticky lock detected, will remove lock')
     // Remove the lock - use silent mode
     await unlock(
       octokit,
