@@ -6,7 +6,7 @@ import * as createDeploymentStatus from '../../src/functions/deployment'
 import * as core from '@actions/core'
 
 beforeEach(() => {
-  jest.resetAllMocks()
+  jest.clearAllMocks()
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
