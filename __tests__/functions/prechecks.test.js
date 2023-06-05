@@ -250,7 +250,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
     )
   ).toStrictEqual({
     message:
-      '👋 __monalisa__, seems as if you don\'t have admin, write or maintain permissions in this repo, permissions: read',
+      "👋 __monalisa__, seems as if you don't have admin, write or maintain permissions in this repo, permissions: read",
     status: false
   })
 })
