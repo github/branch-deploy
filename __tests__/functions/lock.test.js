@@ -32,6 +32,7 @@ const saveStateMock = jest.spyOn(core, 'saveState')
 const setFailedMock = jest.spyOn(core, 'setFailed')
 const infoMock = jest.spyOn(core, 'info')
 const debugMock = jest.spyOn(core, 'debug')
+const errorMock = jest.spyOn(core, 'error')
 
 var octokit
 var octokitOtherUserHasLock
@@ -47,6 +48,8 @@ beforeEach(() => {
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
+  jest.spyOn(core, 'error').mockImplementation(() => {})
+
   process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
   process.env.INPUT_LOCK_TRIGGER = '.lock'
   process.env.INPUT_ENVIRONMENT = 'production'
@@ -658,6 +661,9 @@ test('Request detailsOnly on the lock file when no branch exists and hits an err
   try {
     await lock(octokit, context, ref, 123, null, environment, true)
   } catch (error) {
+    expect(errorMock).toHaveBeenCalledWith(
+      'an unexpected status code was returned while checking for the lock branch'
+    )
     expect(error.message).toBe('Error: oh no - 500')
     expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
     expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
