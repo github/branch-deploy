@@ -12201,6 +12201,7 @@ async function postDeploy(
 
   // If the deployment mode is noop, return here
   if (noop === 'true') {
+    core.debug('deployment mode: noop')
     // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
     const lockResponse = await lock(
       octokit,
