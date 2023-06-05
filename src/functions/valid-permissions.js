@@ -1,4 +1,4 @@
-const validPermissionsArray = ['admin', 'write']
+const validPermissionsArray = ['admin', 'write', 'maintain']
 
 // Helper function to check if an actor has permissions to use this Action in a given repository
 // :param octokit: The octokit client

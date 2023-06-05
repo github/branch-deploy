@@ -10447,7 +10447,7 @@ async function createDeploymentStatus(
 }
 
 ;// CONCATENATED MODULE: ./src/functions/valid-permissions.js
-const validPermissionsArray = ['admin', 'write']
+const validPermissionsArray = ['admin', 'write', 'maintain']
 
 // Helper function to check if an actor has permissions to use this Action in a given repository
 // :param octokit: The octokit client
@@ -10469,7 +10469,6 @@ async function validPermissions(octokit, context) {
 
   // Check to ensure the user has at least write permission on the repo
   const actorPermission = permissionRes.data.permission
-
   if (!validPermissionsArray.includes(actorPermission)) {
     return `👋 __${
       context.actor
