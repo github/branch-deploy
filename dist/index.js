@@ -11320,6 +11320,8 @@ async function createLock(
   global,
   reactionId
 ) {
+  core.debug('attempting to create lock...')
+
   // Deconstruct the context to obtain the owner and repo
   const {owner, repo} = context.repo
 
@@ -11530,6 +11532,8 @@ async function checkBranch(octokit, context, branchName) {
 // :param context: The GitHub Actions event context
 // :param branchName: The name of the branch to create
 async function createBranch(octokit, context, branchName) {
+  core.debug(`attempting to create lock branch: ${branchName}...`)
+
   // Determine the default branch for the repo
   const repoData = await octokit.rest.repos.get({
     ...context.repo
