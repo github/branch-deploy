@@ -12881,8 +12881,8 @@ async function run() {
         await actionStatus(
           github.context,
           octokit,
-          reactRes.data.id,
-          validPermissionsRes
+          reactRes.data.id, // original reaction id
+          validPermissionsRes // the message
         )
         // Set the bypass state to true so that the post run logic will not run
         core.saveState('bypass', 'true')
@@ -13033,10 +13033,10 @@ async function run() {
             await actionStatus(
               github.context,
               octokit,
-              reactRes.data.id,
-              lockMessage,
-              true,
-              true
+              reactRes.data.id, // original reaction id
+              lockMessage, // message
+              true, // success bool
+              true // use the 'alt reaction' bool
             )
             core.info(
               `the deployment lock is currently claimed by __${lockData.created_by}__`
@@ -13064,10 +13064,10 @@ async function run() {
             await actionStatus(
               github.context,
               octokit,
-              reactRes.data.id,
-              lockMessage,
-              true,
-              true
+              reactRes.data.id, // original reaction id
+              lockMessage, // message
+              true, // success bool
+              true // use the 'alt reaction' bool
             )
             core.info('no active deployment locks found')
           }
@@ -13154,13 +13154,14 @@ async function run() {
     core.saveState('ref', precheckResults.ref)
     core.setOutput('sha', precheckResults.sha)
 
-    // If the prechecks failed, run the actionFailed function and return
+    // If the prechecks failed, run the actionStatus function and return
+    // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
     if (!precheckResults.status) {
       await actionStatus(
         github.context,
         octokit,
-        reactRes.data.id,
-        precheckResults.message
+        reactRes.data.id, // original reaction id
+        precheckResults.message // message
       )
       // Set the bypass state to true so that the post run logic will not run
       core.saveState('bypass', 'true')
