@@ -288,7 +288,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `triggered` | The string "true" if the trigger was found, otherwise the string "false" |
 | `comment_body` | The comment body |
 | `environment` | The environment that has been selected for a deployment |
-| `params` | The raw parameters that were passed into the deployment command (see param_separator) - Futher [documentation](docs/parameters.md) |
+| `params` | The raw parameters that were passed into the deployment command (see param_separator) - Further [documentation](docs/parameters.md) |
 | `noop` | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
 | `sha` | The sha of the branch to be deployed |
 | `ref` | The ref (branch or sha) to use with deployment |
@@ -398,7 +398,7 @@ You can view additional details about the `environment_targets` input option in 
 
 ### Environment URLs
 
-Environment URLs can be confirgured and mapped to matching `environment_targets` using the `environment_urls` input.
+Environment URLs can be configured and mapped to matching `environment_targets` using the `environment_urls` input.
 
 This input option is a mapping of environment names to URLs and the environment names **must** match the [`environment_targets`](https://github.com/github/branch-deploy#environment-targets) input option. This option is a comma separated list with pipes (`|`) separating the environment from the URL.
 
@@ -412,7 +412,7 @@ Example: `"production|https://myapp.com,development|https://dev.myapp.com,stagin
 
 By enabling this option, you will get a "clickable" link on success (non-noop) deployment messages on pull requests. You will also be able to click the "View deployment" button in your repository's deployments page and be taken to the URL of the environment you deployed to.
 
-If you wish to disable the "clickable" link on the successful deloyment message, you can set the `environment_url_in_comment` input to `"false"`.
+If you wish to disable the "clickable" link on the successful deployment message, you can set the `environment_url_in_comment` input to `"false"`.
 
 ## Rollbacks 🔄
 
