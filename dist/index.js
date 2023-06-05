@@ -10467,8 +10467,8 @@ async function validPermissions(octokit, context) {
 
   // Check to ensure the user has at least write permission on the repo
   const actorPermission = permissionRes.data.permission
-  if (!['admin', 'write'].includes(actorPermission)) {
-    return `👋 __${context.actor}__, seems as if you have not admin/write permissions in this repo, permissions: ${actorPermission}`
+  if (!['admin', 'write', 'maintain'].includes(actorPermission)) {
+    return `👋 __${context.actor}__, seems as if you don't have admin, write or maintain permissions in this repo, permissions: ${actorPermission}`
   }
 
   // Return true if the user has permissions
