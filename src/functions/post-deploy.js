@@ -160,6 +160,7 @@ export async function postDeploy(
       core.info('sticky lock detected, will not remove lock')
     } else {
       core.info('non-sticky lock detected, will remove lock')
+      core.debug(`lockData.sticky: ${lockData.sticky}`)
       // Remove the lock - use silent mode
       await unlock(
         octokit,
@@ -205,6 +206,7 @@ export async function postDeploy(
     core.info('sticky lock detected, will not remove lock')
   } else {
     core.info('non-sticky lock detected, will remove lock')
+    core.debug(`lockData.sticky: ${lockData.sticky}`)
     // Remove the lock - use silent mode
     await unlock(
       octokit,
