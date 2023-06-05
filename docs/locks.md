@@ -26,7 +26,7 @@ Deployment locks in relation to environments also come in two flavors:
 - environment specific
 - global
 
-**environment specific** locks are locks that are associated with a specific environment. This means that if you have two environments, `staging` and `production`, you can have a lock on `staging` and another lock on `production` at the same time. These locks are indepdent of each other and will not prevent you from deploying to the other environment if another user has a lock in effect.
+**environment specific** locks are locks that are associated with a specific environment. This means that if you have two environments, `staging` and `production`, you can have a lock on `staging` and another lock on `production` at the same time. These locks are independent of each other and will not prevent you from deploying to the other environment if another user has a lock in effect.
 
 **global** locks are locks that are associated with the entire project/repository. This means that if you have two environments, `staging` and `production`, you can have a lock on the entire repository and prevent any deployments to either environment.
 

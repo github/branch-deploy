@@ -5,8 +5,10 @@ import * as unlock from '../../src/functions/unlock'
 import * as createDeploymentStatus from '../../src/functions/deployment'
 import * as core from '@actions/core'
 
+const infoMock = jest.spyOn(core, 'info')
+
 beforeEach(() => {
-  jest.resetAllMocks()
+  jest.clearAllMocks()
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
@@ -251,6 +253,9 @@ test('successfully completes a production branch deployment and removes a non-st
     'production',
     '' // environment_url
   )
+  expect(infoMock).toHaveBeenCalledWith(
+    'non-sticky lock detected, will remove lock'
+  )
 })
 
 test('successfully completes a noop branch deployment and removes a non-sticky lock', async () => {
@@ -296,6 +301,9 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
     12345,
     '  ### Deployment Results ✅\n\n  **monalisa** successfully **noop** deployed branch `test-ref` to **production**\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>',
     true
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    'non-sticky lock detected, will remove lock'
   )
 })
 

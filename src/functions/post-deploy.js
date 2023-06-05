@@ -140,6 +140,7 @@ export async function postDeploy(
 
   // If the deployment mode is noop, return here
   if (noop === 'true') {
+    core.debug('deployment mode: noop')
     // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
     const lockResponse = await lock(
       octokit,
@@ -153,11 +154,14 @@ export async function postDeploy(
 
     // Obtain the lockData from the lock response
     const lockData = lockResponse.lockData
+    core.debug(JSON.stringify(lockData))
 
-    // If the lock is sticky, we will not remove it
-    if (lockData.sticky) {
+    // If the lock is sticky, we will NOT remove it
+    if (lockData.sticky === true) {
       core.info('sticky lock detected, will not remove lock')
-    } else if (lockData.sticky === false) {
+    } else {
+      core.info('non-sticky lock detected, will remove lock')
+      core.debug(`lockData.sticky: ${lockData.sticky}`)
       // Remove the lock - use silent mode
       await unlock(
         octokit,
@@ -196,11 +200,14 @@ export async function postDeploy(
 
   // Obtain the lockData from the lock response
   const lockData = lockResponse.lockData
+  core.debug(JSON.stringify(lockData))
 
-  // If the lock is sticky, we will not remove it
-  if (lockData.sticky) {
+  // If the lock is sticky, we will NOT remove it
+  if (lockData.sticky === true) {
     core.info('sticky lock detected, will not remove lock')
-  } else if (lockData.sticky === false) {
+  } else {
+    core.info('non-sticky lock detected, will remove lock')
+    core.debug(`lockData.sticky: ${lockData.sticky}`)
     // Remove the lock - use silent mode
     await unlock(
       octokit,

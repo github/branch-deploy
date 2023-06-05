@@ -44,13 +44,16 @@ async function createLock(
   global,
   reactionId
 ) {
+  core.debug('attempting to create lock...')
+
   // Deconstruct the context to obtain the owner and repo
   const {owner, repo} = context.repo
 
   // Construct the file contents for the lock file
   // Use the 'sticky' flag to determine whether the lock is sticky or not
-  // Sticky locks will persist forever
-  // Non-sticky locks will be removed if the branch that claimed the lock is deleted / merged
+  // Sticky locks will persist forever unless the 'unlock on merge' mode is being utilized
+  // non-sticky locks are tempory and only exist during the deployment process to prevent other deployments...
+  // ... to the same environment
   const lockData = {
     reason: reason,
     branch: ref,
@@ -239,10 +242,14 @@ async function checkBranch(octokit, context, branchName) {
 
     return true
   } catch (error) {
-    // Create the lock branch if it doesn't exist
+    // Check if the error was due to the lock branch not existing
     if (error.status === 404) {
+      core.debug(`lock branch ${branchName} does not exist`)
       return false
     } else {
+      core.error(
+        'an unexpected status code was returned while checking for the lock branch'
+      )
       throw new Error(error)
     }
   }
@@ -253,6 +260,8 @@ async function checkBranch(octokit, context, branchName) {
 // :param context: The GitHub Actions event context
 // :param branchName: The name of the branch to create
 async function createBranch(octokit, context, branchName) {
+  core.debug(`attempting to create lock branch: ${branchName}...`)
+
   // Determine the default branch for the repo
   const repoData = await octokit.rest.repos.get({
     ...context.repo

@@ -10447,6 +10447,8 @@ async function createDeploymentStatus(
 }
 
 ;// CONCATENATED MODULE: ./src/functions/valid-permissions.js
+const validPermissionsArray = ['admin', 'write', 'maintain']
+
 // Helper function to check if an actor has permissions to use this Action in a given repository
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
@@ -10467,8 +10469,12 @@ async function validPermissions(octokit, context) {
 
   // Check to ensure the user has at least write permission on the repo
   const actorPermission = permissionRes.data.permission
-  if (!['admin', 'write', 'maintain'].includes(actorPermission)) {
-    return `👋 __${context.actor}__, seems as if you don't have admin, write or maintain permissions in this repo, permissions: ${actorPermission}`
+  if (!validPermissionsArray.includes(actorPermission)) {
+    return `👋 __${
+      context.actor
+    }__, seems as if you have not ${validPermissionsArray.join(
+      '/'
+    )} permissions in this repo, permissions: ${actorPermission}`
   }
 
   // Return true if the user has permissions
@@ -11314,13 +11320,16 @@ async function createLock(
   global,
   reactionId
 ) {
+  core.debug('attempting to create lock...')
+
   // Deconstruct the context to obtain the owner and repo
   const {owner, repo} = context.repo
 
   // Construct the file contents for the lock file
   // Use the 'sticky' flag to determine whether the lock is sticky or not
-  // Sticky locks will persist forever
-  // Non-sticky locks will be removed if the branch that claimed the lock is deleted / merged
+  // Sticky locks will persist forever unless the 'unlock on merge' mode is being utilized
+  // non-sticky locks are tempory and only exist during the deployment process to prevent other deployments...
+  // ... to the same environment
   const lockData = {
     reason: reason,
     branch: ref,
@@ -11509,10 +11518,14 @@ async function checkBranch(octokit, context, branchName) {
 
     return true
   } catch (error) {
-    // Create the lock branch if it doesn't exist
+    // Check if the error was due to the lock branch not existing
     if (error.status === 404) {
+      core.debug(`lock branch ${branchName} does not exist`)
       return false
     } else {
+      core.error(
+        'an unexpected status code was returned while checking for the lock branch'
+      )
       throw new Error(error)
     }
   }
@@ -11523,6 +11536,8 @@ async function checkBranch(octokit, context, branchName) {
 // :param context: The GitHub Actions event context
 // :param branchName: The name of the branch to create
 async function createBranch(octokit, context, branchName) {
+  core.debug(`attempting to create lock branch: ${branchName}...`)
+
   // Determine the default branch for the repo
   const repoData = await octokit.rest.repos.get({
     ...context.repo
@@ -12200,6 +12215,7 @@ async function postDeploy(
 
   // If the deployment mode is noop, return here
   if (noop === 'true') {
+    core.debug('deployment mode: noop')
     // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
     const lockResponse = await lock(
       octokit,
@@ -12213,11 +12229,14 @@ async function postDeploy(
 
     // Obtain the lockData from the lock response
     const lockData = lockResponse.lockData
+    core.debug(JSON.stringify(lockData))
 
-    // If the lock is sticky, we will not remove it
-    if (lockData.sticky) {
+    // If the lock is sticky, we will NOT remove it
+    if (lockData.sticky === true) {
       core.info('sticky lock detected, will not remove lock')
-    } else if (lockData.sticky === false) {
+    } else {
+      core.info('non-sticky lock detected, will remove lock')
+      core.debug(`lockData.sticky: ${lockData.sticky}`)
       // Remove the lock - use silent mode
       await unlock(
         octokit,
@@ -12256,11 +12275,14 @@ async function postDeploy(
 
   // Obtain the lockData from the lock response
   const lockData = lockResponse.lockData
+  core.debug(JSON.stringify(lockData))
 
-  // If the lock is sticky, we will not remove it
-  if (lockData.sticky) {
+  // If the lock is sticky, we will NOT remove it
+  if (lockData.sticky === true) {
     core.info('sticky lock detected, will not remove lock')
-  } else if (lockData.sticky === false) {
+  } else {
+    core.info('non-sticky lock detected, will remove lock')
+    core.debug(`lockData.sticky: ${lockData.sticky}`)
     // Remove the lock - use silent mode
     await unlock(
       octokit,
@@ -12859,8 +12881,8 @@ async function run() {
         await actionStatus(
           github.context,
           octokit,
-          reactRes.data.id,
-          validPermissionsRes
+          reactRes.data.id, // original reaction id
+          validPermissionsRes // the message
         )
         // Set the bypass state to true so that the post run logic will not run
         core.saveState('bypass', 'true')
@@ -13011,10 +13033,10 @@ async function run() {
             await actionStatus(
               github.context,
               octokit,
-              reactRes.data.id,
-              lockMessage,
-              true,
-              true
+              reactRes.data.id, // original reaction id
+              lockMessage, // message
+              true, // success bool
+              true // use the 'alt reaction' bool
             )
             core.info(
               `the deployment lock is currently claimed by __${lockData.created_by}__`
@@ -13042,10 +13064,10 @@ async function run() {
             await actionStatus(
               github.context,
               octokit,
-              reactRes.data.id,
-              lockMessage,
-              true,
-              true
+              reactRes.data.id, // original reaction id
+              lockMessage, // message
+              true, // success bool
+              true // use the 'alt reaction' bool
             )
             core.info('no active deployment locks found')
           }
@@ -13132,13 +13154,14 @@ async function run() {
     core.saveState('ref', precheckResults.ref)
     core.setOutput('sha', precheckResults.sha)
 
-    // If the prechecks failed, run the actionFailed function and return
+    // If the prechecks failed, run the actionStatus function and return
+    // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
     if (!precheckResults.status) {
       await actionStatus(
         github.context,
         octokit,
-        reactRes.data.id,
-        precheckResults.message
+        reactRes.data.id, // original reaction id
+        precheckResults.message // message
       )
       // Set the bypass state to true so that the post run logic will not run
       core.saveState('bypass', 'true')
