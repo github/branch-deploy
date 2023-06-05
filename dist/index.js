@@ -10469,6 +10469,7 @@ async function validPermissions(octokit, context) {
 
   // Check to ensure the user has at least write permission on the repo
   const actorPermission = permissionRes.data.permission
+
   if (!validPermissionsArray.includes(actorPermission)) {
     return `👋 __${
       context.actor
