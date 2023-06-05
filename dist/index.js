@@ -10447,6 +10447,8 @@ async function createDeploymentStatus(
 }
 
 ;// CONCATENATED MODULE: ./src/functions/valid-permissions.js
+const validPermissionsArray = ['admin', 'write']
+
 // Helper function to check if an actor has permissions to use this Action in a given repository
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
@@ -10467,8 +10469,12 @@ async function validPermissions(octokit, context) {
 
   // Check to ensure the user has at least write permission on the repo
   const actorPermission = permissionRes.data.permission
-  if (!['admin', 'write'].includes(actorPermission)) {
-    return `👋 __${context.actor}__, seems as if you have not admin/write permissions in this repo, permissions: ${actorPermission}`
+  if (!validPermissionsArray.includes(actorPermission)) {
+    return `👋 __${
+      context.actor
+    }__, seems as if you have not ${validPermissionsArray.join(
+      '/'
+    )} permissions in this repo, permissions: ${actorPermission}`
   }
 
   // Return true if the user has permissions
