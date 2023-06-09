@@ -131,7 +131,7 @@ outputs:
   comment_id:
     description: The comment id which triggered this deployment
   type:
-    description: "The type of trigger that was detected (examples: deploy, lock, unlock)"
+    description: "The type of trigger that was detected (examples: deploy, lock, unlock, lock-info-alias)"
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
   fork:
