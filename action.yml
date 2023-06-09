@@ -118,6 +118,8 @@ outputs:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
   comment_body:
     description: The comment body
+  actor:
+    description: The GitHub handle of the actor that invoked the IssueOps command
   environment:
     description: The environment that has been selected for a deployment
   params:

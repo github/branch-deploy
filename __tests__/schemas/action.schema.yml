@@ -311,6 +311,10 @@ outputs:
     description:
       type: string
       required: true
+  actor:
+    description:
+      type: string
+      required: true
   environment:
     description:
       type: string
