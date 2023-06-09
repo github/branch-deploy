@@ -8,7 +8,7 @@ var context
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
-  process.env.INPUT_PERMISSIONS = 'admin,write,maintain'
+  process.env.INPUT_PERMISSIONS = 'write,maintain,admin'
 
   context = {
     actor: 'monalisa'
@@ -44,7 +44,7 @@ test('determines that a user has does not valid permissions to invoke the Action
     })
 
   expect(await validPermissions(octokit, context)).toEqual(
-    '👋 __monalisa__, seems as if you have not admin/write/maintain permissions in this repo, permissions: read'
+    '👋 __monalisa__, seems as if you have not write/maintain/admin permissions in this repo, permissions: read'
   )
   expect(setOutputMock).toHaveBeenCalledWith('actor', 'monalisa')
 })
