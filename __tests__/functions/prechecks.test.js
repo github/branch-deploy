@@ -17,6 +17,7 @@ beforeEach(() => {
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
+  process.env.INPUT_PERMISSIONS = 'admin,write,maintain'
 
   context = {
     actor: 'monalisa',
