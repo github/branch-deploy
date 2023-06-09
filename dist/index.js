@@ -9903,7 +9903,7 @@ async function triggerCheck(body, trigger) {
 
   // If the trigger is not activated, set the output to false and return with false
   if (!body.startsWith(trigger)) {
-    core.debug(`Trigger "${trigger}" not found in the comment body`)
+    core.info(`Trigger "${trigger}" not found in the comment body`)
     return false
   }
 
@@ -10447,6 +10447,8 @@ async function createDeploymentStatus(
 }
 
 ;// CONCATENATED MODULE: ./src/functions/valid-permissions.js
+
+
 const validPermissionsArray = ['admin', 'write', 'maintain']
 
 // Helper function to check if an actor has permissions to use this Action in a given repository
@@ -10454,6 +10456,8 @@ const validPermissionsArray = ['admin', 'write', 'maintain']
 // :param context: The GitHub Actions event context
 // :returns: An error string if the actor doesn't have permissions, otherwise true
 async function validPermissions(octokit, context) {
+  core.setOutput('actor', context.actor)
+
   // Get the permissions of the user who made the comment
   const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(
     {

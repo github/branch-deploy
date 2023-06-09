@@ -1,3 +1,5 @@
+import * as core from '@actions/core'
+
 const validPermissionsArray = ['admin', 'write', 'maintain']
 
 // Helper function to check if an actor has permissions to use this Action in a given repository
@@ -5,6 +7,8 @@ const validPermissionsArray = ['admin', 'write', 'maintain']
 // :param context: The GitHub Actions event context
 // :returns: An error string if the actor doesn't have permissions, otherwise true
 export async function validPermissions(octokit, context) {
+  core.setOutput('actor', context.actor)
+
   // Get the permissions of the user who made the comment
   const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(
     {
