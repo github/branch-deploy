@@ -41,7 +41,8 @@ const defaultInputs = {
   allowForks: 'true',
   skipCi: '',
   skipReviews: '',
-  admins: 'false'
+  admins: 'false',
+  permissions: ['write', 'admin', 'maintain']
 }
 
 test('successfully calls help with defaults', async () => {
@@ -71,7 +72,8 @@ test('successfully calls help with non-defaults', async () => {
     allowForks: 'false',
     skipCi: 'development',
     skipReviews: 'development',
-    admins: 'monalisa'
+    admins: 'monalisa',
+    permissions: ['write', 'admin', 'maintain']
   }
 
   expect(await help(octokit, context, 123, inputs))
@@ -100,7 +102,8 @@ test('successfully calls help with non-defaults', async () => {
     allowForks: 'false',
     skipCi: 'development',
     skipReviews: 'development',
-    admins: 'monalisa'
+    admins: 'monalisa',
+    permissions: ['write', 'admin', 'maintain']
   }
 
   expect(await help(octokit, context, 123, inputs))

@@ -12738,6 +12738,9 @@ async function help(octokit, context, reactionId, inputs) {
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`admins: ${inputs.admins}\` - ${admins_message}
+  - \`permissions: ${inputs.permissions.join(
+    ','
+  )}\` - The acceptable permissions that this Action will require to run
 
   ---
 
@@ -12758,6 +12761,7 @@ async function help(octokit, context, reactionId, inputs) {
 }
 
 ;// CONCATENATED MODULE: ./src/main.js
+
 
 
 
@@ -12917,7 +12921,8 @@ async function run() {
         allowForks: allowForks,
         skipCi: skipCi,
         skipReviews: skipReviews,
-        admins: admins
+        admins: admins,
+        permissions: await stringToArray(core.getInput('permissions'))
       }
 
       // Run the help command and exit
