@@ -9903,7 +9903,7 @@ async function triggerCheck(body, trigger) {
 
   // If the trigger is not activated, set the output to false and return with false
   if (!body.startsWith(trigger)) {
-    core.debug(`Trigger "${trigger}" not found in the comment body`)
+    core.info(`Trigger "${trigger}" not found in the comment body`)
     return false
   }
 
@@ -10446,14 +10446,59 @@ async function createDeploymentStatus(
   return result
 }
 
+;// CONCATENATED MODULE: ./src/functions/string-to-array.js
+
+
+// Helper function to convert a String to an Array specifically in Actions
+// :param string: A comma seperated string to convert to an array
+// :return Array: The function returns an Array - can be empty
+async function stringToArray(string) {
+  try {
+    // If the String is empty, return an empty Array
+    if (string.trim() === '') {
+      core.debug(
+        'in stringToArray(), an empty String was found so an empty Array was returned'
+      )
+      return []
+    }
+
+    // Split up the String on commas, trim each element, and return the Array
+    const stringArray = string.split(',').map(target => target.trim())
+    var results = []
+
+    // filter out empty items
+    for (const item of stringArray) {
+      if (item === '') {
+        continue
+      }
+      results.push(item)
+    }
+
+    return results
+  } catch (error) {
+    /* istanbul ignore next */
+    core.error(`failed string for debugging purposes: ${string}`)
+    /* istanbul ignore next */
+    throw new Error(`could not convert String to Array - error: ${error}`)
+  }
+}
+
 ;// CONCATENATED MODULE: ./src/functions/valid-permissions.js
-const validPermissionsArray = ['admin', 'write', 'maintain']
+
+
 
 // Helper function to check if an actor has permissions to use this Action in a given repository
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
 // :returns: An error string if the actor doesn't have permissions, otherwise true
 async function validPermissions(octokit, context) {
+  // fetch the defined permissions from the Action input
+  const validPermissionsArray = await stringToArray(
+    core.getInput('permissions')
+  )
+
+  core.setOutput('actor', context.actor)
+
   // Get the permissions of the user who made the comment
   const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(
     {
@@ -10611,43 +10656,6 @@ async function isAdmin(context) {
   // If we get here, the user is not an admin
   core.debug(`${context.actor} is not an admin`)
   return false
-}
-
-;// CONCATENATED MODULE: ./src/functions/string-to-array.js
-
-
-// Helper function to convert a String to an Array specifically in Actions
-// :param string: A comma seperated string to convert to an array
-// :return Array: The function returns an Array - can be empty
-async function stringToArray(string) {
-  try {
-    // If the String is empty, return an empty Array
-    if (string.trim() === '') {
-      core.debug(
-        'in stringToArray(), an empty String was found so an empty Array was returned'
-      )
-      return []
-    }
-
-    // Split up the String on commas, trim each element, and return the Array
-    const stringArray = string.split(',').map(target => target.trim())
-    var results = []
-
-    // filter out empty items
-    for (const item of stringArray) {
-      if (item === '') {
-        continue
-      }
-      results.push(item)
-    }
-
-    return results
-  } catch (error) {
-    /* istanbul ignore next */
-    core.error(`failed string for debugging purposes: ${string}`)
-    /* istanbul ignore next */
-    throw new Error(`could not convert String to Array - error: ${error}`)
-  }
 }
 
 ;// CONCATENATED MODULE: ./src/functions/prechecks.js
@@ -12730,6 +12738,9 @@ async function help(octokit, context, reactionId, inputs) {
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`admins: ${inputs.admins}\` - ${admins_message}
+  - \`permissions: ${inputs.permissions.join(
+    ','
+  )}\` - The acceptable permissions that this Action will require to run
 
   ---
 
@@ -12750,6 +12761,7 @@ async function help(octokit, context, reactionId, inputs) {
 }
 
 ;// CONCATENATED MODULE: ./src/main.js
+
 
 
 
@@ -12909,7 +12921,8 @@ async function run() {
         allowForks: allowForks,
         skipCi: skipCi,
         skipReviews: skipReviews,
-        admins: admins
+        admins: admins,
+        permissions: await stringToArray(core.getInput('permissions'))
       }
 
       // Run the help command and exit

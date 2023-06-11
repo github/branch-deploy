@@ -18,6 +18,7 @@ import {LOCK_METADATA} from './functions/lock-metadata'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 import dedent from 'dedent-js'
+import {stringToArray} from './functions/string-to-array'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -157,7 +158,8 @@ export async function run() {
         allowForks: allowForks,
         skipCi: skipCi,
         skipReviews: skipReviews,
-        admins: admins
+        admins: admins,
+        permissions: await stringToArray(core.getInput('permissions'))
       }
 
       // Run the help command and exit

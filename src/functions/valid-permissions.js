@@ -1,10 +1,18 @@
-const validPermissionsArray = ['admin', 'write', 'maintain']
+import * as core from '@actions/core'
+import {stringToArray} from './string-to-array'
 
 // Helper function to check if an actor has permissions to use this Action in a given repository
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
 // :returns: An error string if the actor doesn't have permissions, otherwise true
 export async function validPermissions(octokit, context) {
+  // fetch the defined permissions from the Action input
+  const validPermissionsArray = await stringToArray(
+    core.getInput('permissions')
+  )
+
+  core.setOutput('actor', context.actor)
+
   // Get the permissions of the user who made the comment
   const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(
     {

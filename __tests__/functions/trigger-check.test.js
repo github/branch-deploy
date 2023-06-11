@@ -2,13 +2,13 @@ import {triggerCheck} from '../../src/functions/trigger-check'
 import * as core from '@actions/core'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
-const debugMock = jest.spyOn(core, 'debug')
+const infoMock = jest.spyOn(core, 'info')
 
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   jest.spyOn(core, 'saveState').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  jest.spyOn(core, 'info').mockImplementation(() => {})
 })
 
 test('checks a message and finds a standard trigger', async () => {
@@ -23,7 +23,7 @@ test('checks a message and does not find trigger', async () => {
   const trigger = '.deploy'
   expect(await triggerCheck(body, trigger)).toBe(false)
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.bad')
-  expect(debugMock).toHaveBeenCalledWith(
+  expect(infoMock).toHaveBeenCalledWith(
     'Trigger ".deploy" not found in the comment body'
   )
 })
@@ -69,7 +69,7 @@ test('checks a message and does not find global trigger', async () => {
     'comment_body',
     'I want to .ping a website'
   )
-  expect(debugMock).toHaveBeenCalledWith(
+  expect(infoMock).toHaveBeenCalledWith(
     'Trigger ".deploy" not found in the comment body'
   )
 })

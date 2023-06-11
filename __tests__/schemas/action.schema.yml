@@ -170,6 +170,16 @@ inputs:
     default:
       type: string
       required: true
+  permissions:
+    description:
+      type: string
+      required: true
+    default:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
   param_separator:
     description:
       type: string
@@ -308,6 +318,10 @@ outputs:
       type: string
       required: true
   comment_body:
+    description:
+      type: string
+      required: true
+  actor:
     description:
       type: string
       required: true

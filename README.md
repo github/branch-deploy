@@ -262,6 +262,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `unlock_trigger` | `false` | `.unlock` | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: ".unlock" |
 | `help_trigger` | `false` | `.help` | The string to look for in comments as an IssueOps help trigger. Example: ".help" |
 | `lock_info_alias` | `false` | `.wcid` | An alias or shortcut to get details about the current lock (if it exists) Example: ".info" - Hubbers will find the ".wcid" default helpful ("where can I deploy") |
+| `permissions` | `true` | `write,maintain,admin` | The allowed GitHub permissions an actor can have to invoke IssueOps commands - Example: "write,maintain,admin" |
 | `param_separator` | `false` | `\|` | The separator to use for parsing parameters in comments in deployment requests. Parameters will are saved as outputs and can be used in subsequent steps - See [Parameters](docs/parameters.md) for additional details |
 | `global_lock_flag` | `false` | `--global` | The flag to pass into the lock command to lock all environments. Example: "--global" |
 | `environment` | `false` | `production` | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
@@ -287,6 +288,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | ------ | ----------- |
 | `triggered` | The string "true" if the trigger was found, otherwise the string "false" |
 | `comment_body` | The comment body |
+| `actor` | The GitHub handle of the actor that invoked the IssueOps command |
 | `environment` | The environment that has been selected for a deployment |
 | `params` | The raw parameters that were passed into the deployment command (see param_separator) - Further [documentation](docs/parameters.md) |
 | `noop` | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
@@ -295,7 +297,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `comment_id` | The comment id which triggered this deployment |
 | `deployment_id` | The ID of the deployment created by running this action |
 | `environment_url` | The environment URL detected and used for the deployment (sourced from the environment_urls input) |
-| `type` | The type of trigger that was detected (examples: deploy, lock, unlock) |
+| `type` | The type of trigger that was detected (examples: deploy, lock, unlock, lock-info-alias) |
 | `continue` | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
 | `fork` | The string "true" if the pull request is a fork, otherwise "false" |
 | `fork_ref` | The true ref of the fork |

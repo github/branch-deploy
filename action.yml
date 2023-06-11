@@ -61,6 +61,10 @@ inputs:
     description: 'An alias or shortcut to get details about the current lock (if it exists) Example: ".info"'
     required: false
     default: ".wcid"
+  permissions:
+    description: 'The allowed GitHub permissions an actor can have to invoke IssueOps commands - Example: "write,maintain,admin"'
+    required: true
+    default: "write,maintain,admin"
   param_separator:
     description: 'The separator to use for parsing parameters in comments in deployment requests. Parameters will are saved as outputs and can be used in subsequent steps'
     required: false
@@ -118,6 +122,8 @@ outputs:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
   comment_body:
     description: The comment body
+  actor:
+    description: The GitHub handle of the actor that invoked the IssueOps command
   environment:
     description: The environment that has been selected for a deployment
   params:
@@ -131,7 +137,7 @@ outputs:
   comment_id:
     description: The comment id which triggered this deployment
   type:
-    description: "The type of trigger that was detected (examples: deploy, lock, unlock)"
+    description: "The type of trigger that was detected (examples: deploy, lock, unlock, lock-info-alias)"
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
   fork:
