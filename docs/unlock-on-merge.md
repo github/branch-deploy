@@ -25,6 +25,9 @@ permissions:
 jobs:
   unlock-on-merge:
     runs-on: ubuntu-latest
+    # Gate this job to only run when the pull request is merged (not closed)
+    # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#running-your-pull_request-workflow-when-a-pull-request-merges
+    if: github.event.pull_request.merged == true
 
     steps:
       - name: unlock on merge
