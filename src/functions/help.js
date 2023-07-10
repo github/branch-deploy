@@ -43,6 +43,14 @@ export async function help(octokit, context, reactionId, inputs) {
     skip_reviews_message = `This Action will require passing reviews for all environments`
   }
 
+  var draft_permitted_targets_message = defaultSpecificMessage
+  if (inputs.draft_permitted_targets.trim() !== '') {
+    draft_permitted_targets_message = `This Action will allow draft pull requests to request deployments to the listed environments`
+  } else {
+    inputs.draft_permitted_targets = 'false'
+    draft_permitted_targets_message = `This Action will not draft pull requests to be deployed to any environment`
+  }
+
   var admins_message = defaultSpecificMessage
   if (inputs.admins.trim() === 'false') {
     admins_message = `This Action has no designated admins (default)`
@@ -170,6 +178,7 @@ export async function help(octokit, context, reactionId, inputs) {
   } on forked repositories
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
+  - \`draft_permitted_targets: ${inputs.draft_permitted_targets}\` - ${draft_permitted_targets_message}
   - \`admins: ${inputs.admins}\` - ${admins_message}
   - \`permissions: ${inputs.permissions.join(
     ','

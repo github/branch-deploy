@@ -41,6 +41,7 @@ const defaultInputs = {
   allowForks: 'true',
   skipCi: '',
   skipReviews: '',
+  draft_permitted_targets: '',
   admins: 'false',
   permissions: ['write', 'admin', 'maintain']
 }
@@ -72,6 +73,7 @@ test('successfully calls help with non-defaults', async () => {
     allowForks: 'false',
     skipCi: 'development',
     skipReviews: 'development',
+    draft_permitted_targets: 'development',
     admins: 'monalisa',
     permissions: ['write', 'admin', 'maintain']
   }
@@ -102,6 +104,7 @@ test('successfully calls help with non-defaults', async () => {
     allowForks: 'false',
     skipCi: 'development',
     skipReviews: 'development',
+    draft_permitted_targets: 'development',
     admins: 'monalisa',
     permissions: ['write', 'admin', 'maintain']
   }
