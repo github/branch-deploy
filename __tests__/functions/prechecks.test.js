@@ -1307,6 +1307,68 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
   expect(warningMock).toHaveBeenCalledWith('deployment requested on a draft PR from a non-allowed environment')
 })
 
+test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environment for draft deployments', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'CLEAN',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        ref: 'test-ref',
+        sha: 'abc123'
+      },
+      base: {
+        ref: 'main'
+      },
+      draft: true // telling the test suite that our PR is in a draft state
+    },
+    status: 200
+  })
+  expect(
+    await prechecks(
+      '.deploy to staging',
+      '.deploy',
+      'noop',
+      'warn',
+      'main',
+      '123',
+      true,
+      '',
+      '',
+      'sandbox,staging', // draft_permitted_targets input option
+      'staging', // the environment we are deploying to
+      context,
+      octokit
+    )
+  ).toStrictEqual({
+    message:
+      '✔️ PR is approved and all CI checks passed - OK',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true,
+    sha: 'abc123'
+  })
+})
+
 test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit status is null', async () => {
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
