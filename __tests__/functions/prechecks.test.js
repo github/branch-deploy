@@ -5,6 +5,7 @@ import dedent from 'dedent-js'
 
 // Globals for testing
 const infoMock = jest.spyOn(core, 'info')
+const warningMock = jest.spyOn(core, 'warning')
 
 var context
 var getCollabOK
@@ -16,6 +17,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
+  jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   process.env.INPUT_PERMISSIONS = 'admin,write,maintain'
 
@@ -1302,6 +1304,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       '### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state',
     status: false
   })
+  expect(warningMock).toHaveBeenCalledWith('deployment requested on a draft PR from a non-allowed environment')
 })
 
 test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit status is null', async () => {

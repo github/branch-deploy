@@ -58,11 +58,13 @@ export async function prechecks(
   // save sha
   var sha = pr.data.head.sha
 
-  // Setup the skipCi and skipReview variables
+  // Setup the skipCi, skipReview, and draft_permitted_targets variables
   const skipCiArray = await stringToArray(skipCiInput)
   const skipReviewsArray = await stringToArray(skipReviewsInput)
+  const draftPermittedTargetsArray = await stringToArray(draft_permitted_targets)
   const skipCi = skipCiArray.includes(environment)
   const skipReviews = skipReviewsArray.includes(environment)
+  const allowDraftDeploy = draftPermittedTargetsArray.includes(environment)
 
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref = pr.data.head.ref
@@ -214,6 +216,13 @@ export async function prechecks(
   // Grab the draft status
   const isDraft = pr.data.draft
 
+  // log some extra details if the state of the PR is in a 'draft'
+  if (isDraft && !allowDraftDeploy) {
+    core.warning(`deployment requested on a draft PR from a non-allowed environment`)
+  } else if (isDraft && allowDraftDeploy) {
+    core.info(`deployment requested on a draft PR from an allowed environment`)
+  }
+
   // Grab the statusCheckRollup state from the GraphQL result
   var commitStatus
   try {
@@ -350,8 +359,8 @@ export async function prechecks(
       return {message: message, status: false}
     }
 
-    // If the mergeStateStatus is in DRAFT, alert and exit
-  } else if (isDraft) {
+    // If the mergeStateStatus is in DRAFT and allowDraftDeploy is true, alert and exit
+  } else if (isDraft && !allowDraftDeploy) {
     message = `### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state`
     return {message: message, status: false}
 
