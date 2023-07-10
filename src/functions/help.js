@@ -178,7 +178,9 @@ export async function help(octokit, context, reactionId, inputs) {
   } on forked repositories
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
-  - \`draft_permitted_targets: ${inputs.draft_permitted_targets}\` - ${draft_permitted_targets_message}
+  - \`draft_permitted_targets: ${
+    inputs.draft_permitted_targets
+  }\` - ${draft_permitted_targets_message}
   - \`admins: ${inputs.admins}\` - ${admins_message}
   - \`permissions: ${inputs.permissions.join(
     ','

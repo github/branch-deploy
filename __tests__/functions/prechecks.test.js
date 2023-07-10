@@ -1304,7 +1304,9 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       '### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state',
     status: false
   })
-  expect(warningMock).toHaveBeenCalledWith('deployment requested on a draft PR from a non-allowed environment')
+  expect(warningMock).toHaveBeenCalledWith(
+    'deployment requested on a draft PR from a non-allowed environment'
+  )
 })
 
 test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environment for draft deployments', async () => {
@@ -1360,8 +1362,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
       octokit
     )
   ).toStrictEqual({
-    message:
-      '✔️ PR is approved and all CI checks passed - OK',
+    message: '✔️ PR is approved and all CI checks passed - OK',
     noopMode: false,
     ref: 'test-ref',
     status: true,

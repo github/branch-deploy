@@ -10677,10 +10677,14 @@ async function isAdmin(context) {
 // :param allowForks: Boolean which defines whether the Action can run from forks or not
 // :param skipCiInput: An array of environments that should not be checked for passing CI (string)
 // :param skipReviewsInput: An array of environments that should not be checked for reviewers (string)
+// :param draft_permitted_targets: An array of environments that can be deployed from a draft PR (string)
 // :param environment: The environment being used for deployment
 // :param context: The context of the event
 // :param octokit: The octokit client
 // :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
+//
+// note: skipCiInput, skipReviewsInput, and draft_permitted_targets are Strings that get...
+// ... converted into Arrays via the 'stringToArray' function
 async function prechecks(
   comment,
   trigger,
@@ -10691,6 +10695,7 @@ async function prechecks(
   allowForks,
   skipCiInput,
   skipReviewsInput,
+  draft_permitted_targets,
   environment,
   context,
   octokit
@@ -10717,11 +10722,15 @@ async function prechecks(
   // save sha
   var sha = pr.data.head.sha
 
-  // Setup the skipCi and skipReview variables
+  // Setup the skipCi, skipReview, and draft_permitted_targets variables
   const skipCiArray = await stringToArray(skipCiInput)
   const skipReviewsArray = await stringToArray(skipReviewsInput)
+  const draftPermittedTargetsArray = await stringToArray(
+    draft_permitted_targets
+  )
   const skipCi = skipCiArray.includes(environment)
   const skipReviews = skipReviewsArray.includes(environment)
+  const allowDraftDeploy = draftPermittedTargetsArray.includes(environment)
 
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref = pr.data.head.ref
@@ -10873,6 +10882,15 @@ async function prechecks(
   // Grab the draft status
   const isDraft = pr.data.draft
 
+  // log some extra details if the state of the PR is in a 'draft'
+  if (isDraft && !allowDraftDeploy) {
+    core.warning(
+      `deployment requested on a draft PR from a non-allowed environment`
+    )
+  } else if (isDraft && allowDraftDeploy) {
+    core.info(`deployment requested on a draft PR from an allowed environment`)
+  }
+
   // Grab the statusCheckRollup state from the GraphQL result
   var commitStatus
   try {
@@ -11009,8 +11027,8 @@ async function prechecks(
       return {message: message, status: false}
     }
 
-    // If the mergeStateStatus is in DRAFT, alert and exit
-  } else if (isDraft) {
+    // If the mergeStateStatus is in DRAFT and allowDraftDeploy is true, alert and exit
+  } else if (isDraft && !allowDraftDeploy) {
     message = `### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state`
     return {message: message, status: false}
 
@@ -12613,6 +12631,14 @@ async function help(octokit, context, reactionId, inputs) {
     skip_reviews_message = `This Action will require passing reviews for all environments`
   }
 
+  var draft_permitted_targets_message = defaultSpecificMessage
+  if (inputs.draft_permitted_targets.trim() !== '') {
+    draft_permitted_targets_message = `This Action will allow draft pull requests to request deployments to the listed environments`
+  } else {
+    inputs.draft_permitted_targets = 'false'
+    draft_permitted_targets_message = `This Action will not draft pull requests to be deployed to any environment`
+  }
+
   var admins_message = defaultSpecificMessage
   if (inputs.admins.trim() === 'false') {
     admins_message = `This Action has no designated admins (default)`
@@ -12740,6 +12766,9 @@ async function help(octokit, context, reactionId, inputs) {
   } on forked repositories
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
+  - \`draft_permitted_targets: ${
+    inputs.draft_permitted_targets
+  }\` - ${draft_permitted_targets_message}
   - \`admins: ${inputs.admins}\` - ${admins_message}
   - \`permissions: ${inputs.permissions.join(
     ','
@@ -12799,6 +12828,7 @@ async function run() {
     const lock_trigger = core.getInput('lock_trigger')
     const production_environment = core.getInput('production_environment')
     const environment_targets = core.getInput('environment_targets')
+    const draft_permitted_targets = core.getInput('draft_permitted_targets')
     const unlock_trigger = core.getInput('unlock_trigger')
     const help_trigger = core.getInput('help_trigger')
     const lock_info_alias = core.getInput('lock_info_alias')
@@ -12924,6 +12954,7 @@ async function run() {
         allowForks: allowForks,
         skipCi: skipCi,
         skipReviews: skipReviews,
+        draft_permitted_targets,
         admins: admins,
         permissions: await stringToArray(core.getInput('permissions'))
       }
@@ -13162,6 +13193,7 @@ async function run() {
       allowForks,
       skipCi,
       skipReviews,
+      draft_permitted_targets,
       environment,
       github.context,
       octokit

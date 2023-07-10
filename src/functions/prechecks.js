@@ -61,7 +61,9 @@ export async function prechecks(
   // Setup the skipCi, skipReview, and draft_permitted_targets variables
   const skipCiArray = await stringToArray(skipCiInput)
   const skipReviewsArray = await stringToArray(skipReviewsInput)
-  const draftPermittedTargetsArray = await stringToArray(draft_permitted_targets)
+  const draftPermittedTargetsArray = await stringToArray(
+    draft_permitted_targets
+  )
   const skipCi = skipCiArray.includes(environment)
   const skipReviews = skipReviewsArray.includes(environment)
   const allowDraftDeploy = draftPermittedTargetsArray.includes(environment)
@@ -218,7 +220,9 @@ export async function prechecks(
 
   // log some extra details if the state of the PR is in a 'draft'
   if (isDraft && !allowDraftDeploy) {
-    core.warning(`deployment requested on a draft PR from a non-allowed environment`)
+    core.warning(
+      `deployment requested on a draft PR from a non-allowed environment`
+    )
   } else if (isDraft && allowDraftDeploy) {
     core.info(`deployment requested on a draft PR from an allowed environment`)
   }
