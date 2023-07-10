@@ -79,7 +79,7 @@ inputs:
       required: true
     default:
       type: string
-      required: true
+      required: false
   environment_urls:
     description:
       type: string
