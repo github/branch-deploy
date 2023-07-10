@@ -33,6 +33,7 @@ export async function run() {
     const lock_trigger = core.getInput('lock_trigger')
     const production_environment = core.getInput('production_environment')
     const environment_targets = core.getInput('environment_targets')
+    const draft_permitted_targets = core.getInput('draft_permitted_targets')
     const unlock_trigger = core.getInput('unlock_trigger')
     const help_trigger = core.getInput('help_trigger')
     const lock_info_alias = core.getInput('lock_info_alias')
@@ -158,6 +159,7 @@ export async function run() {
         allowForks: allowForks,
         skipCi: skipCi,
         skipReviews: skipReviews,
+        draft_permitted_targets,
         admins: admins,
         permissions: await stringToArray(core.getInput('permissions'))
       }
@@ -396,6 +398,7 @@ export async function run() {
       allowForks,
       skipCi,
       skipReviews,
+      draft_permitted_targets,
       environment,
       context,
       octokit

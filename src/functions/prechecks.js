@@ -27,6 +27,7 @@ export async function prechecks(
   allowForks,
   skipCiInput,
   skipReviewsInput,
+  draft_permitted_targets,
   environment,
   context,
   octokit

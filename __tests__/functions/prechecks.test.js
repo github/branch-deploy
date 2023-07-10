@@ -94,6 +94,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -123,6 +124,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -148,6 +150,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -171,6 +174,7 @@ test('runs prechecks and does not find any matching command', async () => {
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -210,6 +214,7 @@ test('runs prechecks and finds that the IssueOps command is valid without define
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -245,6 +250,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -267,6 +273,7 @@ test('runs prechecks and fails due to a bad pull request', async () => {
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -298,6 +305,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -356,6 +364,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -404,6 +413,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -465,6 +475,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -523,6 +534,7 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
       false,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -564,6 +576,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -610,6 +623,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -654,6 +668,7 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -682,6 +697,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -717,6 +733,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -765,6 +782,7 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -807,6 +825,7 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -853,6 +872,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -897,6 +917,7 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -927,6 +948,7 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -955,6 +977,7 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -1012,6 +1035,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -1055,6 +1079,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -1109,6 +1134,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -1155,6 +1181,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -1198,6 +1225,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -1264,6 +1292,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -1309,6 +1338,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -1352,6 +1382,7 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -1406,6 +1437,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -1430,6 +1462,7 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -1476,6 +1509,7 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -1526,6 +1560,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -1580,6 +1615,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -1632,6 +1668,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -1679,6 +1716,7 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -1729,6 +1767,7 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
       true,
       '',
       '',
+      '',
       'production',
       context,
       octokit
@@ -1775,6 +1814,7 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
       'main',
       '123',
       true,
+      '',
       '',
       '',
       'production',
@@ -1825,6 +1865,7 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
       true,
       'development', // skip_ci
       '', // skip_reviews
+      '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
       context,
       octokit
@@ -1878,6 +1919,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
       true,
       'development', // skip_ci
       'staging', // skip_reviews
+      '', // draft_permitted_targets
       'staging', // the environment the deployment was sent to
       context,
       octokit
@@ -1908,6 +1950,7 @@ test('runs prechecks on a custom deploy comment with a custom variable at the en
       true, // allowForks
       'dev', // skip_ci
       'dev', // skip_reviews
+      '', // draft_permitted_targets
       'dev', // the environment the deployment was sent to
       context, // event context
       octokit // octokit instance
@@ -1962,6 +2005,7 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
       true,
       'development', // skip_ci
       'staging', // skip_reviews
+      '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
       context,
       octokit
@@ -2016,6 +2060,7 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
       true,
       'development', // skip_ci
       '', // skip_reviews
+      '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
       context,
       octokit
@@ -2070,6 +2115,7 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
       true,
       'development', // skip_ci
       'development,staging', // skip_reviews
+      '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
       context,
       octokit
@@ -2124,6 +2170,7 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
       true,
       'development', // skip_ci
       '', // skip_reviews
+      '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
       context,
       octokit
@@ -2178,6 +2225,7 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
       true,
       '', // skip_ci
       '', // skip_reviews
+      '', // draft_permitted_targets
       'production', // the environment the deployment was sent to
       context,
       octokit
@@ -2228,6 +2276,7 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
       true,
       'staging', // skip_ci
       'production', // skip_reviews
+      '', // draft_permitted_targets
       'staging', // the environment the deployment was sent to
       context,
       octokit
@@ -2301,6 +2350,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
       true,
       '',
       '',
+      '', // draft_permitted_targets
       'production',
       context,
       octokit
@@ -2371,6 +2421,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
       true,
       '',
       '',
+      '', // draft_permitted_targets
       'production',
       context,
       octokit
@@ -2443,6 +2494,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
       true,
       '',
       '',
+      '', // draft_permitted_targets
       'production',
       context,
       octokit
