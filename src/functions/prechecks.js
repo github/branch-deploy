@@ -13,10 +13,14 @@ import {stringToArray} from './string-to-array'
 // :param allowForks: Boolean which defines whether the Action can run from forks or not
 // :param skipCiInput: An array of environments that should not be checked for passing CI (string)
 // :param skipReviewsInput: An array of environments that should not be checked for reviewers (string)
+// :param draft_permitted_targets: An array of environments that can be deployed from a draft PR (string)
 // :param environment: The environment being used for deployment
 // :param context: The context of the event
 // :param octokit: The octokit client
 // :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
+//
+// note: skipCiInput, skipReviewsInput, and draft_permitted_targets are Strings that get...
+// ... converted into Arrays via the 'stringToArray' function
 export async function prechecks(
   comment,
   trigger,
