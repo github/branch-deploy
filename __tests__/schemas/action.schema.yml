@@ -70,6 +70,16 @@ inputs:
     default:
       type: string
       required: true
+  draft_permitted_targets:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
   environment_urls:
     description:
       type: string
