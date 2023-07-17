@@ -257,7 +257,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `status` | `true` | `${{ job.status }}` | The status of the GitHub Actions - For use in the post run workflow - Provided for you by default! |
 | `reaction` | `false` | `eyes` | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
 | `trigger` | `false` | `.deploy` | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
-| `noop_trigger` | `false` | `noop` | The string to look for in comments as an IssueOps noop trigger. Example: "noop" - The usage would then be ".deploy noop" |
+| `noop_trigger` | `false` | `.noop` | The string to look for in comments as an IssueOps noop trigger. Example: ".noop" - The usage would then be ".noop" |
 | `lock_trigger` | `false` | `.lock` | The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: ".lock" |
 | `unlock_trigger` | `false` | `.unlock` | The string to look for in comments as an IssueOps unlock trigger. Used for unlocking branch deployments. Example: ".unlock" |
 | `help_trigger` | `false` | `.help` | The string to look for in comments as an IssueOps help trigger. Example: ".help" |
