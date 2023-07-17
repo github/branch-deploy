@@ -22,7 +22,7 @@ beforeEach(() => {
 const environment = 'production'
 const body = '.deploy'
 const trigger = '.deploy'
-const noop_trigger = 'noop'
+const noop_trigger = '.noop'
 const stable_branch = 'main'
 const environmentUrls =
   'production|https://example.com,development|https://dev.example.com,staging|http://staging.example.com'
@@ -111,7 +111,7 @@ test('checks the comment body and finds an explicit environment target for stagi
   expect(
     await environmentTargets(
       environment,
-      '.deploy noop staging',
+      '.noop staging',
       trigger,
       noop_trigger,
       stable_branch
@@ -126,7 +126,7 @@ test('checks the comment body and finds an explicit environment target for stagi
   expect(
     await environmentTargets(
       environment,
-      '.deploy noop staging',
+      '.noop staging',
       trigger,
       noop_trigger,
       stable_branch,
@@ -272,7 +272,7 @@ test('checks the comment body and finds an explicit environment target for stagi
   expect(
     await environmentTargets(
       environment,
-      '.deploy noop to staging',
+      '.noop to staging',
       trigger,
       noop_trigger,
       stable_branch
@@ -302,7 +302,7 @@ test('checks the comment body on a noop deploy and does not find an explicit env
   expect(
     await environmentTargets(
       environment,
-      '.deploy noop',
+      '.noop', // comment body
       trigger,
       noop_trigger,
       stable_branch
@@ -322,7 +322,16 @@ test('checks the comment body on a deployment and does not find any matching env
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: false, environmentUrl: null})
+  ).toStrictEqual({
+    environment: false,
+    environmentUrl: null,
+    environmentObj: {
+      noop: null,
+      params: null,
+      stable_branch_used: null,
+      target: false
+    }
+  })
 
   const msg = dedent(`
   No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
@@ -388,7 +397,16 @@ test('checks the comment body on a stable branch deployment and does not find a 
       noop_trigger,
       stable_branch
     )
-  ).toStrictEqual({environment: false, environmentUrl: null})
+  ).toStrictEqual({
+    environment: false,
+    environmentUrl: null,
+    environmentObj: {
+      noop: null,
+      params: null,
+      stable_branch_used: null,
+      target: false
+    }
+  })
 
   const msg = dedent(`
   No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
