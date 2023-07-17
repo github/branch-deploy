@@ -430,6 +430,10 @@ export async function environmentTargets(
     )
 
     // Return the environment target
-    return {environment: environmentDetected, environmentUrl: environmentUrl}
+    return {
+      environment: environmentDetected,
+      environmentUrl: environmentUrl,
+      environmentObj: environmentObj
+    }
   }
 }
