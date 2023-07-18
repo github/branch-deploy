@@ -73,9 +73,7 @@ export async function help(octokit, context, reactionId, inputs) {
   - \`${inputs.trigger} ${inputs.stable_branch}\` - Rollback the \`${
     inputs.environment
   }\` environment to the \`${inputs.stable_branch}\` branch
-  - \`${inputs.trigger} ${
-    inputs.noop_trigger
-  }\` - Deploy this branch to the \`${
+  - \`${inputs.noop_trigger}\` - Deploy this branch to the \`${
     inputs.environment
   }\` environment in noop mode
   - \`${
@@ -140,9 +138,7 @@ export async function help(octokit, context, reactionId, inputs) {
   - \`${inputs.trigger} ${inputs.stable_branch}\` - Rollback the \`${
     inputs.environment
   }\` environment to the \`${inputs.stable_branch}\` branch
-  - \`${inputs.trigger} ${
-    inputs.noop_trigger
-  }\` - Deploy this branch to the \`${
+  - \`${inputs.noop_trigger}\` - Deploy this branch to the \`${
     inputs.environment
   }\` environment in noop mode
   - \`${inputs.trigger} to <${inputs.environment_targets.replaceAll(
