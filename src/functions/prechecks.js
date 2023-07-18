@@ -15,6 +15,8 @@ import {stringToArray} from './string-to-array'
 // :param skipReviewsInput: An array of environments that should not be checked for reviewers (string)
 // :param draft_permitted_targets: An array of environments that can be deployed from a draft PR (string)
 // :param environment: The environment being used for deployment
+// :param environmentObj: The environment object from the environment-targets results
+// :param help_trigger: The trigger to run the help command
 // :param context: The context of the event
 // :param octokit: The octokit client
 // :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
@@ -33,6 +35,8 @@ export async function prechecks(
   skipReviewsInput,
   draft_permitted_targets,
   environment,
+  environmentObj,
+  help_trigger,
   context,
   octokit
 ) {
@@ -70,23 +74,24 @@ export async function prechecks(
 
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref = pr.data.head.ref
-  var noopMode = false
+  var noopMode = environmentObj.noop
   var forkBypass = false
 
-  // Regex statements for checking the trigger message
-  const regexCommandWithStableBranch = new RegExp(
-    `^\\${trigger}\\s*(${stable_branch}).*$`,
-    'i'
-  )
-  const regexCommandWithNoop = new RegExp(
-    `^\\${trigger}\\s*(${noop_trigger})$`,
-    'i'
-  )
-  const regexCommandWithoutParameters = new RegExp(`^\\${trigger}\\s*$`, 'i')
-  const regexCommandWithParameters = new RegExp(`^\\${trigger}\\s+.*$`, 'i')
+  // If the comment doesn't start with either triggers, the IssueOps command was used in an unsupported way
+  if (
+    comment.startsWith(trigger) === false &&
+    comment.startsWith(noop_trigger) === false
+  ) {
+    message = dedent(`
+              ### ⚠️ Invalid command
+              
+              Please run the \`${help_trigger}\` command for more information
+              `)
+    return {message: message, status: false}
+  }
 
   // Check to see if the "stable" branch was used as the deployment target
-  if (regexCommandWithStableBranch.test(comment)) {
+  if (environmentObj.stable_branch_used === true) {
     // Make an API call to get the base branch
     const baseBranch = await octokit.rest.repos.getBranch({
       ...context.repo,
@@ -101,38 +106,6 @@ export async function prechecks(
     core.info(
       `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
     )
-    // Check to see if the IssueOps command requested noop mode
-  } else if (regexCommandWithNoop.test(comment)) {
-    core.info(
-      `${trigger} command used on current branch with noop mode - setting ref to ${ref}`
-    )
-    noopMode = true
-    // Check to see if the IssueOps command was used in a basic form with no other params
-  } else if (regexCommandWithoutParameters.test(comment)) {
-    core.info(
-      `${trigger} command used on current branch - setting ref to ${ref}`
-    )
-    // Check to see if the IssueOps command was used in a basic form with other params
-  } else if (regexCommandWithParameters.test(comment)) {
-    core.info(`issueops command used with parameters`)
-    if (comment.includes(noop_trigger)) {
-      core.info('noop mode used with parameters')
-      noopMode = true
-    }
-    // If no regex patterns matched, the IssueOps command was used in an unsupported way
-  } else {
-    message = dedent(`
-              ### ⚠️ Invalid command
-              
-              Please use one of the following:
-              
-              - \`${trigger}\` - deploy **this** branch (\`${ref}\`)
-              - \`${trigger} ${noop_trigger}\` - deploy **this** branch in **noop** mode (\`${ref}\`)
-              - \`${trigger} ${stable_branch}\` - deploy the \`${stable_branch}\` branch
-              - \`${trigger} to <environment>\` - deploy **this** branch to the specified environment
-              > Note: \`${trigger} ${stable_branch}\` is often used for rolling back a change or getting back to a known working state
-              `)
-    return {message: message, status: false}
   }
 
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
@@ -318,7 +291,7 @@ export async function prechecks(
   core.debug(`behind: ${behind}`)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
-  if (regexCommandWithStableBranch.test(comment)) {
+  if (environmentObj.stable_branch_used === true) {
     message = '✔️ Deployment to the **stable** branch requested - OK'
     core.info(message)
     core.info(

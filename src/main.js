@@ -400,6 +400,8 @@ export async function run() {
       skipReviews,
       draft_permitted_targets,
       environment,
+      environmentObj.environmentObj,
+      help_trigger,
       context,
       octokit
     )

@@ -7,6 +7,8 @@ import dedent from 'dedent-js'
 const infoMock = jest.spyOn(core, 'info')
 const warningMock = jest.spyOn(core, 'warning')
 
+var environmentObj
+var help_trigger
 var context
 var getCollabOK
 var getPullsOK
@@ -20,6 +22,14 @@ beforeEach(() => {
   jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   process.env.INPUT_PERMISSIONS = 'admin,write,maintain'
+
+  environmentObj = {
+    target: 'production',
+    stable_branch_used: false,
+    noop: false,
+    params: null
+  }
+  help_trigger = '.help'
 
   context = {
     actor: 'monalisa',
@@ -89,7 +99,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -98,6 +108,8 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -115,11 +127,13 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
 
+  environmentObj.stable_branch_used = true
+
   expect(
     await prechecks(
       '.deploy main',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -128,6 +142,8 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -141,11 +157,12 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a noop deployment', async () => {
+  environmentObj.noop = true
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -154,6 +171,8 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -171,7 +190,7 @@ test('runs prechecks and does not find any matching command', async () => {
     await prechecks(
       'I have questions about this PR',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -180,19 +199,15 @@ test('runs prechecks and does not find any matching command', async () => {
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
   ).toStrictEqual({
     message: dedent(`### ⚠️ Invalid command
 
-    Please use one of the following:
-    
-    - \`.deploy\` - deploy **this** branch (\`test-ref\`)
-    - \`.deploy noop\` - deploy **this** branch in **noop** mode (\`test-ref\`)
-    - \`.deploy main\` - deploy the \`main\` branch
-    - \`.deploy to <environment>\` - deploy **this** branch to the specified environment
-    > Note: \`.deploy main\` is often used for rolling back a change or getting back to a known working state`),
+    Please run the \`${help_trigger}\` command for more information`),
     status: false
   })
 })
@@ -209,7 +224,7 @@ test('runs prechecks and finds that the IssueOps command is valid without define
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -218,6 +233,8 @@ test('runs prechecks and finds that the IssueOps command is valid without define
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -245,7 +262,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -254,6 +271,8 @@ test('runs prechecks and fails due to bad user permissions', async () => {
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -270,7 +289,7 @@ test('runs prechecks and fails due to a bad pull request', async () => {
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -279,6 +298,8 @@ test('runs prechecks and fails due to a bad pull request', async () => {
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -302,7 +323,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -311,6 +332,8 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -359,7 +382,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -368,6 +391,8 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -406,11 +431,14 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       }
     }
   })
+
+  environmentObj.noop = true
+
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -419,6 +447,8 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -470,7 +500,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -479,6 +509,8 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -529,7 +561,7 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -538,6 +570,8 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -569,11 +603,14 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       }
     }
   })
+
+  environmentObj.noop = true
+
   expect(
     await prechecks(
       '.deploy noop',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -582,6 +619,8 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -618,7 +657,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -627,6 +666,8 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -663,7 +704,7 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -672,6 +713,8 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -690,11 +733,14 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       }
     }
   })
+
+  environmentObj.noop = true
+
   expect(
     await prechecks(
       '.deploy noop',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -703,6 +749,8 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -726,11 +774,14 @@ test('runs prechecks and deploys to the stable branch', async () => {
   octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+
+  environmentObj.stable_branch_used = true
+  
   expect(
     await prechecks(
       '.deploy main',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -739,6 +790,8 @@ test('runs prechecks and deploys to the stable branch', async () => {
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -777,7 +830,7 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -786,6 +839,8 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -822,7 +877,7 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -831,6 +886,8 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -867,7 +924,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -876,6 +933,8 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -912,7 +971,7 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -921,6 +980,8 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -943,7 +1004,7 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -952,6 +1013,8 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -974,7 +1037,7 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -983,6 +1046,8 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1030,7 +1095,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
     await prechecks(
       '.deploy noop',
       '.deploy',
-      'noop',
+      '.noop',
       'force',
       'main',
       '123',
@@ -1039,6 +1104,8 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1076,7 +1143,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
     await prechecks(
       '.deploy noop',
       '.deploy',
-      'noop',
+      '.noop',
       'warn',
       'main',
       '123',
@@ -1085,6 +1152,8 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1129,7 +1198,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
     await prechecks(
       '.deploy noop',
       '.deploy',
-      'noop',
+      '.noop',
       'force',
       'main',
       '123',
@@ -1138,6 +1207,8 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1172,11 +1243,14 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
     }
   })
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue(null)
+
+  environmentObj.noop = true
+
   expect(
     await prechecks(
       '.deploy noop',
       '.deploy',
-      'noop',
+      '.noop',
       'force',
       'main',
       '123',
@@ -1185,6 +1259,8 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1218,11 +1294,14 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
       }
     }
   })
+
+  environmentObj.noop = true
+
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
-      'noop',
+      '.noop',
       'warn',
       'main',
       '123',
@@ -1231,6 +1310,8 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1283,11 +1364,14 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
   octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
+
+  environmentObj.noop = true
+  
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
-      'noop',
+      '.noop',
       'warn',
       'main',
       '123',
@@ -1296,6 +1380,8 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1345,11 +1431,14 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
     },
     status: 200
   })
+
+  environmentObj.target = 'staging'
+
   expect(
     await prechecks(
       '.deploy to staging',
       '.deploy',
-      'noop',
+      '.noop',
       'warn',
       'main',
       '123',
@@ -1358,6 +1447,8 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
       '',
       'sandbox,staging', // draft_permitted_targets input option
       'staging', // the environment we are deploying to
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1393,11 +1484,14 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
       }
     }
   })
+
+  environmentObj.noop = true
+
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
-      'noop',
+      '.noop',
       'warn',
       'main',
       '123',
@@ -1406,6 +1500,8 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1443,7 +1539,7 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'warn',
       'main',
       '123',
@@ -1452,6 +1548,8 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1496,7 +1594,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'force',
       'main',
       '123',
@@ -1505,6 +1603,8 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1523,7 +1623,7 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -1532,6 +1632,8 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1570,7 +1672,7 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -1579,6 +1681,8 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1617,11 +1721,14 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
   jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
     return true
   })
+
+  environmentObj.params = 'something something something'
+
   expect(
     await prechecks(
-      '.deploy to production',
+      '.deploy to production | something something something',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -1630,6 +1737,8 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1641,8 +1750,6 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     status: true,
     sha: 'abc123'
   })
-
-  expect(infoMock).toHaveBeenCalledWith('issueops command used with parameters')
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin', async () => {
@@ -1670,11 +1777,15 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
   jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
     return true
   })
+
+  environmentObj.noop = true
+  environmentObj.params = 'something something something'
+
   expect(
     await prechecks(
-      '.deploy noop to production',
+      '.noop to production | something something something',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -1683,6 +1794,8 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1693,9 +1806,6 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     status: true,
     sha: 'abc123'
   })
-
-  expect(infoMock).toHaveBeenCalledWith('issueops command used with parameters')
-  expect(infoMock).toHaveBeenCalledWith('noop mode used with parameters')
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin when CI is not defined', async () => {
@@ -1727,7 +1837,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -1736,6 +1846,8 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1777,7 +1889,7 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -1786,6 +1898,8 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1826,7 +1940,7 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -1835,6 +1949,8 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1875,7 +1991,7 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
     await prechecks(
       '.deploy',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -1884,6 +2000,8 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
       '',
       '',
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1920,11 +2038,14 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
       }
     }
   })
+
+  environmentObj.target = 'development'
+
   expect(
     await prechecks(
       '.deploy to development',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -1933,6 +2054,8 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
       '', // skip_reviews
       '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -1974,11 +2097,14 @@ test('runs prechecks and finds that the commit status is success and skip_review
   jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
     return false
   })
+
+  environmentObj.target = 'staging'
+
   expect(
     await prechecks(
       '.deploy to staging',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -1987,6 +2113,8 @@ test('runs prechecks and finds that the commit status is success and skip_review
       'staging', // skip_reviews
       '', // draft_permitted_targets
       'staging', // the environment the deployment was sent to
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -2005,11 +2133,13 @@ test('runs prechecks and finds that the commit status is success and skip_review
 })
 
 test('runs prechecks on a custom deploy comment with a custom variable at the end', async () => {
+  environmentObj.target = 'dev'
+  environmentObj.params = 'something'
   expect(
     await prechecks(
       '.deploy dev something', // comment with a custom variable at the end
       '.deploy', // trigger
-      'noop', // noop trigger
+      '.noop', // noop trigger
       'disabled', // update_branch
       'main', // stable_branch
       '123', // issue_number
@@ -2018,6 +2148,8 @@ test('runs prechecks on a custom deploy comment with a custom variable at the en
       'dev', // skip_reviews
       '', // draft_permitted_targets
       'dev', // the environment the deployment was sent to
+      environmentObj,
+      help_trigger,
       context, // event context
       octokit // octokit instance
     )
@@ -2060,11 +2192,14 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
   jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
     return false
   })
+
+  environmentObj.target = 'development'
+
   expect(
     await prechecks(
       '.deploy to development',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -2073,6 +2208,8 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
       'staging', // skip_reviews
       '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -2115,11 +2252,15 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
   jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
     return false
   })
+
+  environmentObj.target = 'development'
+  environmentObj.noop = true
+
   expect(
     await prechecks(
-      '.deploy noop to development',
+      '.noop to development',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -2128,6 +2269,8 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
       '', // skip_reviews
       '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -2170,11 +2313,14 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
   jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
     return false
   })
+
+  environmentObj.target = 'development'
+
   expect(
     await prechecks(
       '.deploy to development',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -2183,6 +2329,8 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
       'development,staging', // skip_reviews
       '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -2225,11 +2373,14 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
   jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
     return true
   })
+
+  environmentObj.target = 'development'
+
   expect(
     await prechecks(
       '.deploy to development',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -2238,6 +2389,8 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
       '', // skip_reviews
       '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -2280,11 +2433,14 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
   jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
     return false
   })
+
+  environmentObj.noop = true
+
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -2293,6 +2449,8 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
       '', // skip_reviews
       '', // draft_permitted_targets
       'production', // the environment the deployment was sent to
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -2331,11 +2489,14 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
   jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
     return false
   })
+
+  environmentObj.target = 'staging'
+
   expect(
     await prechecks(
       '.deploy to staging',
       '.deploy',
-      'noop',
+      '.noop',
       'disabled',
       'main',
       '123',
@@ -2344,6 +2505,8 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
       'production', // skip_reviews
       '', // draft_permitted_targets
       'staging', // the environment the deployment was sent to
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -2405,11 +2568,14 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
     },
     status: 202
   })
+
+  environmentObj.noop = true
+
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
-      'noop',
+      '.noop',
       'force',
       'main',
       '123',
@@ -2418,6 +2584,8 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
       '',
       '', // draft_permitted_targets
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -2476,11 +2644,14 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
     },
     status: 202
   })
+
+  environmentObj.noop = true
+
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
-      'noop',
+      '.noop',
       'force',
       'main',
       '123',
@@ -2489,6 +2660,8 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
       '',
       '', // draft_permitted_targets
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
@@ -2549,11 +2722,14 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
     },
     status: 202
   })
+
+  environmentObj.noop = true
+
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
-      'noop',
+      '.noop',
       'force',
       'main',
       '123',
@@ -2562,6 +2738,8 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
       '',
       '', // draft_permitted_targets
       'production',
+      environmentObj,
+      help_trigger,
       context,
       octokit
     )
