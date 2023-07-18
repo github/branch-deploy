@@ -87,18 +87,19 @@ export async function run() {
 
     // Check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(body, trigger)
+    const isNoopDeploy = await triggerCheck(body, noop_trigger)
     const isLock = await triggerCheck(body, lock_trigger)
     const isUnlock = await triggerCheck(body, unlock_trigger)
     const isHelp = await triggerCheck(body, help_trigger)
     const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
-    if (!isDeploy && !isLock && !isUnlock && !isHelp && !isLockInfoAlias) {
+    if (!isDeploy && !isNoopDeploy && !isLock && !isUnlock && !isHelp && !isLockInfoAlias) {
       // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
       core.info('no trigger detected in comment - exiting')
       return 'safe-exit'
-    } else if (isDeploy) {
+    } else if (isDeploy || isNoopDeploy) {
       core.setOutput('type', 'deploy')
     } else if (isLock) {
       core.setOutput('type', 'lock')
