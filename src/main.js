@@ -78,6 +78,9 @@ export async function run() {
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(context))) {
+      core.saveState('bypass', 'true')
+      return 'safe-exit'
+    }
       return 'safe-exit'
     }
 
