@@ -1,5 +1,4 @@
 import * as core from '@actions/core'
-import dedent from 'dedent-js'
 import {validPermissions} from './valid-permissions'
 import {isAdmin} from './admin'
 import {stringToArray} from './string-to-array'
@@ -76,19 +75,6 @@ export async function prechecks(
   var ref = pr.data.head.ref
   var noopMode = environmentObj.noop
   var forkBypass = false
-
-  // If the comment doesn't start with either triggers, the IssueOps command was used in an unsupported way
-  if (
-    comment.startsWith(trigger) === false &&
-    comment.startsWith(noop_trigger) === false
-  ) {
-    message = dedent(`
-              ### ⚠️ Invalid command
-              
-              Please run the \`${help_trigger}\` command for more information
-              `)
-    return {message: message, status: false}
-  }
 
   // Check to see if the "stable" branch was used as the deployment target
   if (environmentObj.stable_branch_used === true) {

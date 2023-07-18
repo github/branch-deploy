@@ -1,7 +1,6 @@
 import {prechecks} from '../../src/functions/prechecks'
 import * as isAdmin from '../../src/functions/admin'
 import * as core from '@actions/core'
-import dedent from 'dedent-js'
 
 // Globals for testing
 const infoMock = jest.spyOn(core, 'info')
@@ -182,33 +181,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
     ref: 'test-ref',
     status: true,
     sha: 'abc123'
-  })
-})
-
-test('runs prechecks and does not find any matching command', async () => {
-  expect(
-    await prechecks(
-      'I have questions about this PR',
-      '.deploy',
-      '.noop',
-      'disabled',
-      'main',
-      '123',
-      true,
-      '',
-      '',
-      '',
-      'production',
-      environmentObj,
-      help_trigger,
-      context,
-      octokit
-    )
-  ).toStrictEqual({
-    message: dedent(`### ⚠️ Invalid command
-
-    Please run the \`${help_trigger}\` command for more information`),
-    status: false
   })
 })
 
