@@ -10540,6 +10540,56 @@ async function createDeploymentStatus(
   return result
 }
 
+;// CONCATENATED MODULE: ./src/functions/deprecated-checks.js
+
+
+
+// The old and common trigger for noop style deployments
+const oldNoopInput = '.deploy noop'
+const docsLink = 'https://github.com'
+const deprecated_checks_thumbsDown = '-1'
+
+// A helper function to check against common inputs to see if they are deprecated
+// :param body: The content body of the message being checked (String)
+// :param context: The context of the action
+// :param octokit: The octokit object
+// :returns: true if the input is deprecated, false otherwise
+async function isDeprecated(body, context, octokit) {
+  // If the body of the payload starts with the common 'old noop' trigger, warn the user and exit
+  if (body.startsWith(oldNoopInput)) {
+    core.warning(
+      `'${oldNoopInput}' is deprecated. Please view the docs for more information: ${docsLink}`
+    )
+
+    const message = lib_default()(`
+      ### Deprecated Input Detected
+
+      ⚠️ Command is Deprecated ⚠️
+
+      The \`${oldNoopInput}\` command is deprecated. The new default is now \`.noop\`. Please view the docs for more information: ${docsLink}
+    `)
+
+    // add a comment to the issue with the message
+    await octokit.rest.issues.createComment({
+      ...context.repo,
+      issue_number: context.issue.number,
+      body: message
+    })
+
+    // add a reaction to the issue_comment to indicate failure
+    await octokit.rest.reactions.createForIssueComment({
+      ...context.repo,
+      comment_id: context.payload.comment.id,
+      content: deprecated_checks_thumbsDown
+    })
+
+    return true
+  }
+
+  // if we get here, the input is not deprecated
+  return false
+}
+
 ;// CONCATENATED MODULE: ./src/functions/string-to-array.js
 
 
@@ -12861,6 +12911,7 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
@@ -12919,6 +12970,13 @@ async function run() {
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(github.context))) {
+      core.saveState('bypass', 'true')
+      return 'safe-exit'
+    }
+
+    // deprecated command/input checks
+    if ((await isDeprecated(body, octokit, github.context)) === true) {
+      core.saveState('bypass', 'true')
       return 'safe-exit'
     }
 
