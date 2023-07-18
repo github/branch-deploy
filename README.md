@@ -18,7 +18,7 @@ This Action does the heavy lifting for you to enable branch deployments:
 ## Available Commands 💬
 
 - `.deploy` - Deploy a pull request
-- `.deploy noop` - Deploy a pull request in noop mode
+- `.noop` - Deploy a pull request in noop mode
 - `.deploy to <environment>` - Deploy a pull request to a specific environment
 - `.deploy <stable_branch>` - Trigger a rollback deploy to your stable branch (main, master, etc)
 - `.lock` - Create a deployment lock for the default environment
@@ -247,7 +247,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 - `steps.branch-deploy.outputs.continue == 'true'` - The `continue` variable is only set to true when a deployment should continue
 - `steps.branch-deploy.outputs.noop == 'true'` - The `noop` variable is only set to true when a noop deployment should be run
 
-> Example: You comment `.deploy noop` on a pull request. A noop deployment is detected so this action outputs the `noop` variable to `true`. You also have the correct permissions to execute the IssueOps command so the action also outputs the `continue` variable to `true`. This will allow the "fake noop deploy" step seen above to run and the "fake regular deploy" step will be skipped
+> Example: You comment `.noop` on a pull request. A noop deployment is detected so this action outputs the `noop` variable to `true`. You also have the correct permissions to execute the IssueOps command so the action also outputs the `continue` variable to `true`. This will allow the "fake noop deploy" step seen above to run and the "fake regular deploy" step will be skipped
 
 ## Inputs 📥
 
@@ -382,9 +382,9 @@ To use a deployment with a specific environment, you would invoke your commands 
 
 This also works with noop commands as well
 
-- `.deploy noop production`
-- `.deploy noop to production`
-- `.deploy noop to <environment>`
+- `.noop production`
+- `.noop to production`
+- `.noop to <environment>`
 
 YAML input example:
 
@@ -571,7 +571,7 @@ This section will cover a few suggestions that will help you when using this Act
 
 Here are a few alternate ways you can invoke commands:
 
-- `.deploy noop staging` - Invoke a "noop" deployment to the staging environment
+- `.noop staging` - Invoke a "noop" deployment to the staging environment
 - `.deploy development` - Invoke a deployment to the development environment (notice how you can omit the "to" keyword)
 - `.deploy to development` - Invoke a deployment to the development environment (with the "to" keyword)
 - `.deploy` - Uses the default environment (usually "production")

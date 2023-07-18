@@ -25,7 +25,7 @@ Quick links below to jump to a specific branch-deploy example:
 
 This is the simplest possible example of how you could use the branch-deploy Action for reference
 
-- `.deploy noop` has no effect here (but you could change that)
+- `.noop` has no effect here (but you could change that)
 - `.deploy` will deploy the current branch (you can configure deployments however you like, this is just an example)
 
 ```yaml
@@ -70,7 +70,7 @@ jobs:
 
 This example shows how you could use this Action with [Terraform](https://www.terraform.io/)
 
-- `.deploy noop` triggers a Terraform plan
+- `.noop` triggers a Terraform plan
 - `.deploy` triggers a Terraform apply
 
 All deployment results get posted as a comment in the branch deploy output on your pull request
@@ -131,7 +131,7 @@ jobs:
         if: steps.branch-deploy.outputs.continue == 'true'
         run: terraform init
 
-        # If '.deploy noop' was used, run a Terraform plan
+        # If '.noop' was used, run a Terraform plan
       - name: Terraform plan
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
         id: plan
@@ -178,7 +178,7 @@ jobs:
 
 This example shows how you could use this Action with [Heroku](https://heroku.com)
 
-- `.deploy noop` has no effect here (but you could change that)
+- `.noop` has no effect here (but you could change that)
 - `.deploy` takes your current branch and deploys it to Heroku
 
 > A live example can be found [here](https://github.com/the-hideout/stash/blob/3d8cd979d124bd13878c4bc92f74f3830cf53c22/.github/workflows/branch-deploy.yml)
@@ -231,7 +231,7 @@ jobs:
 
 This example shows how you could use this Action with [Railway](https://railway.app)
 
-- `.deploy noop` has no effect here (but you could change that)
+- `.noop` has no effect here (but you could change that)
 - `.deploy` takes your current branch and deploys it to Railway
 
 > A live example can be found [here](https://github.com/the-hideout/stash/blob/57d85e2092866b675a73ff23203c04962df12385/.github/workflows/branch-deploy.yml)
@@ -288,7 +288,7 @@ This example shows how you could use this Action with SSH
 
 You can define any commands you want to be run in your SSH Action and they would be gated by the branch-deploy Action.
 
-- `.deploy noop` has no effect here (but you could change that)
+- `.noop` has no effect here (but you could change that)
 - `.deploy` runs the SSH action with your branch
 
 > A live example can be found [here](https://github.com/the-hideout/cache/blob/c7dc4fa550f137efebf0ee656413985afba66770/.github/workflows/branch-deploy.yml)

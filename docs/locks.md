@@ -35,7 +35,7 @@ Deployment locks in relation to environments also come in two flavors:
 Let's review the core concepts of deployment locks in a short summary:
 
 - Deployment locks are used to prevent multiple deployments from running at the same time and breaking things
-- Non-sticky locks are created automatically when running `.deploy` or `.deploy noop`
+- Non-sticky locks are created automatically when running `.deploy` or `.noop`
 - Sticky locks are created manually by commenting `.lock` on a pull request - They will persist until you remove them with `.unlock`
 - Locks are associated to a user's GitHub handle - This user can deploy any pull request in the repository and as many times as they want
 - Any user can remove a lock by commenting `.unlock` on any pull request in the repository
