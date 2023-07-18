@@ -40,7 +40,7 @@ You can test your changes by doing the following steps:
 
 1. Commit your changes to the `main` branch on your fork
 2. Open a new pull request
-3. Run IssueOps commands on the pull request you just opened (`.deploy`, `.deploy noop`, `.deploy main`)
+3. Run IssueOps commands on the pull request you just opened (`.deploy`, `.noop`, `.deploy main`, etc)
 4. Ensure that all IssueOps commands work as expected on your testing PR
 
 ### Testing FAQs 🤔

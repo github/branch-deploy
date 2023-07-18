@@ -28,9 +28,10 @@ async function onDeploymentChecks(
   paramCheck.shift() // remove everything before the 'param_separator'
   const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
   // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
+  var paramsTrim = null
   if (params !== '') {
     bodyFmt = body.split(`${param_separator}${params}`)[0].trim()
-    const paramsTrim = params.trim()
+    paramsTrim = params.trim()
     core.info(`Detected parameters in command: '${paramsTrim}'`)
     core.setOutput('params', paramsTrim)
   } else {
@@ -43,31 +44,46 @@ async function onDeploymentChecks(
     // If the body on a branch deploy contains the target
     if (bodyFmt.replace(trigger, '').trim() === target) {
       core.debug(`Found environment target for branch deploy: ${target}`)
-      return target
+      return {
+        target: target,
+        stable_branch_used: false,
+        noop: false,
+        params: paramsTrim
+      }
     }
     // If the body on a noop trigger contains the target
-    else if (
-      bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() === target
-    ) {
+    else if (bodyFmt.replace(noop_trigger, '').trim() === target) {
       core.debug(`Found environment target for noop trigger: ${target}`)
-      return target
+      return {
+        target: target,
+        stable_branch_used: false,
+        noop: true,
+        params: paramsTrim
+      }
     }
     // If the body with 'to <target>' contains the target on a branch deploy
     else if (bodyFmt.replace(trigger, '').trim() === `to ${target}`) {
       core.debug(
         `Found environment target for branch deploy (with 'to'): ${target}`
       )
-      return target
+      return {
+        target: target,
+        stable_branch_used: false,
+        noop: false,
+        params: paramsTrim
+      }
     }
     // If the body with 'to <target>' contains the target on a noop trigger
-    else if (
-      bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() ===
-      `to ${target}`
-    ) {
+    else if (bodyFmt.replace(noop_trigger, '').trim() === `to ${target}`) {
       core.debug(
         `Found environment target for noop trigger (with 'to'): ${target}`
       )
-      return target
+      return {
+        target: target,
+        stable_branch_used: false,
+        noop: true,
+        params: paramsTrim
+      }
     }
     // If the body with 'to <target>' contains the target on a stable branch deploy
     else if (
@@ -77,33 +93,98 @@ async function onDeploymentChecks(
       core.debug(
         `Found environment target for stable branch deploy (with 'to'): ${target}`
       )
-      return target
+      return {
+        target: target,
+        stable_branch_used: true,
+        noop: false,
+        params: paramsTrim
+      }
     }
-
+    // If the body with 'to <target>' contains the target on a stable branch noop trigger
+    else if (
+      bodyFmt.replace(`${noop_trigger} ${stable_branch}`, '').trim() ===
+      `to ${target}`
+    ) {
+      core.debug(
+        `Found environment target for stable branch noop trigger (with 'to'): ${target}`
+      )
+      return {
+        target: target,
+        stable_branch_used: true,
+        noop: true,
+        params: paramsTrim
+      }
+    }
     // If the body on a stable branch deploy contains the target
-    if (bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() === target) {
+    else if (
+      bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() === target
+    ) {
       core.debug(`Found environment target for stable branch deploy: ${target}`)
-      return target
+      return {
+        target: target,
+        stable_branch_used: true,
+        noop: false,
+        params: paramsTrim
+      }
+    }
+    // If the body on a stable branch noop trigger contains the target
+    else if (
+      bodyFmt.replace(`${noop_trigger} ${stable_branch}`, '').trim() === target
+    ) {
+      core.debug(
+        `Found environment target for stable branch noop trigger: ${target}`
+      )
+      return {
+        target: target,
+        stable_branch_used: true,
+        noop: true,
+        params: paramsTrim
+      }
     }
     // If the body matches the trigger phrase exactly, just use the default environment
     else if (bodyFmt.trim() === trigger) {
       core.debug('Using default environment for branch deployment')
-      return environment
+      return {
+        target: environment,
+        stable_branch_used: false,
+        noop: false,
+        params: paramsTrim
+      }
     }
-    // If the body matches the noop trigger phrase exactly, just use the default environment
-    else if (bodyFmt.trim() === `${trigger} ${noop_trigger}`) {
+    // If the body matches the noop_trigger phrase exactly, just use the default environment
+    else if (bodyFmt.trim() === noop_trigger) {
       core.debug('Using default environment for noop trigger')
-      return environment
+      return {
+        target: environment,
+        stable_branch_used: false,
+        noop: true,
+        params: paramsTrim
+      }
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
     else if (bodyFmt.trim() === `${trigger} ${stable_branch}`) {
       core.debug('Using default environment for stable branch deployment')
-      return environment
+      return {
+        target: environment,
+        stable_branch_used: true,
+        noop: false,
+        params: paramsTrim
+      }
+    }
+    // If the body matches the stable branch phrase exactly on a noop trigger, just use the default environment
+    else if (bodyFmt.trim() === `${noop_trigger} ${stable_branch}`) {
+      core.debug('Using default environment for stable branch noop trigger')
+      return {
+        target: environment,
+        stable_branch_used: true,
+        noop: true,
+        params: paramsTrim
+      }
     }
   }
 
   // If we get here, then no valid environment target was found
-  return false
+  return {target: false, stable_branch_used: null, noop: null, params: null}
 }
 
 // Helper function to that does environment checks specific to lock/unlock commands
@@ -306,7 +387,7 @@ export async function environmentTargets(
 
   // If lockChecks is set to false, this request is for a branch deploy to check the body for an environment target
   if (lockChecks === false) {
-    const environmentDetected = await onDeploymentChecks(
+    const environmentObj = await onDeploymentChecks(
       environment_targets_sanitized,
       body,
       trigger,
@@ -315,6 +396,8 @@ export async function environmentTargets(
       environment,
       param_separator
     )
+
+    const environmentDetected = environmentObj.target
 
     // If no environment target was found, let the user know via a comment and return false
     if (environmentDetected === false) {
@@ -333,7 +416,11 @@ export async function environmentTargets(
         reactionId,
         `### ⚠️ Cannot proceed with deployment\n\n${message}`
       )
-      return {environment: false, environmentUrl: null}
+      return {
+        environment: false,
+        environmentUrl: null,
+        environmentObj: environmentObj
+      }
     }
 
     // Attempt to get the environment URL from the environment_urls input using the environment target as the key
@@ -343,6 +430,10 @@ export async function environmentTargets(
     )
 
     // Return the environment target
-    return {environment: environmentDetected, environmentUrl: environmentUrl}
+    return {
+      environment: environmentDetected,
+      environmentUrl: environmentUrl,
+      environmentObj: environmentObj
+    }
   }
 }

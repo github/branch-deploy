@@ -46,9 +46,9 @@ inputs:
     required: false
     default: ".deploy"
   noop_trigger:
-    description: 'The string to look for in comments as an IssueOps noop trigger. Example: "noop"'
+    description: 'The string to look for in comments as an IssueOps noop trigger. Example: ".noop"'
     required: false
-    default: "noop"
+    default: ".noop"
   lock_trigger:
     description: 'The string to look for in comments as an IssueOps lock trigger. Used for locking branch deployments on a specific branch. Example: ".lock"'
     required: false

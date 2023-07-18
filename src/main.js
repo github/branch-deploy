@@ -5,6 +5,7 @@ import {reactEmote} from './functions/react-emote'
 import {environmentTargets} from './functions/environment-targets'
 import {actionStatus} from './functions/action-status'
 import {createDeploymentStatus} from './functions/deployment'
+import {isDeprecated} from './functions/deprecated-checks'
 import {prechecks} from './functions/prechecks'
 import {validPermissions} from './functions/valid-permissions'
 import {lock} from './functions/lock'
@@ -78,6 +79,13 @@ export async function run() {
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(context))) {
+      core.saveState('bypass', 'true')
+      return 'safe-exit'
+    }
+
+    // deprecated command/input checks
+    if ((await isDeprecated(body, octokit, context)) === true) {
+      core.saveState('bypass', 'true')
       return 'safe-exit'
     }
 
@@ -87,18 +95,26 @@ export async function run() {
 
     // Check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(body, trigger)
+    const isNoopDeploy = await triggerCheck(body, noop_trigger)
     const isLock = await triggerCheck(body, lock_trigger)
     const isUnlock = await triggerCheck(body, unlock_trigger)
     const isHelp = await triggerCheck(body, help_trigger)
     const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
-    if (!isDeploy && !isLock && !isUnlock && !isHelp && !isLockInfoAlias) {
+    if (
+      !isDeploy &&
+      !isNoopDeploy &&
+      !isLock &&
+      !isUnlock &&
+      !isHelp &&
+      !isLockInfoAlias
+    ) {
       // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
       core.info('no trigger detected in comment - exiting')
       return 'safe-exit'
-    } else if (isDeploy) {
+    } else if (isDeploy || isNoopDeploy) {
       core.setOutput('type', 'deploy')
     } else if (isLock) {
       core.setOutput('type', 'lock')
@@ -400,6 +416,8 @@ export async function run() {
       skipReviews,
       draft_permitted_targets,
       environment,
+      environmentObj.environmentObj,
+      help_trigger,
       context,
       octokit
     )

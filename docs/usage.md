@@ -15,10 +15,11 @@ To view your available commands, environment targets, and how your workflow is s
 Deployments respect your repository's branch protection settings. You can trigger either a regular or noop deployment:
 
 - `.deploy` - Triggers a regular deployment using the default environment (think "Terraform apply" for example)
-- `.deploy noop` - Triggers a noop deployment (think "Terraform plan" for example)
+- `.noop` - Triggers a noop deployment (think "Terraform plan" for example)
 - `.deploy <environment>` - Triggers a deployment for the specified environment
-- `.deploy noop <environment>` - Triggers a noop deployment for the specified environment
+- `.noop <environment>` - Triggers a noop deployment for the specified environment
 - `.deploy <stable_branch>` - Trigger a rollback deploy to your stable branch (main, master, etc)
+- `.noop <stable_branch>` - Trigger a rollback noop to your stable branch (main, master, etc)
 
 ## Deployment Locks 🔒
 
@@ -47,6 +48,8 @@ If something goes wrong and you need to redeploy the main/master/base branch of 
 
 - `.deploy main` - Rolls back to the `main` branch in production
 - `.deploy main to <environment>` - Rolls back to the `main` branch in the specified environment
+- `.noop main` - Rolls back to the `main` branch in production as a noop deploy
+- `.noop main to <environment>` - Rolls back to the `main` branch in the specified environment as a noop deploy
 
 > Note: The `stable_branch` option can be configured in your branch-deploy workflow definition. By default it is the `main` branch but it can be changed to `master` or any other branch name.
 
@@ -79,7 +82,7 @@ An example workflow for using this Action might look like this:
 4. Once CI is passing and the user has the proper reviews on their pull request, they can continue
 5. The user grabs the deployment lock as they need an hour or two for validating their change -> `.lock`
 6. The lock is claimed and now only the user who claimed it can deploy
-7. The user runs `.deploy noop` to get a preview of their changes
+7. The user runs `.noop` to get a preview of their changes
 8. All looks good so the user runs `.deploy` and ships their code to production from their branch
 
     > If anything goes wrong, the user can run `.deploy main` to rollback to the `main` branch

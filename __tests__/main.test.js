@@ -11,6 +11,7 @@ import * as unlock from '../src/functions/unlock'
 import * as actionStatus from '../src/functions/action-status'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
+import * as isDeprecated from '../src/functions/deprecated-checks'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const saveStateMock = jest.spyOn(core, 'saveState')
@@ -39,7 +40,7 @@ beforeEach(() => {
   process.env.INPUT_PARAM_SEPARATOR = '|'
   process.env.INPUT_PRODUCTION_ENVIRONMENT = 'production'
   process.env.INPUT_STABLE_BRANCH = 'main'
-  process.env.INPUT_NOOP_TRIGGER = 'noop'
+  process.env.INPUT_NOOP_TRIGGER = '.noop'
   process.env.INPUT_LOCK_TRIGGER = '.lock'
   process.env.INPUT_UNLOCK_TRIGGER = '.unlock'
   process.env.INPUT_HELP_TRIGGER = '.help'
@@ -85,6 +86,9 @@ beforeEach(() => {
         }
       }
     }
+  })
+  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+    return false
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return true
@@ -160,10 +164,10 @@ test('successfully runs the action in noop mode', async () => {
     }
   })
 
-  github.context.payload.comment.body = '.deploy noop'
+  github.context.payload.comment.body = '.noop'
 
   expect(await run()).toBe('success - noop')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy noop')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.noop')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
   expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
@@ -526,9 +530,20 @@ test('runs with the unlock trigger', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
 })
 
+test('runs with the deprecated noop input', async () => {
+  github.context.payload.comment.body = '.deploy noop'
+  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+    return true
+  })
+  expect(await run()).toBe('safe-exit')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
 test('successfully runs the action after trimming the body', async () => {
   jest.spyOn(prechecks, 'prechecks').mockImplementation(comment => {
-    expect(comment).toBe('.deploy noop')
+    expect(comment).toBe('.noop')
 
     return {
       ref: 'test-ref',
@@ -537,7 +552,7 @@ test('successfully runs the action after trimming the body', async () => {
       noopMode: true
     }
   })
-  github.context.payload.comment.body = '.deploy noop    \n\t\n   '
+  github.context.payload.comment.body = '.noop    \n\t\n   '
   expect(await run()).toBe('success - noop')
   // other expects are similar to previous tests.
 })

@@ -10094,9 +10094,10 @@ async function onDeploymentChecks(
   paramCheck.shift() // remove everything before the 'param_separator'
   const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
   // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
+  var paramsTrim = null
   if (params !== '') {
     bodyFmt = body.split(`${param_separator}${params}`)[0].trim()
-    const paramsTrim = params.trim()
+    paramsTrim = params.trim()
     core.info(`Detected parameters in command: '${paramsTrim}'`)
     core.setOutput('params', paramsTrim)
   } else {
@@ -10109,31 +10110,46 @@ async function onDeploymentChecks(
     // If the body on a branch deploy contains the target
     if (bodyFmt.replace(trigger, '').trim() === target) {
       core.debug(`Found environment target for branch deploy: ${target}`)
-      return target
+      return {
+        target: target,
+        stable_branch_used: false,
+        noop: false,
+        params: paramsTrim
+      }
     }
     // If the body on a noop trigger contains the target
-    else if (
-      bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() === target
-    ) {
+    else if (bodyFmt.replace(noop_trigger, '').trim() === target) {
       core.debug(`Found environment target for noop trigger: ${target}`)
-      return target
+      return {
+        target: target,
+        stable_branch_used: false,
+        noop: true,
+        params: paramsTrim
+      }
     }
     // If the body with 'to <target>' contains the target on a branch deploy
     else if (bodyFmt.replace(trigger, '').trim() === `to ${target}`) {
       core.debug(
         `Found environment target for branch deploy (with 'to'): ${target}`
       )
-      return target
+      return {
+        target: target,
+        stable_branch_used: false,
+        noop: false,
+        params: paramsTrim
+      }
     }
     // If the body with 'to <target>' contains the target on a noop trigger
-    else if (
-      bodyFmt.replace(`${trigger} ${noop_trigger}`, '').trim() ===
-      `to ${target}`
-    ) {
+    else if (bodyFmt.replace(noop_trigger, '').trim() === `to ${target}`) {
       core.debug(
         `Found environment target for noop trigger (with 'to'): ${target}`
       )
-      return target
+      return {
+        target: target,
+        stable_branch_used: false,
+        noop: true,
+        params: paramsTrim
+      }
     }
     // If the body with 'to <target>' contains the target on a stable branch deploy
     else if (
@@ -10143,33 +10159,98 @@ async function onDeploymentChecks(
       core.debug(
         `Found environment target for stable branch deploy (with 'to'): ${target}`
       )
-      return target
+      return {
+        target: target,
+        stable_branch_used: true,
+        noop: false,
+        params: paramsTrim
+      }
     }
-
+    // If the body with 'to <target>' contains the target on a stable branch noop trigger
+    else if (
+      bodyFmt.replace(`${noop_trigger} ${stable_branch}`, '').trim() ===
+      `to ${target}`
+    ) {
+      core.debug(
+        `Found environment target for stable branch noop trigger (with 'to'): ${target}`
+      )
+      return {
+        target: target,
+        stable_branch_used: true,
+        noop: true,
+        params: paramsTrim
+      }
+    }
     // If the body on a stable branch deploy contains the target
-    if (bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() === target) {
+    else if (
+      bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() === target
+    ) {
       core.debug(`Found environment target for stable branch deploy: ${target}`)
-      return target
+      return {
+        target: target,
+        stable_branch_used: true,
+        noop: false,
+        params: paramsTrim
+      }
+    }
+    // If the body on a stable branch noop trigger contains the target
+    else if (
+      bodyFmt.replace(`${noop_trigger} ${stable_branch}`, '').trim() === target
+    ) {
+      core.debug(
+        `Found environment target for stable branch noop trigger: ${target}`
+      )
+      return {
+        target: target,
+        stable_branch_used: true,
+        noop: true,
+        params: paramsTrim
+      }
     }
     // If the body matches the trigger phrase exactly, just use the default environment
     else if (bodyFmt.trim() === trigger) {
       core.debug('Using default environment for branch deployment')
-      return environment
+      return {
+        target: environment,
+        stable_branch_used: false,
+        noop: false,
+        params: paramsTrim
+      }
     }
-    // If the body matches the noop trigger phrase exactly, just use the default environment
-    else if (bodyFmt.trim() === `${trigger} ${noop_trigger}`) {
+    // If the body matches the noop_trigger phrase exactly, just use the default environment
+    else if (bodyFmt.trim() === noop_trigger) {
       core.debug('Using default environment for noop trigger')
-      return environment
+      return {
+        target: environment,
+        stable_branch_used: false,
+        noop: true,
+        params: paramsTrim
+      }
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
     else if (bodyFmt.trim() === `${trigger} ${stable_branch}`) {
       core.debug('Using default environment for stable branch deployment')
-      return environment
+      return {
+        target: environment,
+        stable_branch_used: true,
+        noop: false,
+        params: paramsTrim
+      }
+    }
+    // If the body matches the stable branch phrase exactly on a noop trigger, just use the default environment
+    else if (bodyFmt.trim() === `${noop_trigger} ${stable_branch}`) {
+      core.debug('Using default environment for stable branch noop trigger')
+      return {
+        target: environment,
+        stable_branch_used: true,
+        noop: true,
+        params: paramsTrim
+      }
     }
   }
 
   // If we get here, then no valid environment target was found
-  return false
+  return {target: false, stable_branch_used: null, noop: null, params: null}
 }
 
 // Helper function to that does environment checks specific to lock/unlock commands
@@ -10372,7 +10453,7 @@ async function environmentTargets(
 
   // If lockChecks is set to false, this request is for a branch deploy to check the body for an environment target
   if (lockChecks === false) {
-    const environmentDetected = await onDeploymentChecks(
+    const environmentObj = await onDeploymentChecks(
       environment_targets_sanitized,
       body,
       trigger,
@@ -10381,6 +10462,8 @@ async function environmentTargets(
       environment,
       param_separator
     )
+
+    const environmentDetected = environmentObj.target
 
     // If no environment target was found, let the user know via a comment and return false
     if (environmentDetected === false) {
@@ -10399,7 +10482,11 @@ async function environmentTargets(
         reactionId,
         `### ⚠️ Cannot proceed with deployment\n\n${message}`
       )
-      return {environment: false, environmentUrl: null}
+      return {
+        environment: false,
+        environmentUrl: null,
+        environmentObj: environmentObj
+      }
     }
 
     // Attempt to get the environment URL from the environment_urls input using the environment target as the key
@@ -10409,7 +10496,11 @@ async function environmentTargets(
     )
 
     // Return the environment target
-    return {environment: environmentDetected, environmentUrl: environmentUrl}
+    return {
+      environment: environmentDetected,
+      environmentUrl: environmentUrl,
+      environmentObj: environmentObj
+    }
   }
 }
 
@@ -10447,6 +10538,57 @@ async function createDeploymentStatus(
   })
 
   return result
+}
+
+;// CONCATENATED MODULE: ./src/functions/deprecated-checks.js
+
+
+
+// The old and common trigger for noop style deployments
+const oldNoopInput = '.deploy noop'
+const docsLink =
+  'https://github.com/github/branch-deploy/blob/main/docs/deprecated.md'
+const deprecated_checks_thumbsDown = '-1'
+
+// A helper function to check against common inputs to see if they are deprecated
+// :param body: The content body of the message being checked (String)
+// :param context: The context of the action
+// :param octokit: The octokit object
+// :returns: true if the input is deprecated, false otherwise
+async function isDeprecated(body, context, octokit) {
+  // If the body of the payload starts with the common 'old noop' trigger, warn the user and exit
+  if (body.startsWith(oldNoopInput)) {
+    core.warning(
+      `'${oldNoopInput}' is deprecated. Please view the docs for more information: ${docsLink}#deploy-noop`
+    )
+
+    const message = lib_default()(`
+      ### Deprecated Input Detected
+
+      ⚠️ Command is Deprecated ⚠️
+
+      The \`${oldNoopInput}\` command is deprecated. The new default is now \`.noop\`. Please view the docs for more information: ${docsLink}#deploy-noop
+    `)
+
+    // add a comment to the issue with the message
+    await octokit.rest.issues.createComment({
+      ...context.repo,
+      issue_number: context.issue.number,
+      body: message
+    })
+
+    // add a reaction to the issue_comment to indicate failure
+    await octokit.rest.reactions.createForIssueComment({
+      ...context.repo,
+      comment_id: context.payload.comment.id,
+      content: deprecated_checks_thumbsDown
+    })
+
+    return true
+  }
+
+  // if we get here, the input is not deprecated
+  return false
 }
 
 ;// CONCATENATED MODULE: ./src/functions/string-to-array.js
@@ -10667,7 +10809,6 @@ async function isAdmin(context) {
 
 
 
-
 // Runs precheck logic before the branch deployment can proceed
 // :param comment: The comment body of the event
 // :param trigger: The trigger word to check for
@@ -10679,6 +10820,8 @@ async function isAdmin(context) {
 // :param skipReviewsInput: An array of environments that should not be checked for reviewers (string)
 // :param draft_permitted_targets: An array of environments that can be deployed from a draft PR (string)
 // :param environment: The environment being used for deployment
+// :param environmentObj: The environment object from the environment-targets results
+// :param help_trigger: The trigger to run the help command
 // :param context: The context of the event
 // :param octokit: The octokit client
 // :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
@@ -10697,6 +10840,8 @@ async function prechecks(
   skipReviewsInput,
   draft_permitted_targets,
   environment,
+  environmentObj,
+  help_trigger,
   context,
   octokit
 ) {
@@ -10734,23 +10879,11 @@ async function prechecks(
 
   // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref = pr.data.head.ref
-  var noopMode = false
+  var noopMode = environmentObj.noop
   var forkBypass = false
 
-  // Regex statements for checking the trigger message
-  const regexCommandWithStableBranch = new RegExp(
-    `^\\${trigger}\\s*(${stable_branch}).*$`,
-    'i'
-  )
-  const regexCommandWithNoop = new RegExp(
-    `^\\${trigger}\\s*(${noop_trigger})$`,
-    'i'
-  )
-  const regexCommandWithoutParameters = new RegExp(`^\\${trigger}\\s*$`, 'i')
-  const regexCommandWithParameters = new RegExp(`^\\${trigger}\\s+.*$`, 'i')
-
   // Check to see if the "stable" branch was used as the deployment target
-  if (regexCommandWithStableBranch.test(comment)) {
+  if (environmentObj.stable_branch_used === true) {
     // Make an API call to get the base branch
     const baseBranch = await octokit.rest.repos.getBranch({
       ...context.repo,
@@ -10765,38 +10898,6 @@ async function prechecks(
     core.info(
       `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
     )
-    // Check to see if the IssueOps command requested noop mode
-  } else if (regexCommandWithNoop.test(comment)) {
-    core.info(
-      `${trigger} command used on current branch with noop mode - setting ref to ${ref}`
-    )
-    noopMode = true
-    // Check to see if the IssueOps command was used in a basic form with no other params
-  } else if (regexCommandWithoutParameters.test(comment)) {
-    core.info(
-      `${trigger} command used on current branch - setting ref to ${ref}`
-    )
-    // Check to see if the IssueOps command was used in a basic form with other params
-  } else if (regexCommandWithParameters.test(comment)) {
-    core.info(`issueops command used with parameters`)
-    if (comment.includes(noop_trigger)) {
-      core.info('noop mode used with parameters')
-      noopMode = true
-    }
-    // If no regex patterns matched, the IssueOps command was used in an unsupported way
-  } else {
-    message = lib_default()(`
-              ### ⚠️ Invalid command
-              
-              Please use one of the following:
-              
-              - \`${trigger}\` - deploy **this** branch (\`${ref}\`)
-              - \`${trigger} ${noop_trigger}\` - deploy **this** branch in **noop** mode (\`${ref}\`)
-              - \`${trigger} ${stable_branch}\` - deploy the \`${stable_branch}\` branch
-              - \`${trigger} to <environment>\` - deploy **this** branch to the specified environment
-              > Note: \`${trigger} ${stable_branch}\` is often used for rolling back a change or getting back to a known working state
-              `)
-    return {message: message, status: false}
   }
 
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
@@ -10982,7 +11083,7 @@ async function prechecks(
   core.debug(`behind: ${behind}`)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
-  if (regexCommandWithStableBranch.test(comment)) {
+  if (environmentObj.stable_branch_used === true) {
     message = '✔️ Deployment to the **stable** branch requested - OK'
     core.info(message)
     core.info(
@@ -12661,9 +12762,7 @@ async function help(octokit, context, reactionId, inputs) {
   - \`${inputs.trigger} ${inputs.stable_branch}\` - Rollback the \`${
     inputs.environment
   }\` environment to the \`${inputs.stable_branch}\` branch
-  - \`${inputs.trigger} ${
-    inputs.noop_trigger
-  }\` - Deploy this branch to the \`${
+  - \`${inputs.noop_trigger}\` - Deploy this branch to the \`${
     inputs.environment
   }\` environment in noop mode
   - \`${
@@ -12728,9 +12827,7 @@ async function help(octokit, context, reactionId, inputs) {
   - \`${inputs.trigger} ${inputs.stable_branch}\` - Rollback the \`${
     inputs.environment
   }\` environment to the \`${inputs.stable_branch}\` branch
-  - \`${inputs.trigger} ${
-    inputs.noop_trigger
-  }\` - Deploy this branch to the \`${
+  - \`${inputs.noop_trigger}\` - Deploy this branch to the \`${
     inputs.environment
   }\` environment in noop mode
   - \`${inputs.trigger} to <${inputs.environment_targets.replaceAll(
@@ -12815,6 +12912,7 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
@@ -12873,6 +12971,13 @@ async function run() {
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(github.context))) {
+      core.saveState('bypass', 'true')
+      return 'safe-exit'
+    }
+
+    // deprecated command/input checks
+    if ((await isDeprecated(body, octokit, github.context)) === true) {
+      core.saveState('bypass', 'true')
       return 'safe-exit'
     }
 
@@ -12882,18 +12987,26 @@ async function run() {
 
     // Check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(body, trigger)
+    const isNoopDeploy = await triggerCheck(body, noop_trigger)
     const isLock = await triggerCheck(body, lock_trigger)
     const isUnlock = await triggerCheck(body, unlock_trigger)
     const isHelp = await triggerCheck(body, help_trigger)
     const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
-    if (!isDeploy && !isLock && !isUnlock && !isHelp && !isLockInfoAlias) {
+    if (
+      !isDeploy &&
+      !isNoopDeploy &&
+      !isLock &&
+      !isUnlock &&
+      !isHelp &&
+      !isLockInfoAlias
+    ) {
       // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
       core.info('no trigger detected in comment - exiting')
       return 'safe-exit'
-    } else if (isDeploy) {
+    } else if (isDeploy || isNoopDeploy) {
       core.setOutput('type', 'deploy')
     } else if (isLock) {
       core.setOutput('type', 'lock')
@@ -13195,6 +13308,8 @@ async function run() {
       skipReviews,
       draft_permitted_targets,
       environment,
+      environmentObj.environmentObj,
+      help_trigger,
       github.context,
       octokit
     )
