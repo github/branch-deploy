@@ -3,7 +3,8 @@ import dedent from 'dedent-js'
 
 // The old and common trigger for noop style deployments
 const oldNoopInput = '.deploy noop'
-const docsLink = 'https://github.com'
+const docsLink =
+  'https://github.com/github/branch-deploy/blob/main/docs/deprecated.md'
 const thumbsDown = '-1'
 
 // A helper function to check against common inputs to see if they are deprecated
@@ -15,7 +16,7 @@ export async function isDeprecated(body, context, octokit) {
   // If the body of the payload starts with the common 'old noop' trigger, warn the user and exit
   if (body.startsWith(oldNoopInput)) {
     core.warning(
-      `'${oldNoopInput}' is deprecated. Please view the docs for more information: ${docsLink}`
+      `'${oldNoopInput}' is deprecated. Please view the docs for more information: ${docsLink}#deploy-noop`
     )
 
     const message = dedent(`
@@ -23,7 +24,7 @@ export async function isDeprecated(body, context, octokit) {
 
       ⚠️ Command is Deprecated ⚠️
 
-      The \`${oldNoopInput}\` command is deprecated. The new default is now \`.noop\`. Please view the docs for more information: ${docsLink}
+      The \`${oldNoopInput}\` command is deprecated. The new default is now \`.noop\`. Please view the docs for more information: ${docsLink}#deploy-noop
     `)
 
     // add a comment to the issue with the message

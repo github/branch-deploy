@@ -1,7 +1,8 @@
 import {isDeprecated} from '../../src/functions/deprecated-checks'
 import * as core from '@actions/core'
 
-const docsLink = 'https://github.com'
+const docsLink =
+  'https://github.com/github/branch-deploy/blob/main/docs/deprecated.md'
 const warningMock = jest.spyOn(core, 'warning')
 
 var context
@@ -51,6 +52,6 @@ test('checks a deployment message and finds the old "noop" style command which i
   const body = '.deploy noop'
   expect(await isDeprecated(body, context, octokit)).toBe(true)
   expect(warningMock).toHaveBeenCalledWith(
-    `'.deploy noop' is deprecated. Please view the docs for more information: ${docsLink}`
+    `'.deploy noop' is deprecated. Please view the docs for more information: ${docsLink}#deploy-noop`
   )
 })
