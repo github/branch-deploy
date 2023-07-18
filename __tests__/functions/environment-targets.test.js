@@ -167,6 +167,30 @@ test('checks the comment body and finds an explicit environment target for stagi
   )
 })
 
+test('checks the comment body and finds an explicit environment target for staging on a noop deploy with the stable branch', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.noop main staging',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({
+    environment: 'staging',
+    environmentUrl: null,
+    environmentObj: {
+      target: 'staging',
+      noop: true,
+      stable_branch_used: true,
+      params: null
+    }
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    'Found environment target for stable branch noop trigger: staging'
+  )
+})
+
 test('checks the comment body and finds an explicit environment target for staging on a noop deploy with environment_urls set', async () => {
   expect(
     await environmentTargets(
@@ -196,6 +220,46 @@ test('checks the comment body and finds an explicit environment target for stagi
   )
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for noop trigger: staging'
+  )
+  expect(saveStateMock).toHaveBeenCalledWith(
+    'environment_url',
+    'http://staging.example.com'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'environment_url',
+    'http://staging.example.com'
+  )
+})
+
+test('checks the comment body and finds an explicit environment target for staging on a noop deploy with environment_urls set and using the stable branch with "to" - and params!', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.noop main to staging | something1 something2 something3',
+      trigger,
+      noop_trigger,
+      stable_branch,
+      null,
+      null,
+      null,
+      false, // lockChecks disabled
+      environmentUrls
+    )
+  ).toStrictEqual({
+    environment: 'staging',
+    environmentUrl: 'http://staging.example.com',
+    environmentObj: {
+      target: 'staging',
+      noop: true,
+      stable_branch_used: true,
+      params: 'something1 something2 something3'
+    }
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    'environment url detected: http://staging.example.com'
+  )
+  expect(debugMock).toHaveBeenCalledWith(
+    `Found environment target for stable branch noop trigger (with 'to'): staging`
   )
   expect(saveStateMock).toHaveBeenCalledWith(
     'environment_url',
@@ -373,6 +437,54 @@ test('checks the comment body and finds an explicit environment target for stagi
   })
   expect(debugMock).toHaveBeenCalledWith(
     "Found environment target for noop trigger (with 'to'): staging"
+  )
+})
+
+test('checks the comment body and finds a noop deploy to the stable branch and default environment', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.noop main',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({
+    environment: 'production',
+    environmentUrl: null,
+    environmentObj: {
+      target: 'production',
+      stable_branch_used: true,
+      noop: true,
+      params: null
+    }
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    'Using default environment for stable branch noop trigger'
+  )
+})
+
+test('checks the comment body and finds a noop deploy to the stable branch and default environment with params', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.noop main | foo=bar',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({
+    environment: 'production',
+    environmentUrl: null,
+    environmentObj: {
+      target: 'production',
+      stable_branch_used: true,
+      noop: true,
+      params: 'foo=bar'
+    }
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    'Using default environment for stable branch noop trigger'
   )
 })
 

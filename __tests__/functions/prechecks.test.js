@@ -748,7 +748,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
 
   environmentObj.stable_branch_used = true
-  
+
   expect(
     await prechecks(
       '.deploy main',
@@ -1338,7 +1338,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
     .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
 
   environmentObj.noop = true
-  
+
   expect(
     await prechecks(
       '.noop',

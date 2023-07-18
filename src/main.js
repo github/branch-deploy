@@ -93,7 +93,14 @@ export async function run() {
     const isHelp = await triggerCheck(body, help_trigger)
     const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
-    if (!isDeploy && !isNoopDeploy && !isLock && !isUnlock && !isHelp && !isLockInfoAlias) {
+    if (
+      !isDeploy &&
+      !isNoopDeploy &&
+      !isLock &&
+      !isUnlock &&
+      !isHelp &&
+      !isLockInfoAlias
+    ) {
       // If the comment does not activate any triggers, exit
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
