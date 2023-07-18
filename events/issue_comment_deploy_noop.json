@@ -1,5 +1,5 @@
 {
     "comment": {
-        "body": ".deploy noop"
+        "body": ".noop"
     }
 }
