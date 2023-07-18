@@ -580,7 +580,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
 
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
       '.noop',
       'disabled',
@@ -710,7 +710,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
 
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
       '.noop',
       'disabled',
@@ -1065,7 +1065,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
   })
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
       '.noop',
       'force',
@@ -1113,7 +1113,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
   })
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
       '.noop',
       'warn',
@@ -1168,7 +1168,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
   })
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
       '.noop',
       'force',
@@ -1220,7 +1220,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
 
   expect(
     await prechecks(
-      '.deploy noop',
+      '.noop',
       '.deploy',
       '.noop',
       'force',
