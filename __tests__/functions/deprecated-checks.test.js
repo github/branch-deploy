@@ -45,12 +45,12 @@ beforeEach(() => {
 
 test('checks a deployment message and does not find anything that is deprecated', async () => {
   const body = '.deploy to production'
-  expect(await isDeprecated(body, context, octokit)).toBe(false)
+  expect(await isDeprecated(body, octokit, context)).toBe(false)
 })
 
 test('checks a deployment message and finds the old "noop" style command which is now deprecated', async () => {
   const body = '.deploy noop'
-  expect(await isDeprecated(body, context, octokit)).toBe(true)
+  expect(await isDeprecated(body, octokit, context)).toBe(true)
   expect(warningMock).toHaveBeenCalledWith(
     `'.deploy noop' is deprecated. Please view the docs for more information: ${docsLink}#deploy-noop`
   )

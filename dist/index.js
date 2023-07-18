@@ -10552,10 +10552,10 @@ const deprecated_checks_thumbsDown = '-1'
 
 // A helper function to check against common inputs to see if they are deprecated
 // :param body: The content body of the message being checked (String)
-// :param context: The context of the action
 // :param octokit: The octokit object
+// :param context: The context of the action
 // :returns: true if the input is deprecated, false otherwise
-async function isDeprecated(body, context, octokit) {
+async function isDeprecated(body, octokit, context) {
   // If the body of the payload starts with the common 'old noop' trigger, warn the user and exit
   if (body.startsWith(oldNoopInput)) {
     core.warning(
