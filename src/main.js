@@ -5,6 +5,7 @@ import {reactEmote} from './functions/react-emote'
 import {environmentTargets} from './functions/environment-targets'
 import {actionStatus} from './functions/action-status'
 import {createDeploymentStatus} from './functions/deployment'
+import {isDeprecated} from './functions/deprecated-checks'
 import {prechecks} from './functions/prechecks'
 import {validPermissions} from './functions/valid-permissions'
 import {lock} from './functions/lock'
@@ -81,6 +82,10 @@ export async function run() {
       core.saveState('bypass', 'true')
       return 'safe-exit'
     }
+
+    // deprecated command/input checks
+    if (await isDeprecated(body, octokit, context) === true) {
+      core.saveState('bypass', 'true')
       return 'safe-exit'
     }
 
