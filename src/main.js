@@ -84,7 +84,7 @@ export async function run() {
     }
 
     // deprecated command/input checks
-    if (await isDeprecated(body, octokit, context) === true) {
+    if ((await isDeprecated(body, octokit, context)) === true) {
       core.saveState('bypass', 'true')
       return 'safe-exit'
     }

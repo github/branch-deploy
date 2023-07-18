@@ -14,7 +14,9 @@ const thumbsDown = '-1'
 export async function isDeprecated(body, context, octokit) {
   // If the body of the payload starts with the common 'old noop' trigger, warn the user and exit
   if (body.startsWith(oldNoopInput)) {
-    core.warning(`'${oldNoopInput}' is deprecated. Please view the docs for more information: ${docsLink}`)
+    core.warning(
+      `'${oldNoopInput}' is deprecated. Please view the docs for more information: ${docsLink}`
+    )
 
     const message = dedent(`
       ### Deprecated Input Detected
