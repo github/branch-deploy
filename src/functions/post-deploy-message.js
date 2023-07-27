@@ -6,14 +6,22 @@ import {readFileSync, existsSync} from 'fs'
 // Helper function construct a post deployment message
 // :param input: The input to check
 // :returns: The input if it is valid, null otherwise
-export async function postDeployMessage() {
+export async function postDeployMessage(
+  context,
+  environment,
+  environment_url,
+  status,
+  noop,
+  ref
+) {
+  // fetch the inputs
   const environment_url_in_comment =
     core.getInput('environment_url_in_comment') === 'true'
-
   const tmp = core.getInput('tmp', {required: true})
   const deploy_message_filename = await checkInput(
     core.getInput('deploy_message_filename')
   )
+  const deployMessageEnvVar = await checkInput(process.env.DEPLOY_MESSAGE)
 
   var deployMessagePath
   if (deploy_message_filename) {
@@ -23,8 +31,6 @@ export async function postDeployMessage() {
     core.debug('deploy_message_filename not set, setting to null')
     deployMessagePath = null
   }
-
-  const deployMessageEnvVar = process.env.DEPLOY_MESSAGE
 
   // open the deployMessagePath file if it is set
   var deployMessage
@@ -61,8 +67,8 @@ export async function postDeployMessage() {
 
   // Conditionally format the message body
   var message_fmt
-  if (customMessage && customMessage.length > 0) {
-    const customMessageFmt = customMessage
+  if (deployMessageEnvVar) {
+    const customMessageFmt = deployMessageEnvVar
       .replace(/\\n/g, '\n')
       .replace(/\\t/g, '\t')
     message_fmt = dedent(`
@@ -97,4 +103,6 @@ export async function postDeployMessage() {
       .replace('http://', '')
     message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${environment_url})`
   }
+
+  return message_fmt
 }
