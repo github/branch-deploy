@@ -126,7 +126,7 @@ inputs:
     required: false
     default: "false"
   deploy_message_filename:
-    description: 'A filename to use for custom deployment messages. This file must be located within the "tmp" (${{ runner.temp }}) directory. Default is "DEPLOYMENT_MESSAGE.md"'
+    description: 'A filename to use for custom deployment messages. This file must be located within the "tmp" directory. Default is "DEPLOYMENT_MESSAGE.md"'
     required: false
     default: "DEPLOYMENT_MESSAGE.md"
 outputs:
