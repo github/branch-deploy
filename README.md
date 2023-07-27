@@ -283,6 +283,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `merge_deploy_mode` | `false` | `"false"` | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
 | `unlock_on_merge_mode` | `false` | `"false"` | Advanced configuration option for automatically releasing locks associated with a pull request when that pull request is merged. See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
 | `skip_completing` | `false` | `"false"` | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
+| `deploy_message_filename` | `false` | `"DEPLOYMENT_MESSAGE.md"` | A filename to use for custom deployment messages. This file must be located within the "tmp" (`${{ runner.temp }}`) directory |
 
 ## Outputs 📤
 
