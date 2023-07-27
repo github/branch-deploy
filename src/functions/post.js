@@ -13,7 +13,7 @@ export async function post() {
     const noop = core.getState('noop')
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
-    var environment_url = await checkInput(core.getState('environment_url'))
+    const environment_url = await checkInput(core.getState('environment_url'))
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
@@ -47,9 +47,8 @@ export async function post() {
     const octokit = github.getOctokit(token)
 
     // Set the environment_url
-    if (!environment_url) {
-      core.debug('environment_url not set, setting to null')
-      environment_url = null
+    if (environment_url === null) {
+      core.debug('environment_url not set, its value is null')
     }
 
     // check and set the deploy message if it is being used from a file input

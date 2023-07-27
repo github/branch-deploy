@@ -124,8 +124,6 @@ export async function postDeploy(
   // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
   if (
     environment_url &&
-    environment_url.length > 0 &&
-    environment_url.trim() !== '' &&
     status === 'success' &&
     noop !== 'true' &&
     environment_url_in_comment === true
