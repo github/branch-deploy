@@ -5,7 +5,9 @@ import * as contextCheck from '../../src/functions/context-check'
 import * as github from '@actions/github'
 
 const validInputs = {
-  skip_completing: 'false'
+  skip_completing: 'false',
+  deploy_message_filename: 'DEPLOYMENT_MESSAGE.md',
+  tmp: '/home/runner/work/_temp'
 }
 const validStates = {
   ref: 'test-ref',
@@ -43,6 +45,18 @@ beforeEach(() => {
 })
 
 test('successfully runs post() Action logic', async () => {
+  expect(await post()).toBeUndefined()
+})
+
+test('successfully runs post() Action logic with deploy_message_filename unset', async () => {
+  const customInputs = {
+    skip_completing: 'false',
+    deploy_message_filename: '',
+    tmp: '/home/runner/work/_temp'
+  }
+  jest.spyOn(core, 'getInput').mockImplementation(name => {
+    return customInputs[name]
+  })
   expect(await post()).toBeUndefined()
 })
 
