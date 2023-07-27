@@ -29,7 +29,6 @@ export async function run() {
     const reaction = core.getInput('reaction')
     const token = core.getInput('github_token', {required: true})
     var environment = core.getInput('environment', {required: true})
-    const tmp = core.getInput('tmp', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
