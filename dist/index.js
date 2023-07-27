@@ -18786,7 +18786,14 @@ async function postDeploy(
     success = false
   }
 
-  const message = await postDeployMessage()
+  const message = await postDeployMessage(
+    context,
+    environment,
+    environment_url,
+    status,
+    noop,
+    ref
+  )
 
   // Update the action status to indicate the result of the deployment as a comment
   await actionStatus(context, octokit, parseInt(reaction_id), message, success)
