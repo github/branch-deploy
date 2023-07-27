@@ -17,14 +17,7 @@ export async function post() {
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
-    const tmp = core.getInput('tmp', {required: true})
-    const deploy_message_filename = await checkInput(
-      core.getInput('deploy_message_filename')
-    )
     const skip_completing = core.getInput('skip_completing') === 'true'
-    const environment_url_in_comment =
-      core.getInput('environment_url_in_comment') === 'true'
-    const deployMessage = process.env.DEPLOY_MESSAGE
 
     // If bypass is set, exit the workflow
     if (bypass) {
@@ -51,30 +44,17 @@ export async function post() {
       core.debug('environment_url not set, its value is null')
     }
 
-    // check and set the deploy message if it is being used from a file input
-    var deployMessagePath
-    if (deploy_message_filename) {
-      deployMessagePath = `${tmp}/${deploy_message_filename}`
-      core.debug(`deployMessagePath: ${deployMessagePath}`)
-    } else {
-      core.debug('deploy_message_filename not set, setting to null')
-      deployMessagePath = null
-    }
-
     await postDeploy(
       context,
       octokit,
       comment_id,
       reaction_id,
       status,
-      deployMessage,
       ref,
       noop,
       deployment_id,
       environment,
-      environment_url,
-      environment_url_in_comment,
-      deployMessagePath
+      environment_url
     )
 
     return

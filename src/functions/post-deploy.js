@@ -3,8 +3,7 @@ import {actionStatus} from './action-status'
 import {createDeploymentStatus} from './deployment'
 import {unlock} from './unlock'
 import {lock} from './lock'
-import {readFileSync, existsSync} from 'fs'
-import dedent from 'dedent-js'
+import {postDeployMessage} from './post-deploy-message'
 
 // Helper function to help facilitate the process of completing a deployment
 // :param context: The GitHub Actions event context
@@ -27,14 +26,11 @@ export async function postDeploy(
   comment_id,
   reaction_id,
   status,
-  customMessage,
   ref,
   noop,
   deployment_id,
   environment,
-  environment_url,
-  environment_url_in_comment,
-  deployMessagePath
+  environment_url
 ) {
   // Check the inputs to ensure they are valid
   if (!comment_id || comment_id.length === 0) {
@@ -54,18 +50,6 @@ export async function postDeploy(
     }
   }
 
-  // open the deployMessagePath file if it is set
-  var deployMessage
-  if (deployMessagePath) {
-    if (existsSync(deployMessagePath)) {
-      deployMessage = readFileSync(deployMessagePath, 'utf8')
-      core.debug(`deployMessage: ${deployMessage}`)
-    } else {
-      core.debug('deployMessagePath does not exist, setting to null')
-      deployMessage = null
-    }
-  }
-
   // Check the deployment status
   var success
   if (status === 'success') {
@@ -74,74 +58,10 @@ export async function postDeploy(
     success = false
   }
 
-  var deployTypeString = ' ' // a single space as a default
-
-  // Set the mode and deploy type based on the deployment mode
-  if (noop === 'true') {
-    deployTypeString = ' **noop** '
-  }
-
-  // Dynamically set the message text depending if the deployment succeeded or failed
-  var message
-  var deployStatus
-  if (status === 'success') {
-    message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${ref}\` to **${environment}**`
-    deployStatus = '✅'
-  } else if (status === 'failure') {
-    message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${ref}\` to **${environment}**`
-    deployStatus = '❌'
-  } else {
-    message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
-    deployStatus = '⚠️'
-  }
-
-  // Conditionally format the message body
-  var message_fmt
-  if (customMessage && customMessage.length > 0) {
-    const customMessageFmt = customMessage
-      .replace(/\\n/g, '\n')
-      .replace(/\\t/g, '\t')
-    message_fmt = dedent(`
-    ### Deployment Results ${deployStatus}
-
-    ${message}
-  
-    <details><summary>Show Results</summary>
-  
-    ${customMessageFmt}
-  
-    </details>
-    `)
-  } else {
-    message_fmt = dedent(`
-    ### Deployment Results ${deployStatus}
-  
-    ${message}
-    `)
-  }
-
-  // Conditionally add the environment url to the message body
-  // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
-  if (
-    environment_url &&
-    status === 'success' &&
-    noop !== 'true' &&
-    environment_url_in_comment === true
-  ) {
-    const environment_url_short = environment_url
-      .replace('https://', '')
-      .replace('http://', '')
-    message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${environment_url})`
-  }
+  const message = await postDeployMessage()
 
   // Update the action status to indicate the result of the deployment as a comment
-  await actionStatus(
-    context,
-    octokit,
-    parseInt(reaction_id),
-    message_fmt,
-    success
-  )
+  await actionStatus(context, octokit, parseInt(reaction_id), message, success)
 
   // Update the deployment status of the branch-deploy
   var deploymentStatus
