@@ -147,7 +147,8 @@ test('successfully constructs a post deploy message with a custom env var', asyn
 })
 
 test('successfully constructs a post deploy message with a custom markdown file', async () => {
-  process.env.INPUT_DEPLOY_MESSAGE_PATH = '__tests__/templates/test_deployment_message.md'
+  process.env.INPUT_DEPLOY_MESSAGE_PATH =
+    '__tests__/templates/test_deployment_message.md'
   expect(
     await postDeployMessage(
       context, // context
