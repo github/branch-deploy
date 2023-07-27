@@ -12202,7 +12202,10 @@ async function unlock(
   }
 }
 
+// EXTERNAL MODULE: external "fs"
+var external_fs_ = __nccwpck_require__(7147);
 ;// CONCATENATED MODULE: ./src/functions/post-deploy.js
+
 
 
 
@@ -12223,6 +12226,7 @@ async function unlock(
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
 // :param environment_url_in_comment: Indicates whether the environment url should be added to the comment (Boolean)
+// :param deployMessagePath: The path to the deploy message file (String) (optional, can be null)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 async function postDeploy(
   context,
@@ -12236,7 +12240,8 @@ async function postDeploy(
   deployment_id,
   environment,
   environment_url,
-  environment_url_in_comment
+  environment_url_in_comment,
+  deployMessagePath
 ) {
   // Check the inputs to ensure they are valid
   if (!comment_id || comment_id.length === 0) {
@@ -12254,6 +12259,13 @@ async function postDeploy(
     if (!environment || environment.length === 0) {
       throw new Error('no environment provided')
     }
+  }
+
+  // open the deployMessagePath file if it is set
+  var deployMessage
+  if (deployMessagePath) {
+    deployMessage = (0,external_fs_.readFileSync)(deployMessagePath, 'utf8')
+    core.debug(`deployMessage: ${deployMessage}`)
   }
 
   // Check the deployment status
@@ -12446,6 +12458,9 @@ async function post() {
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
+    const tmp = core.getInput('tmp', {required: true})
+    const deploy_message_filename = core.getInput('deploy_message_filename')
+      .trim()
     const skip_completing = core.getInput('skip_completing')
     const environment_url_in_comment =
       core.getInput('environment_url_in_comment') === 'true'
@@ -12482,6 +12497,23 @@ async function post() {
       environment_url = null
     }
 
+    // check and set the deploy message if it is being used from a file input
+    var deployMessagePath
+    if (
+      deploy_message_filename !== 'false' &&
+      deploy_message_filename !== '' &&
+      deploy_message_filename !== null &&
+      deploy_message_filename !== undefined &&
+      deploy_message_filename.length !== 0 &&
+      deploy_message_filename !== 'null'
+    ) {
+      deployMessagePath = `${tmp}/${deploy_message_filename}`
+      core.debug(`deployMessagePath: ${deployMessagePath}`)
+    } else {
+      core.debug('deploy_message_filename not set, setting to null')
+      deployMessagePath = null
+    }
+
     await postDeploy(
       github.context,
       octokit,
@@ -12494,7 +12526,8 @@ async function post() {
       deployment_id,
       environment,
       environment_url,
-      environment_url_in_comment
+      environment_url_in_comment,
+      deployMessagePath
     )
 
     return
@@ -12921,6 +12954,7 @@ async function run() {
     const reaction = core.getInput('reaction')
     const token = core.getInput('github_token', {required: true})
     var environment = core.getInput('environment', {required: true})
+    const tmp = core.getInput('tmp', {required: true})
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')

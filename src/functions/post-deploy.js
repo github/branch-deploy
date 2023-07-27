@@ -3,6 +3,7 @@ import {actionStatus} from './action-status'
 import {createDeploymentStatus} from './deployment'
 import {unlock} from './unlock'
 import {lock} from './lock'
+import {readFileSync} from 'fs'
 import dedent from 'dedent-js'
 
 // Helper function to help facilitate the process of completing a deployment
@@ -18,6 +19,7 @@ import dedent from 'dedent-js'
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
 // :param environment_url_in_comment: Indicates whether the environment url should be added to the comment (Boolean)
+// :param deployMessagePath: The path to the deploy message file (String) (optional, can be null)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(
   context,
@@ -31,7 +33,8 @@ export async function postDeploy(
   deployment_id,
   environment,
   environment_url,
-  environment_url_in_comment
+  environment_url_in_comment,
+  deployMessagePath
 ) {
   // Check the inputs to ensure they are valid
   if (!comment_id || comment_id.length === 0) {
@@ -49,6 +52,13 @@ export async function postDeploy(
     if (!environment || environment.length === 0) {
       throw new Error('no environment provided')
     }
+  }
+
+  // open the deployMessagePath file if it is set
+  var deployMessage
+  if (deployMessagePath) {
+    deployMessage = readFileSync(deployMessagePath, 'utf8')
+    core.debug(`deployMessage: ${deployMessage}`)
   }
 
   // Check the deployment status

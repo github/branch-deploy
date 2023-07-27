@@ -16,6 +16,10 @@ export async function post() {
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
+    const tmp = core.getInput('tmp', {required: true})
+    const deploy_message_filename = core
+      .getInput('deploy_message_filename')
+      .trim()
     const skip_completing = core.getInput('skip_completing')
     const environment_url_in_comment =
       core.getInput('environment_url_in_comment') === 'true'
@@ -52,6 +56,23 @@ export async function post() {
       environment_url = null
     }
 
+    // check and set the deploy message if it is being used from a file input
+    var deployMessagePath
+    if (
+      deploy_message_filename !== 'false' &&
+      deploy_message_filename !== '' &&
+      deploy_message_filename !== null &&
+      deploy_message_filename !== undefined &&
+      deploy_message_filename.length !== 0 &&
+      deploy_message_filename !== 'null'
+    ) {
+      deployMessagePath = `${tmp}/${deploy_message_filename}`
+      core.debug(`deployMessagePath: ${deployMessagePath}`)
+    } else {
+      core.debug('deploy_message_filename not set, setting to null')
+      deployMessagePath = null
+    }
+
     await postDeploy(
       context,
       octokit,
@@ -64,7 +85,8 @@ export async function post() {
       deployment_id,
       environment,
       environment_url,
-      environment_url_in_comment
+      environment_url_in_comment,
+      deployMessagePath
     )
 
     return
