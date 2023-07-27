@@ -18624,7 +18624,7 @@ var nunjucks_default = /*#__PURE__*/__nccwpck_require__.n(nunjucks);
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
 // :param status: The status of the deployment (String)
-// :param noop: Indicates whether the deployment is a noop or not (String)
+// :param noop: Indicates whether the deployment is a noop or not (Boolean)
 // :param ref: The ref (branch) which is being used for deployment (String)
 // :returns: The formatted message (String)
 async function postDeployMessage(
@@ -18653,7 +18653,8 @@ async function postDeployMessage(
         environment_url,
         status,
         noop,
-        ref
+        ref,
+        actor: context.actor
       }
       return nunjucks_default().render(deployMessagePath, vars)
     }
@@ -18665,7 +18666,7 @@ async function postDeployMessage(
   var deployTypeString = ' ' // a single space as a default
 
   // Set the mode and deploy type based on the deployment mode
-  if (noop === 'true') {
+  if (noop === true) {
     deployTypeString = ' **noop** '
   }
 
@@ -18712,7 +18713,7 @@ async function postDeployMessage(
   if (
     environment_url &&
     status === 'success' &&
-    noop !== 'true' &&
+    noop !== true &&
     environment_url_in_comment === true
   ) {
     const environment_url_short = environment_url
@@ -18740,7 +18741,7 @@ async function postDeployMessage(
 // :param status: The status of the deployment (String)
 // :param message: A custom string to add as the deployment status message (String)
 // :param ref: The ref (branch) which is being used for deployment (String)
-// :param noop: Indicates whether the deployment is a noop or not (String)
+// :param noop: Indicates whether the deployment is a noop or not (Boolean)
 // :param deployment_id: The id of the deployment (String)
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
@@ -18766,9 +18767,9 @@ async function postDeploy(
     throw new Error('no status provided')
   } else if (!ref || ref.length === 0) {
     throw new Error('no ref provided')
-  } else if (!noop || noop.length === 0) {
+  } else if (noop === null || noop === undefined) {
     throw new Error('no noop value provided')
-  } else if (noop !== 'true') {
+  } else if (noop !== true) {
     if (!deployment_id || deployment_id.length === 0) {
       throw new Error('no deployment_id provided')
     }
@@ -18799,7 +18800,7 @@ async function postDeploy(
   }
 
   // If the deployment mode is noop, return here
-  if (noop === 'true') {
+  if (noop === true) {
     core.debug('deployment mode: noop')
     // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
     const lockResponse = await lock(
@@ -18895,7 +18896,7 @@ async function post() {
     const ref = core.getState('ref')
     const comment_id = core.getState('comment_id')
     const reaction_id = core.getState('reaction_id')
-    const noop = core.getState('noop')
+    const noop = core.getState('noop') === 'true'
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
     const environment_url = await checkInput(core.getState('environment_url'))
