@@ -17,7 +17,8 @@ beforeEach(() => {
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
 
-  process.env.INPUT_TMP = "/home/runner/work/_temp"
+  process.env.DEPLOY_MESSAGE = null
+  process.env.INPUT_TMP = '/home/runner/work/_temp'
   process.env.INPUT_ENVIRONMENT_URL_IN_COMMENT = 'true'
   process.env.INPUT_DEPLOY_MESSAGE_FILENAME = 'DEPLOYMENT_MESSAGE.md'
 
@@ -60,7 +61,34 @@ test('successfully constructs a post deploy message with the defaults', async ()
 
       **${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**
 
-      > **Environment URL:** [${environment_url_simple}](${environment_url})
-`)
+      > **Environment URL:** [${environment_url_simple}](${environment_url})`)
+  )
+})
+
+test('successfully constructs a post deploy message with a custom env var', async () => {
+  process.env.DEPLOY_MESSAGE = 'Deployed 1 shiny new server'
+
+  expect(
+    await postDeployMessage(
+      context, // context
+      environment, // environment
+      environment_url, // environment_url
+      status, // status
+      noop, // noop
+      ref // ref
+    )
+  ).toStrictEqual(
+    dedent(`
+      ### Deployment Results ✅
+
+      **${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**
+
+      <details><summary>Show Results</summary>
+
+      Deployed 1 shiny new server
+
+      </details>
+
+      > **Environment URL:** [${environment_url_simple}](${environment_url})`)
   )
 })
