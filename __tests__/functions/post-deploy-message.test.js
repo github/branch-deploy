@@ -145,3 +145,21 @@ test('successfully constructs a post deploy message with a custom env var', asyn
       > **Environment URL:** [${environment_url_simple}](${environment_url})`)
   )
 })
+
+test('successfully constructs a post deploy message with a custom markdown file', async () => {
+  process.env.INPUT_DEPLOY_MESSAGE_PATH = '__tests__/templates/test_deployment_message.md'
+  expect(
+    await postDeployMessage(
+      context, // context
+      environment, // environment
+      environment_url, // environment_url
+      status, // status
+      noop, // noop
+      ref // ref
+    )
+  ).toStrictEqual(
+    dedent(`test
+
+    `)
+  )
+})

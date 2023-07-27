@@ -1,7 +1,8 @@
 import * as core from '@actions/core'
 import {checkInput} from './check-input'
 import dedent from 'dedent-js'
-import {readFileSync, existsSync} from 'fs'
+import {existsSync} from 'fs'
+import nunjucks from 'nunjucks'
 
 // Helper function construct a post deployment message
 // :param context: The GitHub Actions event context
@@ -28,29 +29,22 @@ export async function postDeployMessage(
 
   // if the 'deployMessagePath' exists, use that instead of the env var option
   // the env var option can often fail if the message is too long so this is the preferred option
-  var deployMessageFileContents
   if (deployMessagePath) {
     if (existsSync(deployMessagePath)) {
-      deployMessageFileContents = readFileSync(deployMessagePath, 'utf8')
-      core.debug(`deployMessageFileContents: ${deployMessageFileContents}`)
-
-      // make sure the file contents are not empty
-      if (
-        !deployMessageFileContents ||
-        deployMessageFileContents.length === 0
-      ) {
-        deployMessageFileContents = null
-        core.debug('deployMessageFileContents is empty - setting to null')
+      core.debug('using deployMessagePath')
+      nunjucks.configure({autoescape: true})
+      const vars = {
+        environment,
+        environment_url,
+        status,
+        noop,
+        ref
       }
+      return nunjucks.render(deployMessagePath, vars)
     }
   }
 
-  if (deployMessageFileContents) {
-    core.debug('using deployMessageFileContents')
-  }
-
-  /// If we get here, try to use the env var option with the default message structure
-
+  // If we get here, try to use the env var option with the default message structure
   const deployMessageEnvVar = await checkInput(process.env.DEPLOY_MESSAGE)
 
   var deployTypeString = ' ' // a single space as a default
