@@ -38,7 +38,10 @@ export async function postDeployMessage(
       core.debug(`deployMessageFileContents: ${deployMessageFileContents}`)
 
       // make sure the file contents are not empty
-      if (!deployMessageFileContents || deployMessageFileContents.length === 0) {
+      if (
+        !deployMessageFileContents ||
+        deployMessageFileContents.length === 0
+      ) {
         deployMessageFileContents = null
         core.debug('deployMessageFileContents is empty - setting to null')
       }
@@ -84,19 +87,18 @@ export async function postDeployMessage(
     ### Deployment Results ${deployStatus}
 
     ${message}
-  
+
     <details><summary>Show Results</summary>
-  
+
     ${customMessageFmt}
-  
+
     </details>
     `)
   } else {
     message_fmt = dedent(`
     ### Deployment Results ${deployStatus}
-  
-    ${message}
-    `)
+
+    ${message}`)
   }
 
   // Conditionally add the environment url to the message body
