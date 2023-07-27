@@ -65,6 +65,24 @@ test('successfully constructs a post deploy message with the defaults', async ()
   )
 })
 
+test('successfully constructs a post deploy message with the defaults during a "noop" deploy', async () => {
+  expect(
+    await postDeployMessage(
+      context, // context
+      environment, // environment
+      environment_url, // environment_url
+      status, // status
+      'true', // noop
+      ref // ref
+    )
+  ).toStrictEqual(
+    dedent(`
+      ### Deployment Results ✅
+
+      **${context.actor}** successfully **noop** deployed branch \`${ref}\` to **${environment}**`)
+  )
+})
+
 test('successfully constructs a post deploy message with the defaults during a deployment failure', async () => {
   expect(
     await postDeployMessage(
