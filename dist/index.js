@@ -12202,10 +12202,154 @@ async function unlock(
   }
 }
 
+;// CONCATENATED MODULE: ./src/functions/check-input.js
+// Helper function to check an Action's input to ensure it is valid
+// :param input: The input to check
+// :returns: The input if it is valid, null otherwise
+async function checkInput(input) {
+  // if the input is an empty string (most common), return null
+  if (input === '' || input?.trim() === '') {
+    return null
+  }
+
+  // if the input is null, undefined, or empty, return null
+  if (input === null || input === undefined || input?.length === 0) {
+    return null
+  }
+
+  // if the input is a string of null or undefined, return null
+  if (input === 'null' || input === 'undefined') {
+    return null
+  }
+
+  // if we made it this far, the input is valid, return it
+  return input
+}
+
 // EXTERNAL MODULE: external "fs"
 var external_fs_ = __nccwpck_require__(7147);
-;// CONCATENATED MODULE: ./src/functions/post-deploy.js
+;// CONCATENATED MODULE: ./src/functions/post-deploy-message.js
 
+
+
+
+
+// Helper function construct a post deployment message
+// :param context: The GitHub Actions event context
+// :param environment: The environment of the deployment (String)
+// :param environment_url: The environment url of the deployment (String)
+// :param status: The status of the deployment (String)
+// :param noop: Indicates whether the deployment is a noop or not (String)
+// :param ref: The ref (branch) which is being used for deployment (String)
+// :returns: The formatted message (String)
+async function postDeployMessage(
+  context,
+  environment,
+  environment_url,
+  status,
+  noop,
+  ref
+) {
+  // fetch the inputs
+  const environment_url_in_comment =
+    core.getInput('environment_url_in_comment') === 'true'
+  const tmp = core.getInput('tmp', {required: true})
+  const deploy_message_filename = await checkInput(
+    core.getInput('deploy_message_filename')
+  )
+
+  // if the 'deployMessagePath' exists, use that instead of the env var option
+  // the env var option can often fail if the message is too long so this is the preferred option
+  var deployMessageFileContents
+  if (deploy_message_filename) {
+    const deployMessagePath = `${tmp}/${deploy_message_filename}`
+    core.debug(`deployMessagePath: ${deployMessagePath}`)
+    if ((0,external_fs_.existsSync)(deployMessagePath)) {
+      deployMessageFileContents = (0,external_fs_.readFileSync)(deployMessagePath, 'utf8')
+      core.debug(`deployMessageFileContents: ${deployMessageFileContents}`)
+
+      // make sure the file contents are not empty
+      if (
+        !deployMessageFileContents ||
+        deployMessageFileContents.length === 0
+      ) {
+        deployMessageFileContents = null
+        core.debug('deployMessageFileContents is empty - setting to null')
+      }
+    }
+  }
+
+  if (deployMessageFileContents) {
+    core.debug('using deployMessageFileContents')
+  }
+
+  /// If we get here, try to use the env var option with the default message structure
+
+  const deployMessageEnvVar = await checkInput(process.env.DEPLOY_MESSAGE)
+
+  var deployTypeString = ' ' // a single space as a default
+
+  // Set the mode and deploy type based on the deployment mode
+  if (noop === 'true') {
+    deployTypeString = ' **noop** '
+  }
+
+  // Dynamically set the message text depending if the deployment succeeded or failed
+  var message
+  var deployStatus
+  if (status === 'success') {
+    message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${ref}\` to **${environment}**`
+    deployStatus = '✅'
+  } else if (status === 'failure') {
+    message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${ref}\` to **${environment}**`
+    deployStatus = '❌'
+  } else {
+    message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
+    deployStatus = '⚠️'
+  }
+
+  // Conditionally format the message body
+  var message_fmt
+  if (deployMessageEnvVar) {
+    const customMessageFmt = deployMessageEnvVar
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+    message_fmt = lib_default()(`
+    ### Deployment Results ${deployStatus}
+
+    ${message}
+
+    <details><summary>Show Results</summary>
+
+    ${customMessageFmt}
+
+    </details>
+    `)
+  } else {
+    message_fmt = lib_default()(`
+    ### Deployment Results ${deployStatus}
+
+    ${message}`)
+  }
+
+  // Conditionally add the environment url to the message body
+  // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
+  if (
+    environment_url &&
+    status === 'success' &&
+    noop !== 'true' &&
+    environment_url_in_comment === true
+  ) {
+    const environment_url_short = environment_url
+      .replace('https://', '')
+      .replace('http://', '')
+    message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${environment_url})`
+  }
+
+  return message_fmt
+}
+
+;// CONCATENATED MODULE: ./src/functions/post-deploy.js
 
 
 
@@ -12234,14 +12378,11 @@ async function postDeploy(
   comment_id,
   reaction_id,
   status,
-  customMessage,
   ref,
   noop,
   deployment_id,
   environment,
-  environment_url,
-  environment_url_in_comment,
-  deployMessagePath
+  environment_url
 ) {
   // Check the inputs to ensure they are valid
   if (!comment_id || comment_id.length === 0) {
@@ -12261,18 +12402,6 @@ async function postDeploy(
     }
   }
 
-  // open the deployMessagePath file if it is set
-  var deployMessage
-  if (deployMessagePath) {
-    if ((0,external_fs_.existsSync)(deployMessagePath)) {
-      deployMessage = (0,external_fs_.readFileSync)(deployMessagePath, 'utf8')
-      core.debug(`deployMessage: ${deployMessage}`)
-    } else {
-      core.debug('deployMessagePath does not exist, setting to null')
-      deployMessage = null
-    }
-  }
-
   // Check the deployment status
   var success
   if (status === 'success') {
@@ -12281,76 +12410,10 @@ async function postDeploy(
     success = false
   }
 
-  var deployTypeString = ' ' // a single space as a default
-
-  // Set the mode and deploy type based on the deployment mode
-  if (noop === 'true') {
-    deployTypeString = ' **noop** '
-  }
-
-  // Dynamically set the message text depending if the deployment succeeded or failed
-  var message
-  var deployStatus
-  if (status === 'success') {
-    message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${ref}\` to **${environment}**`
-    deployStatus = '✅'
-  } else if (status === 'failure') {
-    message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${ref}\` to **${environment}**`
-    deployStatus = '❌'
-  } else {
-    message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
-    deployStatus = '⚠️'
-  }
-
-  // Conditionally format the message body
-  var message_fmt
-  if (customMessage && customMessage.length > 0) {
-    const customMessageFmt = customMessage
-      .replace(/\\n/g, '\n')
-      .replace(/\\t/g, '\t')
-    message_fmt = lib_default()(`
-    ### Deployment Results ${deployStatus}
-
-    ${message}
-  
-    <details><summary>Show Results</summary>
-  
-    ${customMessageFmt}
-  
-    </details>
-    `)
-  } else {
-    message_fmt = lib_default()(`
-    ### Deployment Results ${deployStatus}
-  
-    ${message}
-    `)
-  }
-
-  // Conditionally add the environment url to the message body
-  // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
-  if (
-    environment_url &&
-    environment_url.length > 0 &&
-    environment_url.trim() !== '' &&
-    status === 'success' &&
-    noop !== 'true' &&
-    environment_url_in_comment === true
-  ) {
-    const environment_url_short = environment_url
-      .replace('https://', '')
-      .replace('http://', '')
-    message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${environment_url})`
-  }
+  const message = await postDeployMessage()
 
   // Update the action status to indicate the result of the deployment as a comment
-  await actionStatus(
-    context,
-    octokit,
-    parseInt(reaction_id),
-    message_fmt,
-    success
-  )
+  await actionStatus(context, octokit, parseInt(reaction_id), message, success)
 
   // Update the deployment status of the branch-deploy
   var deploymentStatus
@@ -12451,6 +12514,7 @@ async function postDeploy(
 
 
 
+
 async function post() {
   try {
     const ref = core.getState('ref')
@@ -12459,19 +12523,14 @@ async function post() {
     const noop = core.getState('noop')
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
-    var environment_url = core.getState('environment_url')
+    const environment_url = await checkInput(core.getState('environment_url'))
     const token = core.getState('actionsToken')
-    const bypass = core.getState('bypass')
+    const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
-    const tmp = core.getInput('tmp', {required: true})
-    const deploy_message_filename = core.getInput('deploy_message_filename')
-    const skip_completing = core.getInput('skip_completing')
-    const environment_url_in_comment =
-      core.getInput('environment_url_in_comment') === 'true'
-    const deployMessage = process.env.DEPLOY_MESSAGE
+    const skip_completing = core.getInput('skip_completing') === 'true'
 
     // If bypass is set, exit the workflow
-    if (bypass === 'true') {
+    if (bypass) {
       core.warning('bypass set, exiting')
       return
     }
@@ -12482,7 +12541,7 @@ async function post() {
     }
 
     // Skip the process of completing a deployment, return
-    if (skip_completing === 'true') {
+    if (skip_completing) {
       core.info('skip_completing set, exiting')
       return
     }
@@ -12491,31 +12550,8 @@ async function post() {
     const octokit = github.getOctokit(token)
 
     // Set the environment_url
-    if (
-      !environment_url ||
-      environment_url.length === 0 ||
-      environment_url === 'null' ||
-      environment_url.trim() === ''
-    ) {
-      core.debug('environment_url not set, setting to null')
-      environment_url = null
-    }
-
-    // check and set the deploy message if it is being used from a file input
-    var deployMessagePath
-    if (
-      deploy_message_filename !== 'false' &&
-      deploy_message_filename !== '' &&
-      deploy_message_filename !== null &&
-      deploy_message_filename !== undefined &&
-      deploy_message_filename.length !== 0 &&
-      deploy_message_filename !== 'null'
-    ) {
-      deployMessagePath = `${tmp}/${deploy_message_filename}`
-      core.debug(`deployMessagePath: ${deployMessagePath}`)
-    } else {
-      core.debug('deploy_message_filename not set, setting to null')
-      deployMessagePath = null
+    if (environment_url === null) {
+      core.debug('environment_url not set, its value is null')
     }
 
     await postDeploy(
@@ -12524,14 +12560,11 @@ async function post() {
       comment_id,
       reaction_id,
       status,
-      deployMessage,
       ref,
       noop,
       deployment_id,
       environment,
-      environment_url,
-      environment_url_in_comment,
-      deployMessagePath
+      environment_url
     )
 
     return
