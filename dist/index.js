@@ -12264,8 +12264,13 @@ async function postDeploy(
   // open the deployMessagePath file if it is set
   var deployMessage
   if (deployMessagePath) {
-    deployMessage = (0,external_fs_.readFileSync)(deployMessagePath, 'utf8')
-    core.debug(`deployMessage: ${deployMessage}`)
+    if ((0,external_fs_.existsSync)(deployMessagePath)) {
+      deployMessage = (0,external_fs_.readFileSync)(deployMessagePath, 'utf8')
+      core.debug(`deployMessage: ${deployMessage}`)
+    } else {
+      core.debug('deployMessagePath does not exist, setting to null')
+      deployMessage = null
+    }
   }
 
   // Check the deployment status

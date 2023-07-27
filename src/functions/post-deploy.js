@@ -3,7 +3,7 @@ import {actionStatus} from './action-status'
 import {createDeploymentStatus} from './deployment'
 import {unlock} from './unlock'
 import {lock} from './lock'
-import {readFileSync} from 'fs'
+import {readFileSync, existsSync} from 'fs'
 import dedent from 'dedent-js'
 
 // Helper function to help facilitate the process of completing a deployment
@@ -57,8 +57,13 @@ export async function postDeploy(
   // open the deployMessagePath file if it is set
   var deployMessage
   if (deployMessagePath) {
-    deployMessage = readFileSync(deployMessagePath, 'utf8')
-    core.debug(`deployMessage: ${deployMessage}`)
+    if (existsSync(deployMessagePath)) {
+      deployMessage = readFileSync(deployMessagePath, 'utf8')
+      core.debug(`deployMessage: ${deployMessage}`)
+    } else {
+      core.debug('deployMessagePath does not exist, setting to null')
+      deployMessage = null
+    }
   }
 
   // Check the deployment status
