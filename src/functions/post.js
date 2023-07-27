@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import {contextCheck} from './context-check'
+import {checkInput} from './check-input'
 import {postDeploy} from './post-deploy'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
@@ -12,19 +13,21 @@ export async function post() {
     const noop = core.getState('noop')
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
-    var environment_url = core.getState('environment_url')
+    var environment_url = await checkInput(core.getState('environment_url'))
     const token = core.getState('actionsToken')
-    const bypass = core.getState('bypass')
+    const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
     const tmp = core.getInput('tmp', {required: true})
-    const deploy_message_filename = core.getInput('deploy_message_filename')
-    const skip_completing = core.getInput('skip_completing')
+    const deploy_message_filename = await checkInput(
+      core.getInput('deploy_message_filename')
+    )
+    const skip_completing = core.getInput('skip_completing') === 'true'
     const environment_url_in_comment =
       core.getInput('environment_url_in_comment') === 'true'
     const deployMessage = process.env.DEPLOY_MESSAGE
 
     // If bypass is set, exit the workflow
-    if (bypass === 'true') {
+    if (bypass) {
       core.warning('bypass set, exiting')
       return
     }
@@ -35,7 +38,7 @@ export async function post() {
     }
 
     // Skip the process of completing a deployment, return
-    if (skip_completing === 'true') {
+    if (skip_completing) {
       core.info('skip_completing set, exiting')
       return
     }
@@ -44,26 +47,14 @@ export async function post() {
     const octokit = github.getOctokit(token)
 
     // Set the environment_url
-    if (
-      !environment_url ||
-      environment_url.length === 0 ||
-      environment_url === 'null' ||
-      environment_url.trim() === ''
-    ) {
+    if (!environment_url) {
       core.debug('environment_url not set, setting to null')
       environment_url = null
     }
 
     // check and set the deploy message if it is being used from a file input
     var deployMessagePath
-    if (
-      deploy_message_filename !== 'false' &&
-      deploy_message_filename !== '' &&
-      deploy_message_filename !== null &&
-      deploy_message_filename !== undefined &&
-      deploy_message_filename.length !== 0 &&
-      deploy_message_filename !== 'null'
-    ) {
+    if (deploy_message_filename) {
       deployMessagePath = `${tmp}/${deploy_message_filename}`
       core.debug(`deployMessagePath: ${deployMessagePath}`)
     } else {
