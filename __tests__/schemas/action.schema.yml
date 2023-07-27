@@ -50,6 +50,16 @@ inputs:
     required:
       type: boolean
       required: true
+  tmp:
+    description:
+      type: string
+      required: true
+    default:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
   environment:
     description:
       type: string
