@@ -17,9 +17,7 @@ export async function post() {
     const bypass = core.getState('bypass')
     const status = core.getInput('status')
     const tmp = core.getInput('tmp', {required: true})
-    const deploy_message_filename = core
-      .getInput('deploy_message_filename')
-      .trim()
+    const deploy_message_filename = core.getInput('deploy_message_filename')
     const skip_completing = core.getInput('skip_completing')
     const environment_url_in_comment =
       core.getInput('environment_url_in_comment') === 'true'
