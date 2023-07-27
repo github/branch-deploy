@@ -26,28 +26,32 @@ export async function postDeployMessage(
   const deploy_message_filename = await checkInput(
     core.getInput('deploy_message_filename')
   )
-  const deployMessageEnvVar = await checkInput(process.env.DEPLOY_MESSAGE)
 
-  var deployMessagePath
+  // if the 'deployMessagePath' exists, use that instead of the env var option
+  // the env var option can often fail if the message is too long so this is the preferred option
+  var deployMessageFileContents
   if (deploy_message_filename) {
-    deployMessagePath = `${tmp}/${deploy_message_filename}`
+    const deployMessagePath = `${tmp}/${deploy_message_filename}`
     core.debug(`deployMessagePath: ${deployMessagePath}`)
-  } else {
-    core.debug('deploy_message_filename not set, setting to null')
-    deployMessagePath = null
-  }
-
-  // open the deployMessagePath file if it is set
-  var deployMessage
-  if (deployMessagePath) {
     if (existsSync(deployMessagePath)) {
-      deployMessage = readFileSync(deployMessagePath, 'utf8')
-      core.debug(`deployMessage: ${deployMessage}`)
-    } else {
-      core.debug('deployMessagePath does not exist, setting to null')
-      deployMessage = null
+      deployMessageFileContents = readFileSync(deployMessagePath, 'utf8')
+      core.debug(`deployMessageFileContents: ${deployMessageFileContents}`)
+
+      // make sure the file contents are not empty
+      if (!deployMessageFileContents || deployMessageFileContents.length === 0) {
+        deployMessageFileContents = null
+        core.debug('deployMessageFileContents is empty - setting to null')
+      }
     }
   }
+
+  if (deployMessageFileContents) {
+    core.debug('using deployMessageFileContents')
+  }
+
+  /// If we get here, try to use the env var option with the default message structure
+
+  const deployMessageEnvVar = await checkInput(process.env.DEPLOY_MESSAGE)
 
   var deployTypeString = ' ' // a single space as a default
 
