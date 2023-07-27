@@ -14,7 +14,7 @@ inputs:
     default: ${{ job.status }}
     required: true
   tmp:
-    description: The temporary directory to use for storing files - Provided for you by default!
+    description: The temporary directory to use for storing files
     default: "/home/runner/work/_temp"
     required: true
   environment:
