@@ -83,6 +83,24 @@ test('successfully constructs a post deploy message with the defaults during a d
   )
 })
 
+test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status', async () => {
+  expect(
+    await postDeployMessage(
+      context, // context
+      environment, // environment
+      environment_url, // environment_url
+      'unknown', // status
+      noop, // noop
+      ref // ref
+    )
+  ).toStrictEqual(
+    dedent(`
+      ### Deployment Results ⚠️
+
+      Warning: deployment status is unknown, please use caution`)
+  )
+})
+
 test('successfully constructs a post deploy message with a custom env var', async () => {
   process.env.DEPLOY_MESSAGE = 'Deployed 1 shiny new server'
 
