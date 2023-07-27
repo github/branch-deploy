@@ -15,7 +15,7 @@ inputs:
     required: true
   tmp:
     description: The temporary directory to use for storing files - Provided for you by default!
-    default: ${{ runner.temp }}
+    default: "/home/runner/work/_temp"
     required: true
   environment:
     description: 'The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment'

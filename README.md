@@ -255,7 +255,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | ----- | --------- | ------- | ----------- |
 | `github_token` | `true` | `${{ github.token }}` | The GitHub token used to create an authenticated client - Provided for you by default! |
 | `status` | `true` | `${{ job.status }}` | The status of the GitHub Actions - For use in the post run workflow - Provided for you by default! |
-| `tmp` | `true` | `${{ runner.temp }}` | The temporary directory to use for storing files - Provided for you by default! |
+| `tmp` | `true` | `/home/runner/work/_temp` | The temporary directory to use for storing files - Provided for you by default! |
 | `reaction` | `false` | `eyes` | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
 | `trigger` | `false` | `.deploy` | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
 | `noop_trigger` | `false` | `.noop` | The string to look for in comments as an IssueOps noop trigger. Example: ".noop" - The usage would then be ".noop" |
