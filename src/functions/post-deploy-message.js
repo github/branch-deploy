@@ -38,7 +38,8 @@ export async function postDeployMessage(
         environment_url,
         status,
         noop,
-        ref
+        ref,
+        actor: context.actor
       }
       return nunjucks.render(deployMessagePath, vars)
     }

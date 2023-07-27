@@ -159,7 +159,22 @@ test('successfully constructs a post deploy message with a custom markdown file'
       ref // ref
     )
   ).toStrictEqual(
-    dedent(`test
+    dedent(`### Deployment Results :rocket:
+
+    The following variables are available to use in this template:
+
+    - \`environment\` - The name of the environment (String)
+    - \`environment_url\` - The URL of the environment (String) {Optional}
+    - \`status\` - The status of the deployment (String) - \`success\`, \`failure\`, or \`unknown\`
+    - \`noop\` - Whether or not the deployment is a noop (Boolean)
+    - \`ref\` - The ref of the deployment (String)
+    - \`actor\` - The GitHub username of the actor who triggered the deployment (String)
+
+    Here is an example:
+
+    monalisa deployed branch \`test-ref\` to the **production** environment. This deployment was a success :rocket:.
+
+    You can view the deployment [here](https://example.com).
 
     `)
   )
