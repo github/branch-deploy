@@ -4,8 +4,13 @@ import dedent from 'dedent-js'
 import {readFileSync, existsSync} from 'fs'
 
 // Helper function construct a post deployment message
-// :param input: The input to check
-// :returns: The input if it is valid, null otherwise
+// :param context: The GitHub Actions event context
+// :param environment: The environment of the deployment (String)
+// :param environment_url: The environment url of the deployment (String)
+// :param status: The status of the deployment (String)
+// :param noop: Indicates whether the deployment is a noop or not (String)
+// :param ref: The ref (branch) which is being used for deployment (String)
+// :returns: The formatted message (String)
 export async function postDeployMessage(
   context,
   environment,
