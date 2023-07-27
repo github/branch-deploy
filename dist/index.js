@@ -12253,17 +12253,14 @@ async function postDeployMessage(
   // fetch the inputs
   const environment_url_in_comment =
     core.getInput('environment_url_in_comment') === 'true'
-  const tmp = core.getInput('tmp', {required: true})
-  const deploy_message_filename = await checkInput(
-    core.getInput('deploy_message_filename')
+  const deployMessagePath = await checkInput(
+    core.getInput('deploy_message_path')
   )
 
   // if the 'deployMessagePath' exists, use that instead of the env var option
   // the env var option can often fail if the message is too long so this is the preferred option
   var deployMessageFileContents
-  if (deploy_message_filename) {
-    const deployMessagePath = `${tmp}/${deploy_message_filename}`
-    core.debug(`deployMessagePath: ${deployMessagePath}`)
+  if (deployMessagePath) {
     if ((0,external_fs_.existsSync)(deployMessagePath)) {
       deployMessageFileContents = (0,external_fs_.readFileSync)(deployMessagePath, 'utf8')
       core.debug(`deployMessageFileContents: ${deployMessageFileContents}`)

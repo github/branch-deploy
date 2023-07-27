@@ -255,7 +255,6 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | ----- | --------- | ------- | ----------- |
 | `github_token` | `true` | `${{ github.token }}` | The GitHub token used to create an authenticated client - Provided for you by default! |
 | `status` | `true` | `${{ job.status }}` | The status of the GitHub Actions - For use in the post run workflow - Provided for you by default! |
-| `tmp` | `true` | `/home/runner/work/_temp` | The temporary directory to use for storing files |
 | `reaction` | `false` | `eyes` | If set, the specified emoji "reaction" is put on the comment to indicate that the trigger was detected. For example, "rocket" or "eyes" |
 | `trigger` | `false` | `.deploy` | The string to look for in comments as an IssueOps trigger. Example: ".deploy" |
 | `noop_trigger` | `false` | `.noop` | The string to look for in comments as an IssueOps noop trigger. Example: ".noop" - The usage would then be ".noop" |
@@ -283,7 +282,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `merge_deploy_mode` | `false` | `"false"` | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
 | `unlock_on_merge_mode` | `false` | `"false"` | Advanced configuration option for automatically releasing locks associated with a pull request when that pull request is merged. See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
 | `skip_completing` | `false` | `"false"` | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
-| `deploy_message_filename` | `false` | `"DEPLOYMENT_MESSAGE.md"` | A filename to use for custom deployment messages. This file must be located within the "tmp" (`${{ runner.temp }}`) directory |
+| `deploy_message_path` | `false` | `".github/deployment_message.md"` | The path to a markdown file which is used as a template for custom deployment messages. Example: `".github/deployment_message.md"` |
 
 ## Outputs 📤
 

@@ -13,10 +13,6 @@ inputs:
     description: The status of the GitHub Actions - For use in the post run workflow - Provided for you by default!
     default: ${{ job.status }}
     required: true
-  tmp:
-    description: The temporary directory to use for storing files
-    default: "/home/runner/work/_temp"
-    required: true
   environment:
     description: 'The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment'
     required: false
@@ -125,10 +121,10 @@ inputs:
     description: 'If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false"'
     required: false
     default: "false"
-  deploy_message_filename:
-    description: 'A filename to use for custom deployment messages. This file must be located within the "tmp" directory. Default is "DEPLOYMENT_MESSAGE.md"'
+  deploy_message_path:
+    description: 'The path to a markdown file which is used as a template for custom deployment messages. Example: ".github/deployment_message.md"'
     required: false
-    default: "DEPLOYMENT_MESSAGE.md"
+    default: ".github/deployment_message.md"
 outputs:
   triggered:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'

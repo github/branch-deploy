@@ -50,16 +50,6 @@ inputs:
     required:
       type: boolean
       required: true
-  tmp:
-    description:
-      type: string
-      required: true
-    default:
-      type: string
-      required: true
-    required:
-      type: boolean
-      required: true
   environment:
     description:
       type: string
@@ -330,7 +320,7 @@ inputs:
     default:
       type: string
       required: true
-  deploy_message_filename:
+  deploy_message_path:
     description:
       type: string
       required: true

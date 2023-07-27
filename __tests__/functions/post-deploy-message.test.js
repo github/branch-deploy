@@ -18,9 +18,8 @@ beforeEach(() => {
   jest.spyOn(core, 'debug').mockImplementation(() => {})
 
   process.env.DEPLOY_MESSAGE = null
-  process.env.INPUT_TMP = '/home/runner/work/_temp'
   process.env.INPUT_ENVIRONMENT_URL_IN_COMMENT = 'true'
-  process.env.INPUT_DEPLOY_MESSAGE_FILENAME = 'DEPLOYMENT_MESSAGE.md'
+  process.env.INPUT_DEPLOY_MESSAGE_PATH = '.github/deployment_message.md'
 
   environment = 'production'
   environment_url = 'https://example.com'
