@@ -9,7 +9,7 @@ import nunjucks from 'nunjucks'
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
 // :param status: The status of the deployment (String)
-// :param noop: Indicates whether the deployment is a noop or not (String)
+// :param noop: Indicates whether the deployment is a noop or not (Boolean)
 // :param ref: The ref (branch) which is being used for deployment (String)
 // :returns: The formatted message (String)
 export async function postDeployMessage(
@@ -50,7 +50,7 @@ export async function postDeployMessage(
   var deployTypeString = ' ' // a single space as a default
 
   // Set the mode and deploy type based on the deployment mode
-  if (noop === 'true') {
+  if (noop === true) {
     deployTypeString = ' **noop** '
   }
 
@@ -97,7 +97,7 @@ export async function postDeployMessage(
   if (
     environment_url &&
     status === 'success' &&
-    noop !== 'true' &&
+    noop !== true &&
     environment_url_in_comment === true
   ) {
     const environment_url_short = environment_url

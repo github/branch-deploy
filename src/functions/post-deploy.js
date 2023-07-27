@@ -13,7 +13,7 @@ import {postDeployMessage} from './post-deploy-message'
 // :param status: The status of the deployment (String)
 // :param message: A custom string to add as the deployment status message (String)
 // :param ref: The ref (branch) which is being used for deployment (String)
-// :param noop: Indicates whether the deployment is a noop or not (String)
+// :param noop: Indicates whether the deployment is a noop or not (Boolean)
 // :param deployment_id: The id of the deployment (String)
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
@@ -39,9 +39,9 @@ export async function postDeploy(
     throw new Error('no status provided')
   } else if (!ref || ref.length === 0) {
     throw new Error('no ref provided')
-  } else if (!noop || noop.length === 0) {
+  } else if (noop === null || noop === undefined) {
     throw new Error('no noop value provided')
-  } else if (noop !== 'true') {
+  } else if (noop !== true) {
     if (!deployment_id || deployment_id.length === 0) {
       throw new Error('no deployment_id provided')
     }
@@ -72,7 +72,7 @@ export async function postDeploy(
   }
 
   // If the deployment mode is noop, return here
-  if (noop === 'true') {
+  if (noop === true) {
     core.debug('deployment mode: noop')
     // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
     const lockResponse = await lock(

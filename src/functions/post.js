@@ -10,7 +10,7 @@ export async function post() {
     const ref = core.getState('ref')
     const comment_id = core.getState('comment_id')
     const reaction_id = core.getState('reaction_id')
-    const noop = core.getState('noop')
+    const noop = core.getState('noop') === 'true'
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
     const environment_url = await checkInput(core.getState('environment_url'))

@@ -71,7 +71,7 @@ test('successfully constructs a post deploy message with the defaults during a "
       environment, // environment
       environment_url, // environment_url
       status, // status
-      'true', // noop
+      true, // noop
       ref // ref
     )
   ).toStrictEqual(
