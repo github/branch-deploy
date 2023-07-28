@@ -67,9 +67,9 @@ Advanced usage with custom configuration:
   uses: github/branch-deploy@vX.X.X
   with:
     trigger: ".deploy"
+    noop_trigger: ".noop"
     reaction: "eyes"
     environment: "production"
-    noop_trigger: "noop"
     stable_branch: "main"
 ```
 
