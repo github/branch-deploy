@@ -21,6 +21,10 @@ If a markdown file exists at the designated path, it will be used and rendered w
 
 If you wish to see a live example of how this works, and how to use the variables, you can check out this [example](https://github.com/github/branch-deploy/blob/37b50ea86202af7b5505b62bf3eb326da0614b60/__tests__/templates/test_deployment_message.md) which is used in this repo's unit tests and is self-documenting.
 
+Here is an example of what the final product could look like:
+
+![Example of custom deployment message](assets/custom-comment.png)
+
 > To learn more about these changes you can view the pull request that implemented them [here](https://github.com/github/branch-deploy/pull/174)
 
 ## GitHub Actions Environment (not suggested)
