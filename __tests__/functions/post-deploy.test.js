@@ -3,15 +3,23 @@ import * as actionStatus from '../../src/functions/action-status'
 import * as lock from '../../src/functions/lock'
 import * as unlock from '../../src/functions/unlock'
 import * as createDeploymentStatus from '../../src/functions/deployment'
+import * as postDeployMessage from '../../src/functions/post-deploy-message'
 import * as core from '@actions/core'
 
 const infoMock = jest.spyOn(core, 'info')
 
+var octokit
+var context
+
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
+  })
+  jest.spyOn(postDeployMessage, 'postDeployMessage').mockImplementation(() => {
+    return 'Updated 1 server'
   })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return {lockData: {sticky: true}}
@@ -21,33 +29,32 @@ beforeEach(() => {
     .mockImplementation(() => {
       return undefined
     })
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
+
+  context = {
+    actor: 'monalisa',
+    eventName: 'issue_comment',
+    workflow: 'test-workflow',
+    repo: {
+      owner: 'corp',
+      repo: 'test'
+    },
+    payload: {
+      comment: {
+        id: '1'
+      }
+    }
+  }
+
+  octokit = {
+    rest: {
+      repos: {
+        createDeploymentStatus: jest.fn().mockReturnValue({
+          data: {}
+        })
+      }
+    }
+  }
 })
-
-const context = {
-  actor: 'monalisa',
-  eventName: 'issue_comment',
-  workflow: 'test-workflow',
-  repo: {
-    owner: 'corp',
-    repo: 'test'
-  },
-  payload: {
-    comment: {
-      id: '1'
-    }
-  }
-}
-
-const octokit = {
-  rest: {
-    repos: {
-      createDeploymentStatus: jest.fn().mockReturnValue({
-        data: {}
-      })
-    }
-  }
-}
 
 test('successfully completes a production branch deployment', async () => {
   const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
@@ -62,9 +69,8 @@ test('successfully completes a production branch deployment', async () => {
       123,
       12345,
       'success',
-      'Deployment has created 1 new server',
       'test-ref',
-      'false',
+      false,
       456,
       'production',
       '' // environment_url
@@ -88,7 +94,7 @@ test('successfully completes a production branch deployment', async () => {
       }
     },
     12345,
-    '  ### Deployment Results ✅\n\n  **monalisa** successfully deployed branch `test-ref` to **production**\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>',
+    'Updated 1 server',
     true
   )
   expect(createDeploymentStatusSpy).toHaveBeenCalled()
@@ -128,9 +134,8 @@ test('successfully completes a production branch deployment with an environment 
       123,
       12345,
       'success',
-      'Deployment has created 1 new server',
       'test-ref',
-      'false',
+      false,
       456,
       'production',
       'https://example.com', // environment_url
@@ -155,7 +160,7 @@ test('successfully completes a production branch deployment with an environment 
       }
     },
     12345,
-    '  ### Deployment Results ✅\n\n  **monalisa** successfully deployed branch `test-ref` to **production**\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>\n\n> **Environment URL:** [example.com](https://example.com)',
+    'Updated 1 server',
     true
   )
   expect(createDeploymentStatusSpy).toHaveBeenCalled()
@@ -201,9 +206,8 @@ test('successfully completes a production branch deployment and removes a non-st
       123,
       12345,
       'success',
-      'Deployment has created 1 new server',
       'test-ref',
-      'false',
+      false,
       456,
       'production',
       '' // environment_url
@@ -228,7 +232,7 @@ test('successfully completes a production branch deployment and removes a non-st
       }
     },
     12345,
-    '  ### Deployment Results ✅\n\n  **monalisa** successfully deployed branch `test-ref` to **production**\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>',
+    'Updated 1 server',
     true
   )
   expect(createDeploymentStatusSpy).toHaveBeenCalled()
@@ -273,9 +277,8 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
       123,
       12345,
       'success',
-      'Deployment has created 1 new server',
       'test-ref',
-      'true',
+      true,
       456,
       'production'
     )
@@ -299,7 +302,7 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
       }
     },
     12345,
-    '  ### Deployment Results ✅\n\n  **monalisa** successfully **noop** deployed branch `test-ref` to **production**\n\n  <details><summary>Show Results</summary>\n\n  Deployment has created 1 new server\n\n  </details>',
+    'Updated 1 server',
     true
   )
   expect(infoMock).toHaveBeenCalledWith(
@@ -316,9 +319,8 @@ test('successfully completes a production branch deployment with no custom messa
       123,
       12345,
       'success',
-      '',
       'test-ref',
-      'false',
+      false,
       456,
       'production'
     )
@@ -340,7 +342,7 @@ test('successfully completes a production branch deployment with no custom messa
       }
     },
     12345,
-    '  ### Deployment Results ✅\n\n  **monalisa** successfully deployed branch `test-ref` to **production**',
+    'Updated 1 server',
     true
   )
 })
@@ -353,9 +355,8 @@ test('successfully completes a noop branch deployment', async () => {
       123,
       12345,
       'success',
-      'Deployment has created 1 new server',
       'test-ref',
-      'true',
+      true,
       456,
       'production'
     )
@@ -370,9 +371,8 @@ test('updates with a failure for a production branch deployment', async () => {
       123,
       12345,
       'failure',
-      'Deployment has failed to create 1 new server',
       'test-ref',
-      'false',
+      false,
       456,
       'production'
     )
@@ -387,9 +387,8 @@ test('updates with an unknown for a production branch deployment', async () => {
       123,
       12345,
       'unknown',
-      'Deployment has failed to create 1 new server',
       'test-ref',
-      'false',
+      false,
       456,
       'production'
     )
@@ -418,9 +417,9 @@ test('fails due to no ref', async () => {
       context,
       octokit,
       123,
+      12345,
       'success',
-      'Deployment has created 1 new server',
-      ''
+      null // ref
     )
   } catch (e) {
     expect(e.message).toBe('no ref provided')
@@ -436,9 +435,8 @@ test('fails due to no deployment_id', async () => {
       123,
       12345,
       'success',
-      'Deployment has created 1 new server',
       'test-ref',
-      'false',
+      false,
       ''
     )
   } catch (e) {
@@ -455,9 +453,8 @@ test('fails due to no environment', async () => {
       123,
       12345,
       'success',
-      'Deployment has created 1 new server',
       'test-ref',
-      'false',
+      false,
       456,
       ''
     )
@@ -469,16 +466,7 @@ test('fails due to no environment', async () => {
 test('fails due to no noop', async () => {
   jest.resetAllMocks()
   try {
-    await postDeploy(
-      context,
-      octokit,
-      123,
-      12345,
-      'success',
-      'Deployment has created 1 new server',
-      'test-ref',
-      ''
-    )
+    await postDeploy(context, octokit, 123, 12345, 'success', 'test-ref', null)
   } catch (e) {
     expect(e.message).toBe('no noop value provided')
   }

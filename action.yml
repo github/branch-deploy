@@ -121,6 +121,10 @@ inputs:
     description: 'If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false"'
     required: false
     default: "false"
+  deploy_message_path:
+    description: 'The path to a markdown file which is used as a template for custom deployment messages. Example: ".github/deployment_message.md"'
+    required: false
+    default: ".github/deployment_message.md"
 outputs:
   triggered:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'

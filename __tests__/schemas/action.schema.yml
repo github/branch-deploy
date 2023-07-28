@@ -320,6 +320,16 @@ inputs:
     default:
       type: string
       required: true
+  deploy_message_path:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
 
 # outputs section
 outputs:
