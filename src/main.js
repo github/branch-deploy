@@ -25,10 +25,10 @@ import {stringToArray} from './functions/string-to-array'
 export async function run() {
   try {
     // Get the inputs for the branch-deploy Action
-    const trigger = core.getInput('trigger')
-    const reaction = core.getInput('reaction')
     const token = core.getInput('github_token', {required: true})
     var environment = core.getInput('environment', {required: true})
+    const trigger = core.getInput('trigger', {required: true})
+    const reaction = core.getInput('reaction')
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
@@ -49,6 +49,7 @@ export async function run() {
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')
+    const permissions = core.getInput('permissions')
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
@@ -177,7 +178,7 @@ export async function run() {
         skipReviews: skipReviews,
         draft_permitted_targets,
         admins: admins,
-        permissions: await stringToArray(core.getInput('permissions'))
+        permissions: await stringToArray(permissions)
       }
 
       // Run the help command and exit
