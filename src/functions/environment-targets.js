@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
+import {checkInput} from './check-input'
 import {actionStatus} from './action-status'
 import {LOCK_METADATA} from './lock-metadata'
 
@@ -270,7 +271,7 @@ async function findEnvironmentUrl(environment, environment_urls) {
   // The structure: "<environment1>|<url1>,<environment2>|<url2>,etc"
 
   // If the environment URLs are empty, just return an empty string
-  if (environment_urls === null || environment_urls.trim() === '') {
+  if ((await checkInput(environment_urls)) === null) {
     return null
   }
 

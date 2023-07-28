@@ -16370,6 +16370,30 @@ async function reactEmote(reaction, context, octokit) {
 // EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
 var lib = __nccwpck_require__(3159);
 var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
+;// CONCATENATED MODULE: ./src/functions/check-input.js
+// Helper function to check an Action's input to ensure it is valid
+// :param input: The input to check
+// :returns: The input if it is valid, null otherwise
+async function checkInput(input) {
+  // if the input is an empty string (most common), return null
+  if (input === '' || input?.trim() === '') {
+    return null
+  }
+
+  // if the input is null, undefined, or empty, return null
+  if (input === null || input === undefined || input?.length === 0) {
+    return null
+  }
+
+  // if the input is a string of null or undefined, return null
+  if (input === 'null' || input === 'undefined') {
+    return null
+  }
+
+  // if we made it this far, the input is valid, return it
+  return input
+}
+
 ;// CONCATENATED MODULE: ./src/functions/action-status.js
 // Default failure reaction
 const thumbsDown = '-1'
@@ -16445,6 +16469,7 @@ const LOCK_METADATA = {
 }
 
 ;// CONCATENATED MODULE: ./src/functions/environment-targets.js
+
 
 
 
@@ -16717,7 +16742,7 @@ async function findEnvironmentUrl(environment, environment_urls) {
   // The structure: "<environment1>|<url1>,<environment2>|<url2>,etc"
 
   // If the environment URLs are empty, just return an empty string
-  if (environment_urls === null || environment_urls.trim() === '') {
+  if ((await checkInput(environment_urls)) === null) {
     return null
   }
 
@@ -18583,30 +18608,6 @@ async function unlock(
   }
 }
 
-;// CONCATENATED MODULE: ./src/functions/check-input.js
-// Helper function to check an Action's input to ensure it is valid
-// :param input: The input to check
-// :returns: The input if it is valid, null otherwise
-async function checkInput(input) {
-  // if the input is an empty string (most common), return null
-  if (input === '' || input?.trim() === '') {
-    return null
-  }
-
-  // if the input is null, undefined, or empty, return null
-  if (input === null || input === undefined || input?.length === 0) {
-    return null
-  }
-
-  // if the input is a string of null or undefined, return null
-  if (input === 'null' || input === 'undefined') {
-    return null
-  }
-
-  // if we made it this far, the input is valid, return it
-  return input
-}
-
 // EXTERNAL MODULE: external "fs"
 var external_fs_ = __nccwpck_require__(7147);
 // EXTERNAL MODULE: ./node_modules/nunjucks/index.js
@@ -19370,10 +19371,10 @@ async function help(octokit, context, reactionId, inputs) {
 async function run() {
   try {
     // Get the inputs for the branch-deploy Action
-    const trigger = core.getInput('trigger')
-    const reaction = core.getInput('reaction')
     const token = core.getInput('github_token', {required: true})
     var environment = core.getInput('environment', {required: true})
+    const trigger = core.getInput('trigger', {required: true})
+    const reaction = core.getInput('reaction')
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
@@ -19394,6 +19395,7 @@ async function run() {
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')
+    const permissions = core.getInput('permissions')
 
     // Create an octokit client
     const octokit = github.getOctokit(token)
@@ -19522,7 +19524,7 @@ async function run() {
         skipReviews: skipReviews,
         draft_permitted_targets,
         admins: admins,
-        permissions: await stringToArray(core.getInput('permissions'))
+        permissions: await stringToArray(permissions)
       }
 
       // Run the help command and exit
