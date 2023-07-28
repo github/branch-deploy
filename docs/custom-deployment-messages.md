@@ -25,6 +25,8 @@ If you wish to see a live example of how this works, and how to use the variable
 
 ## GitHub Actions Environment (not suggested)
 
+> This option is not suggested as it comes with inherent limitations. See the "Custom Markdown File" section above for more information. It is highly recommended to use the custom markdown file option instead. However, if you are unable to use the custom markdown file option, this is an alternative
+
 You can use the GitHub Actions environment to export custom deployment messages from your workflow to be referenced in the post run workflow for the `branch-deploy` Action that comments results back to your PR
 
 Simply set the environment variable `DEPLOY_MESSAGE` to the message you want to be displayed in the post run workflow
