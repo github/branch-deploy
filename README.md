@@ -41,7 +41,7 @@ Alternate command syntax and shortcuts can be found at the bottom of this readme
 
 A video demo showing how IssueOps on a pull request works using this Action
 
-https://user-images.githubusercontent.com/23362539/166625510-50a80738-a7a2-486d-9d74-8dda5b95ec8d.mp4
+<https://user-images.githubusercontent.com/23362539/166625510-50a80738-a7a2-486d-9d74-8dda5b95ec8d.mp4>
 
 > View the pull request that created this demo [here](https://github.com/github/branch-deploy/pull/17)
 
@@ -67,9 +67,9 @@ Advanced usage with custom configuration:
   uses: github/branch-deploy@vX.X.X
   with:
     trigger: ".deploy"
+    noop_trigger: ".noop"
     reaction: "eyes"
     environment: "production"
-    noop_trigger: "noop"
     stable_branch: "main"
 ```
 
