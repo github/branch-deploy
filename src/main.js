@@ -1,4 +1,8 @@
 import * as core from '@actions/core'
+import * as github from '@actions/github'
+import {context} from '@actions/github'
+import dedent from 'dedent-js'
+
 import {triggerCheck} from './functions/trigger-check'
 import {contextCheck} from './functions/context-check'
 import {reactEmote} from './functions/react-emote'
@@ -16,9 +20,6 @@ import {identicalCommitCheck} from './functions/identical-commit-check'
 import {unlockOnMerge} from './functions/unlock-on-merge'
 import {help} from './functions/help'
 import {LOCK_METADATA} from './functions/lock-metadata'
-import * as github from '@actions/github'
-import {context} from '@actions/github'
-import dedent from 'dedent-js'
 import {stringToArray} from './functions/string-to-array'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
