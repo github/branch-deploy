@@ -30,6 +30,7 @@
   "dependencies": {
     "@actions/core": "^1.10.0",
     "@actions/github": "^5.0.1",
+    "@octokit/plugin-retry": "^6.0.0",
     "dedent-js": "^1.0.1",
     "github-username-regex": "^1.0.0",
     "nunjucks": "^3.2.4"
