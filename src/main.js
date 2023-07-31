@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
+import {octokitRetry} from '@octokit/plugin-retry'
 import dedent from 'dedent-js'
 
 import {triggerCheck} from './functions/trigger-check'
@@ -52,8 +53,10 @@ export async function run() {
     const param_separator = core.getInput('param_separator')
     const permissions = core.getInput('permissions')
 
-    // Create an octokit client
-    const octokit = github.getOctokit(token)
+    // Create an octokit client with the retry plugin
+    const octokit = github.getOctokit(token, {
+      additionalPlugins: [octokitRetry]
+    })
 
     // Set the state so that the post run logic will trigger
     core.saveState('isPost', 'true')
