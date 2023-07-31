@@ -20615,7 +20615,8 @@ async function createLock(
     path: lock_LOCK_FILE,
     message: LOCK_COMMIT_MSG,
     content: Buffer.from(JSON.stringify(lockData)).toString('base64'),
-    branch: await constructBranchName(environment, global)
+    branch: await constructBranchName(environment, global),
+    request: {retries: 10, retryAfter: 1}
   })
 
   core.info(`global lock: ${global}`)
