@@ -1,4 +1,9 @@
 import * as core from '@actions/core'
+import * as github from '@actions/github'
+import {context} from '@actions/github'
+import {octokitRetry} from '@octokit/plugin-retry'
+import dedent from 'dedent-js'
+
 import {triggerCheck} from './functions/trigger-check'
 import {contextCheck} from './functions/context-check'
 import {reactEmote} from './functions/react-emote'
@@ -16,9 +21,6 @@ import {identicalCommitCheck} from './functions/identical-commit-check'
 import {unlockOnMerge} from './functions/unlock-on-merge'
 import {help} from './functions/help'
 import {LOCK_METADATA} from './functions/lock-metadata'
-import * as github from '@actions/github'
-import {context} from '@actions/github'
-import dedent from 'dedent-js'
 import {stringToArray} from './functions/string-to-array'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
@@ -51,8 +53,10 @@ export async function run() {
     const param_separator = core.getInput('param_separator')
     const permissions = core.getInput('permissions')
 
-    // Create an octokit client
-    const octokit = github.getOctokit(token)
+    // Create an octokit client with the retry plugin
+    const octokit = github.getOctokit(token, {
+      additionalPlugins: [octokitRetry]
+    })
 
     // Set the state so that the post run logic will trigger
     core.saveState('isPost', 'true')
