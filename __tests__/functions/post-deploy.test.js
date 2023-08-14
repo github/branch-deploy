@@ -7,6 +7,7 @@ import * as postDeployMessage from '../../src/functions/post-deploy-message'
 import * as core from '@actions/core'
 
 const infoMock = jest.spyOn(core, 'info')
+const warningMock = jest.spyOn(core, 'warning')
 
 var octokit
 var context
@@ -15,6 +16,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
+  jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
   })
@@ -307,6 +309,51 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
   )
   expect(infoMock).toHaveBeenCalledWith(
     'non-sticky lock detected, will remove lock'
+  )
+})
+
+test('successfully completes a noop branch deployment but does not get any lock data', async () => {
+  const lockSpy = jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {lockData: null}
+  })
+  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'success',
+      'test-ref',
+      true,
+      456,
+      'production'
+    )
+  ).toBe('success - noop')
+
+  expect(lockSpy).toHaveBeenCalled()
+  expect(actionStatusSpy).toHaveBeenCalled()
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    12345,
+    'Updated 1 server',
+    true
+  )
+  expect(warningMock).toHaveBeenCalledWith(
+    'a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
   )
 })
 
