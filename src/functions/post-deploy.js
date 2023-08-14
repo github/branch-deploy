@@ -100,7 +100,9 @@ export async function postDeploy(
     if (lockData?.sticky === true) {
       core.info('sticky lock detected, will not remove lock')
     } else if (lockData === null || lockData === undefined) {
-      core.warning('a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running')
+      core.warning(
+        'a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
+      )
     } else {
       core.info('non-sticky lock detected, will remove lock')
       core.debug(`lockData.sticky: ${lockData.sticky}`)
