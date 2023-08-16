@@ -18,7 +18,9 @@ test('checks a message and finds a standard trigger', async () => {
   const trigger = '.deploy'
   expect(await triggerCheck(body, trigger)).toBe(true)
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
-  expect(infoMock).toHaveBeenCalledWith('✅ comment body starts with trigger: ".deploy"')
+  expect(infoMock).toHaveBeenCalledWith(
+    '✅ comment body starts with trigger: ".deploy"'
+  )
 })
 
 test('checks a message and does not find trigger', async () => {

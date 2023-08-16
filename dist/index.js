@@ -19023,10 +19023,11 @@ async function triggerCheck(body, trigger) {
 
   // If the trigger is not activated, set the output to false and return with false
   if (!body.startsWith(trigger)) {
-    core.info(`Trigger "${trigger}" not found in the comment body`)
+    core.debug(`comment body does not start with trigger: "${trigger}"`)
     return false
   }
 
+  core.info(`✅ comment body starts with trigger: "${trigger}"`)
   return true
 }
 
@@ -19194,7 +19195,7 @@ async function actionStatus(
 
 ;// CONCATENATED MODULE: ./src/functions/lock-metadata.js
 const LOCK_METADATA = {
-  lockInfoFlags: ['--info', '--i', '-i', '--details', '--d', '-d'],
+  lockInfoFlags: [' --info', ' --i', ' -i', ' --details', ' --d', ' -d'],
   lockBranchSuffix: 'branch-deploy-lock',
   globalLockBranch: 'global-branch-deploy-lock',
   lockCommitMsg: 'lock [skip ci]',
@@ -22339,6 +22340,7 @@ async function run() {
           ) ||
           isLockInfoAlias === true
         ) {
+          core.debug('detailsOnly lock request detected')
           // Get the lock details from the lock file
           const lockResponse = await lock(
             octokit,
@@ -22346,7 +22348,7 @@ async function run() {
             null, // ref
             reactRes.data.id,
             null, // sticky
-            null, // environment (we will find this in the lock function)
+            lockEnvTargetCheck, // environment (we already found this value above)
             true // details only flag
           )
           // extract values from the lock response
