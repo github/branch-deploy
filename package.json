@@ -64,6 +64,6 @@
     "jest": "^27.2.5",
     "js-yaml": "^4.1.0",
     "make-coverage-badge": "^1.2.0",
-    "prettier": "2.5.1"
+    "prettier": "3.0.2"
   }
 }
