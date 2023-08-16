@@ -37,6 +37,7 @@ If you need to lock deployments so that only you can trigger them, you can use t
 - `.lock --global` - Locks deployments globally (sticky) so that only you can trigger them - blocks all environments
 - `.lock --global --reason <text>` - Lock deployments globally with a reason (sticky) - blocks all environments
 - `.unlock --global` - Removes the current global deployment lock (if one exists)
+- `.lock --global --info` - Displays info about the current global deployment lock if one exists
 
 > Note: A deployment lock blocks deploys for all environments. **sticky** locks will also persist until someone removes them with `.unlock`
 

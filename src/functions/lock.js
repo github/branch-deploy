@@ -234,6 +234,7 @@ async function findReason(context, sticky) {
 // :param branchName: The name of the branch to check
 // :return: true if the branch exists, false if not
 async function checkBranch(octokit, context, branchName) {
+  core.debug(`checking if branch ${branchName} exists...`)
   // Check if the lock branch already exists
   try {
     await octokit.rest.repos.getBranch({
@@ -241,6 +242,7 @@ async function checkBranch(octokit, context, branchName) {
       branch: branchName
     })
 
+    core.debug(`branch '${branchName}' exists`)
     return true
   } catch (error) {
     // Check if the error was due to the lock branch not existing
@@ -292,11 +294,12 @@ async function createBranch(octokit, context, branchName) {
 // :param reactionId: The ID of the reaction that triggered the lock request
 // :return: true if the lock owner is the requestor, false if not
 async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
+  core.debug('checking the owner of the lock...')
   // If the requestor is the one who owns the lock, return 'owner'
   if (lockData.created_by === context.actor) {
     core.info(`${context.actor} is the owner of the lock`)
 
-    // If this is a .lock (sticky) command, update with actionStatus as we are about to exit
+    // If this is a '.lock' command (sticky), update with actionStatus as we are about to exit
     if (sticky) {
       // Find the total time since the lock was created
       const totalTime = await timeDiff(
@@ -444,6 +447,12 @@ export async function lock(
 ) {
   var global
 
+  core.debug(`lock() called with ref: ${ref}`)
+  core.debug(`lock() called with sticky: ${sticky}`)
+  core.debug(`lock() called with environment: ${environment}`)
+  core.debug(`lock() called with detailsOnly: ${detailsOnly}`)
+  core.debug(`lock() called with postDeployStep: ${postDeployStep}`)
+
   // find the global flag for returning
   const globalFlag = core.getInput('global_lock_flag').trim()
 
@@ -466,7 +475,7 @@ export async function lock(
   // lock debug info
   core.debug(`detected lock env: ${environment}`)
   core.debug(`detected lock global: ${global}`)
-  core.debug(`constructed lock branch: ${branchName}`)
+  core.debug(`constructed lock branch name: ${branchName}`)
 
   // Before we can process THIS lock request, we must first check for a global lock
   // If there is a global lock, we must check if the requestor is the owner of the lock
@@ -504,6 +513,7 @@ export async function lock(
 
   // If the global lock exists, check if the requestor is the owner
   if (globalLockData && postDeployStep === false) {
+    core.debug('global lock exists - checking if requestor is the owner')
     // Check if the requestor is the owner of the global lock
     const globalLockOwner = await checkLockOwner(
       octokit,
@@ -514,6 +524,7 @@ export async function lock(
     )
     if (globalLockOwner === false) {
       // If the requestor is not the owner of the global lock, return false
+      core.debug('requestor is not the owner of the current global lock')
       return {status: false, lockData: null, globalFlag, environment, global}
     } else {
       core.info('requestor is the owner of the global lock - continuing checks')
@@ -525,6 +536,7 @@ export async function lock(
 
   if (branchExists === false && detailsOnly === true) {
     // If the lock branch doesn't exist and this is a detailsOnly request, return null
+    core.debug('lock branch does not exist and this is a detailsOnly request')
     return {status: null, lockData: null, globalFlag, environment, global}
   }
 

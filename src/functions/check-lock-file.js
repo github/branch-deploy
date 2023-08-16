@@ -1,4 +1,5 @@
 import {LOCK_METADATA} from './lock-metadata'
+import * as core from '@actions/core'
 
 const LOCK_FILE = LOCK_METADATA.lockFile
 
@@ -8,6 +9,7 @@ const LOCK_FILE = LOCK_METADATA.lockFile
 // :param branchName: The name of the branch to check
 // :return: The lock file contents if it exists, false if not
 export async function checkLockFile(octokit, context, branchName) {
+  core.debug(`checking if lock file exists on branch: ${branchName}`)
   // If the lock branch exists, check if a lock file exists
   try {
     // Get the lock file contents
@@ -26,6 +28,7 @@ export async function checkLockFile(octokit, context, branchName) {
   } catch (error) {
     // If the lock file doesn't exist, return false
     if (error.status === 404) {
+      core.info(`lock file does not exist on branch: ${branchName}`)
       return false
     }
 

@@ -40,7 +40,7 @@ body:
     id: logs
     attributes:
       label: Relevant Actions Log Output
-      description: Please copy and paste any relevant log output. If your Action's workflow is public, please provide a direct link to the logs
+      description: Please copy and paste any relevant log output. Please ensure to re-run your workflow with debug mode enabled if you can. The debug logs from this Action are quite rich and can help us solve your problem! If your Action's workflow is public, please provide a direct link to the logs. Thank you!
 
   - type: textarea
     id: extra

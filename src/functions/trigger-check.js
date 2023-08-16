@@ -10,9 +10,10 @@ export async function triggerCheck(body, trigger) {
 
   // If the trigger is not activated, set the output to false and return with false
   if (!body.startsWith(trigger)) {
-    core.info(`Trigger "${trigger}" not found in the comment body`)
+    core.debug(`comment body does not start with trigger: "${trigger}"`)
     return false
   }
 
+  core.info(`✅ comment body starts with trigger: "${trigger}"`)
   return true
 }

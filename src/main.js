@@ -242,6 +242,7 @@ export async function run() {
           ) ||
           isLockInfoAlias === true
         ) {
+          core.debug('detailsOnly lock request detected')
           // Get the lock details from the lock file
           const lockResponse = await lock(
             octokit,
@@ -249,7 +250,7 @@ export async function run() {
             null, // ref
             reactRes.data.id,
             null, // sticky
-            null, // environment (we will find this in the lock function)
+            null, // environment (we will find this in the lock function - important)
             true // details only flag
           )
           // extract values from the lock response

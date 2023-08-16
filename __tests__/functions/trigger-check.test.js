@@ -3,12 +3,14 @@ import * as core from '@actions/core'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')
+const debugMock = jest.spyOn(core, 'debug')
 
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   jest.spyOn(core, 'saveState').mockImplementation(() => {})
   jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
 })
 
 test('checks a message and finds a standard trigger', async () => {
@@ -16,6 +18,9 @@ test('checks a message and finds a standard trigger', async () => {
   const trigger = '.deploy'
   expect(await triggerCheck(body, trigger)).toBe(true)
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
+  expect(infoMock).toHaveBeenCalledWith(
+    '✅ comment body starts with trigger: ".deploy"'
+  )
 })
 
 test('checks a message and does not find trigger', async () => {
@@ -23,8 +28,8 @@ test('checks a message and does not find trigger', async () => {
   const trigger = '.deploy'
   expect(await triggerCheck(body, trigger)).toBe(false)
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.bad')
-  expect(infoMock).toHaveBeenCalledWith(
-    'Trigger ".deploy" not found in the comment body'
+  expect(debugMock).toHaveBeenCalledWith(
+    'comment body does not start with trigger: ".deploy"'
   )
 })
 
@@ -69,7 +74,7 @@ test('checks a message and does not find global trigger', async () => {
     'comment_body',
     'I want to .ping a website'
   )
-  expect(infoMock).toHaveBeenCalledWith(
-    'Trigger ".deploy" not found in the comment body'
+  expect(debugMock).toHaveBeenCalledWith(
+    'comment body does not start with trigger: ".deploy"'
   )
 })
