@@ -22348,7 +22348,7 @@ async function run() {
             null, // ref
             reactRes.data.id,
             null, // sticky
-            lockEnvTargetCheck, // environment (we already found this value above)
+            null, // environment (we will find this in the lock function - important)
             true // details only flag
           )
           // extract values from the lock response
