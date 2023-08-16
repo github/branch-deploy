@@ -466,7 +466,7 @@ export async function lock(
   // lock debug info
   core.debug(`detected lock env: ${environment}`)
   core.debug(`detected lock global: ${global}`)
-  core.debug(`constructed lock branch: ${branchName}`)
+  core.debug(`constructed lock branch name: ${branchName}`)
 
   // Before we can process THIS lock request, we must first check for a global lock
   // If there is a global lock, we must check if the requestor is the owner of the lock
