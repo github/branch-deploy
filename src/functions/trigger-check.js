@@ -15,6 +15,5 @@ export async function triggerCheck(body, trigger) {
   }
 
   core.info(`✅ comment body starts with trigger: "${trigger}"`)
-
   return true
 }
