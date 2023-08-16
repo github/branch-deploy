@@ -5,7 +5,7 @@ import * as contextCheck from '../../src/functions/context-check'
 import * as github from '@actions/github'
 
 const validInputs = {
-  skip_completing: 'false'
+  skip_completing: false
 }
 const validStates = {
   ref: 'test-ref',
@@ -25,7 +25,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'error').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'getInput').mockImplementation(name => {
+  jest.spyOn(core, 'getBooleanInput').mockImplementation(name => {
     return validInputs[name]
   })
   jest.spyOn(core, 'getState').mockImplementation(name => {
@@ -68,7 +68,7 @@ test('skips the process of completing a deployment', async () => {
   const skipped = {
     skip_completing: 'true'
   }
-  jest.spyOn(core, 'getInput').mockImplementation(name => {
+  jest.spyOn(core, 'getBooleanInput').mockImplementation(name => {
     return skipped[name]
   })
   expect(await post()).toBeUndefined()

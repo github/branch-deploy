@@ -21385,8 +21385,9 @@ async function postDeployMessage(
   ref
 ) {
   // fetch the inputs
-  const environment_url_in_comment =
-    core.getInput('environment_url_in_comment') === 'true'
+  const environment_url_in_comment = core.getBooleanInput(
+    'environment_url_in_comment'
+  )
   const deployMessagePath = await checkInput(
     core.getInput('deploy_message_path')
   )
@@ -21663,7 +21664,7 @@ async function post() {
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
-    const skip_completing = core.getInput('skip_completing') === 'true'
+    const skip_completing = core.getBooleanInput('skip_completing')
 
     // If bypass is set, exit the workflow
     if (bypass) {
@@ -22141,11 +22142,11 @@ async function run() {
     const global_lock_flag = core.getInput('global_lock_flag')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
-    const allowForks = core.getInput('allow_forks') === 'true'
+    const allowForks = core.getBooleanInput('allow_forks')
     const skipCi = core.getInput('skip_ci')
     const skipReviews = core.getInput('skip_reviews')
-    const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
-    const unlockOnMergeMode = core.getInput('unlock_on_merge_mode') === 'true'
+    const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
+    const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')

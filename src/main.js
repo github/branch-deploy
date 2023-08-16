@@ -43,11 +43,11 @@ export async function run() {
     const global_lock_flag = core.getInput('global_lock_flag')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
-    const allowForks = core.getInput('allow_forks') === 'true'
+    const allowForks = core.getBooleanInput('allow_forks')
     const skipCi = core.getInput('skip_ci')
     const skipReviews = core.getInput('skip_reviews')
-    const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
-    const unlockOnMergeMode = core.getInput('unlock_on_merge_mode') === 'true'
+    const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
+    const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')
