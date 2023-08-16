@@ -48,6 +48,7 @@ beforeEach(() => {
   process.env.INPUT_REQUIRED_CONTEXTS = 'false'
   process.env.INPUT_ALLOW_FORKS = 'true'
   process.env.GITHUB_REPOSITORY = 'corp/test'
+  process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
   github.context.payload = {
     issue: {
       number: 123
@@ -203,7 +204,7 @@ test('runs the action in lock mode and fails due to bad permissions', async () =
   expect(setFailedMock).toHaveBeenCalledWith(permissionsMsg)
 })
 
-test('successfully runs the action in lock mode', async () => {
+test('successfully runs the action in lock mode with a reason', async () => {
   jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
     return true
   })
@@ -683,7 +684,6 @@ test('runs the .help command successfully', async () => {
 })
 
 test('runs the action in lock mode and fails due to an invalid environment', async () => {
-  process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
   })
