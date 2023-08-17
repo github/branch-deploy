@@ -432,7 +432,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       octokit
     )
   ).toStrictEqual({
-    message: '✅ All CI checks passed and **noop** requested',
+    message: `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`,
     status: true,
     noopMode: true,
     ref: 'test-ref',
@@ -734,7 +734,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       octokit
     )
   ).toStrictEqual({
-    message: '✅ CI checks have not been defined and **noop** requested',
+    message: `✅ CI checks have not been defined and ${COLORS.highlight}noop${COLORS.reset} requested`,
     status: true,
     noopMode: true,
     ref: 'test-ref',
@@ -1776,7 +1776,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       octokit
     )
   ).toStrictEqual({
-    message: '✅ All CI checks passed and **noop** requested',
+    message: `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`,
     noopMode: true,
     ref: 'test-ref',
     status: true,

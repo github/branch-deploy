@@ -20072,7 +20072,7 @@ async function prechecks(
 
     ref = stable_branch
     forkBypass = true
-    core.info(
+    core.debug(
       `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
     )
   }
@@ -20080,7 +20080,8 @@ async function prechecks(
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
   // Note: We should not export fork values if the stable_branch is being used here
   if (pr.data.head.repo?.fork === true && forkBypass === false) {
-    core.info(`PR is from a fork, using sha instead of ref`)
+    core.info(`🍴 the pull request is a ${COLORS.highlight}fork`)
+    core.debug(`the pull request is from a fork, using sha instead of ref`)
     core.setOutput('fork', 'true')
 
     // If this Action's inputs have been configured to explicitly prevent forks, exit
@@ -20166,7 +20167,9 @@ async function prechecks(
       `deployment requested on a draft PR from a non-allowed environment`
     )
   } else if (isDraft && allowDraftDeploy) {
-    core.info(`deployment requested on a draft PR from an allowed environment`)
+    core.info(
+      `📓 deployment requested on a ${COLORS.highlight}draft${COLORS.reset} pull request from an ${COLORS.highlight}allowed${COLORS.reset} environment`
+    )
   }
 
   // Grab the statusCheckRollup state from the GraphQL result
@@ -20175,7 +20178,7 @@ async function prechecks(
     // Check to see if skipCi is set for the environment being used
     if (skipCi) {
       core.info(
-        `CI checks have been disabled for the ${environment} environment, proceeding`
+        `⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${environment}${COLORS.reset} environment`
       )
       commitStatus = 'skip_ci'
     }
@@ -20185,9 +20188,7 @@ async function prechecks(
       result.repository.pullRequest.commits.nodes[0].commit.checkSuites
         .totalCount === 0
     ) {
-      core.info(
-        'No CI checks have been defined for this pull request, proceeding'
-      )
+      core.info('💡 no CI checks have been defined for this pull request')
       commitStatus = null
 
       // If there are CI checked defined, we need to check for the 'state' of the latest commit
@@ -20382,9 +20383,9 @@ async function prechecks(
     commitStatus === 'SUCCESS' &&
     noopMode
   ) {
-    message = '✅ All CI checks passed and **noop** requested'
+    message = `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`
     core.info(message)
-    core.info('note: noop deployments do not require pr review')
+    core.debug('note: noop deployments do not require pr review')
 
     // If CI is passing and the deployer is an admin
   } else if (commitStatus === 'SUCCESS' && userIsAdmin === true) {
@@ -20438,7 +20439,7 @@ async function prechecks(
     commitStatus === null &&
     noopMode
   ) {
-    message = '✅ CI checks have not been defined and **noop** requested'
+    message = `✅ CI checks have not been defined and ${COLORS.highlight}noop${COLORS.reset} requested`
     core.info(message)
     core.info('note: noop deployments do not require pr review')
 
