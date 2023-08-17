@@ -2,6 +2,7 @@ import {environmentTargets} from '../../src/functions/environment-targets'
 import * as actionStatus from '../../src/functions/action-status'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
+import {COLORS} from '../../src/functions/colors'
 
 const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
@@ -216,7 +217,7 @@ test('checks the comment body and finds an explicit environment target for stagi
     }
   })
   expect(infoMock).toHaveBeenCalledWith(
-    'environment url detected: http://staging.example.com'
+    `🔗 environment url detected: ${COLORS.highlight}http://staging.example.com`
   )
   expect(debugMock).toHaveBeenCalledWith(
     'Found environment target for noop trigger: staging'
@@ -256,7 +257,7 @@ test('checks the comment body and finds an explicit environment target for stagi
     }
   })
   expect(infoMock).toHaveBeenCalledWith(
-    'environment url detected: http://staging.example.com'
+    `🔗 environment url detected: ${COLORS.highlight}http://staging.example.com`
   )
   expect(debugMock).toHaveBeenCalledWith(
     `Found environment target for stable branch noop trigger (with 'to'): staging`
@@ -296,7 +297,7 @@ test('checks the comment body and uses the default production environment target
     }
   })
   expect(infoMock).toHaveBeenCalledWith(
-    'environment url detected: https://example.com'
+    `🔗 environment url detected: ${COLORS.highlight}https://example.com`
   )
   expect(debugMock).toHaveBeenCalledWith(
     'Using default environment for branch deployment'
@@ -410,7 +411,7 @@ test('checks the comment body and finds an explicit environment target for a pro
     'Found environment target for branch deploy: production'
   )
   expect(infoMock).toHaveBeenCalledWith(
-    'environment url for production is explicitly disabled'
+    `💡 environment url for ${COLORS.highlight}production${COLORS.reset} is explicitly disabled`
   )
   expect(saveStateMock).toHaveBeenCalledWith('environment_url', 'null')
   expect(setOutputMock).toHaveBeenCalledWith('environment_url', 'null')

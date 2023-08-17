@@ -19240,6 +19240,7 @@ const LOCK_METADATA = {
 
 
 
+
 // Helper function to that does environment checks specific to branch deploys
 // :param environment_targets_sanitized: The list of environment targets
 // :param body: The body of the comment
@@ -19522,7 +19523,9 @@ async function findEnvironmentUrl(environment, environment_urls) {
 
       // if the environment url exactly matches 'disabled' then return null
       if (environment_url === 'disabled') {
-        core.info(`environment url for ${environment} is explicitly disabled`)
+        core.info(
+          `💡 environment url for ${COLORS.highlight}${environment}${COLORS.reset} is explicitly disabled`
+        )
         core.saveState('environment_url', 'null')
         core.setOutput('environment_url', 'null')
         return null
@@ -19538,7 +19541,9 @@ async function findEnvironmentUrl(environment, environment_urls) {
 
       core.saveState('environment_url', environment_url)
       core.setOutput('environment_url', environment_url)
-      core.info(`environment url detected: ${environment_url}`)
+      core.info(
+        `🔗 environment url detected: ${COLORS.highlight}${environment_url}`
+      )
       return environment_url
     }
   }
@@ -21221,6 +21226,7 @@ async function lock(
 
 
 
+
 // Constants for the lock file
 const unlock_LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
 const unlock_GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
@@ -21319,7 +21325,9 @@ async function unlock(
 
     // If the lock was successfully released, return true
     if (result.status === 204) {
-      core.info(`successfully removed lock`)
+      core.info(
+        `🔓 successfully ${COLORS.highlight}removed${COLORS.reset} lock`
+      )
 
       // If silent, exit here
       if (silent) {

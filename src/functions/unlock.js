@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import {actionStatus} from './action-status'
 import dedent from 'dedent-js'
 import {LOCK_METADATA} from './lock-metadata'
+import {COLORS} from './colors'
 
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
@@ -101,7 +102,9 @@ export async function unlock(
 
     // If the lock was successfully released, return true
     if (result.status === 204) {
-      core.info(`successfully removed lock`)
+      core.info(
+        `🔓 successfully ${COLORS.highlight}removed${COLORS.reset} lock`
+      )
 
       // If silent, exit here
       if (silent) {
