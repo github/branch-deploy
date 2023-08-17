@@ -223,8 +223,11 @@ test('runs prechecks and finds that the IssueOps command is valid without define
   expect(debugMock).toHaveBeenCalledWith(
     `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: ${COLORS.success}OK`
   )
-  expect(infoMock).toHaveBeenCalledWith(
-    'Skipping commit status check and proceeding...'
+  expect(debugMock).toHaveBeenCalledWith(
+    'this repo may not have any CI checks defined'
+  )
+  expect(debugMock).toHaveBeenCalledWith(
+    'skipping commit status check and proceeding...'
   )
 })
 
@@ -322,8 +325,11 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
   expect(debugMock).toHaveBeenCalledWith(
     `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: ${COLORS.success}OK`
   )
-  expect(infoMock).toHaveBeenCalledWith(
-    'Skipping commit status check and proceeding...'
+  expect(debugMock).toHaveBeenCalledWith(
+    'this repo may not have any CI checks defined'
+  )
+  expect(debugMock).toHaveBeenCalledWith(
+    'skipping commit status check and proceeding...'
   )
   expect(infoMock).toHaveBeenCalledWith(
     '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'

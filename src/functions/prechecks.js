@@ -218,7 +218,8 @@ export async function prechecks(
     core.debug(
       `could not retrieve PR commit status: ${e} - Handled: ${COLORS.success}OK`
     )
-    core.info('Skipping commit status check and proceeding...')
+    core.debug('this repo may not have any CI checks defined')
+    core.debug('skipping commit status check and proceeding...')
     commitStatus = null
 
     // Try to display the raw GraphQL result for debugging purposes
