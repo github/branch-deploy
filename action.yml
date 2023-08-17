@@ -130,6 +130,8 @@ outputs:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
   comment_body:
     description: The comment body
+  issue_number:
+    description: The issue number of the pull request (or issue) that was commented on
   actor:
     description: The GitHub handle of the actor that invoked the IssueOps command
   environment:
@@ -145,7 +147,7 @@ outputs:
   comment_id:
     description: The comment id which triggered this deployment
   type:
-    description: "The type of trigger that was detected (examples: deploy, lock, unlock, lock-info-alias)"
+    description: "The type of trigger that was detected (examples: deploy, lock, unlock, lock-info-alias, help)"
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
   fork:

@@ -290,6 +290,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | ------ | ----------- |
 | `triggered` | The string "true" if the trigger was found, otherwise the string "false" |
 | `comment_body` | The comment body |
+| `issue_number` | The issue number of the pull request (or issue) that was commented on |
 | `actor` | The GitHub handle of the actor that invoked the IssueOps command |
 | `environment` | The environment that has been selected for a deployment |
 | `params` | The raw parameters that were passed into the deployment command (see param_separator) - Further [documentation](docs/parameters.md) |
@@ -299,7 +300,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `comment_id` | The comment id which triggered this deployment |
 | `deployment_id` | The ID of the deployment created by running this action |
 | `environment_url` | The environment URL detected and used for the deployment (sourced from the environment_urls input) |
-| `type` | The type of trigger that was detected (examples: deploy, lock, unlock, lock-info-alias) |
+| `type` | The type of trigger that was detected (examples: deploy, lock, unlock, lock-info-alias, help) |
 | `continue` | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
 | `fork` | The string "true" if the pull request is a fork, otherwise "false" |
 | `fork_ref` | The true ref of the fork |
