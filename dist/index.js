@@ -22542,6 +22542,7 @@ async function run() {
     core.setOutput('ref', precheckResults.ref)
     core.saveState('ref', precheckResults.ref)
     core.setOutput('sha', precheckResults.sha)
+    core.info(`sha: ${precheckResults.sha}`)
 
     // If the prechecks failed, run the actionStatus function and return
     // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
