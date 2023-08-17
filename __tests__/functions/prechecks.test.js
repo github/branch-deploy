@@ -115,7 +115,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ PR is approved and all CI checks passed - OK',
+    message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -149,7 +149,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ Deployment to the **stable** branch requested - OK',
+    message: `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`,
     noopMode: false,
     ref: 'main',
     status: true,
@@ -178,7 +178,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ PR is approved and all CI checks passed - OK',
+    message: '✅ PR is approved and all CI checks passed',
     noopMode: true,
     ref: 'test-ref',
     status: true,
@@ -213,8 +213,7 @@ test('runs prechecks and finds that the IssueOps command is valid without define
       octokit
     )
   ).toStrictEqual({
-    message:
-      '✔️ CI checks have not been defined but the PR has been approved - OK',
+    message: '✅ CI checks have not been defined but the PR has been approved',
     status: true,
     noopMode: false,
     ref: 'test-ref',
@@ -316,7 +315,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
     )
   ).toStrictEqual({
     message:
-      '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK',
+      '🎛️ CI checks have not been defined and required reviewers have not been defined',
     status: true,
     noopMode: false,
     ref: 'test-ref',
@@ -332,7 +331,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
     'skipping commit status check and proceeding...'
   )
   expect(infoMock).toHaveBeenCalledWith(
-    '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
+    '🎛️ CI checks have not been defined and required reviewers have not been defined'
   )
 })
 
@@ -378,14 +377,14 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
     )
   ).toStrictEqual({
     message:
-      '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK',
+      '🎛️ CI checks have been defined but required reviewers have not been defined',
     status: true,
     noopMode: false,
     ref: 'test-ref',
     sha: 'abc123'
   })
   expect(infoMock).toHaveBeenLastCalledWith(
-    '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+    '🎛️ CI checks have been defined but required reviewers have not been defined'
   )
 })
 
@@ -433,7 +432,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ All CI checks passed and **noop** requested - OK',
+    message: '✅ All CI checks passed and **noop** requested',
     status: true,
     noopMode: true,
     ref: 'test-ref',
@@ -495,7 +494,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ PR is approved and all CI checks passed - OK',
+    message: '✅ PR is approved and all CI checks passed',
     status: true,
     noopMode: false,
     ref: 'abcde12345',
@@ -735,7 +734,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ CI checks have not been defined and **noop** requested - OK',
+    message: '✅ CI checks have not been defined and **noop** requested',
     status: true,
     noopMode: true,
     ref: 'test-ref',
@@ -776,7 +775,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ Deployment to the **stable** branch requested - OK',
+    message: `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`,
     status: true,
     noopMode: false,
     ref: 'main',
@@ -1032,8 +1031,7 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
       octokit
     )
   ).toStrictEqual({
-    message:
-      '✔️ CI checks have not been defined but the PR has been approved - OK',
+    message: '✅ CI checks have not been defined but the PR has been approved',
     status: true,
     noopMode: false,
     ref: 'test-ref',
@@ -1433,7 +1431,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ PR is approved and all CI checks passed - OK',
+    message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -1667,8 +1665,7 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
       octokit
     )
   ).toStrictEqual({
-    message:
-      '✔️ CI is passing and approval is bypassed due to admin rights - OK',
+    message: '✅ CI is passing and approval is bypassed due to admin rights',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -1723,8 +1720,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       octokit
     )
   ).toStrictEqual({
-    message:
-      '✔️ CI is passing and approval is bypassed due to admin rights - OK',
+    message: '✅ CI is passing and approval is bypassed due to admin rights',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -1780,7 +1776,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ All CI checks passed and **noop** requested - OK',
+    message: '✅ All CI checks passed and **noop** requested',
     noopMode: true,
     ref: 'test-ref',
     status: true,
@@ -1833,7 +1829,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     )
   ).toStrictEqual({
     message:
-      '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK',
+      '✅ CI checks have not been defined and approval is bypassed due to admin rights',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -1841,7 +1837,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
   })
 
   expect(infoMock).toHaveBeenLastCalledWith(
-    '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
+    '✅ CI checks have not been defined and approval is bypassed due to admin rights'
   )
 })
 
@@ -1885,14 +1881,14 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
     )
   ).toStrictEqual({
     message:
-      '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK',
+      '🎛️ CI checks have not been defined and required reviewers have not been defined',
     status: true,
     noopMode: false,
     ref: 'test-ref',
     sha: 'abc123'
   })
   expect(infoMock).toHaveBeenLastCalledWith(
-    '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
+    '🎛️ CI checks have not been defined and required reviewers have not been defined'
   )
 })
 
@@ -1936,14 +1932,14 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
     )
   ).toStrictEqual({
     message:
-      '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK',
+      '✅ CI checks have not been defined and approval is bypassed due to admin rights',
     status: true,
     noopMode: false,
     ref: 'test-ref',
     sha: 'abc123'
   })
   expect(infoMock).toHaveBeenLastCalledWith(
-    '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
+    '✅ CI checks have not been defined and approval is bypassed due to admin rights'
   )
 })
 
@@ -1987,14 +1983,14 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
     )
   ).toStrictEqual({
     message:
-      '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK',
+      '✅ CI checks have not been defined and approval is bypassed due to admin rights',
     status: true,
     noopMode: false,
     ref: 'test-ref',
     sha: 'abc123'
   })
   expect(infoMock).toHaveBeenLastCalledWith(
-    '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
+    '✅ CI checks have not been defined and approval is bypassed due to admin rights'
   )
 })
 
@@ -2041,14 +2037,14 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
     )
   ).toStrictEqual({
     message:
-      '✔️ CI requirements have been disabled for this environment and the PR has been approved - OK',
+      '✅ CI requirements have been disabled for this environment and the PR has been approved',
     status: true,
     noopMode: false,
     ref: 'test-ref',
     sha: 'abc123'
   })
   expect(infoMock).toHaveBeenCalledWith(
-    '✔️ CI requirements have been disabled for this environment and the PR has been approved - OK'
+    '✅ CI requirements have been disabled for this environment and the PR has been approved'
   )
 })
 
@@ -2100,7 +2096,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
     )
   ).toStrictEqual({
     message:
-      '✔️ CI checked passsed and required reviewers have been disabled for this environment - OK',
+      '✅ CI checked passsed and required reviewers have been disabled for this environment',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -2108,7 +2104,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
   })
 
   expect(infoMock).toHaveBeenCalledWith(
-    '✔️ CI checked passsed and required reviewers have been disabled for this environment - OK'
+    '✅ CI checked passsed and required reviewers have been disabled for this environment'
   )
 })
 
@@ -2135,7 +2131,7 @@ test('runs prechecks on a custom deploy comment with a custom variable at the en
     )
   ).toStrictEqual({
     message:
-      '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK',
+      '✅ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -2143,7 +2139,7 @@ test('runs prechecks on a custom deploy comment with a custom variable at the en
   })
 
   expect(infoMock).toHaveBeenCalledWith(
-    '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK'
+    '✅ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment'
   )
 })
 
@@ -2195,7 +2191,7 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
     )
   ).toStrictEqual({
     message:
-      '⚠️ CI requirements have been disabled for this environment and required reviewers have not been defined... proceeding - OK',
+      '🎛️ CI requirements have been disabled for this environment and required reviewers have not been defined',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -2203,7 +2199,7 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
   })
 
   expect(infoMock).toHaveBeenCalledWith(
-    '⚠️ CI requirements have been disabled for this environment and required reviewers have not been defined... proceeding - OK'
+    '🎛️ CI requirements have been disabled for this environment and required reviewers have not been defined'
   )
 })
 
@@ -2256,7 +2252,7 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
     )
   ).toStrictEqual({
     message:
-      '✔️ CI requirements have been disabled for this environment and **noop** requested - OK',
+      '✅ CI requirements have been disabled for this environment and **noop** requested',
     noopMode: true,
     ref: 'test-ref',
     status: true,
@@ -2264,7 +2260,7 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
   })
 
   expect(infoMock).toHaveBeenCalledWith(
-    '✔️ CI requirements have been disabled for this environment and **noop** requested - OK'
+    '✅ CI requirements have been disabled for this environment and **noop** requested'
   )
 })
 
@@ -2316,7 +2312,7 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
     )
   ).toStrictEqual({
     message:
-      '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK',
+      '✅ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -2324,7 +2320,7 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
   })
 
   expect(infoMock).toHaveBeenCalledWith(
-    '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK'
+    '✅ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment'
   )
 })
 
@@ -2376,7 +2372,7 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
     )
   ).toStrictEqual({
     message:
-      '✔️ CI requirements have been disabled for this environment and approval is bypassed due to admin rights - OK',
+      '✅ CI requirements have been disabled for this environment and approval is bypassed due to admin rights',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -2384,7 +2380,7 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
   })
 
   expect(infoMock).toHaveBeenCalledWith(
-    '✔️ CI requirements have been disabled for this environment and approval is bypassed due to admin rights - OK'
+    '✅ CI requirements have been disabled for this environment and approval is bypassed due to admin rights'
   )
 })
 
@@ -2646,7 +2642,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ PR is approved and all CI checks passed - OK',
+    message: '✅ PR is approved and all CI checks passed',
     status: true,
     noopMode: true,
     ref: 'test-ref',
@@ -2724,7 +2720,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
       octokit
     )
   ).toStrictEqual({
-    message: '✔️ PR is approved and all CI checks passed - OK',
+    message: '✅ PR is approved and all CI checks passed',
     status: true,
     noopMode: true,
     ref: 'test-ref',

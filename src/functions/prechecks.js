@@ -193,7 +193,7 @@ export async function prechecks(
     // Check to see if skipCi is set for the environment being used
     if (skipCi) {
       core.info(
-        `CI checks have been disabled for the ${environment} environment, proceeding - OK`
+        `CI checks have been disabled for the ${environment} environment, proceeding`
       )
       commitStatus = 'skip_ci'
     }
@@ -204,7 +204,7 @@ export async function prechecks(
         .totalCount === 0
     ) {
       core.info(
-        'No CI checks have been defined for this pull request, proceeding - OK'
+        'No CI checks have been defined for this pull request, proceeding'
       )
       commitStatus = null
 
@@ -282,9 +282,9 @@ export async function prechecks(
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (environmentObj.stable_branch_used === true) {
-    message = '✔️ Deployment to the **stable** branch requested - OK'
+    message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`
     core.info(message)
-    core.info(
+    core.debug(
       'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
     )
 
@@ -303,7 +303,7 @@ export async function prechecks(
     }
 
     // Execute the logic below only if update_branch is set to "force"
-    core.info(`update_branch is set to ${update_branch} - proceeding...`)
+    core.debug(`update_branch is set to ${COLORS.highlight}${update_branch}`)
 
     // Make an API call to update the PR branch
     try {
@@ -338,37 +338,37 @@ export async function prechecks(
 
     // If everything is OK, print a nice message
   } else if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
-    message = '✔️ PR is approved and all CI checks passed - OK'
+    message = '✅ PR is approved and all CI checks passed'
     core.info(message)
 
     // CI checks have not been defined AND required reviewers have not been defined
   } else if (reviewDecision === null && commitStatus === null) {
     message =
-      '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
+      '🎛️ CI checks have not been defined and required reviewers have not been defined'
     core.info(message)
 
     // CI checks have been defined BUT required reviewers have not been defined
   } else if (reviewDecision === null && commitStatus === 'SUCCESS') {
     message =
-      '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+      '🎛️ CI checks have been defined but required reviewers have not been defined'
     core.info(message)
 
     // CI checks are passing and reviews are set to be bypassed
   } else if (commitStatus === 'SUCCESS' && reviewDecision == 'skip_reviews') {
     message =
-      '✔️ CI checked passsed and required reviewers have been disabled for this environment - OK'
+      '✅ CI checked passsed and required reviewers have been disabled for this environment'
     core.info(message)
 
     // CI checks are set to be bypassed and the pull request is approved
   } else if (commitStatus === 'skip_ci' && reviewDecision === 'APPROVED') {
     message =
-      '✔️ CI requirements have been disabled for this environment and the PR has been approved - OK'
+      '✅ CI requirements have been disabled for this environment and the PR has been approved'
     core.info(message)
 
     // CI checks are set to be bypassed BUT required reviews have not been defined
   } else if (commitStatus === 'skip_ci' && reviewDecision === null) {
     message =
-      '⚠️ CI requirements have been disabled for this environment and required reviewers have not been defined... proceeding - OK'
+      '🎛️ CI requirements have been disabled for this environment and required reviewers have not been defined'
     core.info(message)
 
     // CI checks are set to be bypassed and the PR has not been reviewed BUT it is a noop deploy
@@ -378,20 +378,20 @@ export async function prechecks(
     noopMode
   ) {
     message =
-      '✔️ CI requirements have been disabled for this environment and **noop** requested - OK'
+      '✅ CI requirements have been disabled for this environment and **noop** requested'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
 
     // If CI checks are set to be bypassed and the deployer is an admin
   } else if (commitStatus === 'skip_ci' && userIsAdmin === true) {
     message =
-      '✔️ CI requirements have been disabled for this environment and approval is bypassed due to admin rights - OK'
+      '✅ CI requirements have been disabled for this environment and approval is bypassed due to admin rights'
     core.info(message)
 
     // If CI checks are set to be bypassed and PR reviews are also set to by bypassed
   } else if (commitStatus === 'skip_ci' && reviewDecision === 'skip_reviews') {
     message =
-      '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK'
+      '✅ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment'
     core.info(message)
 
     // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
@@ -400,26 +400,24 @@ export async function prechecks(
     commitStatus === 'SUCCESS' &&
     noopMode
   ) {
-    message = '✔️ All CI checks passed and **noop** requested - OK'
+    message = '✅ All CI checks passed and **noop** requested'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
 
     // If CI is passing and the deployer is an admin
   } else if (commitStatus === 'SUCCESS' && userIsAdmin === true) {
-    message =
-      '✔️ CI is passing and approval is bypassed due to admin rights - OK'
+    message = '✅ CI is passing and approval is bypassed due to admin rights'
     core.info(message)
 
     // If CI is undefined and the deployer is an admin
   } else if (commitStatus === null && userIsAdmin === true) {
     message =
-      '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
+      '✅ CI checks have not been defined and approval is bypassed due to admin rights'
     core.info(message)
 
     // If CI has not been defined but the PR has been approved
   } else if (commitStatus === null && reviewDecision === 'APPROVED') {
-    message =
-      '✔️ CI checks have not been defined but the PR has been approved - OK'
+    message = '✅ CI checks have not been defined but the PR has been approved'
     core.info(message)
 
     // If CI is pending and the PR has not been reviewed BUT it is a noop deploy
@@ -458,7 +456,7 @@ export async function prechecks(
     commitStatus === null &&
     noopMode
   ) {
-    message = '✔️ CI checks have not been defined and **noop** requested - OK'
+    message = '✅ CI checks have not been defined and **noop** requested'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
 
