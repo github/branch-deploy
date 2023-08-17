@@ -4,17 +4,21 @@ import * as postDeploy from '../../src/functions/post-deploy'
 import * as contextCheck from '../../src/functions/context-check'
 import * as github from '@actions/github'
 
-const validInputs = {
-  skip_completing: false
+const validBooleanInputs = {
+  skip_completing: false,
+  
 }
+const validInputs = {
+  status: 'success'
+}
+
 const validStates = {
   ref: 'test-ref',
   comment_id: '123',
   noop: 'false',
   deployment_id: '456',
   environment: 'production',
-  token: 'test-token',
-  status: 'success'
+  token: 'test-token'
 }
 
 const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation(() => {})
@@ -26,6 +30,9 @@ beforeEach(() => {
   jest.spyOn(core, 'error').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'getBooleanInput').mockImplementation(name => {
+    return validBooleanInputs[name]
+  })
+  jest.spyOn(core, 'getInput').mockImplementation(name => {
     return validInputs[name]
   })
   jest.spyOn(core, 'getState').mockImplementation(name => {
