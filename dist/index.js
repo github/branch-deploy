@@ -20592,6 +20592,7 @@ async function timeDiff(firstDate, secondDate) {
 
 
 
+
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
 const GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
@@ -20870,7 +20871,7 @@ async function createBranch(octokit, context, branchName) {
     sha: baseBranch.data.commit.sha
   })
 
-  core.info(`Created lock branch: ${branchName}`)
+  core.info(`🔒 created lock branch: ${COLORS.highlight}${branchName}`)
 }
 
 // Helper function to check the lock owner

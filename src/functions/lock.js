@@ -4,6 +4,7 @@ import {checkLockFile} from './check-lock-file'
 import {actionStatus} from './action-status'
 import {timeDiff} from './time-diff'
 import {LOCK_METADATA} from './lock-metadata'
+import {COLORS} from './colors'
 
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
@@ -283,7 +284,7 @@ async function createBranch(octokit, context, branchName) {
     sha: baseBranch.data.commit.sha
   })
 
-  core.info(`Created lock branch: ${branchName}`)
+  core.info(`🔒 created lock branch: ${COLORS.highlight}${branchName}`)
 }
 
 // Helper function to check the lock owner

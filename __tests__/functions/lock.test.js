@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import {lock} from '../../src/functions/lock'
+import {COLORS} from '../../src/functions/colors'
 import * as actionStatus from '../../src/functions/action-status'
 
 class NotFoundError extends Error {
@@ -154,7 +155,7 @@ test('successfully obtains a deployment lock (non-sticky) by creating the branch
     await lock(octokit, context, ref, 123, false, environment)
   ).toStrictEqual(createdLock)
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: production-branch-deploy-lock'
+    `🔒 created lock branch: ${COLORS.highlight}production-branch-deploy-lock`
   )
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
@@ -833,7 +834,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: production-branch-deploy-lock'
+    `🔒 created lock branch: ${COLORS.highlight}production-branch-deploy-lock`
   )
 })
 
@@ -850,7 +851,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: production-branch-deploy-lock'
+    `🔒 created lock branch: ${COLORS.highlight}production-branch-deploy-lock`
   )
 })
 
@@ -870,7 +871,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: global-branch-deploy-lock'
+    `🔒 created lock branch: ${COLORS.highlight}global-branch-deploy-lock`
   )
 })
 
@@ -892,7 +893,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: global-branch-deploy-lock'
+    `🔒 created lock branch: ${COLORS.highlight}global-branch-deploy-lock`
   )
 })
 
@@ -916,7 +917,7 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: global-branch-deploy-lock'
+    `🔒 created lock branch: ${COLORS.highlight}global-branch-deploy-lock`
   )
 })
 
@@ -939,7 +940,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: development-branch-deploy-lock'
+    `🔒 created lock branch: ${COLORS.highlight}development-branch-deploy-lock`
   )
 })
 
@@ -958,7 +959,7 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
   expect(infoMock).toHaveBeenCalledWith('deployment lock obtained')
   expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
   expect(infoMock).toHaveBeenCalledWith(
-    'Created lock branch: production-branch-deploy-lock'
+    `🔒 created lock branch: ${COLORS.highlight}production-branch-deploy-lock`
   )
 })
 
