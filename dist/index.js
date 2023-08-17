@@ -20671,7 +20671,7 @@ async function createLock(
   }
 
   // Write a log message stating the lock has been claimed
-  core.info('deployment lock obtained')
+  core.info('✅ deployment lock obtained')
   // If the lock is sticky, always leave a comment
   if (sticky) {
     core.info('deployment lock is sticky')
@@ -22635,7 +22635,7 @@ async function run() {
       core.setOutput('noop', precheckResults.noopMode)
       core.setOutput('continue', 'true')
       core.saveState('noop', precheckResults.noopMode)
-      core.info('noop mode detected')
+      core.info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`)
 
       // If noop mode is enabled, return here
       return 'success - noop'
@@ -22716,6 +22716,7 @@ async function run() {
       environmentObj.environmentUrl // environment_url (can be null)
     )
 
+    core.info(`🚀 ${COLORS.success}deployment started!`)
     core.setOutput('continue', 'true')
     return 'success'
   } catch (error) {

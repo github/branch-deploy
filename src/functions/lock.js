@@ -84,7 +84,7 @@ async function createLock(
   }
 
   // Write a log message stating the lock has been claimed
-  core.info('deployment lock obtained')
+  core.info('✅ deployment lock obtained')
   // If the lock is sticky, always leave a comment
   if (sticky) {
     core.info('deployment lock is sticky')
