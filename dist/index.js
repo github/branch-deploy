@@ -19270,10 +19270,12 @@ async function onDeploymentChecks(
   if (params !== '') {
     bodyFmt = body.split(`${param_separator}${params}`)[0].trim()
     paramsTrim = params.trim()
-    core.info(`Detected parameters in command: '${paramsTrim}'`)
+    core.info(
+      `🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`
+    )
     core.setOutput('params', paramsTrim)
   } else {
-    core.debug('No parameters detected in command')
+    core.debug('no parameters detected in command')
     core.setOutput('params', '')
   }
 
@@ -19281,7 +19283,7 @@ async function onDeploymentChecks(
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
     if (bodyFmt.replace(trigger, '').trim() === target) {
-      core.debug(`Found environment target for branch deploy: ${target}`)
+      core.debug(`found environment target for branch deploy: ${target}`)
       return {
         target: target,
         stable_branch_used: false,
@@ -19291,7 +19293,7 @@ async function onDeploymentChecks(
     }
     // If the body on a noop trigger contains the target
     else if (bodyFmt.replace(noop_trigger, '').trim() === target) {
-      core.debug(`Found environment target for noop trigger: ${target}`)
+      core.debug(`found environment target for noop trigger: ${target}`)
       return {
         target: target,
         stable_branch_used: false,
@@ -19302,7 +19304,7 @@ async function onDeploymentChecks(
     // If the body with 'to <target>' contains the target on a branch deploy
     else if (bodyFmt.replace(trigger, '').trim() === `to ${target}`) {
       core.debug(
-        `Found environment target for branch deploy (with 'to'): ${target}`
+        `found environment target for branch deploy (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -19314,7 +19316,7 @@ async function onDeploymentChecks(
     // If the body with 'to <target>' contains the target on a noop trigger
     else if (bodyFmt.replace(noop_trigger, '').trim() === `to ${target}`) {
       core.debug(
-        `Found environment target for noop trigger (with 'to'): ${target}`
+        `found environment target for noop trigger (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -19329,7 +19331,7 @@ async function onDeploymentChecks(
       `to ${target}`
     ) {
       core.debug(
-        `Found environment target for stable branch deploy (with 'to'): ${target}`
+        `found environment target for stable branch deploy (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -19344,7 +19346,7 @@ async function onDeploymentChecks(
       `to ${target}`
     ) {
       core.debug(
-        `Found environment target for stable branch noop trigger (with 'to'): ${target}`
+        `found environment target for stable branch noop trigger (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -19357,7 +19359,7 @@ async function onDeploymentChecks(
     else if (
       bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() === target
     ) {
-      core.debug(`Found environment target for stable branch deploy: ${target}`)
+      core.debug(`found environment target for stable branch deploy: ${target}`)
       return {
         target: target,
         stable_branch_used: true,
@@ -19370,7 +19372,7 @@ async function onDeploymentChecks(
       bodyFmt.replace(`${noop_trigger} ${stable_branch}`, '').trim() === target
     ) {
       core.debug(
-        `Found environment target for stable branch noop trigger: ${target}`
+        `found environment target for stable branch noop trigger: ${target}`
       )
       return {
         target: target,
@@ -19381,7 +19383,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the trigger phrase exactly, just use the default environment
     else if (bodyFmt.trim() === trigger) {
-      core.debug('Using default environment for branch deployment')
+      core.debug('using default environment for branch deployment')
       return {
         target: environment,
         stable_branch_used: false,
@@ -19391,7 +19393,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the noop_trigger phrase exactly, just use the default environment
     else if (bodyFmt.trim() === noop_trigger) {
-      core.debug('Using default environment for noop trigger')
+      core.debug('using default environment for noop trigger')
       return {
         target: environment,
         stable_branch_used: false,
@@ -19401,7 +19403,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
     else if (bodyFmt.trim() === `${trigger} ${stable_branch}`) {
-      core.debug('Using default environment for stable branch deployment')
+      core.debug('using default environment for stable branch deployment')
       return {
         target: environment,
         stable_branch_used: true,
@@ -19411,7 +19413,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the stable branch phrase exactly on a noop trigger, just use the default environment
     else if (bodyFmt.trim() === `${noop_trigger} ${stable_branch}`) {
-      core.debug('Using default environment for stable branch noop trigger')
+      core.debug('using default environment for stable branch noop trigger')
       return {
         target: environment,
         stable_branch_used: true,
@@ -19442,7 +19444,7 @@ async function onLockChecks(
   // if the body contains the globalFlag, exit right away as environments are not relevant
   const globalFlag = core.getInput('global_lock_flag').trim()
   if (body.includes(globalFlag)) {
-    core.debug('Global lock flag found in environment target check')
+    core.debug('global lock flag found in environment target check')
     return 'GLOBAL_REQUEST'
   }
 
@@ -19465,19 +19467,19 @@ async function onLockChecks(
 
   // if the body matches the lock trigger exactly, just use the default environment
   if (body.trim() === lock_trigger.trim()) {
-    core.debug('Using default environment for lock request')
+    core.debug('using default environment for lock request')
     return environment
   }
 
   // if the body matches the unlock trigger exactly, just use the default environment
   if (body.trim() === unlock_trigger.trim()) {
-    core.debug('Using default environment for unlock request')
+    core.debug('using default environment for unlock request')
     return environment
   }
 
   // if the body matches the lock info alias exactly, just use the default environment
   if (body.trim() === lockInfoAlias.trim()) {
-    core.debug('Using default environment for lock info request')
+    core.debug('using default environment for lock info request')
     return environment
   }
 
@@ -19485,13 +19487,13 @@ async function onLockChecks(
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
     if (body.replace(lock_trigger, '').trim() === target) {
-      core.debug(`Found environment target for lock request: ${target}`)
+      core.debug(`found environment target for lock request: ${target}`)
       return target
     } else if (body.replace(unlock_trigger, '').trim() === target) {
-      core.debug(`Found environment target for unlock request: ${target}`)
+      core.debug(`found environment target for unlock request: ${target}`)
       return target
     } else if (body.replace(lockInfoAlias, '').trim() === target) {
-      core.debug(`Found environment target for lock info request: ${target}`)
+      core.debug(`found environment target for lock info request: ${target}`)
       return target
     }
   }
@@ -20553,7 +20555,7 @@ async function checkLockFile(octokit, context, branchName) {
   } catch (error) {
     // If the lock file doesn't exist, return false
     if (error.status === 404) {
-      const lockFileNotFoundMsg = `lock file does not exist on branch: ${COLORS.highlight}${branchName}`
+      const lockFileNotFoundMsg = `🔍 lock file does not exist on branch: ${COLORS.highlight}${branchName}`
       if (branchName === LOCK_METADATA.globalLockBranch) {
         // since we jump out directly to the 'lock file' without checking the branch (only on global locks), we get this error often so we just want it to be a debug message
         core.debug(lockFileNotFoundMsg)
@@ -22217,7 +22219,7 @@ async function run() {
 
     // If we are running in the 'unlock on merge' mode, run auto-unlock logic
     if (unlockOnMergeMode) {
-      core.info(`running in 'unlock on merge' mode`)
+      core.info(`🏃 running in 'unlock on merge' mode`)
       await unlockOnMerge(octokit, github.context, environment_targets)
       core.saveState('bypass', 'true')
       return 'success - unlock on merge mode'
@@ -22225,7 +22227,7 @@ async function run() {
 
     // If we are running in the merge deploy mode, run commit checks
     if (mergeDeployMode) {
-      core.info(`running in 'merge deploy' mode`)
+      core.info(`🏃 running in 'merge deploy' mode`)
       await identicalCommitCheck(octokit, github.context, environment)
       // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
       core.saveState('bypass', 'true')
@@ -22277,7 +22279,7 @@ async function run() {
       // if no trigger is detected, exit here
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
-      core.info('no trigger detected in comment - exiting')
+      core.info('⛔ no trigger detected in comment - exiting')
       return 'safe-exit'
     }
 
@@ -22429,7 +22431,9 @@ async function run() {
               - __Environments__: \`all\`
               - __Global__: \`true\`
               `)
-              core.info('there is a global deployment lock on this repository')
+              core.info(
+                `🌏 there is a ${COLORS.highlight}global${COLORS.reset} deployment lock on this repository`
+              )
               lockBranchName = LOCK_METADATA.globalLockBranch
             }
 
@@ -22463,7 +22467,7 @@ async function run() {
               true // use the 'alt reaction' bool
             )
             core.info(
-              `the deployment lock is currently claimed by __${lockData.created_by}__`
+              `🔒 the deployment lock is currently claimed by ${COLORS.highlight}${lockData.created_by}`
             )
           } else if (lockStatus === null) {
             // format the lock details message
@@ -22493,7 +22497,7 @@ async function run() {
               true, // success bool
               true // use the 'alt reaction' bool
             )
-            core.info('no active deployment locks found')
+            core.info('✅ no active deployment locks found')
           }
 
           // Exit the action since we are done after obtaining only the lock details with --details

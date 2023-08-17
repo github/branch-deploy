@@ -12,6 +12,7 @@ import * as actionStatus from '../src/functions/action-status'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
 import * as isDeprecated from '../src/functions/deprecated-checks'
+import {COLORS} from '../src/functions/colors'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const saveStateMock = jest.spyOn(core, 'saveState')
@@ -262,7 +263,7 @@ test('successfully runs the action in lock mode - details only', async () => {
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --details')
   expect(infoSpy).toHaveBeenCalledWith(
-    'the deployment lock is currently claimed by __octocat__'
+    `🔒 the deployment lock is currently claimed by ${COLORS.highlight}octocat`
   )
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
@@ -306,7 +307,7 @@ test('successfully runs the action in lock mode - details only - for the develop
     '.lock development --details'
   )
   expect(infoSpy).toHaveBeenCalledWith(
-    'the deployment lock is currently claimed by __octocat__'
+    `🔒 the deployment lock is currently claimed by ${COLORS.highlight}octocat`
   )
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
@@ -347,7 +348,7 @@ test('successfully runs the action in lock mode - details only - --info flag', a
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --info')
   expect(infoSpy).toHaveBeenCalledWith(
-    'the deployment lock is currently claimed by __octocat__'
+    `🔒 the deployment lock is currently claimed by ${COLORS.highlight}octocat`
   )
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
@@ -388,7 +389,7 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.wcid')
   expect(infoSpy).toHaveBeenCalledWith(
-    'the deployment lock is currently claimed by __octocat__'
+    `🔒 the deployment lock is currently claimed by ${COLORS.highlight}octocat`
   )
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
@@ -429,10 +430,10 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.wcid production')
   expect(infoSpy).toHaveBeenCalledWith(
-    'there is a global deployment lock on this repository'
+    `🌏 there is a ${COLORS.highlight}global${COLORS.reset} deployment lock on this repository`
   )
   expect(infoSpy).toHaveBeenCalledWith(
-    'the deployment lock is currently claimed by __octocat__'
+    `🔒 the deployment lock is currently claimed by ${COLORS.highlight}octocat`
   )
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
@@ -462,7 +463,7 @@ test('successfully runs the action in lock mode and finds no lock - details only
   github.context.payload.comment.body = '.lock --details'
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --details')
-  expect(infoSpy).toHaveBeenCalledWith('no active deployment locks found')
+  expect(infoSpy).toHaveBeenCalledWith('✅ no active deployment locks found')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
   expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
@@ -495,7 +496,7 @@ test('successfully runs the action in lock mode and finds no GLOBAL lock - detai
     'comment_body',
     '.lock --global --details'
   )
-  expect(infoSpy).toHaveBeenCalledWith('no active deployment locks found')
+  expect(infoSpy).toHaveBeenCalledWith('✅ no active deployment locks found')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
   expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
@@ -635,7 +636,7 @@ test('fails due to no trigger being found', async () => {
   process.env.INPUT_TRIGGER = '.shipit'
   expect(await run()).toBe('safe-exit')
   expect(infoMock).toHaveBeenCalledWith(
-    'no trigger detected in comment - exiting'
+    '⛔ no trigger detected in comment - exiting'
   )
 })
 
@@ -720,7 +721,7 @@ test('successfully runs in mergeDeployMode', async () => {
     })
   expect(await run()).toBe('success - merge deploy mode')
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  expect(infoMock).toHaveBeenCalledWith(`running in 'merge deploy' mode`)
+  expect(infoMock).toHaveBeenCalledWith(`🏃 running in 'merge deploy' mode`)
 })
 
 test('successfully runs in unlockOnMergeMode', async () => {
@@ -729,7 +730,7 @@ test('successfully runs in unlockOnMergeMode', async () => {
     return true
   })
   expect(await run()).toBe('success - unlock on merge mode')
-  expect(infoMock).toHaveBeenCalledWith(`running in 'unlock on merge' mode`)
+  expect(infoMock).toHaveBeenCalledWith(`🏃 running in 'unlock on merge' mode`)
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })
 

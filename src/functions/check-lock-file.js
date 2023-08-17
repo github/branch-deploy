@@ -29,7 +29,7 @@ export async function checkLockFile(octokit, context, branchName) {
   } catch (error) {
     // If the lock file doesn't exist, return false
     if (error.status === 404) {
-      const lockFileNotFoundMsg = `lock file does not exist on branch: ${COLORS.highlight}${branchName}`
+      const lockFileNotFoundMsg = `🔍 lock file does not exist on branch: ${COLORS.highlight}${branchName}`
       if (branchName === LOCK_METADATA.globalLockBranch) {
         // since we jump out directly to the 'lock file' without checking the branch (only on global locks), we get this error often so we just want it to be a debug message
         core.debug(lockFileNotFoundMsg)

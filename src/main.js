@@ -65,7 +65,7 @@ export async function run() {
 
     // If we are running in the 'unlock on merge' mode, run auto-unlock logic
     if (unlockOnMergeMode) {
-      core.info(`running in 'unlock on merge' mode`)
+      core.info(`🏃 running in 'unlock on merge' mode`)
       await unlockOnMerge(octokit, context, environment_targets)
       core.saveState('bypass', 'true')
       return 'success - unlock on merge mode'
@@ -73,7 +73,7 @@ export async function run() {
 
     // If we are running in the merge deploy mode, run commit checks
     if (mergeDeployMode) {
-      core.info(`running in 'merge deploy' mode`)
+      core.info(`🏃 running in 'merge deploy' mode`)
       await identicalCommitCheck(octokit, context, environment)
       // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
       core.saveState('bypass', 'true')
@@ -125,7 +125,7 @@ export async function run() {
       // if no trigger is detected, exit here
       core.saveState('bypass', 'true')
       core.setOutput('triggered', 'false')
-      core.info('no trigger detected in comment - exiting')
+      core.info('⛔ no trigger detected in comment - exiting')
       return 'safe-exit'
     }
 
@@ -277,7 +277,9 @@ export async function run() {
               - __Environments__: \`all\`
               - __Global__: \`true\`
               `)
-              core.info('there is a global deployment lock on this repository')
+              core.info(
+                `🌏 there is a ${COLORS.highlight}global${COLORS.reset} deployment lock on this repository`
+              )
               lockBranchName = LOCK_METADATA.globalLockBranch
             }
 
@@ -311,7 +313,7 @@ export async function run() {
               true // use the 'alt reaction' bool
             )
             core.info(
-              `the deployment lock is currently claimed by __${lockData.created_by}__`
+              `🔒 the deployment lock is currently claimed by ${COLORS.highlight}${lockData.created_by}`
             )
           } else if (lockStatus === null) {
             // format the lock details message
@@ -341,7 +343,7 @@ export async function run() {
               true, // success bool
               true // use the 'alt reaction' bool
             )
-            core.info('no active deployment locks found')
+            core.info('✅ no active deployment locks found')
           }
 
           // Exit the action since we are done after obtaining only the lock details with --details
