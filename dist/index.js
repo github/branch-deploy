@@ -22152,6 +22152,7 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
@@ -22531,7 +22532,7 @@ async function run() {
       return 'safe-exit'
     }
 
-    core.info(`🌍 environment: ${environment}`)
+    core.info(`🌍 environment: ${COLORS.highlight}${environment}`)
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
 
