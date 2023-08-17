@@ -1,10 +1,12 @@
 import {prechecks} from '../../src/functions/prechecks'
+import {COLORS} from '../../src/functions/colors'
 import * as isAdmin from '../../src/functions/admin'
 import * as core from '@actions/core'
 
 // Globals for testing
 const infoMock = jest.spyOn(core, 'info')
 const warningMock = jest.spyOn(core, 'warning')
+const debugMock = jest.spyOn(core, 'debug')
 
 var environmentObj
 var help_trigger
@@ -218,8 +220,8 @@ test('runs prechecks and finds that the IssueOps command is valid without define
     ref: 'test-ref',
     sha: 'abc123'
   })
-  expect(infoMock).toHaveBeenCalledWith(
-    "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
+  expect(debugMock).toHaveBeenCalledWith(
+    `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: ${COLORS.success}OK`
   )
   expect(infoMock).toHaveBeenCalledWith(
     'Skipping commit status check and proceeding...'
@@ -317,8 +319,8 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
     ref: 'test-ref',
     sha: 'abc123'
   })
-  expect(infoMock).toHaveBeenCalledWith(
-    "Could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: OK"
+  expect(debugMock).toHaveBeenCalledWith(
+    `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: ${COLORS.success}OK`
   )
   expect(infoMock).toHaveBeenCalledWith(
     'Skipping commit status check and proceeding...'

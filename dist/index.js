@@ -19977,6 +19977,7 @@ async function isAdmin(context) {
 
 
 
+
 // Runs precheck logic before the branch deployment can proceed
 // :param comment: The comment body of the event
 // :param trigger: The trigger word to check for
@@ -20188,7 +20189,9 @@ async function prechecks(
           .state
     }
   } catch (e) {
-    core.info(`Could not retrieve PR commit status: ${e} - Handled: OK`)
+    core.debug(
+      `could not retrieve PR commit status: ${e} - Handled: ${COLORS.success}OK`
+    )
     core.info('Skipping commit status check and proceeding...')
     commitStatus = null
 
