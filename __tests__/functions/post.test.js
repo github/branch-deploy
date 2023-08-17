@@ -5,8 +5,7 @@ import * as contextCheck from '../../src/functions/context-check'
 import * as github from '@actions/github'
 
 const validBooleanInputs = {
-  skip_completing: false,
-  
+  skip_completing: false
 }
 const validInputs = {
   status: 'success'
