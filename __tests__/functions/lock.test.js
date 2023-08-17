@@ -832,7 +832,9 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
     `constructed lock branch name: ${environment}-branch-deploy-lock`
   )
   expect(infoMock).toHaveBeenCalledWith('✅ deployment lock obtained')
-  expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+  expect(infoMock).toHaveBeenCalledWith(
+    `🍯 deployment lock is ${COLORS.highlight}sticky`
+  )
   expect(infoMock).toHaveBeenCalledWith(
     `🔒 created lock branch: ${COLORS.highlight}production-branch-deploy-lock`
   )
@@ -849,7 +851,9 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
     `constructed lock branch name: ${environment}-branch-deploy-lock`
   )
   expect(infoMock).toHaveBeenCalledWith('✅ deployment lock obtained')
-  expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+  expect(infoMock).toHaveBeenCalledWith(
+    `🍯 deployment lock is ${COLORS.highlight}sticky`
+  )
   expect(infoMock).toHaveBeenCalledWith(
     `🔒 created lock branch: ${COLORS.highlight}production-branch-deploy-lock`
   )
@@ -871,7 +875,9 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
     `🌎 this is a request for a ${COLORS.highlight}global${COLORS.reset} deployment lock`
   )
   expect(infoMock).toHaveBeenCalledWith('✅ deployment lock obtained')
-  expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+  expect(infoMock).toHaveBeenCalledWith(
+    `🍯 deployment lock is ${COLORS.highlight}sticky`
+  )
   expect(infoMock).toHaveBeenCalledWith(
     `🔒 created lock branch: ${COLORS.highlight}global-branch-deploy-lock`
   )
@@ -895,7 +901,9 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
     `🌎 this is a request for a ${COLORS.highlight}global${COLORS.reset} deployment lock`
   )
   expect(infoMock).toHaveBeenCalledWith('✅ deployment lock obtained')
-  expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+  expect(infoMock).toHaveBeenCalledWith(
+    `🍯 deployment lock is ${COLORS.highlight}sticky`
+  )
   expect(infoMock).toHaveBeenCalledWith(
     `🔒 created lock branch: ${COLORS.highlight}global-branch-deploy-lock`
   )
@@ -921,7 +929,9 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
     `🌎 this is a request for a ${COLORS.highlight}global${COLORS.reset} deployment lock`
   )
   expect(infoMock).toHaveBeenCalledWith('✅ deployment lock obtained')
-  expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+  expect(infoMock).toHaveBeenCalledWith(
+    `🍯 deployment lock is ${COLORS.highlight}sticky`
+  )
   expect(infoMock).toHaveBeenCalledWith(
     `🔒 created lock branch: ${COLORS.highlight}global-branch-deploy-lock`
   )
@@ -943,7 +953,9 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
     'reason: because something is broken badly'
   )
   expect(infoMock).toHaveBeenCalledWith('✅ deployment lock obtained')
-  expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+  expect(infoMock).toHaveBeenCalledWith(
+    `🍯 deployment lock is ${COLORS.highlight}sticky`
+  )
   expect(infoMock).toHaveBeenCalledWith(
     `🔒 created lock branch: ${COLORS.highlight}development-branch-deploy-lock`
   )
@@ -961,7 +973,9 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
   )
   expect(debugMock).toHaveBeenCalledWith('reason: because something is broken')
   expect(infoMock).toHaveBeenCalledWith('✅ deployment lock obtained')
-  expect(infoMock).toHaveBeenCalledWith('deployment lock is sticky')
+  expect(infoMock).toHaveBeenCalledWith(
+    `🍯 deployment lock is ${COLORS.highlight}sticky`
+  )
   expect(infoMock).toHaveBeenCalledWith(
     `🔒 created lock branch: ${COLORS.highlight}production-branch-deploy-lock`
   )

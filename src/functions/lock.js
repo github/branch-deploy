@@ -87,7 +87,7 @@ async function createLock(
   core.info('✅ deployment lock obtained')
   // If the lock is sticky, always leave a comment
   if (sticky) {
-    core.info('deployment lock is sticky')
+    core.info(`🍯 deployment lock is ${COLORS.highlight}sticky`)
 
     // create a special comment section for global locks
     let globalMsg = ''
