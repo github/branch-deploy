@@ -77,7 +77,11 @@ async function createLock(
     request: {retries: 10, retryAfter: 1} // retry up to 10 times with a 1s delay
   })
 
-  core.info(`global lock: ${global}`)
+  if (global === true) {
+    core.info(
+      `🌎 this is a request for a ${COLORS.highlight}global${COLORS.reset} deployment lock`
+    )
+  }
 
   // Write a log message stating the lock has been claimed
   core.info('deployment lock obtained')
