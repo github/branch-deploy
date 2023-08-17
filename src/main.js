@@ -402,7 +402,7 @@ export async function run() {
       return 'safe-exit'
     }
 
-    core.info(`environment: ${environment}`)
+    core.info(`🌍 environment: ${environment}`)
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
 

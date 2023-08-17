@@ -19039,11 +19039,11 @@ var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 async function triggerCheck(body, trigger) {
   // If the trigger is not activated, set the output to false and return with false
   if (!body.startsWith(trigger)) {
-    core.debug(`comment body does not start with trigger: "${trigger}"`)
+    core.debug(`comment body does not start with trigger: \u001b[35m${trigger}`)
     return false
   }
 
-  core.info(`✅ comment body starts with trigger: "${trigger}"`)
+  core.info(`✅ comment body starts with trigger: \u001b[35m${trigger}`)
   return true
 }
 
@@ -22517,7 +22517,7 @@ async function run() {
       return 'safe-exit'
     }
 
-    core.info(`environment: ${environment}`)
+    core.info(`🌍 environment: ${environment}`)
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
 
