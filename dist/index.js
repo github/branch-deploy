@@ -22600,19 +22600,17 @@ async function run() {
     })
 
     // Set outputs for noopMode
-    var noop
     if (precheckResults.noopMode) {
-      noop = 'true'
-      core.setOutput('noop', noop)
+      core.setOutput('noop', precheckResults.noopMode)
       core.setOutput('continue', 'true')
-      core.saveState('noop', noop)
+      core.saveState('noop', precheckResults.noopMode)
       core.info('noop mode detected')
-      // If noop mode is enabled, return
+
+      // If noop mode is enabled, return here
       return 'success - noop'
     } else {
-      noop = 'false'
-      core.setOutput('noop', noop)
-      core.saveState('noop', noop)
+      core.setOutput('noop', precheckResults.noopMode)
+      core.saveState('noop', precheckResults.noopMode)
     }
 
     // Get required_contexts for the deployment
