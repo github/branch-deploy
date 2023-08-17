@@ -19032,10 +19032,10 @@ var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 ;// CONCATENATED MODULE: ./src/functions/colors.js
 const COLORS = {
   highlight: '\u001b[35m', // magenta
-  success: '\u001b[32m', // green
-  error: '\u001b[31m', // red
   info: '\u001b[34m', // blue
-  warning: '\u001b[33m' // yellow
+  success: '\u001b[32m', // green
+  warning: '\u001b[33m', // yellow
+  error: '\u001b[31m' // red
 }
 
 ;// CONCATENATED MODULE: ./src/functions/trigger-check.js
