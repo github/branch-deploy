@@ -302,7 +302,9 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
   core.debug('checking the owner of the lock...')
   // If the requestor is the one who owns the lock, return 'owner'
   if (lockData.created_by === context.actor) {
-    core.info(`${context.actor} is the owner of the lock`)
+    core.info(
+      `✅ ${COLORS.highlight}${context.actor}${COLORS.reset} initiated this request and is also the owner of the current lock`
+    )
 
     // If this is a '.lock' command (sticky), update with actionStatus as we are about to exit
     if (sticky) {
@@ -532,7 +534,9 @@ export async function lock(
       core.debug('requestor is not the owner of the current global lock')
       return {status: false, lockData: null, globalFlag, environment, global}
     } else {
-      core.info('requestor is the owner of the global lock - continuing checks')
+      core.debug(
+        'requestor is the owner of the global lock - continuing checks'
+      )
     }
   }
 

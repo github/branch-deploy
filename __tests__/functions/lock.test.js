@@ -696,7 +696,9 @@ test('Determines that the lock request is coming from current owner of the lock 
   expect(debugMock).toHaveBeenCalledWith(
     `constructed lock branch name: ${environment}-branch-deploy-lock`
   )
-  expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
+  expect(infoMock).toHaveBeenCalledWith(
+    `✅ ${COLORS.highlight}monalisa${COLORS.reset} initiated this request and is also the owner of the current lock`
+  )
 })
 
 test('Determines that the lock request is coming from current owner of the lock and exits - sticky', async () => {
@@ -721,7 +723,9 @@ test('Determines that the lock request is coming from current owner of the lock 
   expect(debugMock).toHaveBeenCalledWith(
     `constructed lock branch name: ${environment}-branch-deploy-lock`
   )
-  expect(infoMock).toHaveBeenCalledWith('monalisa is the owner of the lock')
+  expect(infoMock).toHaveBeenCalledWith(
+    `✅ ${COLORS.highlight}monalisa${COLORS.reset} initiated this request and is also the owner of the current lock`
+  )
 })
 
 test('Determines that the lock request is coming from current owner of the lock (GLOBAL lock) and exits - sticky', async () => {
@@ -762,7 +766,9 @@ test('Determines that the lock request is coming from current owner of the lock 
   expect(debugMock).toHaveBeenCalledWith(
     `constructed lock branch name: global-branch-deploy-lock`
   )
-  expect(infoMock).toHaveBeenCalledWith('octocat is the owner of the lock')
+  expect(infoMock).toHaveBeenCalledWith(
+    `✅ ${COLORS.highlight}octocat${COLORS.reset} initiated this request and is also the owner of the current lock`
+  )
 })
 
 test('fails to decode the lock file contents', async () => {
