@@ -21,8 +21,9 @@ export async function postDeployMessage(
   ref
 ) {
   // fetch the inputs
-  const environment_url_in_comment =
-    core.getInput('environment_url_in_comment') === 'true'
+  const environment_url_in_comment = core.getBooleanInput(
+    'environment_url_in_comment'
+  )
   const deployMessagePath = await checkInput(
     core.getInput('deploy_message_path')
   )

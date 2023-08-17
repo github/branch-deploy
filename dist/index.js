@@ -2465,6 +2465,19 @@ class HttpClientResponse {
             }));
         });
     }
+    readBodyBuffer() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve) => __awaiter(this, void 0, void 0, function* () {
+                const chunks = [];
+                this.message.on('data', (chunk) => {
+                    chunks.push(chunk);
+                });
+                this.message.on('end', () => {
+                    resolve(Buffer.concat(chunks));
+                });
+            }));
+        });
+    }
 }
 exports.HttpClientResponse = HttpClientResponse;
 function isHttps(requestUrl) {
@@ -2969,7 +2982,13 @@ function getProxyUrl(reqUrl) {
         }
     })();
     if (proxyVar) {
-        return new URL(proxyVar);
+        try {
+            return new URL(proxyVar);
+        }
+        catch (_a) {
+            if (!proxyVar.startsWith('http://') && !proxyVar.startsWith('https://'))
+                return new URL(`http://${proxyVar}`);
+        }
     }
     else {
         return undefined;
@@ -19010,24 +19029,36 @@ var dist_node = __nccwpck_require__(6298);
 // EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
 var lib = __nccwpck_require__(3159);
 var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
+;// CONCATENATED MODULE: ./src/functions/colors.js
+const COLORS = {
+  highlight: '\u001b[35m', // magenta
+  info: '\u001b[34m', // blue
+  success: '\u001b[32m', // green
+  warning: '\u001b[33m', // yellow
+  error: '\u001b[31m', // red
+  reset: '\u001b[0m' // reset
+}
+
 ;// CONCATENATED MODULE: ./src/functions/trigger-check.js
+
 
 
 // A simple function that checks the body of the message against the trigger
 // :param body: The content body of the message being checked (String)
-// :param trigger: The "trigger" phrase which is searched for in the body of the message
+// :param trigger: The "trigger" phrase which is searched for in the body of the message (String)
 // :returns: true if a message activates the trigger, false otherwise
 async function triggerCheck(body, trigger) {
-  // Set the output of the comment body for later use with other actions
-  core.setOutput('comment_body', body)
-
   // If the trigger is not activated, set the output to false and return with false
   if (!body.startsWith(trigger)) {
-    core.debug(`comment body does not start with trigger: "${trigger}"`)
+    core.debug(
+      `comment body does not start with trigger: ${COLORS.highlight}${trigger}`
+    )
     return false
   }
 
-  core.info(`✅ comment body starts with trigger: "${trigger}"`)
+  core.info(
+    `✅ comment body starts with trigger: ${COLORS.highlight}${trigger}`
+  )
   return true
 }
 
@@ -19209,6 +19240,7 @@ const LOCK_METADATA = {
 
 
 
+
 // Helper function to that does environment checks specific to branch deploys
 // :param environment_targets_sanitized: The list of environment targets
 // :param body: The body of the comment
@@ -19238,10 +19270,12 @@ async function onDeploymentChecks(
   if (params !== '') {
     bodyFmt = body.split(`${param_separator}${params}`)[0].trim()
     paramsTrim = params.trim()
-    core.info(`Detected parameters in command: '${paramsTrim}'`)
+    core.info(
+      `🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`
+    )
     core.setOutput('params', paramsTrim)
   } else {
-    core.debug('No parameters detected in command')
+    core.debug('no parameters detected in command')
     core.setOutput('params', '')
   }
 
@@ -19249,7 +19283,7 @@ async function onDeploymentChecks(
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
     if (bodyFmt.replace(trigger, '').trim() === target) {
-      core.debug(`Found environment target for branch deploy: ${target}`)
+      core.debug(`found environment target for branch deploy: ${target}`)
       return {
         target: target,
         stable_branch_used: false,
@@ -19259,7 +19293,7 @@ async function onDeploymentChecks(
     }
     // If the body on a noop trigger contains the target
     else if (bodyFmt.replace(noop_trigger, '').trim() === target) {
-      core.debug(`Found environment target for noop trigger: ${target}`)
+      core.debug(`found environment target for noop trigger: ${target}`)
       return {
         target: target,
         stable_branch_used: false,
@@ -19270,7 +19304,7 @@ async function onDeploymentChecks(
     // If the body with 'to <target>' contains the target on a branch deploy
     else if (bodyFmt.replace(trigger, '').trim() === `to ${target}`) {
       core.debug(
-        `Found environment target for branch deploy (with 'to'): ${target}`
+        `found environment target for branch deploy (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -19282,7 +19316,7 @@ async function onDeploymentChecks(
     // If the body with 'to <target>' contains the target on a noop trigger
     else if (bodyFmt.replace(noop_trigger, '').trim() === `to ${target}`) {
       core.debug(
-        `Found environment target for noop trigger (with 'to'): ${target}`
+        `found environment target for noop trigger (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -19297,7 +19331,7 @@ async function onDeploymentChecks(
       `to ${target}`
     ) {
       core.debug(
-        `Found environment target for stable branch deploy (with 'to'): ${target}`
+        `found environment target for stable branch deploy (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -19312,7 +19346,7 @@ async function onDeploymentChecks(
       `to ${target}`
     ) {
       core.debug(
-        `Found environment target for stable branch noop trigger (with 'to'): ${target}`
+        `found environment target for stable branch noop trigger (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -19325,7 +19359,7 @@ async function onDeploymentChecks(
     else if (
       bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() === target
     ) {
-      core.debug(`Found environment target for stable branch deploy: ${target}`)
+      core.debug(`found environment target for stable branch deploy: ${target}`)
       return {
         target: target,
         stable_branch_used: true,
@@ -19338,7 +19372,7 @@ async function onDeploymentChecks(
       bodyFmt.replace(`${noop_trigger} ${stable_branch}`, '').trim() === target
     ) {
       core.debug(
-        `Found environment target for stable branch noop trigger: ${target}`
+        `found environment target for stable branch noop trigger: ${target}`
       )
       return {
         target: target,
@@ -19349,7 +19383,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the trigger phrase exactly, just use the default environment
     else if (bodyFmt.trim() === trigger) {
-      core.debug('Using default environment for branch deployment')
+      core.debug('using default environment for branch deployment')
       return {
         target: environment,
         stable_branch_used: false,
@@ -19359,7 +19393,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the noop_trigger phrase exactly, just use the default environment
     else if (bodyFmt.trim() === noop_trigger) {
-      core.debug('Using default environment for noop trigger')
+      core.debug('using default environment for noop trigger')
       return {
         target: environment,
         stable_branch_used: false,
@@ -19369,7 +19403,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
     else if (bodyFmt.trim() === `${trigger} ${stable_branch}`) {
-      core.debug('Using default environment for stable branch deployment')
+      core.debug('using default environment for stable branch deployment')
       return {
         target: environment,
         stable_branch_used: true,
@@ -19379,7 +19413,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the stable branch phrase exactly on a noop trigger, just use the default environment
     else if (bodyFmt.trim() === `${noop_trigger} ${stable_branch}`) {
-      core.debug('Using default environment for stable branch noop trigger')
+      core.debug('using default environment for stable branch noop trigger')
       return {
         target: environment,
         stable_branch_used: true,
@@ -19410,7 +19444,7 @@ async function onLockChecks(
   // if the body contains the globalFlag, exit right away as environments are not relevant
   const globalFlag = core.getInput('global_lock_flag').trim()
   if (body.includes(globalFlag)) {
-    core.debug('Global lock flag found in environment target check')
+    core.debug('global lock flag found in environment target check')
     return 'GLOBAL_REQUEST'
   }
 
@@ -19433,19 +19467,19 @@ async function onLockChecks(
 
   // if the body matches the lock trigger exactly, just use the default environment
   if (body.trim() === lock_trigger.trim()) {
-    core.debug('Using default environment for lock request')
+    core.debug('using default environment for lock request')
     return environment
   }
 
   // if the body matches the unlock trigger exactly, just use the default environment
   if (body.trim() === unlock_trigger.trim()) {
-    core.debug('Using default environment for unlock request')
+    core.debug('using default environment for unlock request')
     return environment
   }
 
   // if the body matches the lock info alias exactly, just use the default environment
   if (body.trim() === lockInfoAlias.trim()) {
-    core.debug('Using default environment for lock info request')
+    core.debug('using default environment for lock info request')
     return environment
   }
 
@@ -19453,13 +19487,13 @@ async function onLockChecks(
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
     if (body.replace(lock_trigger, '').trim() === target) {
-      core.debug(`Found environment target for lock request: ${target}`)
+      core.debug(`found environment target for lock request: ${target}`)
       return target
     } else if (body.replace(unlock_trigger, '').trim() === target) {
-      core.debug(`Found environment target for unlock request: ${target}`)
+      core.debug(`found environment target for unlock request: ${target}`)
       return target
     } else if (body.replace(lockInfoAlias, '').trim() === target) {
-      core.debug(`Found environment target for lock info request: ${target}`)
+      core.debug(`found environment target for lock info request: ${target}`)
       return target
     }
   }
@@ -19491,7 +19525,9 @@ async function findEnvironmentUrl(environment, environment_urls) {
 
       // if the environment url exactly matches 'disabled' then return null
       if (environment_url === 'disabled') {
-        core.info(`environment url for ${environment} is explicitly disabled`)
+        core.info(
+          `💡 environment url for ${COLORS.highlight}${environment}${COLORS.reset} is explicitly disabled`
+        )
         core.saveState('environment_url', 'null')
         core.setOutput('environment_url', 'null')
         return null
@@ -19507,7 +19543,9 @@ async function findEnvironmentUrl(environment, environment_urls) {
 
       core.saveState('environment_url', environment_url)
       core.setOutput('environment_url', environment_url)
-      core.info(`environment url detected: ${environment_url}`)
+      core.info(
+        `🔗 environment url detected: ${COLORS.highlight}${environment_url}`
+      )
       return environment_url
     }
   }
@@ -19947,6 +19985,7 @@ async function isAdmin(context) {
 
 
 
+
 // Runs precheck logic before the branch deployment can proceed
 // :param comment: The comment body of the event
 // :param trigger: The trigger word to check for
@@ -20033,7 +20072,7 @@ async function prechecks(
 
     ref = stable_branch
     forkBypass = true
-    core.info(
+    core.debug(
       `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
     )
   }
@@ -20041,7 +20080,8 @@ async function prechecks(
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
   // Note: We should not export fork values if the stable_branch is being used here
   if (pr.data.head.repo?.fork === true && forkBypass === false) {
-    core.info(`PR is from a fork, using sha instead of ref`)
+    core.info(`🍴 the pull request is a ${COLORS.highlight}fork`)
+    core.debug(`the pull request is from a fork, using sha instead of ref`)
     core.setOutput('fork', 'true')
 
     // If this Action's inputs have been configured to explicitly prevent forks, exit
@@ -20127,7 +20167,9 @@ async function prechecks(
       `deployment requested on a draft PR from a non-allowed environment`
     )
   } else if (isDraft && allowDraftDeploy) {
-    core.info(`deployment requested on a draft PR from an allowed environment`)
+    core.info(
+      `📓 deployment requested on a ${COLORS.highlight}draft${COLORS.reset} pull request from an ${COLORS.highlight}allowed${COLORS.reset} environment`
+    )
   }
 
   // Grab the statusCheckRollup state from the GraphQL result
@@ -20136,7 +20178,7 @@ async function prechecks(
     // Check to see if skipCi is set for the environment being used
     if (skipCi) {
       core.info(
-        `CI checks have been disabled for the ${environment} environment, proceeding - OK`
+        `⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${environment}${COLORS.reset} environment`
       )
       commitStatus = 'skip_ci'
     }
@@ -20146,9 +20188,7 @@ async function prechecks(
       result.repository.pullRequest.commits.nodes[0].commit.checkSuites
         .totalCount === 0
     ) {
-      core.info(
-        'No CI checks have been defined for this pull request, proceeding - OK'
-      )
+      core.info('💡 no CI checks have been defined for this pull request')
       commitStatus = null
 
       // If there are CI checked defined, we need to check for the 'state' of the latest commit
@@ -20158,8 +20198,11 @@ async function prechecks(
           .state
     }
   } catch (e) {
-    core.info(`Could not retrieve PR commit status: ${e} - Handled: OK`)
-    core.info('Skipping commit status check and proceeding...')
+    core.debug(
+      `could not retrieve PR commit status: ${e} - Handled: ${COLORS.success}OK`
+    )
+    core.debug('this repo may not have any CI checks defined')
+    core.debug('skipping commit status check and proceeding...')
     commitStatus = null
 
     // Try to display the raw GraphQL result for debugging purposes
@@ -20222,9 +20265,9 @@ async function prechecks(
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (environmentObj.stable_branch_used === true) {
-    message = '✔️ Deployment to the **stable** branch requested - OK'
+    message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`
     core.info(message)
-    core.info(
+    core.debug(
       'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
     )
 
@@ -20243,7 +20286,7 @@ async function prechecks(
     }
 
     // Execute the logic below only if update_branch is set to "force"
-    core.info(`update_branch is set to ${update_branch} - proceeding...`)
+    core.debug(`update_branch is set to ${COLORS.highlight}${update_branch}`)
 
     // Make an API call to update the PR branch
     try {
@@ -20278,37 +20321,37 @@ async function prechecks(
 
     // If everything is OK, print a nice message
   } else if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
-    message = '✔️ PR is approved and all CI checks passed - OK'
+    message = '✅ PR is approved and all CI checks passed'
     core.info(message)
 
     // CI checks have not been defined AND required reviewers have not been defined
   } else if (reviewDecision === null && commitStatus === null) {
     message =
-      '⚠️ CI checks have not been defined and required reviewers have not been defined... proceeding - OK'
+      '🎛️ CI checks have not been defined and required reviewers have not been defined'
     core.info(message)
 
     // CI checks have been defined BUT required reviewers have not been defined
   } else if (reviewDecision === null && commitStatus === 'SUCCESS') {
     message =
-      '⚠️ CI checks have been defined but required reviewers have not been defined... proceeding - OK'
+      '🎛️ CI checks have been defined but required reviewers have not been defined'
     core.info(message)
 
     // CI checks are passing and reviews are set to be bypassed
   } else if (commitStatus === 'SUCCESS' && reviewDecision == 'skip_reviews') {
     message =
-      '✔️ CI checked passsed and required reviewers have been disabled for this environment - OK'
+      '✅ CI checked passsed and required reviewers have been disabled for this environment'
     core.info(message)
 
     // CI checks are set to be bypassed and the pull request is approved
   } else if (commitStatus === 'skip_ci' && reviewDecision === 'APPROVED') {
     message =
-      '✔️ CI requirements have been disabled for this environment and the PR has been approved - OK'
+      '✅ CI requirements have been disabled for this environment and the PR has been approved'
     core.info(message)
 
     // CI checks are set to be bypassed BUT required reviews have not been defined
   } else if (commitStatus === 'skip_ci' && reviewDecision === null) {
     message =
-      '⚠️ CI requirements have been disabled for this environment and required reviewers have not been defined... proceeding - OK'
+      '🎛️ CI requirements have been disabled for this environment and required reviewers have not been defined'
     core.info(message)
 
     // CI checks are set to be bypassed and the PR has not been reviewed BUT it is a noop deploy
@@ -20318,20 +20361,20 @@ async function prechecks(
     noopMode
   ) {
     message =
-      '✔️ CI requirements have been disabled for this environment and **noop** requested - OK'
+      '✅ CI requirements have been disabled for this environment and **noop** requested'
     core.info(message)
     core.info('note: noop deployments do not require pr review')
 
     // If CI checks are set to be bypassed and the deployer is an admin
   } else if (commitStatus === 'skip_ci' && userIsAdmin === true) {
     message =
-      '✔️ CI requirements have been disabled for this environment and approval is bypassed due to admin rights - OK'
+      '✅ CI requirements have been disabled for this environment and approval is bypassed due to admin rights'
     core.info(message)
 
     // If CI checks are set to be bypassed and PR reviews are also set to by bypassed
   } else if (commitStatus === 'skip_ci' && reviewDecision === 'skip_reviews') {
     message =
-      '✔️ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment - OK'
+      '✅ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment'
     core.info(message)
 
     // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
@@ -20340,26 +20383,24 @@ async function prechecks(
     commitStatus === 'SUCCESS' &&
     noopMode
   ) {
-    message = '✔️ All CI checks passed and **noop** requested - OK'
+    message = `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`
     core.info(message)
-    core.info('note: noop deployments do not require pr review')
+    core.debug('note: noop deployments do not require pr review')
 
     // If CI is passing and the deployer is an admin
   } else if (commitStatus === 'SUCCESS' && userIsAdmin === true) {
-    message =
-      '✔️ CI is passing and approval is bypassed due to admin rights - OK'
+    message = '✅ CI is passing and approval is bypassed due to admin rights'
     core.info(message)
 
     // If CI is undefined and the deployer is an admin
   } else if (commitStatus === null && userIsAdmin === true) {
     message =
-      '✔️ CI checks have not been defined and approval is bypassed due to admin rights - OK'
+      '✅ CI checks have not been defined and approval is bypassed due to admin rights'
     core.info(message)
 
     // If CI has not been defined but the PR has been approved
   } else if (commitStatus === null && reviewDecision === 'APPROVED') {
-    message =
-      '✔️ CI checks have not been defined but the PR has been approved - OK'
+    message = '✅ CI checks have not been defined but the PR has been approved'
     core.info(message)
 
     // If CI is pending and the PR has not been reviewed BUT it is a noop deploy
@@ -20398,7 +20439,7 @@ async function prechecks(
     commitStatus === null &&
     noopMode
   ) {
-    message = '✔️ CI checks have not been defined and **noop** requested - OK'
+    message = `✅ CI checks have not been defined and ${COLORS.highlight}noop${COLORS.reset} requested`
     core.info(message)
     core.info('note: noop deployments do not require pr review')
 
@@ -20487,6 +20528,7 @@ async function prechecks(
 
 
 
+
 const LOCK_FILE = LOCK_METADATA.lockFile
 
 // Helper function to check if a lock file exists and decodes it if it does
@@ -20514,7 +20556,13 @@ async function checkLockFile(octokit, context, branchName) {
   } catch (error) {
     // If the lock file doesn't exist, return false
     if (error.status === 404) {
-      core.info(`lock file does not exist on branch: ${branchName}`)
+      const lockFileNotFoundMsg = `🔍 lock file does not exist on branch: ${COLORS.highlight}${branchName}`
+      if (branchName === LOCK_METADATA.globalLockBranch) {
+        // since we jump out directly to the 'lock file' without checking the branch (only on global locks), we get this error often so we just want it to be a debug message
+        core.debug(lockFileNotFoundMsg)
+      } else {
+        core.info(lockFileNotFoundMsg)
+      }
       return false
     }
 
@@ -20545,6 +20593,7 @@ async function timeDiff(firstDate, secondDate) {
 }
 
 ;// CONCATENATED MODULE: ./src/functions/lock.js
+
 
 
 
@@ -20623,13 +20672,17 @@ async function createLock(
     request: {retries: 10, retryAfter: 1} // retry up to 10 times with a 1s delay
   })
 
-  core.info(`global lock: ${global}`)
+  if (global === true) {
+    core.info(
+      `🌎 this is a request for a ${COLORS.highlight}global${COLORS.reset} deployment lock`
+    )
+  }
 
   // Write a log message stating the lock has been claimed
-  core.info('deployment lock obtained')
+  core.info('✅ deployment lock obtained')
   // If the lock is sticky, always leave a comment
   if (sticky) {
-    core.info('deployment lock is sticky')
+    core.info(`🍯 deployment lock is ${COLORS.highlight}sticky`)
 
     // create a special comment section for global locks
     let globalMsg = ''
@@ -20830,7 +20883,7 @@ async function createBranch(octokit, context, branchName) {
     sha: baseBranch.data.commit.sha
   })
 
-  core.info(`Created lock branch: ${branchName}`)
+  core.info(`🔒 created lock branch: ${COLORS.highlight}${branchName}`)
 }
 
 // Helper function to check the lock owner
@@ -20844,7 +20897,9 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
   core.debug('checking the owner of the lock...')
   // If the requestor is the one who owns the lock, return 'owner'
   if (lockData.created_by === context.actor) {
-    core.info(`${context.actor} is the owner of the lock`)
+    core.info(
+      `✅ ${COLORS.highlight}${context.actor}${COLORS.reset} initiated this request and is also the owner of the current lock`
+    )
 
     // If this is a '.lock' command (sticky), update with actionStatus as we are about to exit
     if (sticky) {
@@ -21074,7 +21129,9 @@ async function lock(
       core.debug('requestor is not the owner of the current global lock')
       return {status: false, lockData: null, globalFlag, environment, global}
     } else {
-      core.info('requestor is the owner of the global lock - continuing checks')
+      core.debug(
+        'requestor is the owner of the global lock - continuing checks'
+      )
     }
   }
 
@@ -21171,6 +21228,7 @@ async function lock(
 }
 
 ;// CONCATENATED MODULE: ./src/functions/unlock.js
+
 
 
 
@@ -21274,7 +21332,9 @@ async function unlock(
 
     // If the lock was successfully released, return true
     if (result.status === 204) {
-      core.info(`successfully removed lock`)
+      core.info(
+        `🔓 successfully ${COLORS.highlight}removed${COLORS.reset} lock`
+      )
 
       // If silent, exit here
       if (silent) {
@@ -21385,8 +21445,9 @@ async function postDeployMessage(
   ref
 ) {
   // fetch the inputs
-  const environment_url_in_comment =
-    core.getInput('environment_url_in_comment') === 'true'
+  const environment_url_in_comment = core.getBooleanInput(
+    'environment_url_in_comment'
+  )
   const deployMessagePath = await checkInput(
     core.getInput('deploy_message_path')
   )
@@ -21663,7 +21724,7 @@ async function post() {
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
-    const skip_completing = core.getInput('skip_completing') === 'true'
+    const skip_completing = core.getBooleanInput('skip_completing')
 
     // If bypass is set, exit the workflow
     if (bypass) {
@@ -22121,6 +22182,7 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
@@ -22141,11 +22203,11 @@ async function run() {
     const global_lock_flag = core.getInput('global_lock_flag')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
-    const allowForks = core.getInput('allow_forks') === 'true'
+    const allowForks = core.getBooleanInput('allow_forks')
     const skipCi = core.getInput('skip_ci')
     const skipReviews = core.getInput('skip_reviews')
-    const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
-    const unlockOnMergeMode = core.getInput('unlock_on_merge_mode') === 'true'
+    const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
+    const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')
@@ -22162,7 +22224,7 @@ async function run() {
 
     // If we are running in the 'unlock on merge' mode, run auto-unlock logic
     if (unlockOnMergeMode) {
-      core.info(`running in 'unlock on merge' mode`)
+      core.info(`🏃 running in 'unlock on merge' mode`)
       await unlockOnMerge(octokit, github.context, environment_targets)
       core.saveState('bypass', 'true')
       return 'success - unlock on merge mode'
@@ -22170,7 +22232,7 @@ async function run() {
 
     // If we are running in the merge deploy mode, run commit checks
     if (mergeDeployMode) {
-      core.info(`running in 'merge deploy' mode`)
+      core.info(`🏃 running in 'merge deploy' mode`)
       await identicalCommitCheck(octokit, github.context, environment)
       // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
       core.saveState('bypass', 'true')
@@ -22196,7 +22258,11 @@ async function run() {
     const issue_number = github.context.payload.issue.number
     const {owner, repo} = github.context.repo
 
-    // Check if the comment is a trigger and what type of trigger it is
+    // set helpful outputs that can be used in other Actions / steps
+    core.setOutput('comment_body', body)
+    core.setOutput('issue_number', issue_number)
+
+    // check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(body, trigger)
     const isNoopDeploy = await triggerCheck(body, noop_trigger)
     const isLock = await triggerCheck(body, lock_trigger)
@@ -22204,20 +22270,7 @@ async function run() {
     const isHelp = await triggerCheck(body, help_trigger)
     const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
-    if (
-      !isDeploy &&
-      !isNoopDeploy &&
-      !isLock &&
-      !isUnlock &&
-      !isHelp &&
-      !isLockInfoAlias
-    ) {
-      // If the comment does not activate any triggers, exit
-      core.saveState('bypass', 'true')
-      core.setOutput('triggered', 'false')
-      core.info('no trigger detected in comment - exiting')
-      return 'safe-exit'
-    } else if (isDeploy || isNoopDeploy) {
+    if (isDeploy || isNoopDeploy) {
       core.setOutput('type', 'deploy')
     } else if (isLock) {
       core.setOutput('type', 'lock')
@@ -22227,6 +22280,12 @@ async function run() {
       core.setOutput('type', 'help')
     } else if (isLockInfoAlias) {
       core.setOutput('type', 'lock-info-alias')
+    } else {
+      // if no trigger is detected, exit here
+      core.saveState('bypass', 'true')
+      core.setOutput('triggered', 'false')
+      core.info('⛔ no trigger detected in comment - exiting')
+      return 'safe-exit'
     }
 
     // If we made it this far, the action has been triggered in one manner or another
@@ -22377,7 +22436,9 @@ async function run() {
               - __Environments__: \`all\`
               - __Global__: \`true\`
               `)
-              core.info('there is a global deployment lock on this repository')
+              core.info(
+                `🌏 there is a ${COLORS.highlight}global${COLORS.reset} deployment lock on this repository`
+              )
               lockBranchName = LOCK_METADATA.globalLockBranch
             }
 
@@ -22411,7 +22472,7 @@ async function run() {
               true // use the 'alt reaction' bool
             )
             core.info(
-              `the deployment lock is currently claimed by __${lockData.created_by}__`
+              `🔒 the deployment lock is currently claimed by ${COLORS.highlight}${lockData.created_by}`
             )
           } else if (lockStatus === null) {
             // format the lock details message
@@ -22441,7 +22502,7 @@ async function run() {
               true, // success bool
               true // use the 'alt reaction' bool
             )
-            core.info('no active deployment locks found')
+            core.info('✅ no active deployment locks found')
           }
 
           // Exit the action since we are done after obtaining only the lock details with --details
@@ -22503,7 +22564,7 @@ async function run() {
       return 'safe-exit'
     }
 
-    core.info(`environment: ${environment}`)
+    core.info(`🌍 environment: ${COLORS.highlight}${environment}`)
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
 
@@ -22528,6 +22589,7 @@ async function run() {
     core.setOutput('ref', precheckResults.ref)
     core.saveState('ref', precheckResults.ref)
     core.setOutput('sha', precheckResults.sha)
+    core.debug(`sha: ${precheckResults.sha}`)
 
     // If the prechecks failed, run the actionStatus function and return
     // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
@@ -22586,19 +22648,17 @@ async function run() {
     })
 
     // Set outputs for noopMode
-    var noop
     if (precheckResults.noopMode) {
-      noop = 'true'
-      core.setOutput('noop', noop)
+      core.setOutput('noop', precheckResults.noopMode)
       core.setOutput('continue', 'true')
-      core.saveState('noop', noop)
-      core.info('noop mode detected')
-      // If noop mode is enabled, return
+      core.saveState('noop', precheckResults.noopMode)
+      core.info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`)
+
+      // If noop mode is enabled, return here
       return 'success - noop'
     } else {
-      noop = 'false'
-      core.setOutput('noop', noop)
-      core.saveState('noop', noop)
+      core.setOutput('noop', precheckResults.noopMode)
+      core.saveState('noop', precheckResults.noopMode)
     }
 
     // Get required_contexts for the deployment
@@ -22673,6 +22733,7 @@ async function run() {
       environmentObj.environmentUrl // environment_url (can be null)
     )
 
+    core.info(`🚀 ${COLORS.success}deployment started!`)
     core.setOutput('continue', 'true')
     return 'success'
   } catch (error) {

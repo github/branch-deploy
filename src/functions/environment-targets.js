@@ -3,6 +3,7 @@ import dedent from 'dedent-js'
 import {checkInput} from './check-input'
 import {actionStatus} from './action-status'
 import {LOCK_METADATA} from './lock-metadata'
+import {COLORS} from './colors'
 
 // Helper function to that does environment checks specific to branch deploys
 // :param environment_targets_sanitized: The list of environment targets
@@ -33,10 +34,12 @@ async function onDeploymentChecks(
   if (params !== '') {
     bodyFmt = body.split(`${param_separator}${params}`)[0].trim()
     paramsTrim = params.trim()
-    core.info(`Detected parameters in command: '${paramsTrim}'`)
+    core.info(
+      `🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`
+    )
     core.setOutput('params', paramsTrim)
   } else {
-    core.debug('No parameters detected in command')
+    core.debug('no parameters detected in command')
     core.setOutput('params', '')
   }
 
@@ -44,7 +47,7 @@ async function onDeploymentChecks(
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
     if (bodyFmt.replace(trigger, '').trim() === target) {
-      core.debug(`Found environment target for branch deploy: ${target}`)
+      core.debug(`found environment target for branch deploy: ${target}`)
       return {
         target: target,
         stable_branch_used: false,
@@ -54,7 +57,7 @@ async function onDeploymentChecks(
     }
     // If the body on a noop trigger contains the target
     else if (bodyFmt.replace(noop_trigger, '').trim() === target) {
-      core.debug(`Found environment target for noop trigger: ${target}`)
+      core.debug(`found environment target for noop trigger: ${target}`)
       return {
         target: target,
         stable_branch_used: false,
@@ -65,7 +68,7 @@ async function onDeploymentChecks(
     // If the body with 'to <target>' contains the target on a branch deploy
     else if (bodyFmt.replace(trigger, '').trim() === `to ${target}`) {
       core.debug(
-        `Found environment target for branch deploy (with 'to'): ${target}`
+        `found environment target for branch deploy (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -77,7 +80,7 @@ async function onDeploymentChecks(
     // If the body with 'to <target>' contains the target on a noop trigger
     else if (bodyFmt.replace(noop_trigger, '').trim() === `to ${target}`) {
       core.debug(
-        `Found environment target for noop trigger (with 'to'): ${target}`
+        `found environment target for noop trigger (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -92,7 +95,7 @@ async function onDeploymentChecks(
       `to ${target}`
     ) {
       core.debug(
-        `Found environment target for stable branch deploy (with 'to'): ${target}`
+        `found environment target for stable branch deploy (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -107,7 +110,7 @@ async function onDeploymentChecks(
       `to ${target}`
     ) {
       core.debug(
-        `Found environment target for stable branch noop trigger (with 'to'): ${target}`
+        `found environment target for stable branch noop trigger (with 'to'): ${target}`
       )
       return {
         target: target,
@@ -120,7 +123,7 @@ async function onDeploymentChecks(
     else if (
       bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() === target
     ) {
-      core.debug(`Found environment target for stable branch deploy: ${target}`)
+      core.debug(`found environment target for stable branch deploy: ${target}`)
       return {
         target: target,
         stable_branch_used: true,
@@ -133,7 +136,7 @@ async function onDeploymentChecks(
       bodyFmt.replace(`${noop_trigger} ${stable_branch}`, '').trim() === target
     ) {
       core.debug(
-        `Found environment target for stable branch noop trigger: ${target}`
+        `found environment target for stable branch noop trigger: ${target}`
       )
       return {
         target: target,
@@ -144,7 +147,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the trigger phrase exactly, just use the default environment
     else if (bodyFmt.trim() === trigger) {
-      core.debug('Using default environment for branch deployment')
+      core.debug('using default environment for branch deployment')
       return {
         target: environment,
         stable_branch_used: false,
@@ -154,7 +157,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the noop_trigger phrase exactly, just use the default environment
     else if (bodyFmt.trim() === noop_trigger) {
-      core.debug('Using default environment for noop trigger')
+      core.debug('using default environment for noop trigger')
       return {
         target: environment,
         stable_branch_used: false,
@@ -164,7 +167,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
     else if (bodyFmt.trim() === `${trigger} ${stable_branch}`) {
-      core.debug('Using default environment for stable branch deployment')
+      core.debug('using default environment for stable branch deployment')
       return {
         target: environment,
         stable_branch_used: true,
@@ -174,7 +177,7 @@ async function onDeploymentChecks(
     }
     // If the body matches the stable branch phrase exactly on a noop trigger, just use the default environment
     else if (bodyFmt.trim() === `${noop_trigger} ${stable_branch}`) {
-      core.debug('Using default environment for stable branch noop trigger')
+      core.debug('using default environment for stable branch noop trigger')
       return {
         target: environment,
         stable_branch_used: true,
@@ -205,7 +208,7 @@ async function onLockChecks(
   // if the body contains the globalFlag, exit right away as environments are not relevant
   const globalFlag = core.getInput('global_lock_flag').trim()
   if (body.includes(globalFlag)) {
-    core.debug('Global lock flag found in environment target check')
+    core.debug('global lock flag found in environment target check')
     return 'GLOBAL_REQUEST'
   }
 
@@ -228,19 +231,19 @@ async function onLockChecks(
 
   // if the body matches the lock trigger exactly, just use the default environment
   if (body.trim() === lock_trigger.trim()) {
-    core.debug('Using default environment for lock request')
+    core.debug('using default environment for lock request')
     return environment
   }
 
   // if the body matches the unlock trigger exactly, just use the default environment
   if (body.trim() === unlock_trigger.trim()) {
-    core.debug('Using default environment for unlock request')
+    core.debug('using default environment for unlock request')
     return environment
   }
 
   // if the body matches the lock info alias exactly, just use the default environment
   if (body.trim() === lockInfoAlias.trim()) {
-    core.debug('Using default environment for lock info request')
+    core.debug('using default environment for lock info request')
     return environment
   }
 
@@ -248,13 +251,13 @@ async function onLockChecks(
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
     if (body.replace(lock_trigger, '').trim() === target) {
-      core.debug(`Found environment target for lock request: ${target}`)
+      core.debug(`found environment target for lock request: ${target}`)
       return target
     } else if (body.replace(unlock_trigger, '').trim() === target) {
-      core.debug(`Found environment target for unlock request: ${target}`)
+      core.debug(`found environment target for unlock request: ${target}`)
       return target
     } else if (body.replace(lockInfoAlias, '').trim() === target) {
-      core.debug(`Found environment target for lock info request: ${target}`)
+      core.debug(`found environment target for lock info request: ${target}`)
       return target
     }
   }
@@ -286,7 +289,9 @@ async function findEnvironmentUrl(environment, environment_urls) {
 
       // if the environment url exactly matches 'disabled' then return null
       if (environment_url === 'disabled') {
-        core.info(`environment url for ${environment} is explicitly disabled`)
+        core.info(
+          `💡 environment url for ${COLORS.highlight}${environment}${COLORS.reset} is explicitly disabled`
+        )
         core.saveState('environment_url', 'null')
         core.setOutput('environment_url', 'null')
         return null
@@ -302,7 +307,9 @@ async function findEnvironmentUrl(environment, environment_urls) {
 
       core.saveState('environment_url', environment_url)
       core.setOutput('environment_url', environment_url)
-      core.info(`environment url detected: ${environment_url}`)
+      core.info(
+        `🔗 environment url detected: ${COLORS.highlight}${environment_url}`
+      )
       return environment_url
     }
   }

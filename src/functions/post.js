@@ -17,7 +17,7 @@ export async function post() {
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
-    const skip_completing = core.getInput('skip_completing') === 'true'
+    const skip_completing = core.getBooleanInput('skip_completing')
 
     // If bypass is set, exit the workflow
     if (bypass) {

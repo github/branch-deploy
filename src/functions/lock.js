@@ -4,6 +4,7 @@ import {checkLockFile} from './check-lock-file'
 import {actionStatus} from './action-status'
 import {timeDiff} from './time-diff'
 import {LOCK_METADATA} from './lock-metadata'
+import {COLORS} from './colors'
 
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
@@ -76,13 +77,17 @@ async function createLock(
     request: {retries: 10, retryAfter: 1} // retry up to 10 times with a 1s delay
   })
 
-  core.info(`global lock: ${global}`)
+  if (global === true) {
+    core.info(
+      `🌎 this is a request for a ${COLORS.highlight}global${COLORS.reset} deployment lock`
+    )
+  }
 
   // Write a log message stating the lock has been claimed
-  core.info('deployment lock obtained')
+  core.info('✅ deployment lock obtained')
   // If the lock is sticky, always leave a comment
   if (sticky) {
-    core.info('deployment lock is sticky')
+    core.info(`🍯 deployment lock is ${COLORS.highlight}sticky`)
 
     // create a special comment section for global locks
     let globalMsg = ''
@@ -283,7 +288,7 @@ async function createBranch(octokit, context, branchName) {
     sha: baseBranch.data.commit.sha
   })
 
-  core.info(`Created lock branch: ${branchName}`)
+  core.info(`🔒 created lock branch: ${COLORS.highlight}${branchName}`)
 }
 
 // Helper function to check the lock owner
@@ -297,7 +302,9 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
   core.debug('checking the owner of the lock...')
   // If the requestor is the one who owns the lock, return 'owner'
   if (lockData.created_by === context.actor) {
-    core.info(`${context.actor} is the owner of the lock`)
+    core.info(
+      `✅ ${COLORS.highlight}${context.actor}${COLORS.reset} initiated this request and is also the owner of the current lock`
+    )
 
     // If this is a '.lock' command (sticky), update with actionStatus as we are about to exit
     if (sticky) {
@@ -527,7 +534,9 @@ export async function lock(
       core.debug('requestor is not the owner of the current global lock')
       return {status: false, lockData: null, globalFlag, environment, global}
     } else {
-      core.info('requestor is the owner of the global lock - continuing checks')
+      core.debug(
+        'requestor is the owner of the global lock - continuing checks'
+      )
     }
   }
 

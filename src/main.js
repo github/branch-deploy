@@ -21,6 +21,7 @@ import {identicalCommitCheck} from './functions/identical-commit-check'
 import {unlockOnMerge} from './functions/unlock-on-merge'
 import {help} from './functions/help'
 import {LOCK_METADATA} from './functions/lock-metadata'
+import {COLORS} from './functions/colors'
 import {stringToArray} from './functions/string-to-array'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
@@ -43,11 +44,11 @@ export async function run() {
     const global_lock_flag = core.getInput('global_lock_flag')
     const update_branch = core.getInput('update_branch')
     const required_contexts = core.getInput('required_contexts')
-    const allowForks = core.getInput('allow_forks') === 'true'
+    const allowForks = core.getBooleanInput('allow_forks')
     const skipCi = core.getInput('skip_ci')
     const skipReviews = core.getInput('skip_reviews')
-    const mergeDeployMode = core.getInput('merge_deploy_mode') === 'true'
-    const unlockOnMergeMode = core.getInput('unlock_on_merge_mode') === 'true'
+    const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
+    const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')
@@ -64,7 +65,7 @@ export async function run() {
 
     // If we are running in the 'unlock on merge' mode, run auto-unlock logic
     if (unlockOnMergeMode) {
-      core.info(`running in 'unlock on merge' mode`)
+      core.info(`🏃 running in 'unlock on merge' mode`)
       await unlockOnMerge(octokit, context, environment_targets)
       core.saveState('bypass', 'true')
       return 'success - unlock on merge mode'
@@ -72,7 +73,7 @@ export async function run() {
 
     // If we are running in the merge deploy mode, run commit checks
     if (mergeDeployMode) {
-      core.info(`running in 'merge deploy' mode`)
+      core.info(`🏃 running in 'merge deploy' mode`)
       await identicalCommitCheck(octokit, context, environment)
       // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
       core.saveState('bypass', 'true')
@@ -98,7 +99,11 @@ export async function run() {
     const issue_number = context.payload.issue.number
     const {owner, repo} = context.repo
 
-    // Check if the comment is a trigger and what type of trigger it is
+    // set helpful outputs that can be used in other Actions / steps
+    core.setOutput('comment_body', body)
+    core.setOutput('issue_number', issue_number)
+
+    // check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(body, trigger)
     const isNoopDeploy = await triggerCheck(body, noop_trigger)
     const isLock = await triggerCheck(body, lock_trigger)
@@ -106,20 +111,7 @@ export async function run() {
     const isHelp = await triggerCheck(body, help_trigger)
     const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
-    if (
-      !isDeploy &&
-      !isNoopDeploy &&
-      !isLock &&
-      !isUnlock &&
-      !isHelp &&
-      !isLockInfoAlias
-    ) {
-      // If the comment does not activate any triggers, exit
-      core.saveState('bypass', 'true')
-      core.setOutput('triggered', 'false')
-      core.info('no trigger detected in comment - exiting')
-      return 'safe-exit'
-    } else if (isDeploy || isNoopDeploy) {
+    if (isDeploy || isNoopDeploy) {
       core.setOutput('type', 'deploy')
     } else if (isLock) {
       core.setOutput('type', 'lock')
@@ -129,6 +121,12 @@ export async function run() {
       core.setOutput('type', 'help')
     } else if (isLockInfoAlias) {
       core.setOutput('type', 'lock-info-alias')
+    } else {
+      // if no trigger is detected, exit here
+      core.saveState('bypass', 'true')
+      core.setOutput('triggered', 'false')
+      core.info('⛔ no trigger detected in comment - exiting')
+      return 'safe-exit'
     }
 
     // If we made it this far, the action has been triggered in one manner or another
@@ -279,7 +277,9 @@ export async function run() {
               - __Environments__: \`all\`
               - __Global__: \`true\`
               `)
-              core.info('there is a global deployment lock on this repository')
+              core.info(
+                `🌏 there is a ${COLORS.highlight}global${COLORS.reset} deployment lock on this repository`
+              )
               lockBranchName = LOCK_METADATA.globalLockBranch
             }
 
@@ -313,7 +313,7 @@ export async function run() {
               true // use the 'alt reaction' bool
             )
             core.info(
-              `the deployment lock is currently claimed by __${lockData.created_by}__`
+              `🔒 the deployment lock is currently claimed by ${COLORS.highlight}${lockData.created_by}`
             )
           } else if (lockStatus === null) {
             // format the lock details message
@@ -343,7 +343,7 @@ export async function run() {
               true, // success bool
               true // use the 'alt reaction' bool
             )
-            core.info('no active deployment locks found')
+            core.info('✅ no active deployment locks found')
           }
 
           // Exit the action since we are done after obtaining only the lock details with --details
@@ -405,7 +405,7 @@ export async function run() {
       return 'safe-exit'
     }
 
-    core.info(`environment: ${environment}`)
+    core.info(`🌍 environment: ${COLORS.highlight}${environment}`)
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
 
@@ -430,6 +430,7 @@ export async function run() {
     core.setOutput('ref', precheckResults.ref)
     core.saveState('ref', precheckResults.ref)
     core.setOutput('sha', precheckResults.sha)
+    core.debug(`sha: ${precheckResults.sha}`)
 
     // If the prechecks failed, run the actionStatus function and return
     // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
@@ -488,19 +489,17 @@ export async function run() {
     })
 
     // Set outputs for noopMode
-    var noop
     if (precheckResults.noopMode) {
-      noop = 'true'
-      core.setOutput('noop', noop)
+      core.setOutput('noop', precheckResults.noopMode)
       core.setOutput('continue', 'true')
-      core.saveState('noop', noop)
-      core.info('noop mode detected')
-      // If noop mode is enabled, return
+      core.saveState('noop', precheckResults.noopMode)
+      core.info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`)
+
+      // If noop mode is enabled, return here
       return 'success - noop'
     } else {
-      noop = 'false'
-      core.setOutput('noop', noop)
-      core.saveState('noop', noop)
+      core.setOutput('noop', precheckResults.noopMode)
+      core.saveState('noop', precheckResults.noopMode)
     }
 
     // Get required_contexts for the deployment
@@ -575,6 +574,7 @@ export async function run() {
       environmentObj.environmentUrl // environment_url (can be null)
     )
 
+    core.info(`🚀 ${COLORS.success}deployment started!`)
     core.setOutput('continue', 'true')
     return 'success'
   } catch (error) {
