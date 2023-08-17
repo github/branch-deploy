@@ -22217,7 +22217,7 @@ async function run() {
     core.setOutput('comment_body', body)
     core.setOutput('issue_number', issue_number)
 
-    // Check if the comment is a trigger and what type of trigger it is
+    // check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(body, trigger)
     const isNoopDeploy = await triggerCheck(body, noop_trigger)
     const isLock = await triggerCheck(body, lock_trigger)
@@ -22225,20 +22225,7 @@ async function run() {
     const isHelp = await triggerCheck(body, help_trigger)
     const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
 
-    if (
-      !isDeploy &&
-      !isNoopDeploy &&
-      !isLock &&
-      !isUnlock &&
-      !isHelp &&
-      !isLockInfoAlias
-    ) {
-      // If the comment does not activate any triggers, exit
-      core.saveState('bypass', 'true')
-      core.setOutput('triggered', 'false')
-      core.info('no trigger detected in comment - exiting')
-      return 'safe-exit'
-    } else if (isDeploy || isNoopDeploy) {
+    if (isDeploy || isNoopDeploy) {
       core.setOutput('type', 'deploy')
     } else if (isLock) {
       core.setOutput('type', 'lock')
@@ -22248,6 +22235,12 @@ async function run() {
       core.setOutput('type', 'help')
     } else if (isLockInfoAlias) {
       core.setOutput('type', 'lock-info-alias')
+    } else {
+      // if no trigger is detected, exit here
+      core.saveState('bypass', 'true')
+      core.setOutput('triggered', 'false')
+      core.info('no trigger detected in comment - exiting')
+      return 'safe-exit'
     }
 
     // If we made it this far, the action has been triggered in one manner or another
