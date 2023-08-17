@@ -1,7 +1,8 @@
 import {triggerCheck} from '../../src/functions/trigger-check'
 import * as core from '@actions/core'
+import {COLORS} from '../../src/functions/colors'
 
-const color = '\u001b[35m' // magenta
+const color = COLORS.highlight
 const infoMock = jest.spyOn(core, 'info')
 const debugMock = jest.spyOn(core, 'debug')
 

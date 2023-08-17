@@ -19029,7 +19029,17 @@ var dist_node = __nccwpck_require__(6298);
 // EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
 var lib = __nccwpck_require__(3159);
 var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
+;// CONCATENATED MODULE: ./src/functions/colors.js
+const COLORS = {
+  highlight: '\u001b[35m', // magenta
+  success: '\u001b[32m', // green
+  error: '\u001b[31m', // red
+  info: '\u001b[34m', // blue
+  warning: '\u001b[33m' // yellow
+}
+
 ;// CONCATENATED MODULE: ./src/functions/trigger-check.js
+
 
 
 // A simple function that checks the body of the message against the trigger
@@ -19039,11 +19049,15 @@ var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 async function triggerCheck(body, trigger) {
   // If the trigger is not activated, set the output to false and return with false
   if (!body.startsWith(trigger)) {
-    core.debug(`comment body does not start with trigger: \u001b[35m${trigger}`)
+    core.debug(
+      `comment body does not start with trigger: ${COLORS.highlight}${trigger}`
+    )
     return false
   }
 
-  core.info(`✅ comment body starts with trigger: \u001b[35m${trigger}`)
+  core.info(
+    `✅ comment body starts with trigger: ${COLORS.highlight}${trigger}`
+  )
   return true
 }
 
