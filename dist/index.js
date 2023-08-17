@@ -19034,12 +19034,9 @@ var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 
 // A simple function that checks the body of the message against the trigger
 // :param body: The content body of the message being checked (String)
-// :param trigger: The "trigger" phrase which is searched for in the body of the message
+// :param trigger: The "trigger" phrase which is searched for in the body of the message (String)
 // :returns: true if a message activates the trigger, false otherwise
 async function triggerCheck(body, trigger) {
-  // Set the output of the comment body for later use with other actions
-  core.setOutput('comment_body', body)
-
   // If the trigger is not activated, set the output to false and return with false
   if (!body.startsWith(trigger)) {
     core.debug(`comment body does not start with trigger: "${trigger}"`)
@@ -22215,6 +22212,9 @@ async function run() {
     // Get variables from the event context
     const issue_number = github.context.payload.issue.number
     const {owner, repo} = github.context.repo
+
+    // Set the output of the comment body for later use with other actions
+    core.setOutput('comment_body', body)
 
     // Check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(body, trigger)

@@ -98,6 +98,9 @@ export async function run() {
     const issue_number = context.payload.issue.number
     const {owner, repo} = context.repo
 
+    // Set the output of the comment body for later use with other actions
+    core.setOutput('comment_body', body)
+
     // Check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(body, trigger)
     const isNoopDeploy = await triggerCheck(body, noop_trigger)
