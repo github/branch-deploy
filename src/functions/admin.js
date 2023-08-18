@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import githubUsernameRegex from 'github-username-regex'
 import {octokitRetry} from '@octokit/plugin-retry'
+import {COLORS} from './colors'
 
 // Helper function to check if a user exists in an org team
 // :param actor: The user to check
@@ -14,7 +15,7 @@ async function orgTeamCheck(actor, orgTeams) {
   // If no admin_pat is provided, then we cannot check for org team memberships
   if (!adminsPat || adminsPat.length === 0 || adminsPat === 'false') {
     core.warning(
-      'No admins_pat provided, skipping admin check for org team membership'
+      `🚨 no ${COLORS.highlight}admins_pat${COLORS.reset} provided, skipping admin check for org team membership`
     )
     return false
   }
@@ -62,7 +63,7 @@ async function orgTeamCheck(actor, orgTeams) {
         core.debug(`${actor} is not a member of the ${orgTeam} team`)
         // If some other error occured, output a warning
       } else {
-        core.warning(`Error checking org team membership: ${error}`)
+        core.warning(`error checking org team membership: ${error}`)
       }
     }
   }
