@@ -108,9 +108,12 @@ export async function isAdmin(context) {
     }
   })
 
+  const isAdminMsg = `🔮 ${COLORS.highlight}${context.actor}${COLORS.reset} is an ${COLORS.highlight}admin`
+
   // Check if the user is in the admin handle list
   if (handles.includes(context.actor.toLowerCase())) {
     core.debug(`${context.actor} is an admin via handle reference`)
+    core.info(isAdminMsg)
     return true
   }
 
@@ -119,6 +122,7 @@ export async function isAdmin(context) {
     const result = await orgTeamCheck(context.actor, orgTeams)
     if (result) {
       core.debug(`${context.actor} is an admin via org team reference`)
+      core.info(isAdminMsg)
       return true
     }
   }

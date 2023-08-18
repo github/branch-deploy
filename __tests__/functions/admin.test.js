@@ -5,6 +5,7 @@ import * as core from '@actions/core'
 
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
 const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
+// const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
 
 class NotFoundError extends Error {
   constructor(message) {
@@ -24,6 +25,7 @@ var context
 var octokit
 beforeEach(() => {
   jest.clearAllMocks()
+  jest.spyOn(core, 'info').mockImplementation(() => {})
   process.env.INPUT_ADMINS_PAT = 'faketoken'
   process.env.INPUT_ADMINS =
     'MoNaLiSa,@lisamona,octoawesome/octo-awEsome-team,bad$user'
