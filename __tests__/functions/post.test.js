@@ -69,7 +69,9 @@ test('exits due to a bypass being set', async () => {
     return bypassed[name]
   })
   expect(await post()).toBeUndefined()
-  expect(setWarningMock).toHaveBeenCalledWith(`⛔ ${COLORS.highlight}bypass${COLORS.reset} set, exiting`)
+  expect(setWarningMock).toHaveBeenCalledWith(
+    `⛔ ${COLORS.highlight}bypass${COLORS.reset} set, exiting`
+  )
 })
 
 test('skips the process of completing a deployment', async () => {
@@ -80,7 +82,9 @@ test('skips the process of completing a deployment', async () => {
     return skipped[name]
   })
   expect(await post()).toBeUndefined()
-  expect(infoMock).toHaveBeenCalledWith(`⏩ ${COLORS.highlight}skip_completing${COLORS.reset} set, exiting`)
+  expect(infoMock).toHaveBeenCalledWith(
+    `⏩ ${COLORS.highlight}skip_completing${COLORS.reset} set, exiting`
+  )
 })
 
 test('throws an error', async () => {

@@ -6,7 +6,7 @@ import {context} from '@actions/github'
 import {contextCheck} from './context-check'
 import {checkInput} from './check-input'
 import {postDeploy} from './post-deploy'
-import { COLORS } from './colors'
+import {COLORS} from './colors'
 
 export async function post() {
   try {
@@ -35,7 +35,9 @@ export async function post() {
 
     // Skip the process of completing a deployment, return
     if (skip_completing) {
-      core.info(`⏩ ${COLORS.highlight}skip_completing${COLORS.reset} set, exiting`)
+      core.info(
+        `⏩ ${COLORS.highlight}skip_completing${COLORS.reset} set, exiting`
+      )
       return
     }
 
