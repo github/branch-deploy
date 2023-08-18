@@ -1,4 +1,5 @@
 import {postDeploy} from '../../src/functions/post-deploy'
+import {COLORS} from '../../src/functions/colors'
 import * as actionStatus from '../../src/functions/action-status'
 import * as lock from '../../src/functions/lock'
 import * as unlock from '../../src/functions/unlock'
@@ -260,7 +261,7 @@ test('successfully completes a production branch deployment and removes a non-st
     '' // environment_url
   )
   expect(infoMock).toHaveBeenCalledWith(
-    'non-sticky lock detected, will remove lock'
+    `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
   )
 })
 
@@ -308,7 +309,7 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
     true
   )
   expect(infoMock).toHaveBeenCalledWith(
-    'non-sticky lock detected, will remove lock'
+    `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
   )
 })
 
@@ -353,7 +354,7 @@ test('successfully completes a noop branch deployment but does not get any lock 
     true
   )
   expect(warningMock).toHaveBeenCalledWith(
-    'a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
+    '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
   )
 })
 

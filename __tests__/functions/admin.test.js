@@ -1,9 +1,11 @@
 import {isAdmin} from '../../src/functions/admin'
+import {COLORS} from '../../src/functions/colors'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
 
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
 const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
+// const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
 
 class NotFoundError extends Error {
   constructor(message) {
@@ -23,6 +25,7 @@ var context
 var octokit
 beforeEach(() => {
   jest.clearAllMocks()
+  jest.spyOn(core, 'info').mockImplementation(() => {})
   process.env.INPUT_ADMINS_PAT = 'faketoken'
   process.env.INPUT_ADMINS =
     'MoNaLiSa,@lisamona,octoawesome/octo-awEsome-team,bad$user'
@@ -75,7 +78,7 @@ test('runs isAdmin checks for an org team and fails due to no admins_pat', async
   process.env.INPUT_ADMINS = 'octoawesome/octo-awesome'
   expect(await isAdmin(context)).toStrictEqual(false)
   expect(warningMock).toHaveBeenCalledWith(
-    'No admins_pat provided, skipping admin check for org team membership'
+    `🚨 no ${COLORS.highlight}admins_pat${COLORS.reset} provided, skipping admin check for org team membership`
   )
 })
 
@@ -219,6 +222,6 @@ test('runs isAdmin checks for an org team and an unexpected error is thrown from
   expect(await isAdmin(context)).toStrictEqual(false)
   expect(debugMock).toHaveBeenCalledWith('monalisa is not an admin')
   expect(warningMock).toHaveBeenCalledWith(
-    'Error checking org team membership: Error: something went boom'
+    'error checking org team membership: Error: something went boom'
   )
 })
