@@ -19857,6 +19857,7 @@ var github_username_regex_default = /*#__PURE__*/__nccwpck_require__.n(github_us
 
 
 
+
 // Helper function to check if a user exists in an org team
 // :param actor: The user to check
 // :param orgTeams: An array of org/team names
@@ -19873,8 +19874,10 @@ async function orgTeamCheck(actor, orgTeams) {
     return false
   }
 
-  // Create a new octokit client with the admins_pat
-  const octokit = github.getOctokit(adminsPat)
+  // Create a new octokit client with the admins_pat and the retry plugin
+  const octokit = github.getOctokit(adminsPat, {
+    additionalPlugins: [dist_node.octokitRetry]
+  })
 
   // Loop through all org/team names
   for (const orgTeam of orgTeams) {
@@ -21712,6 +21715,9 @@ async function postDeploy(
 
 
 
+
+
+
 async function post() {
   try {
     const ref = core.getState('ref')
@@ -21728,7 +21734,7 @@ async function post() {
 
     // If bypass is set, exit the workflow
     if (bypass) {
-      core.warning('bypass set, exiting')
+      core.warning(`⛔ ${COLORS.highlight}bypass${COLORS.reset} set, exiting`)
       return
     }
 
@@ -21739,12 +21745,16 @@ async function post() {
 
     // Skip the process of completing a deployment, return
     if (skip_completing) {
-      core.info('skip_completing set, exiting')
+      core.info(
+        `⏩ ${COLORS.highlight}skip_completing${COLORS.reset} set, exiting`
+      )
       return
     }
 
-    // Create an octokit client
-    const octokit = github.getOctokit(token)
+    // Create an octokit client with the retry plugin
+    const octokit = github.getOctokit(token, {
+      additionalPlugins: [dist_node.octokitRetry]
+    })
 
     // Set the environment_url
     if (environment_url === null) {

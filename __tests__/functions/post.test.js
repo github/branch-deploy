@@ -1,8 +1,10 @@
-import {post} from '../../src/functions/post'
+import * as github from '@actions/github'
 import * as core from '@actions/core'
+
+import {post} from '../../src/functions/post'
+import {COLORS} from '../../src/functions/colors'
 import * as postDeploy from '../../src/functions/post-deploy'
 import * as contextCheck from '../../src/functions/context-check'
-import * as github from '@actions/github'
 
 const validBooleanInputs = {
   skip_completing: false
@@ -67,7 +69,9 @@ test('exits due to a bypass being set', async () => {
     return bypassed[name]
   })
   expect(await post()).toBeUndefined()
-  expect(setWarningMock).toHaveBeenCalledWith('bypass set, exiting')
+  expect(setWarningMock).toHaveBeenCalledWith(
+    `⛔ ${COLORS.highlight}bypass${COLORS.reset} set, exiting`
+  )
 })
 
 test('skips the process of completing a deployment', async () => {
@@ -78,7 +82,9 @@ test('skips the process of completing a deployment', async () => {
     return skipped[name]
   })
   expect(await post()).toBeUndefined()
-  expect(infoMock).toHaveBeenCalledWith('skip_completing set, exiting')
+  expect(infoMock).toHaveBeenCalledWith(
+    `⏩ ${COLORS.highlight}skip_completing${COLORS.reset} set, exiting`
+  )
 })
 
 test('throws an error', async () => {
