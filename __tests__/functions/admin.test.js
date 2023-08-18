@@ -1,5 +1,5 @@
 import {isAdmin} from '../../src/functions/admin'
-import { COLORS } from '../../src/functions/colors'
+import {COLORS} from '../../src/functions/colors'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
 

@@ -5,7 +5,7 @@ import {createDeploymentStatus} from './deployment'
 import {unlock} from './unlock'
 import {lock} from './lock'
 import {postDeployMessage} from './post-deploy-message'
-import { COLORS } from './colors'
+import {COLORS} from './colors'
 
 const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`
 const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`

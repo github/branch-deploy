@@ -19858,6 +19858,7 @@ var github_username_regex_default = /*#__PURE__*/__nccwpck_require__.n(github_us
 
 
 
+
 // Helper function to check if a user exists in an org team
 // :param actor: The user to check
 // :param orgTeams: An array of org/team names
@@ -19869,7 +19870,7 @@ async function orgTeamCheck(actor, orgTeams) {
   // If no admin_pat is provided, then we cannot check for org team memberships
   if (!adminsPat || adminsPat.length === 0 || adminsPat === 'false') {
     core.warning(
-      'No admins_pat provided, skipping admin check for org team membership'
+      `🚨 no ${COLORS.highlight}admins_pat${COLORS.reset} provided, skipping admin check for org team membership`
     )
     return false
   }
@@ -19917,7 +19918,7 @@ async function orgTeamCheck(actor, orgTeams) {
         core.debug(`${actor} is not a member of the ${orgTeam} team`)
         // If some other error occured, output a warning
       } else {
-        core.warning(`Error checking org team membership: ${error}`)
+        core.warning(`error checking org team membership: ${error}`)
       }
     }
   }
@@ -19962,9 +19963,12 @@ async function isAdmin(context) {
     }
   })
 
+  const isAdminMsg = `🔮 ${COLORS.highlight}${context.actor}${COLORS.reset} is an ${COLORS.highlight}admin`
+
   // Check if the user is in the admin handle list
   if (handles.includes(context.actor.toLowerCase())) {
     core.debug(`${context.actor} is an admin via handle reference`)
+    core.info(isAdminMsg)
     return true
   }
 
@@ -19973,6 +19977,7 @@ async function isAdmin(context) {
     const result = await orgTeamCheck(context.actor, orgTeams)
     if (result) {
       core.debug(`${context.actor} is an admin via org team reference`)
+      core.info(isAdminMsg)
       return true
     }
   }
@@ -21546,6 +21551,11 @@ async function postDeployMessage(
 
 
 
+
+
+const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`
+const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
+
 // Helper function to help facilitate the process of completing a deployment
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
@@ -21573,7 +21583,7 @@ async function postDeploy(
   environment,
   environment_url
 ) {
-  // Check the inputs to ensure they are valid
+  // check the inputs to ensure they are valid
   if (!comment_id || comment_id.length === 0) {
     throw new Error('no comment_id provided')
   } else if (!status || status.length === 0) {
@@ -21591,7 +21601,7 @@ async function postDeploy(
     }
   }
 
-  // Check the deployment status
+  // check the deployment status
   var success
   if (status === 'success') {
     success = true
@@ -21608,7 +21618,7 @@ async function postDeploy(
     ref
   )
 
-  // Update the action status to indicate the result of the deployment as a comment
+  // update the action status to indicate the result of the deployment as a comment
   await actionStatus(context, octokit, parseInt(reaction_id), message, success)
 
   // Update the deployment status of the branch-deploy
@@ -21619,10 +21629,10 @@ async function postDeploy(
     deploymentStatus = 'failure'
   }
 
-  // If the deployment mode is noop, return here
+  // if the deployment mode is noop, return here
   if (noop === true) {
     core.debug('deployment mode: noop')
-    // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
+    // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
     const lockResponse = await lock(
       octokit,
       context,
@@ -21633,34 +21643,35 @@ async function postDeploy(
       true // detailsOnly set to true
     )
 
-    // Obtain the lockData from the lock response
+    // obtain the lockData from the lock response
     const lockData = lockResponse.lockData
     core.debug(JSON.stringify(lockData))
 
-    // If the lock is sticky, we will NOT remove it
+    // if the lock is sticky, we will NOT remove it
     if (lockData?.sticky === true) {
-      core.info('sticky lock detected, will not remove lock')
+      core.info(stickyMsg)
     } else if (lockData === null || lockData === undefined) {
       core.warning(
-        'a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
+        '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
       )
     } else {
-      core.info('non-sticky lock detected, will remove lock')
+      core.info(nonStickyMsg)
       core.debug(`lockData.sticky: ${lockData.sticky}`)
-      // Remove the lock - use silent mode
+
+      // remove the lock - use silent mode
       await unlock(
         octokit,
         context,
         null, // reaction_id
         environment, // environment
-        true // silent
+        true // silent mode
       )
     }
 
     return 'success - noop'
   }
 
-  // Update the final deployment status with either success or failure
+  // update the final deployment status with either success or failure
   await createDeploymentStatus(
     octokit,
     context,
@@ -21671,7 +21682,7 @@ async function postDeploy(
     environment_url // can be null
   )
 
-  // Obtain the lock data with detailsOnly set to true - ie we will not alter the lock
+  // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
   const lockResponse = await lock(
     octokit,
     context,
@@ -21683,27 +21694,28 @@ async function postDeploy(
     true // postDeployStep set to true - this means we will not exit early if a global lock exists
   )
 
-  // Obtain the lockData from the lock response
+  // obtain the lockData from the lock response
   const lockData = lockResponse.lockData
   core.debug(JSON.stringify(lockData))
 
-  // If the lock is sticky, we will NOT remove it
+  // if the lock is sticky, we will NOT remove it
   if (lockData.sticky === true) {
-    core.info('sticky lock detected, will not remove lock')
+    core.info(stickyMsg)
   } else {
-    core.info('non-sticky lock detected, will remove lock')
+    core.info(nonStickyMsg)
     core.debug(`lockData.sticky: ${lockData.sticky}`)
-    // Remove the lock - use silent mode
+
+    // remove the lock - use silent mode
     await unlock(
       octokit,
       context,
       null, // reaction_id
       environment, // environment
-      true // silent
+      true // silent mode
     )
   }
 
-  // If the post deploy comment logic completes successfully, return
+  // if the post deploy comment logic completes successfully, return
   return 'success'
 }
 
