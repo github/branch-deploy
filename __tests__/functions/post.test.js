@@ -67,7 +67,7 @@ test('exits due to a bypass being set', async () => {
     return bypassed[name]
   })
   expect(await post()).toBeUndefined()
-  expect(setWarningMock).toHaveBeenCalledWith('bypass set, exiting')
+  expect(setWarningMock).toHaveBeenCalledWith('⛔ bypass set, exiting')
 })
 
 test('skips the process of completing a deployment', async () => {
@@ -78,7 +78,7 @@ test('skips the process of completing a deployment', async () => {
     return skipped[name]
   })
   expect(await post()).toBeUndefined()
-  expect(infoMock).toHaveBeenCalledWith('skip_completing set, exiting')
+  expect(infoMock).toHaveBeenCalledWith('⏩ skip_completing set, exiting')
 })
 
 test('throws an error', async () => {

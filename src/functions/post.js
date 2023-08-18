@@ -22,7 +22,7 @@ export async function post() {
 
     // If bypass is set, exit the workflow
     if (bypass) {
-      core.warning('bypass set, exiting')
+      core.warning('⛔ bypass set, exiting')
       return
     }
 
@@ -33,7 +33,7 @@ export async function post() {
 
     // Skip the process of completing a deployment, return
     if (skip_completing) {
-      core.info('skip_completing set, exiting')
+      core.info('⏩ skip_completing set, exiting')
       return
     }
 
