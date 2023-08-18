@@ -1,4 +1,5 @@
 import * as core from '@actions/core'
+import {octokitRetry} from '@octokit/plugin-retry'
 import {contextCheck} from './context-check'
 import {checkInput} from './check-input'
 import {postDeploy} from './post-deploy'
@@ -36,8 +37,10 @@ export async function post() {
       return
     }
 
-    // Create an octokit client
-    const octokit = github.getOctokit(token)
+    // Create an octokit client with the retry plugin
+    const octokit = github.getOctokit(token, {
+      additionalPlugins: [octokitRetry]
+    })
 
     // Set the environment_url
     if (environment_url === null) {
