@@ -1,10 +1,12 @@
 import * as core from '@actions/core'
 import {octokitRetry} from '@octokit/plugin-retry'
+import * as github from '@actions/github'
+import {context} from '@actions/github'
+
 import {contextCheck} from './context-check'
 import {checkInput} from './check-input'
 import {postDeploy} from './post-deploy'
-import * as github from '@actions/github'
-import {context} from '@actions/github'
+import { COLORS } from './colors'
 
 export async function post() {
   try {
@@ -22,7 +24,7 @@ export async function post() {
 
     // If bypass is set, exit the workflow
     if (bypass) {
-      core.warning('⛔ bypass set, exiting')
+      core.warning(`⛔ ${COLORS.highlight}bypass${COLORS.reset} set, exiting`)
       return
     }
 
@@ -33,7 +35,7 @@ export async function post() {
 
     // Skip the process of completing a deployment, return
     if (skip_completing) {
-      core.info('⏩ skip_completing set, exiting')
+      core.info(`⏩ ${COLORS.highlight}skip_completing${COLORS.reset} set, exiting`)
       return
     }
 
