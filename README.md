@@ -41,7 +41,7 @@ Alternate command syntax and shortcuts can be found at the bottom of this readme
 
 A video demo showing how IssueOps on a pull request works using this Action
 
-<https://github.com/github/branch-deploy/assets/23362539/634fb1eb-8cef-47cd-95ab-0d1835678f30>
+<https://github.com/github/branch-deploy/assets/23362539/887cb1d3-e600-4d4c-ae0a-959b206e4513>
 
 ## Turbo Quickstart ⚡
 
