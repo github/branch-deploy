@@ -2154,7 +2154,7 @@ test('runs prechecks and finds that no ci checks are defined and skip_reviews is
     )
   ).toStrictEqual({
     message:
-      '✅ CI have not been defined and required reviewers have been disabled for this environment',
+      '✅ CI checks have not been defined and required reviewers have been disabled for this environment',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -2162,7 +2162,7 @@ test('runs prechecks and finds that no ci checks are defined and skip_reviews is
   })
 
   expect(infoMock).toHaveBeenCalledWith(
-    '✅ CI have not been defined and required reviewers have been disabled for this environment'
+    '✅ CI checks have not been defined and required reviewers have been disabled for this environment'
   )
 })
 
