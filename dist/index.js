@@ -20347,7 +20347,13 @@ async function prechecks(
     // CI checks are passing and reviews are set to be bypassed
   } else if (commitStatus === 'SUCCESS' && reviewDecision == 'skip_reviews') {
     message =
-      '✅ CI checked passsed and required reviewers have been disabled for this environment'
+      '✅ CI checks passed and required reviewers have been disabled for this environment'
+    core.info(message)
+
+    // CI checks have not been defined and reviews are set to be bypassed
+  } else if (commitStatus === null && reviewDecision === 'skip_reviews') {
+    message =
+      '✅ CI have not been defined and required reviewers have been disabled for this environment'
     core.info(message)
 
     // CI checks are set to be bypassed and the pull request is approved
