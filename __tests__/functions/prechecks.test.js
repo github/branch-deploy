@@ -2096,7 +2096,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
     )
   ).toStrictEqual({
     message:
-      '✅ CI checked passsed and required reviewers have been disabled for this environment',
+      '✅ CI checks passed and required reviewers have been disabled for this environment',
     noopMode: false,
     ref: 'test-ref',
     status: true,
@@ -2104,7 +2104,65 @@ test('runs prechecks and finds that the commit status is success and skip_review
   })
 
   expect(infoMock).toHaveBeenCalledWith(
-    '✅ CI checked passsed and required reviewers have been disabled for this environment'
+    '✅ CI checks passed and required reviewers have been disabled for this environment'
+  )
+})
+
+test('runs prechecks and finds that no ci checks are defined and skip_reviews is set for the environment', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 0
+                },
+                statusCheckRollup: null
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
+
+  environmentObj.target = 'staging'
+
+  expect(
+    await prechecks(
+      '.deploy to staging',
+      '.deploy',
+      '.noop',
+      'disabled',
+      'main',
+      '123',
+      true,
+      'development', // skip_ci
+      'staging', // skip_reviews
+      'development', // draft_permitted_targets
+      'staging', // the environment the deployment was sent to
+      environmentObj,
+      help_trigger,
+      context,
+      octokit
+    )
+  ).toStrictEqual({
+    message:
+      '✅ CI checks have not been defined and required reviewers have been disabled for this environment',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true,
+    sha: 'abc123'
+  })
+
+  expect(infoMock).toHaveBeenCalledWith(
+    '✅ CI checks have not been defined and required reviewers have been disabled for this environment'
   )
 })
 
