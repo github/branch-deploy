@@ -2096,7 +2096,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
     )
   ).toStrictEqual({
     message:
-      '✅ CI checked passsed and required reviewers have been disabled for this environment',
+      '✅ CI checks passed and required reviewers have been disabled for this environment',
     noopMode: false,
     ref: 'test-ref',
     status: true,
