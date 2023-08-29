@@ -20283,7 +20283,7 @@ async function prechecks(
   } else if (
     (commitStatus === 'SUCCESS' ||
       commitStatus === null ||
-      commitStatus == 'skip_ci') &&
+      commitStatus === 'skip_ci') &&
     update_branch !== 'disabled' &&
     behind === true
   ) {
