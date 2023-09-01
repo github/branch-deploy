@@ -281,6 +281,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `unlock_on_merge_mode` | `false` | `"false"` | Advanced configuration option for automatically releasing locks associated with a pull request when that pull request is merged. See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
 | `skip_completing` | `false` | `"false"` | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
 | `deploy_message_path` | `false` | `".github/deployment_message.md"` | The path to a markdown file which is used as a template for custom deployment messages. Example: `".github/deployment_message.md"` |
+| `sticky_locks` | `false` | `"false"` | If set to `"true"`, locks will not be released after a deployment run completes. This applies to both successful, and failed deployments.Sticky locks are also known as ["hubot style deployment locks"](https://github.com/github/branch-deploy/issues/198). They will persist until they are manually released by a user, or if you configure [another workflow with the "unlock on merge" mode](https://github.com/github/branch-deploy/blob/14df40eb0fb10d9553d5f16646a281348fb47ac4/docs/unlock-on-merge.md) to remove them automatically on PR merge. |
 
 ## Outputs 📤
 

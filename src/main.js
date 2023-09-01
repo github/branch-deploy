@@ -53,6 +53,7 @@ export async function run() {
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')
     const permissions = core.getInput('permissions')
+    const sticky_locks = core.getBooleanInput('sticky_locks')
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
@@ -249,7 +250,9 @@ export async function run() {
             reactRes.data.id,
             null, // sticky
             null, // environment (we will find this in the lock function - important)
-            true // details only flag
+            true, // details only flag
+            false, // postDeployStep
+            true // leaveComment
           )
           // extract values from the lock response
           const lockData = lockResponse.lockData
@@ -367,7 +370,9 @@ export async function run() {
           reactRes.data.id,
           true, // sticky
           null, // environment (we will find this in the lock function)
-          false // details only flag
+          false, // details only flag
+          false, // postDeployStep
+          true // leaveComment
         )
         core.saveState('bypass', 'true')
         return 'safe-exit'
@@ -447,14 +452,24 @@ export async function run() {
       return 'failure'
     }
 
-    // Aquire the branch-deploy lock for non-sticky requests
+    core.info(
+      `🍯 sticky_locks: ${COLORS.highlight}${sticky_locks}${COLORS.reset}`
+    )
+
+    // if we are using sticky_locks in deployments, don't leave a comment as this is inferred by the user
+    const leaveComment = sticky_locks === false ? true : false
+
+    // Aquire the branch-deploy lock
     const lockResponse = await lock(
       octokit,
       context,
       precheckResults.ref,
       reactRes.data.id,
-      false, // sticky
-      environment
+      sticky_locks, // sticky / hubot style locks - true/false depending on the input
+      environment, // environment
+      null, // details only flag
+      false, // postDeployStep
+      leaveComment // leaveComment - true/false depending on the input
     )
 
     // If the lock request fails, exit the Action

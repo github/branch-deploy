@@ -125,6 +125,10 @@ inputs:
     description: 'The path to a markdown file which is used as a template for custom deployment messages. Example: ".github/deployment_message.md"'
     required: false
     default: ".github/deployment_message.md"
+  sticky_locks:
+    description: 'If set to "true", locks will not be released after a deployment run completes. This applies to both successful, and failed deployments.Sticky locks are also known as "hubot style deployment locks". They will persist until they are manually released by a user, or if you configure another workflow with the "unlock on merge" mode to remove them automatically on PR merge.'
+    required: false
+    default: "false"
 outputs:
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'

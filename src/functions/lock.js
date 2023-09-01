@@ -34,6 +34,8 @@ async function constructBranchName(environment, global) {
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :param environment: The environment to lock
 // :param global: A bool indicating whether the lock is global or not (should lock all environments)
+// :param reactionId: The ID of the reaction that triggered the lock request
+// :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
 // :returns: The result of the createOrUpdateFileContents API call
 async function createLock(
   octokit,
@@ -43,7 +45,8 @@ async function createLock(
   sticky,
   environment,
   global,
-  reactionId
+  reactionId,
+  leaveComment = true
 ) {
   core.debug('attempting to create lock...')
 
@@ -85,8 +88,9 @@ async function createLock(
 
   // Write a log message stating the lock has been claimed
   core.info('✅ deployment lock obtained')
-  // If the lock is sticky, always leave a comment
-  if (sticky) {
+  // If the lock is sticky, always leave a comment unless we are running in the context of a "sticky_locks" deployment
+  // AKA hubot style deployments
+  if (sticky === true && leaveComment === true) {
     core.info(`🍯 deployment lock is ${COLORS.highlight}sticky`)
 
     // create a special comment section for global locks
@@ -297,8 +301,16 @@ async function createBranch(octokit, context, branchName) {
 // :param lockData: The lock file contents
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever) - non-sticky locks are inherent from deployments
 // :param reactionId: The ID of the reaction that triggered the lock request
+// :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
 // :return: true if the lock owner is the requestor, false if not
-async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
+async function checkLockOwner(
+  octokit,
+  context,
+  lockData,
+  sticky,
+  reactionId,
+  leaveComment = true
+) {
   core.debug('checking the owner of the lock...')
   // If the requestor is the one who owns the lock, return 'owner'
   if (lockData.created_by === context.actor) {
@@ -306,8 +318,8 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
       `✅ ${COLORS.highlight}${context.actor}${COLORS.reset} initiated this request and is also the owner of the current lock`
     )
 
-    // If this is a '.lock' command (sticky), update with actionStatus as we are about to exit
-    if (sticky) {
+    // If this is a '.lock' command (sticky) and not a sticky_locks deployment request, update with actionStatus as we are about to exit
+    if (sticky === true && leaveComment === true) {
       // Find the total time since the lock was created
       const totalTime = await timeDiff(
         lockData.created_at,
@@ -428,6 +440,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
 // :param environment: The environment to lock (can be passed in if already known - otherwise we try and find it)
 // :param detailsOnly: A bool indicating whether to only return the details of the lock and not alter its state
 // :param postDeployStep: A bool indicating whether this function is being called from the post-deploy step
+// :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
 // :returns: A lock repsponse object
 // Example:
 // {
@@ -450,7 +463,8 @@ export async function lock(
   sticky,
   environment = null,
   detailsOnly = false,
-  postDeployStep = false
+  postDeployStep = false,
+  leaveComment = true
 ) {
   var global
 
@@ -527,7 +541,8 @@ export async function lock(
       context,
       globalLockData,
       sticky,
-      reactionId
+      reactionId,
+      leaveComment
     )
     if (globalLockOwner === false) {
       // If the requestor is not the owner of the global lock, return false
@@ -578,7 +593,8 @@ export async function lock(
         sticky,
         environment,
         global,
-        reactionId
+        reactionId,
+        leaveComment
       )
       return {status: true, lockData: null, globalFlag, environment, global}
     } else {
@@ -588,7 +604,8 @@ export async function lock(
         context,
         lockData,
         sticky,
-        reactionId
+        reactionId,
+        leaveComment
       )
       if (lockOwner === true) {
         // If the requestor is the one who owns the lock, return 'owner'
@@ -627,7 +644,8 @@ export async function lock(
     sticky,
     environment,
     global,
-    reactionId
+    reactionId,
+    leaveComment
   )
   return {status: true, lockData: null, globalFlag, environment, global}
 }

@@ -53,12 +53,14 @@ test('successfully unlocks all environments on a pull request merge', async () =
   expect(
     await unlockOnMerge(octokit, context, environment_targets)
   ).toStrictEqual(true)
-  expect(infoMock).toHaveBeenCalledWith('removed lock - environment: staging')
   expect(infoMock).toHaveBeenCalledWith(
-    'removed lock - environment: development'
+    '🔓 removed lock - environment: staging'
   )
   expect(infoMock).toHaveBeenCalledWith(
-    'removed lock - environment: production'
+    '🔓 removed lock - environment: development'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    '🔓 removed lock - environment: production'
   )
   expect(setOutputMock).toHaveBeenCalledWith(
     'unlocked_environments',
@@ -80,12 +82,14 @@ test('only unlocks one environment because the other has no lock and the other i
     await unlockOnMerge(octokit, context, environment_targets)
   ).toStrictEqual(true)
   expect(debugMock).toHaveBeenCalledWith(
-    'detected lock for PR 111 (env: production) is not associated with PR 123 - skipping...'
+    '⏩ lock for PR 111 (env: production) is not associated with PR 123 - skipping...'
   )
   expect(debugMock).toHaveBeenCalledWith(
-    'no lock found for environment development - skipping...'
+    '⏩ no lock found for environment development - skipping...'
   )
-  expect(infoMock).toHaveBeenCalledWith('removed lock - environment: staging')
+  expect(infoMock).toHaveBeenCalledWith(
+    '🔓 removed lock - environment: staging'
+  )
 })
 
 test('fails due to the context not being a PR merge', async () => {
@@ -99,6 +103,6 @@ test('fails due to the context not being a PR merge', async () => {
     'event name: pull_request, action: opened, merged: false'
   )
   expect(setFailedMock).toHaveBeenCalledWith(
-    'This workflow can only run in the context of a merged pull request'
+    'this workflow can only run in the context of a merged pull request'
   )
 })

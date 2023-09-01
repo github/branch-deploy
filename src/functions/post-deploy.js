@@ -145,7 +145,8 @@ export async function postDeploy(
     false, // sticky
     environment, // environment
     true, // detailsOnly set to true
-    true // postDeployStep set to true - this means we will not exit early if a global lock exists
+    true, // postDeployStep set to true - this means we will not exit early if a global lock exists
+    false // leaveComment
   )
 
   // obtain the lockData from the lock response

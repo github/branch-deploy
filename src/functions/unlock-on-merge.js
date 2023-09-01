@@ -19,7 +19,7 @@ export async function unlockOnMerge(octokit, context, environment_targets) {
       `event name: ${context?.eventName}, action: ${context?.payload?.action}, merged: ${context?.payload?.pull_request?.merged}`
     )
     core.setFailed(
-      'This workflow can only run in the context of a merged pull request'
+      'this workflow can only run in the context of a merged pull request'
     )
     return false
   }
@@ -37,6 +37,7 @@ export async function unlockOnMerge(octokit, context, environment_targets) {
     if (lockFile && lockFile?.link) {
       // if the lockFile has a link property, find the PR number from the link
       var prNumber = lockFile.link.split('/pull/')[1].split('#issuecomment')[0]
+      core.info(`🔍 checking lock for PR ${prNumber} (env: ${environment})`)
 
       // if the PR number matches the PR number of the merged pull request, then this lock is associated with the merged pull request
       if (prNumber === context.payload.pull_request.number.toString()) {
@@ -56,14 +57,16 @@ export async function unlockOnMerge(octokit, context, environment_targets) {
 
         // log the result and format the output as it will always be a string ending with '- silent'
         var resultFmt = result.replace('- silent', '')
-        core.info(`${resultFmt.trim()} - environment: ${environment}`)
+        core.info(`🔓 ${resultFmt.trim()} - environment: ${environment}`)
       } else {
         core.debug(
-          `detected lock for PR ${prNumber} (env: ${environment}) is not associated with PR ${context.payload.pull_request.number} - skipping...`
+          `⏩ lock for PR ${prNumber} (env: ${environment}) is not associated with PR ${context.payload.pull_request.number} - skipping...`
         )
       }
     } else {
-      core.debug(`no lock found for environment ${environment} - skipping...`)
+      core.debug(
+        `⏩ no lock found for environment ${environment} - skipping...`
+      )
     }
   }
 
