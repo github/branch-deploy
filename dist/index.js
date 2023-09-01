@@ -21971,7 +21971,7 @@ async function unlockOnMerge(octokit, context, environment_targets) {
 
         // log the result and format the output as it will always be a string ending with '- silent'
         var resultFmt = result.replace('- silent', '')
-        core.info(`${resultFmt.trim()} - environment: ${environment}`)
+        core.info(`🔓 ${resultFmt.trim()} - environment: ${environment}`)
       } else {
         core.debug(
           `⏩ lock for PR ${prNumber} (env: ${environment}) is not associated with PR ${context.payload.pull_request.number} - skipping...`
