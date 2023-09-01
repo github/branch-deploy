@@ -286,6 +286,8 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 
 | Output | Description |
 | ------ | ----------- |
+| `continue` | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
+| `fork` | The string "true" if the pull request is a fork, otherwise "false" |
 | `triggered` | The string "true" if the trigger was found, otherwise the string "false" |
 | `comment_body` | The comment body |
 | `issue_number` | The issue number of the pull request (or issue) that was commented on |
@@ -300,8 +302,6 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `deployment_id` | The ID of the deployment created by running this action |
 | `environment_url` | The environment URL detected and used for the deployment (sourced from the environment_urls input) |
 | `type` | The type of trigger that was detected (examples: deploy, lock, unlock, lock-info-alias, help) |
-| `continue` | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
-| `fork` | The string "true" if the pull request is a fork, otherwise "false" |
 | `fork_ref` | The true ref of the fork |
 | `fork_label` | The API label field returned for the fork |
 | `fork_checkout` | The console command presented in the GitHub UI to checkout a given fork locally |

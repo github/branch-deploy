@@ -126,6 +126,8 @@ inputs:
     required: false
     default: ".github/deployment_message.md"
 outputs:
+  continue:
+    description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
   triggered:
     description: 'The string "true" if the trigger was found, otherwise the string "false"'
   comment_body:
@@ -150,8 +152,6 @@ outputs:
     description: The comment id which triggered this deployment
   type:
     description: "The type of trigger that was detected (examples: deploy, lock, unlock, lock-info-alias, help)"
-  continue:
-    description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
   fork:
     description: 'The string "true" if the pull request is a fork, otherwise "false"'
   fork_ref:

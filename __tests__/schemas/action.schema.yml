@@ -333,6 +333,10 @@ inputs:
 
 # outputs section
 outputs:
+  continue:
+    description:
+      type: string
+      required: true
   triggered:
     description:
       type: string
@@ -378,10 +382,6 @@ outputs:
       type: string
       required: true
   type:
-    description:
-      type: string
-      required: true
-  continue:
     description:
       type: string
       required: true
