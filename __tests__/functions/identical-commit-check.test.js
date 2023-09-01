@@ -36,7 +36,10 @@ beforeEach(() => {
         getBranch: jest.fn().mockReturnValue({
           data: {
             commit: {
-              sha: 'deadbeef'
+              sha: 'deadbeef',
+              commit: {
+                message: 'cool new feature'
+              }
             }
           }
         }),
@@ -44,6 +47,9 @@ beforeEach(() => {
           data: [
             {
               sha: 'deadbeef',
+              commit: {
+                message: 'cool new feature'
+              },
               parents: [
                 {
                   sha: 'beefdead'

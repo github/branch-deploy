@@ -21843,8 +21843,12 @@ async function identicalCommitCheck(octokit, context, environment) {
     }
   )
   var latestCommitSha
+  const mergeCommitRegex = /^Merge branch .+ into .+$/
   for (const commit of defaultBranchCommitsData) {
-    if (commit.parents.length === 1) {
+    if (
+      commit.parents.length === 1 &&
+      !mergeCommitRegex.test(commit.commit.message)
+    ) {
       latestCommitSha = commit.sha
       break
     }
