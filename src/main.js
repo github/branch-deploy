@@ -448,7 +448,11 @@ export async function run() {
       return 'failure'
     }
 
-    // Aquire the branch-deploy lock for non-sticky requests
+    core.info(
+      `🍯 sticky_locks: ${COLORS.highlight}${sticky_locks}${COLORS.reset}`
+    )
+
+    // Aquire the branch-deploy lock
     const lockResponse = await lock(
       octokit,
       context,
