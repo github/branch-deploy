@@ -295,6 +295,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `noop` | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
 | `sha` | The sha of the branch to be deployed |
 | `ref` | The ref (branch or sha) to use with deployment |
+| `base_ref` | The base ref that the pull request is merging into |
 | `comment_id` | The comment id which triggered this deployment |
 | `deployment_id` | The ID of the deployment created by running this action |
 | `environment_url` | The environment URL detected and used for the deployment (sourced from the environment_urls input) |

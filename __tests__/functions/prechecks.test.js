@@ -471,6 +471,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
         repo: {
           fork: true
         }
+      },
+      base: {
+        ref: 'base-ref'
       }
     },
     status: 200
@@ -532,6 +535,9 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
         repo: {
           fork: true
         }
+      },
+      base: {
+        ref: 'base-ref'
       }
     },
     status: 200

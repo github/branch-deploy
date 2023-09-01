@@ -20052,6 +20052,11 @@ async function prechecks(
   // save sha
   var sha = pr.data.head.sha
 
+  // set an output which is the branch name this PR is targeting to merge into
+  const baseRef = pr?.data?.base?.ref
+  core.setOutput('base_ref', baseRef)
+  core.debug(`base_ref: ${baseRef}`)
+
   // Setup the skipCi, skipReview, and draft_permitted_targets variables
   const skipCiArray = await stringToArray(skipCiInput)
   const skipReviewsArray = await stringToArray(skipReviewsInput)
