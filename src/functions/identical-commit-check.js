@@ -26,22 +26,6 @@ export async function identicalCommitCheck(octokit, context, environment) {
   const defaultBranchCommitSha = defaultBranchData.commit.sha
   core.info(`default branch commit sha: ${defaultBranchCommitSha}`)
 
-  // get the latest commit on the default branch including merge commits
-  const {data: defaultBranchCommitsData} = await octokit.rest.repos.listCommits(
-    {
-      owner,
-      repo,
-      sha: defaultBranchName,
-      per_page: 100
-    }
-  )
-  var latestCommitSha
-  for (const commit of defaultBranchCommitsData) {
-    latestCommitSha = commit.sha
-    break
-  }
-  core.info(`latest commit on ${defaultBranchName}: ${latestCommitSha}`)
-
   // find the latest deployment with the payload type of branch-deploy
   const {data: deploymentsData} = await octokit.rest.repos.listDeployments({
     owner,
@@ -70,16 +54,17 @@ export async function identicalCommitCheck(octokit, context, environment) {
   core.info(`latest deployment created at: ${createdAt}`)
   core.info(`latest deployment id: ${deploymentId}`)
 
-  // use the compareCommitsWithBasehead API to check if the latest deployment sha is identical to the latest commit on the default branch
-  const {data: compareData} =
-    await octokit.rest.repos.compareCommitsWithBasehead({
-      owner,
-      repo,
-      basehead: `${latestCommitSha}...${latestDeploymentSha}`
-    })
+  // get the merge commit that triggered the deployment
+  const {data: deploymentData} = await octokit.rest.repos.getDeployment({
+    owner,
+    repo,
+    deployment_id: deploymentId
+  })
+  const mergeCommitSha = deploymentData.sha
+  core.info(`merge commit sha: ${mergeCommitSha}`)
 
-  // if the latest deployment sha is identical to the latest commit on the default branch then return true
-  const result = compareData.status === 'identical'
+  // manually compare the commit SHA of the merge commit with the SHA of the latest commit on the default branch
+  const result = mergeCommitSha === defaultBranchCommitSha
 
   if (result) {
     core.info('latest deployment sha is identical to the latest commit sha')

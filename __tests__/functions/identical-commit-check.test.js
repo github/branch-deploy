@@ -36,7 +36,7 @@ beforeEach(() => {
         getBranch: jest.fn().mockReturnValue({
           data: {
             commit: {
-              sha: 'deadbeef',
+              sha: 'beefdead',
               commit: {
                 message: 'cool new feature'
               }
@@ -46,7 +46,7 @@ beforeEach(() => {
         listCommits: jest.fn().mockReturnValue({
           data: [
             {
-              sha: 'deadbeef',
+              sha: 'beefdead',
               commit: {
                 message: 'cool new feature'
               },
@@ -70,6 +70,12 @@ beforeEach(() => {
             }
           ]
         }),
+        getDeployment: jest.fn().mockReturnValue({
+          data: {
+            sha: 'beefdead',
+            id: 785395609
+          }
+        }),
         compareCommitsWithBasehead: jest.fn().mockReturnValue({
           data: {
             status: 'identical'
@@ -92,9 +98,9 @@ test('checks if the default branch sha and deployment sha are identical, and the
 })
 
 test('checks if the default branch sha and deployment sha are identical, and they are not', async () => {
-  octokit.rest.repos.compareCommitsWithBasehead = jest.fn().mockReturnValue({
+  octokit.rest.repos.getDeployment = jest.fn().mockReturnValue({
     data: {
-      status: 'not identical'
+      sha: 'deadbeef'
     }
   })
 
