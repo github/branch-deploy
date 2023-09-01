@@ -21833,15 +21833,28 @@ async function identicalCommitCheck(octokit, context, environment) {
   const {data: deploymentsData} = await octokit.rest.repos.listDeployments({
     owner,
     repo,
-    environment
+    environment,
+    per_page: 1
   })
   const latestDeploymentSha = deploymentsData[0]?.sha
 
-  // compare the latest commit SHA and the latest deployment SHA
+  // get the latest previous deployment SHA for the environment
+  const {data: previousDeploymentsData} =
+    await octokit.rest.repos.listDeployments({
+      owner,
+      repo,
+      environment,
+      per_page: 1,
+      page: 2
+    })
+  const latestPreviousDeploymentSha = previousDeploymentsData[0]?.sha
+
+  // compare the latest commit SHA and the latest previous deployment SHA
   const {data: compareData} = await octokit.rest.repos.compareCommits({
     owner,
     repo,
     base:
+      latestPreviousDeploymentSha ||
       latestDeploymentSha ||
       context.payload?.pull_request?.head?.sha ||
       branchData.commit.sha,
