@@ -26,17 +26,22 @@ export async function identicalCommitCheck(octokit, context, environment) {
   const defaultBranchCommitSha = defaultBranchData.commit.sha
   core.info(`default branch commit sha: ${defaultBranchCommitSha}`)
 
-  // get the latest commit on the default branch
-  const {data: commitsData} = await octokit.rest.repos.listCommits({
-    owner,
-    repo,
-    sha: defaultBranchCommitSha,
-    per_page: 1
-  })
-
-  // get the latest commit sha on the default branch
-  const latestCommitSha = commitsData[0].sha
-
+  // get the latest commit on the default branch excluding the merge commit
+  const {data: defaultBranchCommitsData} = await octokit.rest.repos.listCommits(
+    {
+      owner,
+      repo,
+      sha: defaultBranchName,
+      per_page: 100
+    }
+  )
+  var latestCommitSha
+  for (const commit of defaultBranchCommitsData) {
+    if (commit.parents.length === 1) {
+      latestCommitSha = commit.sha
+      break
+    }
+  }
   core.info(
     `latest commit on ${defaultBranchName} excluding the merge commit: ${latestCommitSha}`
   )
