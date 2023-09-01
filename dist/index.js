@@ -21822,7 +21822,7 @@ async function identicalCommitCheck(octokit, context, environment) {
     repo
   })
   const defaultBranchName = repoData.default_branch
-  core.debug(`default branch name: ${defaultBranchName}`)
+  core.info(`default branch name: ${defaultBranchName}`)
 
   // get the latest commit on the default branch of the repo
   const {data: defaultBranchData} = await octokit.rest.repos.getBranch({
@@ -21831,28 +21831,19 @@ async function identicalCommitCheck(octokit, context, environment) {
     branch: defaultBranchName
   })
   const defaultBranchCommitSha = defaultBranchData.commit.sha
-  core.debug(`default branch commit sha: ${defaultBranchCommitSha}`)
+  core.info(`default branch commit sha: ${defaultBranchCommitSha}`)
 
-  // get the latest commit on the default branch excluding the merge commit
-  const {data: defaultBranchCommitsData} = await octokit.rest.repos.listCommits(
-    {
-      owner,
-      repo,
-      sha: defaultBranchName,
-      per_page: 100
-    }
-  )
-  var latestCommitSha
-  const mergeCommitRegex = /^Merge branch .+ into .+$/
-  for (const commit of defaultBranchCommitsData) {
-    if (
-      commit.parents.length === 1 &&
-      !mergeCommitRegex.test(commit.commit.message)
-    ) {
-      latestCommitSha = commit.sha
-      break
-    }
-  }
+  // get the latest commit on the default branch
+  const {data: commitsData} = await octokit.rest.repos.listCommits({
+    owner,
+    repo,
+    sha: defaultBranchCommitSha,
+    per_page: 1
+  })
+
+  // get the latest commit sha on the default branch
+  const latestCommitSha = commitsData[0].sha
+
   core.info(
     `latest commit on ${defaultBranchName} excluding the merge commit: ${latestCommitSha}`
   )
@@ -21880,10 +21871,10 @@ async function identicalCommitCheck(octokit, context, environment) {
   }
 
   core.info(`latest deployment sha: ${latestDeploymentSha}`)
-  core.debug('latest deployment with payload type of "branch-deploy"')
-  core.debug(`latest deployment sha: ${latestDeploymentSha}`)
-  core.debug(`latest deployment created at: ${createdAt}`)
-  core.debug(`latest deployment id: ${deploymentId}`)
+  core.info('latest deployment with payload type of "branch-deploy"')
+  core.info(`latest deployment sha: ${latestDeploymentSha}`)
+  core.info(`latest deployment created at: ${createdAt}`)
+  core.info(`latest deployment id: ${deploymentId}`)
 
   // use the compareCommitsWithBasehead API to check if the latest deployment sha is identical to the latest commit on the default branch
   const {data: compareData} =
