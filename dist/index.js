@@ -21807,106 +21807,58 @@ async function post() {
 ;// CONCATENATED MODULE: ./src/functions/identical-commit-check.js
 
 
-// Helper function to check if the current deployment's ref is identical to the merge commit
+// Helper function to if a new deployment should be created or not
+// This function runs in the context of a merged pull request, or a push to the default branch
+// If we are running in the context of a merged pull request, we will check to see if the latest deployment, was created from the pull request that was merged, and that the deployment is not out of date or behind in anyway. If the deployment is fully up-to-date, we will not trigger a new deployment as it would be identical to the latest deployment and a waste of compute resources.
+// Alternatively, if we are running in the context of a direct push to the default branch (not associated with a PR), then we will always trigger a new deployment
 // :param octokit: the authenticated octokit instance
 // :param context: the context object
 // :param environment: the environment to check
-// :return: true if the current deployment's ref is identical to the merge commit, false otherwise
+// :return: true if the latest deployment is up-to-date, false if a new deployment should be created
 async function identicalCommitCheck(octokit, context, environment) {
   // get the owner and the repo from the context
   const {owner, repo} = context.repo
 
-  // find the default branch
-  const {data: repoData} = await octokit.rest.repos.get({
-    owner,
-    repo
-  })
-  const defaultBranchName = repoData.default_branch
-  core.debug(`default branch name: ${defaultBranchName}`)
-
-  // get the latest commit on the default branch of the repo
-  const {data: defaultBranchData} = await octokit.rest.repos.getBranch({
+  // get the latest commit SHA for the default branch
+  const {data: branchData} = await octokit.rest.repos.getBranch({
     owner,
     repo,
-    branch: defaultBranchName
+    branch:
+      context.payload?.pull_request?.base?.ref ||
+      context.ref.replace('refs/heads/', '')
   })
-  const defaultBranchCommitSha = defaultBranchData.commit.sha
-  core.debug(`default branch commit sha: ${defaultBranchCommitSha}`)
+  const latestCommitSha = branchData.commit.sha
 
-  // find the latest deployment with the payload type of branch-deploy
+  // get the latest deployment SHA for the environment
   const {data: deploymentsData} = await octokit.rest.repos.listDeployments({
     owner,
     repo,
-    environment,
-    sort: 'created_at',
-    direction: 'desc',
-    per_page: 100
+    environment
   })
-  // loop through all deployments and look for the latest deployment with the payload type of branch-deploy
-  var latestDeploymentSha
-  var createdAt
-  var deploymentId
-  for (const deployment of deploymentsData) {
-    if (deployment.payload.type === 'branch-deploy') {
-      latestDeploymentSha = deployment.sha
-      createdAt = deployment.created_at
-      deploymentId = deployment.id
-      break
-    }
-  }
+  const latestDeploymentSha = deploymentsData[0]?.sha
 
-  core.info(`latest deployment sha: ${latestDeploymentSha}`)
-  core.debug('latest deployment with payload type of "branch-deploy"')
-  core.debug(`latest deployment sha: ${latestDeploymentSha}`)
-  core.debug(`latest deployment created at: ${createdAt}`)
-  core.debug(`latest deployment id: ${deploymentId}`)
-
-  // get the latest commit on the branch excluding the merge commit
-  const {data: branchCommitsData} = await octokit.rest.repos.listCommits({
-    owner,
-    repo,
-    sha: context.sha,
-    per_page: 100
-  })
-  var latestCommitSha
-  for (const commit of branchCommitsData) {
-    if (commit.parents.length === 1) {
-      latestCommitSha = commit.sha
-      break
-    }
-  }
-  core.info(`latest commit sha on the branch: ${latestCommitSha}`)
-
-  // use the compare two commits API to find the common ancestor of the latest commit on the branch and the latest deployment SHA
+  // compare the latest commit SHA and the latest deployment SHA
   const {data: compareData} = await octokit.rest.repos.compareCommits({
     owner,
     repo,
-    base: latestDeploymentSha,
+    base:
+      latestDeploymentSha ||
+      context.payload?.pull_request?.head?.sha ||
+      branchData.commit.sha,
     head: latestCommitSha
   })
-  const mergeBaseSha = compareData.merge_base_commit.sha
-  core.debug(`merge base sha: ${mergeBaseSha}`)
 
-  // if the merge base SHA is the same as the latest deployment SHA, then the latest commit on the branch is identical to the latest deployment
-  const result = mergeBaseSha === latestDeploymentSha
-
-  if (result) {
+  if (compareData.status === 'identical') {
     core.info('latest deployment sha is identical to the latest commit sha')
-    core.info(
-      'identical commits will not be deployed again based on your configuration'
-    )
     core.setOutput('continue', 'false')
     core.setOutput('environment', environment)
+    return true
   } else {
-    core.info(
-      'latest deployment is not identical to the latest commit on the branch'
-    )
     core.info('a new deployment will be created based on your configuration')
     core.setOutput('continue', 'true')
     core.setOutput('environment', environment)
+    return false
   }
-
-  return result
 }
 
 ;// CONCATENATED MODULE: ./src/functions/unlock-on-merge.js
