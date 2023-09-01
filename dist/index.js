@@ -22245,6 +22245,7 @@ async function run() {
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')
     const permissions = core.getInput('permissions')
+    const sticky_locks = core.getBooleanInput('sticky_locks')
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
@@ -22645,7 +22646,7 @@ async function run() {
       github.context,
       precheckResults.ref,
       reactRes.data.id,
-      false, // sticky
+      sticky_locks, // sticky / hubot style locks - true/false depending on the input
       environment
     )
 

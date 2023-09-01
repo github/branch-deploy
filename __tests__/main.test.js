@@ -52,6 +52,8 @@ beforeEach(() => {
   process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
   process.env.INPUT_MERGE_DEPLOY_MODE = 'false'
   process.env.INPUT_UNLOCK_ON_MERGE_MODE = 'false'
+  process.env.INPUT_STICKY_LOCKS = 'false'
+
   github.context.payload = {
     issue: {
       number: 123
