@@ -330,6 +330,16 @@ inputs:
     default:
       type: string
       required: false
+  sticky_locks:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: true
+      type: string
 
 # outputs section
 outputs:
