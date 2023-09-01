@@ -541,7 +541,8 @@ export async function lock(
       context,
       globalLockData,
       sticky,
-      reactionId
+      reactionId,
+      leaveComment
     )
     if (globalLockOwner === false) {
       // If the requestor is not the owner of the global lock, return false
@@ -603,7 +604,8 @@ export async function lock(
         context,
         lockData,
         sticky,
-        reactionId
+        reactionId,
+        leaveComment
       )
       if (lockOwner === true) {
         // If the requestor is the one who owns the lock, return 'owner'
