@@ -26,7 +26,7 @@ export async function identicalCommitCheck(octokit, context, environment) {
   const defaultBranchCommitSha = defaultBranchData.commit.sha
   core.info(`default branch commit sha: ${defaultBranchCommitSha}`)
 
-  // get the latest commit on the default branch excluding the merge commit
+  // get the latest commit on the default branch including merge commits
   const {data: defaultBranchCommitsData} = await octokit.rest.repos.listCommits(
     {
       owner,
@@ -37,14 +37,10 @@ export async function identicalCommitCheck(octokit, context, environment) {
   )
   var latestCommitSha
   for (const commit of defaultBranchCommitsData) {
-    if (commit.parents.length === 1) {
-      latestCommitSha = commit.sha
-      break
-    }
+    latestCommitSha = commit.sha
+    break
   }
-  core.info(
-    `latest commit on ${defaultBranchName} excluding the merge commit: ${latestCommitSha}`
-  )
+  core.info(`latest commit on ${defaultBranchName}: ${latestCommitSha}`)
 
   // find the latest deployment with the payload type of branch-deploy
   const {data: deploymentsData} = await octokit.rest.repos.listDeployments({
