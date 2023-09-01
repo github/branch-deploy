@@ -20648,6 +20648,8 @@ async function constructBranchName(environment, global) {
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever)
 // :param environment: The environment to lock
 // :param global: A bool indicating whether the lock is global or not (should lock all environments)
+// :param reactionId: The ID of the reaction that triggered the lock request
+// :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
 // :returns: The result of the createOrUpdateFileContents API call
 async function createLock(
   octokit,
@@ -20657,7 +20659,8 @@ async function createLock(
   sticky,
   environment,
   global,
-  reactionId
+  reactionId,
+  leaveComment = true
 ) {
   core.debug('attempting to create lock...')
 
@@ -20699,8 +20702,9 @@ async function createLock(
 
   // Write a log message stating the lock has been claimed
   core.info('✅ deployment lock obtained')
-  // If the lock is sticky, always leave a comment
-  if (sticky) {
+  // If the lock is sticky, always leave a comment unless we are running in the context of a "sticky_locks" deployment
+  // AKA hubot style deployments
+  if (sticky === true && leaveComment === true) {
     core.info(`🍯 deployment lock is ${COLORS.highlight}sticky`)
 
     // create a special comment section for global locks
@@ -20911,8 +20915,16 @@ async function createBranch(octokit, context, branchName) {
 // :param lockData: The lock file contents
 // :param sticky: A bool indicating whether the lock is sticky or not (should persist forever) - non-sticky locks are inherent from deployments
 // :param reactionId: The ID of the reaction that triggered the lock request
+// :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
 // :return: true if the lock owner is the requestor, false if not
-async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
+async function checkLockOwner(
+  octokit,
+  context,
+  lockData,
+  sticky,
+  reactionId,
+  leaveComment = true
+) {
   core.debug('checking the owner of the lock...')
   // If the requestor is the one who owns the lock, return 'owner'
   if (lockData.created_by === context.actor) {
@@ -20920,8 +20932,8 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
       `✅ ${COLORS.highlight}${context.actor}${COLORS.reset} initiated this request and is also the owner of the current lock`
     )
 
-    // If this is a '.lock' command (sticky), update with actionStatus as we are about to exit
-    if (sticky) {
+    // If this is a '.lock' command (sticky) and not a sticky_locks deployment request, update with actionStatus as we are about to exit
+    if (sticky === true && leaveComment === true) {
       // Find the total time since the lock was created
       const totalTime = await timeDiff(
         lockData.created_at,
@@ -21042,6 +21054,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId) {
 // :param environment: The environment to lock (can be passed in if already known - otherwise we try and find it)
 // :param detailsOnly: A bool indicating whether to only return the details of the lock and not alter its state
 // :param postDeployStep: A bool indicating whether this function is being called from the post-deploy step
+// :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
 // :returns: A lock repsponse object
 // Example:
 // {
@@ -21064,7 +21077,8 @@ async function lock(
   sticky,
   environment = null,
   detailsOnly = false,
-  postDeployStep = false
+  postDeployStep = false,
+  leaveComment = true
 ) {
   var global
 
@@ -21192,7 +21206,8 @@ async function lock(
         sticky,
         environment,
         global,
-        reactionId
+        reactionId,
+        leaveComment
       )
       return {status: true, lockData: null, globalFlag, environment, global}
     } else {
@@ -21241,7 +21256,8 @@ async function lock(
     sticky,
     environment,
     global,
-    reactionId
+    reactionId,
+    leaveComment
   )
   return {status: true, lockData: null, globalFlag, environment, global}
 }
@@ -21702,7 +21718,8 @@ async function postDeploy(
     false, // sticky
     environment, // environment
     true, // detailsOnly set to true
-    true // postDeployStep set to true - this means we will not exit early if a global lock exists
+    true, // postDeployStep set to true - this means we will not exit early if a global lock exists
+    false // leaveComment
   )
 
   // obtain the lockData from the lock response
@@ -22445,7 +22462,9 @@ async function run() {
             reactRes.data.id,
             null, // sticky
             null, // environment (we will find this in the lock function - important)
-            true // details only flag
+            true, // details only flag
+            false, // postDeployStep
+            true // leaveComment
           )
           // extract values from the lock response
           const lockData = lockResponse.lockData
@@ -22563,7 +22582,9 @@ async function run() {
           reactRes.data.id,
           true, // sticky
           null, // environment (we will find this in the lock function)
-          false // details only flag
+          false, // details only flag
+          false, // postDeployStep
+          true // leaveComment
         )
         core.saveState('bypass', 'true')
         return 'safe-exit'
@@ -22647,6 +22668,9 @@ async function run() {
       `🍯 sticky_locks: ${COLORS.highlight}${sticky_locks}${COLORS.reset}`
     )
 
+    // if we are using sticky_locks in deployments, don't leave a comment as this is inferred by the user
+    const leaveComment = sticky_locks === false ? true : false
+
     // Aquire the branch-deploy lock
     const lockResponse = await lock(
       octokit,
@@ -22654,7 +22678,10 @@ async function run() {
       precheckResults.ref,
       reactRes.data.id,
       sticky_locks, // sticky / hubot style locks - true/false depending on the input
-      environment
+      environment, // environment
+      null, // details only flag
+      false, // postDeployStep
+      leaveComment // leaveComment - true/false depending on the input
     )
 
     // If the lock request fails, exit the Action
