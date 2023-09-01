@@ -63,8 +63,17 @@ export async function identicalCommitCheck(octokit, context, environment) {
   const mergeCommitSha = deploymentData.sha
   core.info(`merge commit sha: ${mergeCommitSha}`)
 
-  // manually compare the commit SHA of the merge commit with the SHA of the latest commit on the default branch
-  const result = mergeCommitSha === defaultBranchCommitSha
+  // get the parent commit of the merge commit
+  const {data: mergeCommitData} = await octokit.rest.repos.getCommit({
+    owner,
+    repo,
+    ref: mergeCommitSha
+  })
+  const parentCommitSha = mergeCommitData.parents[0].sha
+  core.info(`parent commit sha: ${parentCommitSha}`)
+
+  // manually compare the commit SHA of the parent commit of the merge commit with the SHA of the latest commit on the default branch
+  const result = parentCommitSha === defaultBranchCommitSha
 
   if (result) {
     core.info('latest deployment sha is identical to the latest commit sha')
