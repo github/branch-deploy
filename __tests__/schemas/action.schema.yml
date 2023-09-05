@@ -340,6 +340,16 @@ inputs:
     default:
       required: true
       type: string
+  sticky_locks_for_noop:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: true
+      type: string
 
 # outputs section
 outputs:
