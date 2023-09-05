@@ -54,6 +54,7 @@ export async function run() {
     const param_separator = core.getInput('param_separator')
     const permissions = core.getInput('permissions')
     const sticky_locks = core.getBooleanInput('sticky_locks')
+    const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
@@ -455,9 +456,32 @@ export async function run() {
     core.info(
       `🍯 sticky_locks: ${COLORS.highlight}${sticky_locks}${COLORS.reset}`
     )
+    core.info(
+      `🍯 sticky_locks_for_noop: ${COLORS.highlight}${sticky_locks_for_noop}${COLORS.reset}`
+    )
+
+    // conditionally handle how we want to apply locks on deployments
+    var stickyLocks
+    // if sticky_locks is true, then we will use the sticky_locks logic
+    // if sticky_locks_for_noop is also true, then we will also use the sticky_locks logic for noop deployments
+    // if sticky_locks is false, then no sticky locks will be applied and only non-sticky locks will be used
+    // if sticky_locks is true but sticky_locks_for_noop is false, then we will only use sticky locks on non-noop deployments
+    if (precheckResults.noopMode) {
+      if (sticky_locks_for_noop) {
+        stickyLocks = true
+      } else {
+        stickyLocks = false
+      }
+      core.debug(`🔒 noop mode detected and using stickyLocks: ${stickyLocks}`)
+    } else {
+      stickyLocks = sticky_locks
+    }
 
     // if we are using sticky_locks in deployments, don't leave a comment as this is inferred by the user
-    const leaveComment = sticky_locks === false ? true : false
+    const leaveComment = stickyLocks === false ? true : false
+
+    core.debug(`🔒 stickyLocks: ${stickyLocks}`)
+    core.debug(`💬 leaveComment: ${leaveComment}`)
 
     // Aquire the branch-deploy lock
     const lockResponse = await lock(
@@ -465,7 +489,7 @@ export async function run() {
       context,
       precheckResults.ref,
       reactRes.data.id,
-      sticky_locks, // sticky / hubot style locks - true/false depending on the input
+      stickyLocks, // sticky / hubot style locks - true/false depending on the input
       environment, // environment
       null, // details only flag
       false, // postDeployStep

@@ -12,7 +12,11 @@ This behavior is not enabled out of the box and you need to enable it in your Ac
 
 You can still release locks manually with `.unlock` at any time and so can other users. This is helpful if you need to release a lock that is blocking a deployment from another PR or if you were just testing changes and want to release the lock.
 
-## Example
+It should be noted that if you want this logic to **also apply to noop deployments** you need to enable another input option called `sticky_locks_for_noop` and also set its value to `"true"`. By default, noop deployments will not claim sticky locks as this often just leads to locks being left behind and never cleaned up.
+
+## Examples
+
+Enabling sticky deployment locks for `.deploy` commands:
 
 ```yaml
 - name: branch-deploy
@@ -20,5 +24,17 @@ You can still release locks manually with `.unlock` at any time and so can other
   uses: github/branch-deploy@vX.X.X
     with:
       sticky_locks: "true" # <--- enables sticky deployment lock / hubot style deployment locks
+      # ... other configuration
+```
+
+Enabling sticky deployment locks for `.deploy` and `.noop` commands:
+
+```yaml
+- name: branch-deploy
+  id: branch-deploy
+  uses: github/branch-deploy@vX.X.X
+    with:
+      sticky_locks: "true" # <--- enables sticky deployment lock / hubot style deployment locks
+      sticky_locks_for_noop: "true" # <--- enables sticky deployment lock / hubot style deployment locks for noop deployments
       # ... other configuration
 ```

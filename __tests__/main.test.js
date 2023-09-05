@@ -53,6 +53,7 @@ beforeEach(() => {
   process.env.INPUT_MERGE_DEPLOY_MODE = 'false'
   process.env.INPUT_UNLOCK_ON_MERGE_MODE = 'false'
   process.env.INPUT_STICKY_LOCKS = 'false'
+  process.env.INPUT_STICKY_LOCKS_FOR_NOOP = 'false'
 
   github.context.payload = {
     issue: {
@@ -173,6 +174,38 @@ test('successfully runs the action in noop mode', async () => {
   github.context.payload.comment.body = '.noop'
 
   expect(await run()).toBe('success - noop')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.noop')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(setOutputMock).toHaveBeenCalledWith('noop', true)
+  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(saveStateMock).toHaveBeenCalledWith('noop', true)
+})
+
+test('successfully runs the action in noop mode when using sticky_locks_for_noop set to true', async () => {
+  process.env.INPUT_STICKY_LOCKS_FOR_NOOP = 'true'
+  jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
+    return {
+      ref: 'test-ref',
+      status: true,
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: true
+    }
+  })
+
+  github.context.payload.comment.body = '.noop'
+
+  expect(await run()).toBe('success - noop')
+  expect(debugMock).toHaveBeenCalledWith(
+    `🔒 noop mode detected and using stickyLocks: true`
+  )
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.noop')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
