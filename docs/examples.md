@@ -20,6 +20,7 @@ Quick links below to jump to a specific branch-deploy example:
   - [Multiple Jobs](#multiple-jobs)
   - [Multiple Jobs with GitHub Pages and Hugo](#multiple-jobs-with-github-pages-and-hugo)
   - [Multiple Jobs with GitHub Pages and Astro](#multiple-jobs-with-github-pages-and-astro)
+  - [Multiple Jobs with GitHub Environments](#multiple-jobs-with-github-environments)
 
 ## Simple Example
 
@@ -1026,6 +1027,298 @@ jobs:
             ### Deployment Results ❌
 
             **${{ needs.trigger.outputs.actor_handle }}** had a failure when deploying `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
+```
+
+## Multiple Jobs with GitHub Environments
+
+A detailed example using multiple jobs, [repository environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment), and Terraform. As mentioned in the [README](https://github.com/github/branch-deploy#about-environments-), a deployment completes when the workflow targeting that environment completes. In this example, the branch deployment action targets a separate environment than the "actual" deployment logic, which lets us control the completion of the branch deployment while being able to manage environments separately.
+
+```yaml
+name: Branch Deploy
+
+on:
+  issue_comment:
+    types:
+      - created
+
+env:
+  # These variables are scoped to the **repository**.
+  TF_VAR_image_repository: ${{ vars.IMAGE_REPOSITORY }}
+
+permissions:
+  checks: read
+  contents: write
+  deployments: write
+  packages: read
+  pull-requests: write
+
+jobs:
+  start:
+    name: Start Branch Deployment
+    runs-on: ubuntu-latest
+
+    # Only start branch deployments on pull request comments.
+    if: ${{ github.event.issue.pull_request }}
+
+    # The deployments environment is used by the branch-deploy workflow.
+    environment: deployments
+
+    # Set the outputs to be used by the rest of the workflow.
+    outputs:
+      continue: ${{ steps.branch-deploy.outputs.continue }}
+      noop: ${{ steps.branch-deploy.outputs.noop }}
+      deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
+      environment: ${{ steps.branch-deploy.outputs.environment }}
+      ref: ${{ steps.branch-deploy.outputs.ref }}
+      comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
+      initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
+      actor_handle: ${{ steps.branch-deploy.outputs.actor_handle }}
+
+    steps:
+      - name: Start Branch Deployment
+        id: branch-deploy
+        uses: github/branch-deploy@v7.3.1
+        with:
+          environment: development
+          environment_targets: development,staging,production
+          skip_completing: true
+
+  # This is the "actual" deployment logic. It uses the environment specified in
+  # the branch deployment comment (e.g. `.deploy to development`).
+  deploy:
+    needs: start
+
+    name: Deploy
+    runs-on: ubuntu-latest
+
+    # Only start after the branch deployment has initialized.
+    if: ${{ needs.start.outputs.continue == 'true' }}
+
+    # Use the environment specified by the `.noop` or `.deploy` comment.
+    environment: ${{ needs.start.outputs.environment }}
+
+    # Set the default working directory to `tf/` (or wherever your Terraform
+    # code is located in your repository).
+    defaults:
+      run:
+        working-directory: tf/
+
+    # Set the deployment outcome based on if `terraform plan` (.noop) or
+    # `terraform apply` (.deploy) succeeded. Defaults to 'failure'.
+    outputs:
+      outcome: ${{ (steps.plan.outcome == 'success' || steps.apply.outcome == 'success') && 'success' || 'failure' }}
+
+    # These variables/secrets are scoped to the **environment**.
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      TF_VAR_location: ${{ vars.AZURE_LOCATION }}
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.start.outputs.ref }}
+
+      # Authenticate to Azure using OpenID Connect.
+      - name: Authenticate to Azure (OIDC)
+        id: azure-oidc
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.ARM_CLIENT_ID }}
+          subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
+          tenant-id: ${{ env.ARM_TENANT_ID }}
+
+      # Install Terraform on the runner.
+      - name: Setup Terraform
+        id: setup-terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.5
+
+      # This example uses separate Terraform workspaces for each environment.
+      - name: Terraform Init
+        id: terraform-init
+        run: |
+          terraform init -no-color
+          terraform workspace select -or-create=true ${{ needs.start.outputs.environment }}
+
+      # If this is a `.noop`, run `terraform plan` to see what would change.
+      - name: Terraform Plan
+        id: plan
+        if: ${{ needs.start.outputs.noop == 'true' }}
+        run: terraform plan -no-color
+        continue-on-error: true
+
+      # If this is a `.deploy`, run `terraform apply` to apply the changes.
+      - name: Terraform Apply
+        id: apply
+        if: ${{ needs.start.outputs.noop != 'true' }}
+        run: terraform apply -no-color -auto-approve
+        continue-on-error: true
+
+      # Get the output from the plan/apply step.
+      - name: Save Terraform Output
+        id: output
+        env:
+          PLAN_STDOUT: ${{ steps.plan.outputs.stdout }}
+          APPLY_STDOUT: ${{ steps.apply.outputs.stdout }}
+        run: |
+          if [ -z "$PLAN_STDOUT" ]
+          then
+            echo "$APPLY_STDOUT" > tf_output.txt
+          else
+            echo "$PLAN_STDOUT" > tf_output.txt
+          fi
+
+      # Upload the plan/apply output as an artifact so that it can be used in
+      # the `stop` job.
+      - name: Upload Terraform Output
+        id: upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: tf_output
+          path: tf/tf_output.txt
+
+  stop:
+    needs:
+      - start
+      - deploy
+
+    name: Stop Branch Deployment
+    runs-on: ubuntu-latest
+
+    # Always run this job if the branch deployment was started.
+    if: ${{ always() && needs.start.outputs.continue == 'true' }}
+
+    # Switch back to the deployments environment to update the branch
+    # deployment status.
+    environment: deployments
+
+    # Get the outputs from the `start` job. These are needed to finish the
+    # branch deployment, comment on the PR, update reactions, etc.
+    env:
+      ACTOR: ${{ needs.start.outputs.actor_handle }}
+      COMMENT_ID: ${{ needs.start.outputs.comment_id }}
+      DEPLOYMENT_ID: ${{ needs.start.outputs.deployment_id }}
+      DEPLOYMENT_STATUS: ${{ needs.deploy.outputs.outcome || 'failure' }}
+      ENVIRONMENT: ${{ needs.start.outputs.environment }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      INITIAL_REACTION_ID: ${{ needs.start.outputs.initial_reaction_id }}
+      NOOP: ${{ needs.start.outputs.noop }}
+      REF: ${{ needs.start.outputs.ref }}
+      REPOSITORY: ${{ github.repository }}
+
+    steps:
+      # Tf this was not a `.noop` deployment, set the status.
+      - if: ${{ env.NOOP != 'true' }}
+        name: Set Deployment Status
+        id: set-status
+        run: |
+          gh api --method POST \
+            "repos/${{ env.REPOSITORY }}/deployments/${{ env.DEPLOYMENT_ID }}/statuses" \
+            -f environment="${{ env.ENVIRONMENT }}" \
+            -f state="${{ env.DEPLOYMENT_STATUS }}"
+
+      # If this was not a `.noop` deployment, remove the lock.
+      - if: ${{ env.NOOP != 'true' }}
+        name: Remove Non-Sticky Lock
+        id: remove-lock
+        run: |
+          gh api --method DELETE \
+            "repos/${{ env.REPOSITORY }}/git/refs/heads/${{ env.ENVIRONMENT }}-branch-deploy-lock"
+
+      # Remove the trigger reaction added to the user's comment.
+      - name: Remove Trigger Reaction
+        id: remove-reaction
+        run: |
+          gh api --method DELETE \
+            "repos/${{ env.REPOSITORY }}/issues/comments/${{ env.COMMENT_ID }}/reactions/${{ env.INITIAL_REACTION_ID }}"
+
+      # Add a new reaction based on if the deployment succeeded or failed.
+      - name: Add Reaction
+        id: add-reaction
+        uses: GrantBirki/comment@v2.0.6
+        env:
+          REACTION: ${{ env.DEPLOYMENT_STATUS == 'success' && 'rocket' || '-1' }}
+        with:
+          comment-id: ${{ env.COMMENT_ID }}
+          reactions: ${{ env.DEPLOYMENT_STATUS == 'success' && 'rocket' || '-1' }}
+
+      # If the plan/apply didn't run because of a failure, this step will also
+      # fail, hence setting continue-on-error.
+      - name: Get Terraform Output Artifact
+        id: get-artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: tf_output
+        continue-on-error: true
+
+      # Add a success comment, including the plan/apply output (if present).
+      - if: ${{ env.DEPLOYMENT_STATUS == 'success' }}
+        name: Add Success Comment
+        id: success-comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs')
+
+            let output
+            try { output = fs.readFileSync('tf_output.txt', 'utf8') }
+            catch (err) { output = 'No Terraform output!' }
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `### Deployment Results :white_check_mark:
+
+            **${{ env.ACTOR }}** successfully ${ process.env.NOOP === 'true' ? '**noop** deployed' : 'deployed' } branch \`${{ env.REF }}\` to **${{ env.ENVIRONMENT }}**
+
+            <details><summary>Show Results</summary>
+
+            \`\`\`terraform\n${ output }\n\`\`\`
+
+            </details>`
+            })
+
+      # Add a failure comment, including the plan/apply output (if present).
+      - if: ${{ env.DEPLOYMENT_STATUS == 'failure' }}
+        name: Add Failure Comment
+        id: failure-comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs')
+
+            let output
+            try { output = fs.readFileSync('tf_output.txt', 'utf8') }
+            catch (err) { output = 'No Terraform output!' }
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `### Deployment Results :x:
+
+            **${{ env.ACTOR }}** had a failure when ${ process.env.NOOP === 'true' ? '**noop** deploying' : 'deploying' } branch \`${{ env.REF }}\` to **${{ env.ENVIRONMENT }}**
+
+            <details><summary>Show Results</summary>
+
+            \`\`\`terraform\n${ output }\n\`\`\`
+
+            </details>`
+            })
+
+      # If the deployment failed, fail the workflow.
+      - if: ${{ env.DEPLOYMENT_STATUS == 'failure' }}
+        name: Fail Workflow
+        id: fail-workflow
+        run: |
+          echo "There was a deployment problem...failing the workflow!"
+          exit 1
 ```
 
 ---
