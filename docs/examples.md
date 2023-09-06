@@ -1072,7 +1072,7 @@ jobs:
     steps:
       - name: Start Branch Deployment
         id: branch-deploy
-        uses: github/branch-deploy@v7.3.1
+        uses: github/branch-deploy@vX.X.X
         with:
           environment: development
           environment_targets: development,staging,production
