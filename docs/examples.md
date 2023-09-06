@@ -50,12 +50,11 @@ jobs:
     if: ${{ github.event.issue.pull_request }} # only run on pull request comments
 
     steps:
-
-        # The branch-deploy Action
+      # The branch-deploy Action
       - name: branch-deploy
         id: branch-deploy
         uses: github/branch-deploy@vX.X.X
-        
+
         # If the branch-deploy Action was triggered, checkout our branch
       - uses: actions/checkout@v3
         with:
@@ -83,7 +82,7 @@ name: branch-deploy
 
 on:
   issue_comment:
-    types: [ created ]
+    types: [created]
 
 # The working directory where our Terraform files are located
 env:
@@ -93,7 +92,7 @@ env:
 permissions:
   pull-requests: write
   deployments: write
-  contents: write 
+  contents: write
   checks: read
 
 jobs:
@@ -107,8 +106,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }} # the directory we use where all our TF files are stored
 
     steps:
-
-        # The branch-deploy Action
+      # The branch-deploy Action
       - name: branch-deploy
         id: branch-deploy
         uses: github/branch-deploy@vX.X.X
@@ -189,7 +187,7 @@ name: branch-deploy
 
 on:
   issue_comment:
-    types: [ created ]
+    types: [created]
 
 permissions:
   pull-requests: write
@@ -205,8 +203,7 @@ jobs:
     environment: production-secrets # the locked down environment we pull secrets from
 
     steps:
-
-        # The branch-deploy Action
+      # The branch-deploy Action
       - name: branch-deploy
         id: branch-deploy
         uses: github/branch-deploy@vX.X.X
@@ -242,7 +239,7 @@ name: branch-deploy
 
 on:
   issue_comment:
-    types: [ created ]
+    types: [created]
 
 permissions:
   pull-requests: write
@@ -258,8 +255,7 @@ jobs:
     environment: production-secrets # the locked down environment we pull secrets from
 
     steps:
-
-        # The branch-deploy Action
+      # The branch-deploy Action
       - name: branch-deploy
         id: branch-deploy
         uses: github/branch-deploy@vX.X.X
@@ -305,7 +301,7 @@ on:
 permissions:
   pull-requests: write
   deployments: write
-  contents: write 
+  contents: write
   checks: read
 
 jobs:
@@ -315,8 +311,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
-        # The branch-deploy Action
+      # The branch-deploy Action
       - uses: github/branch-deploy@vX.X.X
         id: branch-deploy
 
@@ -354,7 +349,7 @@ name: branch-deploy
 
 on:
   issue_comment:
-    types: [ created ]
+    types: [created]
 
 # Permissions needed for reacting and adding comments for IssueOps commands
 permissions:
@@ -370,8 +365,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
-        # The branch-deploy Action
+      # The branch-deploy Action
       - uses: github/branch-deploy@vX.X.X
         id: branch-deploy
 
@@ -427,7 +421,7 @@ name: branch-deploy
 
 on:
   issue_comment:
-    types: [ created ]
+    types: [created]
 
 # Permissions needed for reacting and adding comments for IssueOps commands
 permissions:
@@ -443,8 +437,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
-        # The branch-deploy Action
+      # The branch-deploy Action
       - uses: github/branch-deploy@vX.X.X
         id: branch-deploy
 
@@ -469,7 +462,7 @@ jobs:
         uses: cloudflare/wrangler-action@3424d15af26edad39d5276be3cc0cc9ffec22b55 # pin@1.3.0
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
-          environment: "development" # here we use development
+          environment: 'development' # here we use development
 
         # If '.deploy' was used, branch deploy to the production environment
       - name: Publish - Production
@@ -603,7 +596,7 @@ jobs:
         uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
-          reactions: "-1"
+          reactions: '-1'
 
       # if the deployment was successful, add a 'success' comment
       - name: success comment
@@ -640,7 +633,7 @@ name: branch deploy
 # The workflow to execute on is comments that are newly created
 on:
   issue_comment:
-    types: [ created ]
+    types: [created]
 
 # Permissions needed for reacting and adding comments for IssueOps commands
 permissions:
@@ -680,11 +673,11 @@ jobs:
       - uses: github/branch-deploy@vX.X.X
         id: branch-deploy
         with:
-          trigger: ".deploy"
-          environment: "github-pages"
-          production_environment: "github-pages"
-          skip_completing: "true" # we will complete the deployment manually in the 'result' job
-          admins: "false" # <--- add your GitHub username here (if you want to use the admins feature)
+          trigger: '.deploy'
+          environment: 'github-pages'
+          production_environment: 'github-pages'
+          skip_completing: 'true' # we will complete the deployment manually in the 'result' job
+          admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
 
   # build the github-pages site with hugo
   build:
@@ -737,7 +730,7 @@ jobs:
 
   # deploy to GitHub Pages
   deploy:
-    needs: [ trigger, build ]
+    needs: [trigger, build]
     if: ${{ needs.trigger.outputs.continue == 'true' }} # only run if the trigger job set continue to true
     environment:
       name: github-pages
@@ -752,7 +745,7 @@ jobs:
 
   # update the deployment result - manually complete the deployment that was created by the branch-deploy action
   result:
-    needs: [ trigger, build, deploy ]
+    needs: [trigger, build, deploy]
     runs-on: ubuntu-latest
     # run even on failures but only if the trigger job set continue to true
     if: ${{ always() && needs.trigger.outputs.continue == 'true' }}
@@ -761,7 +754,8 @@ jobs:
       # if a previous step failed, set a variable to use as the deployment status
       - name: set deployment status
         id: deploy-status
-        if: ${{ needs.trigger.result == 'failure' || needs.build.result == 'failure' ||
+        if:
+          ${{ needs.trigger.result == 'failure' || needs.build.result == 'failure' ||
           needs.deploy.result == 'failure' }}
         run: |
           echo "DEPLOY_STATUS=failure" >> $GITHUB_OUTPUT
@@ -818,7 +812,7 @@ jobs:
         uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
-          reactions: "-1"
+          reactions: '-1'
 
       # if the deployment was successful, add a 'success' comment
       - name: success comment
@@ -857,7 +851,7 @@ name: branch deploy
 # The workflow to execute on is comments that are newly created
 on:
   issue_comment:
-    types: [ created ]
+    types: [created]
 
 # Permissions needed for reacting and adding comments for IssueOps commands
 permissions:
@@ -897,12 +891,12 @@ jobs:
       - uses: github/branch-deploy@vX.X.X
         id: branch-deploy
         with:
-          trigger: ".deploy"
-          environment: "github-pages"
-          production_environment: "github-pages"
-          environment_targets: "github-pages"
-          skip_completing: "true" # we will complete the deployment manually in the 'result' job
-          admins: "false" # <--- add your GitHub username here (if you want to use the admins feature)
+          trigger: '.deploy'
+          environment: 'github-pages'
+          production_environment: 'github-pages'
+          environment_targets: 'github-pages'
+          skip_completing: 'true' # we will complete the deployment manually in the 'result' job
+          admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
 
   # build the github-pages site with hugo
   build:
@@ -921,7 +915,7 @@ jobs:
 
   # deploy to GitHub Pages
   deploy:
-    needs: [ trigger, build ]
+    needs: [trigger, build]
     if: ${{ needs.trigger.outputs.continue == 'true' }} # only run if the trigger job set continue to true
     environment:
       name: github-pages
@@ -936,7 +930,7 @@ jobs:
 
   # update the deployment result - manually complete the deployment that was created by the branch-deploy action
   result:
-    needs: [ trigger, build, deploy ]
+    needs: [trigger, build, deploy]
     runs-on: ubuntu-latest
     # run even on failures but only if the trigger job set continue to true
     if: ${{ always() && needs.trigger.outputs.continue == 'true' }}
@@ -945,7 +939,8 @@ jobs:
       # if a previous step failed, set a variable to use as the deployment status
       - name: set deployment status
         id: deploy-status
-        if: ${{ needs.trigger.result == 'failure' || needs.build.result == 'failure' ||
+        if:
+          ${{ needs.trigger.result == 'failure' || needs.build.result == 'failure' ||
           needs.deploy.result == 'failure' }}
         run: |
           echo "DEPLOY_STATUS=failure" >> $GITHUB_OUTPUT
@@ -966,7 +961,7 @@ jobs:
             repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
             -f environment='${{ needs.trigger.outputs.environment }}' \
             -f state=${DEPLOY_STATUS}
-      
+
       # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
       - name: Remove a non-sticky lock
         env:
@@ -1002,7 +997,7 @@ jobs:
         uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
-          reactions: "-1"
+          reactions: '-1'
 
       # if the deployment was successful, add a 'success' comment
       - name: success comment
