@@ -627,7 +627,10 @@ export async function run() {
 if (core.getState('isPost') === 'true') {
   post()
 } else {
-  if (process.env.CI === 'true') {
+  if (
+    process.env.CI === 'true' &&
+    process.env.BRANCH_DEPLOY_JEST_TEST !== 'true'
+  ) {
     run()
   }
 }
