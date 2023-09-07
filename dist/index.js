@@ -21849,28 +21849,8 @@ async function identicalCommitCheck(octokit, context, environment) {
     repo,
     branch: defaultBranchName
   })
-  const defaultBranchCommitSha = defaultBranchData.commit.sha
-  core.debug(`default branch commit sha: ${defaultBranchCommitSha}`)
-
-  // get the latest commit on the default branch excluding the merge commit
-  const {data: defaultBranchCommitsData} = await octokit.rest.repos.listCommits(
-    {
-      owner,
-      repo,
-      sha: defaultBranchName,
-      per_page: 100
-    }
-  )
-  var latestCommitSha
-  for (const commit of defaultBranchCommitsData) {
-    if (commit.parents.length === 1) {
-      latestCommitSha = commit.sha
-      break
-    }
-  }
-  core.info(
-    `latest commit on ${defaultBranchName} excluding the merge commit: ${latestCommitSha}`
-  )
+  const defaultBranchTreeSha = defaultBranchData.commit.tree.sha
+  core.debug(`default branch three sha: ${defaultBranchTreeSha}`)
 
   // find the latest deployment with the payload type of branch-deploy
   const {data: deploymentsData} = await octokit.rest.repos.listDeployments({
@@ -21882,34 +21862,34 @@ async function identicalCommitCheck(octokit, context, environment) {
     per_page: 100
   })
   // loop through all deployments and look for the latest deployment with the payload type of branch-deploy
-  var latestDeploymentSha
+  var latestDeploymentTreeSha
   var createdAt
   var deploymentId
   for (const deployment of deploymentsData) {
     if (deployment.payload.type === 'branch-deploy') {
-      latestDeploymentSha = deployment.sha
+      latestDeploymentTreeSha = deployment.sha
       createdAt = deployment.created_at
       deploymentId = deployment.id
+
+      // get the tree sha of the latest deployment
+      const commitData = await octokit.rest.repos.getCommit({
+        owner,
+        repo,
+        ref: latestDeploymentTreeSha
+      })
+      latestDeploymentTreeSha = commitData.data.tree.sha
       break
     }
   }
 
-  core.info(`latest deployment sha: ${latestDeploymentSha}`)
+  core.info(`latest deployment sha: ${latestDeploymentTreeSha}`)
   core.debug('latest deployment with payload type of "branch-deploy"')
-  core.debug(`latest deployment sha: ${latestDeploymentSha}`)
+  core.debug(`latest deployment sha: ${latestDeploymentTreeSha}`)
   core.debug(`latest deployment created at: ${createdAt}`)
   core.debug(`latest deployment id: ${deploymentId}`)
 
-  // use the compareCommitsWithBasehead API to check if the latest deployment sha is identical to the latest commit on the default branch
-  const {data: compareData} =
-    await octokit.rest.repos.compareCommitsWithBasehead({
-      owner,
-      repo,
-      basehead: `${latestCommitSha}...${latestDeploymentSha}`
-    })
-
   // if the latest deployment sha is identical to the latest commit on the default branch then return true
-  const result = compareData.status === 'identical'
+  const result = latestDeploymentTreeSha === defaultBranchTreeSha
 
   if (result) {
     core.info('latest deployment sha is identical to the latest commit sha')
