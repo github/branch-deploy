@@ -23,7 +23,7 @@ export async function identicalCommitCheck(octokit, context, environment) {
     repo,
     branch: defaultBranchName
   })
-  const defaultBranchTreeSha = defaultBranchData.commit.tree.sha
+  const defaultBranchTreeSha = defaultBranchData.commit.commit.tree.sha
   core.debug(`default branch three sha: ${defaultBranchTreeSha}`)
 
   // find the latest deployment with the payload type of branch-deploy
@@ -51,7 +51,7 @@ export async function identicalCommitCheck(octokit, context, environment) {
         repo,
         ref: latestDeploymentTreeSha
       })
-      latestDeploymentTreeSha = commitData.data.tree.sha
+      latestDeploymentTreeSha = commitData.data.commit.tree.sha
       break
     }
   }
