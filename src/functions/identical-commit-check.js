@@ -58,10 +58,10 @@ export async function identicalCommitCheck(octokit, context, environment) {
   }
 
   core.info(
-    `🌲 latest default ${COLORS.info}branch${COLORS.reset} tree sha:  ${COLORS.info}${defaultBranchTreeSha}${COLORS.reset}`
+    `🌲 latest default ${COLORS.info}branch${COLORS.reset} tree sha: ${COLORS.info}${defaultBranchTreeSha}${COLORS.reset}`
   )
   core.info(
-    `🌲 latest ${COLORS.highlight}deployment${COLORS.reset} tree sha: ${COLORS.info}${latestDeploymentTreeSha}${COLORS.reset}`
+    `🌲 latest ${COLORS.highlight}deployment${COLORS.reset} tree sha:      ${COLORS.info}${latestDeploymentTreeSha}${COLORS.reset}`
   )
   core.debug('💡 latest deployment with payload type of "branch-deploy"')
   core.debug(`🕛 latest deployment created at: ${createdAt}`)
