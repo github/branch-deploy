@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import {identicalCommitCheck} from '../../src/functions/identical-commit-check'
+import {COLORS} from '../../src/functions/colors'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')
@@ -76,7 +77,7 @@ test('checks if the default branch sha and deployment sha are identical, and the
     await identicalCommitCheck(octokit, context, 'production')
   ).toStrictEqual(true)
   expect(infoMock).toHaveBeenCalledWith(
-    'latest deployment sha is identical to the latest commit sha'
+    `🟰 the latest deployment tree sha is ${COLORS.highlight}equal${COLORS.reset} to the default branch tree sha`
   )
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'false')
   expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
@@ -97,7 +98,7 @@ test('checks if the default branch sha and deployment sha are identical, and the
     await identicalCommitCheck(octokit, context, 'production')
   ).toStrictEqual(false)
   expect(infoMock).toHaveBeenCalledWith(
-    'a new deployment will be created based on your configuration'
+    `🚀 a ${COLORS.success}new deployment${COLORS.reset} will be created based on your configuration`
   )
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
