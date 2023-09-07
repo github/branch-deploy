@@ -185,6 +185,6 @@ outputs:
   unlocked_environments:
     description: 'Only exposed when using the "unlock on merge" mode - This output variable will contain a comma separated list of the environments that were unlocked'
 runs:
-  using: "node16"
+  using: "node20"
   main: "dist/index.js"
   post: "dist/index.js"
