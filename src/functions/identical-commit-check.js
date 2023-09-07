@@ -41,7 +41,7 @@ export async function identicalCommitCheck(octokit, context, environment) {
   var deploymentId
   for (const deployment of deploymentsData) {
     if (deployment.payload.type === 'branch-deploy') {
-      latestDeploymentSha = deployment.sha
+      latestDeploymentTreeSha = deployment.sha
       createdAt = deployment.created_at
       deploymentId = deployment.id
 
@@ -49,7 +49,7 @@ export async function identicalCommitCheck(octokit, context, environment) {
       const commitData = await octokit.rest.repos.getCommit({
         owner,
         repo,
-        ref: latestDeploymentSha
+        ref: latestDeploymentTreeSha
       })
       latestDeploymentTreeSha = commitData.data.tree.sha
       break
