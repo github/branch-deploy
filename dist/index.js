@@ -22122,8 +22122,8 @@ async function help(octokit, context, reactionId, inputs) {
 
   - \`${inputs.environment}\` - The default environment for this Action
   - \`${
-    inputs.production_environment
-  }\` - The environment that is considered "production"
+    inputs.production_environments
+  }\` - The environments that are considered "production"
   - \`${
     inputs.environment_targets
   }\` - The list of environments that can be targeted for deployment
@@ -22238,7 +22238,9 @@ async function run() {
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
-    const production_environment = core.getInput('production_environment')
+    const production_environments = await stringToArray(
+      core.getInput('production_environments')
+    )
     const environment_targets = core.getInput('environment_targets')
     const draft_permitted_targets = core.getInput('draft_permitted_targets')
     const unlock_trigger = core.getInput('unlock_trigger')
@@ -22372,7 +22374,7 @@ async function run() {
         stable_branch: stable_branch,
         noop_trigger: noop_trigger,
         lock_trigger: lock_trigger,
-        production_environment: production_environment,
+        production_environments: production_environments,
         environment_targets: environment_targets,
         unlock_trigger: unlock_trigger,
         global_lock_flag: global_lock_flag,
@@ -22756,12 +22758,10 @@ async function run() {
       })
     }
 
-    // Check if the environment is a production_environment
-    var productionEnvironment = false
-    if (environment === production_environment.trim()) {
-      productionEnvironment = true
-    }
-    core.debug(`production_environment: ${productionEnvironment}`)
+    // Check if the environment is a production environment
+    const isProductionEnvironment =
+      production_environments.includes(environment)
+    core.debug(`production_environment: ${isProductionEnvironment}`)
 
     // if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
     const auto_merge = update_branch === 'disabled' ? false : true
@@ -22776,7 +22776,7 @@ async function run() {
       environment: environment,
       // description: "",
       // :description note: Short description of the deployment.
-      production_environment: productionEnvironment,
+      production_environment: isProductionEnvironment,
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
       payload: {
         type: 'branch-deploy'

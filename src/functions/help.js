@@ -122,8 +122,8 @@ export async function help(octokit, context, reactionId, inputs) {
 
   - \`${inputs.environment}\` - The default environment for this Action
   - \`${
-    inputs.production_environment
-  }\` - The environment that is considered "production"
+    inputs.production_environments
+  }\` - The environments that are considered "production"
   - \`${
     inputs.environment_targets
   }\` - The list of environments that can be targeted for deployment
