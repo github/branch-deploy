@@ -100,7 +100,7 @@ inputs:
     default:
       type: string
       required: true
-  production_environment:
+  production_environments:
     description:
       type: string
       required: true

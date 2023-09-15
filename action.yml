@@ -33,8 +33,8 @@ inputs:
     description: 'If the environment_url detected in the deployment should be appended to the successful deployment comment or not. Examples: "true" or "false"'
     required: false
     default: "true"
-  production_environment:
-    description: 'The name of the production environment. Example: "production". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", etc. as your production environment name.'
+  production_environments:
+    description: 'A comma separated list of environments that should be treated as "production". GitHub defines "production" as an environment that end users or systems interact with. Example: "production,production-eu". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", "production-eu", etc. as your production environment name. ref: https://github.com/github/branch-deploy/issues/208'
     required: false
     default: "production"
   reaction:
