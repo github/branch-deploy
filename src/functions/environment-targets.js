@@ -44,12 +44,12 @@ async function onDeploymentChecks(
   }
 
   // check if the body contains an exact SHA targeted for deployment (SHA1 or SHA256)
-  const regex = /\.deploy\s+([a-f0-9]{40}|[a-f0-9]{64})/i;
-  const match = bodyFmt.trim().match(regex);
+  const regex = /\.deploy\s+([a-f0-9]{40}|[a-f0-9]{64})/i
+  const match = bodyFmt.trim().match(regex)
   if (match) {
-    const sha = match[1]; // The captured SHA value
+    const sha = match[1] // The captured SHA value
     // if a sha was used, then we need to remove it from the body for env checks
-    bodyFmt = bodyFmt.replace(new RegExp(`\\s*${sha}\\s*`, 'g'), '').trim();
+    bodyFmt = bodyFmt.replace(new RegExp(`\\s*${sha}\\s*`, 'g'), '').trim()
   }
 
   // Loop through all the environment targets to see if an explicit target is being used
