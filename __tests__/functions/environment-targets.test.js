@@ -107,6 +107,37 @@ test('checks the comment body and finds an explicit environment target for devel
   )
 })
 
+test('checks the comment body and finds an explicit environment target and an explicit sha (sha1) for development with params', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy 82c238c277ca3df56fe9418a5913d9188eafe3bc development | something1 something2 something3',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({
+    environment: 'development',
+    environmentUrl: null,
+    environmentObj: {
+      target: 'development',
+      noop: false,
+      stable_branch_used: false,
+      params: 'something1 something2 something3'
+    }
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    'found environment target for branch deploy: development'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🧮 detected parameters in command: ${COLORS.highlight}something1 something2 something3`
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'params',
+    'something1 something2 something3'
+  )
+})
+
 test('checks the comment body and finds an explicit environment target for development to stable_branch with params and a custom separator', async () => {
   expect(
     await environmentTargets(
