@@ -5,7 +5,6 @@ import {stringToArray} from './string-to-array'
 import {COLORS} from './colors'
 
 // Runs precheck logic before the branch deployment can proceed
-// :param comment: The comment body of the event
 // :param trigger: The trigger word to check for
 // :param update_branch: Defines the action to take if the branch is out-of-date
 // :param stable_branch: The "stable" or "base" branch to deploy to (e.g. master|main)
@@ -16,7 +15,6 @@ import {COLORS} from './colors'
 // :param draft_permitted_targets: An array of environments that can be deployed from a draft PR (string)
 // :param environment: The environment being used for deployment
 // :param environmentObj: The environment object from the environment-targets results
-// :param help_trigger: The trigger to run the help command
 // :param context: The context of the event
 // :param octokit: The octokit client
 // :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
@@ -24,9 +22,7 @@ import {COLORS} from './colors'
 // note: skipCiInput, skipReviewsInput, and draft_permitted_targets are Strings that get...
 // ... converted into Arrays via the 'stringToArray' function
 export async function prechecks(
-  comment,
   trigger,
-  noop_trigger,
   update_branch,
   stable_branch,
   issue_number,
@@ -36,7 +32,6 @@ export async function prechecks(
   draft_permitted_targets,
   environment,
   environmentObj,
-  help_trigger,
   context,
   octokit
 ) {

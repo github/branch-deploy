@@ -581,8 +581,8 @@ test('runs with the deprecated noop input', async () => {
 })
 
 test('successfully runs the action after trimming the body', async () => {
-  jest.spyOn(prechecks, 'prechecks').mockImplementation(comment => {
-    expect(comment).toBe('.noop')
+  jest.spyOn(prechecks, 'prechecks').mockImplementation(trigger => {
+    expect(trigger).toBe('.deploy')
 
     return {
       ref: 'test-ref',

@@ -9,7 +9,6 @@ const warningMock = jest.spyOn(core, 'warning')
 const debugMock = jest.spyOn(core, 'debug')
 
 var environmentObj
-var help_trigger
 var context
 var getCollabOK
 var getPullsOK
@@ -30,7 +29,6 @@ beforeEach(() => {
     noop: false,
     params: null
   }
-  help_trigger = '.help'
 
   context = {
     actor: 'monalisa',
@@ -99,8 +97,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -110,7 +106,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -132,9 +127,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
 
   expect(
     await prechecks(
-      '.deploy main',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -144,7 +137,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -161,9 +153,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
   environmentObj.noop = true
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -173,7 +163,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -197,8 +186,6 @@ test('runs prechecks and finds that the IssueOps command is valid without define
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -208,7 +195,6 @@ test('runs prechecks and finds that the IssueOps command is valid without define
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -237,8 +223,6 @@ test('runs prechecks and fails due to bad user permissions', async () => {
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -248,7 +232,6 @@ test('runs prechecks and fails due to bad user permissions', async () => {
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -264,8 +247,6 @@ test('runs prechecks and fails due to a bad pull request', async () => {
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -275,7 +256,6 @@ test('runs prechecks and fails due to a bad pull request', async () => {
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -298,8 +278,6 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -309,7 +287,6 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -360,8 +337,6 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -371,7 +346,6 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -415,9 +389,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
 
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -427,7 +399,6 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -481,8 +452,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -492,7 +461,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -545,8 +513,6 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -556,7 +522,6 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -593,9 +558,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
 
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -605,7 +568,6 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -641,8 +603,6 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -652,7 +612,6 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -688,8 +647,6 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -699,7 +656,6 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -723,9 +679,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
 
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -735,7 +689,6 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -764,9 +717,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
 
   expect(
     await prechecks(
-      '.deploy main',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -776,7 +727,6 @@ test('runs prechecks and deploys to the stable branch', async () => {
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -814,8 +764,6 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -825,7 +773,6 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -861,8 +808,6 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -872,7 +817,6 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -908,8 +852,6 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -919,7 +861,6 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -955,8 +896,6 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -966,7 +905,6 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -988,8 +926,6 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -999,7 +935,6 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1021,8 +956,6 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -1032,7 +965,6 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1077,9 +1009,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
   })
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'force',
       'main',
       '123',
@@ -1089,7 +1019,6 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1125,9 +1054,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
   })
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'warn',
       'main',
       '123',
@@ -1137,7 +1064,6 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1180,9 +1106,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
   })
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'force',
       'main',
       '123',
@@ -1192,7 +1116,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1232,9 +1155,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
 
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'force',
       'main',
       '123',
@@ -1244,7 +1165,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1283,9 +1203,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
 
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'warn',
       'main',
       '123',
@@ -1295,7 +1213,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1353,9 +1270,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
 
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'warn',
       'main',
       '123',
@@ -1365,7 +1280,6 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1420,9 +1334,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
 
   expect(
     await prechecks(
-      '.deploy to staging',
       '.deploy',
-      '.noop',
       'warn',
       'main',
       '123',
@@ -1432,7 +1344,6 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
       'sandbox,staging', // draft_permitted_targets input option
       'staging', // the environment we are deploying to
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1473,9 +1384,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
 
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'warn',
       'main',
       '123',
@@ -1485,7 +1394,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1522,8 +1430,6 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'warn',
       'main',
       '123',
@@ -1533,7 +1439,6 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1577,8 +1482,6 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'force',
       'main',
       '123',
@@ -1588,7 +1491,6 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1606,8 +1508,6 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -1617,7 +1517,6 @@ test('runs prechecks and fails with a non 200 permissionRes.status', async () =>
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1655,8 +1554,6 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -1666,7 +1563,6 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1709,9 +1605,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 
   expect(
     await prechecks(
-      '.deploy to production | something something something',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -1721,7 +1615,6 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1765,9 +1658,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 
   expect(
     await prechecks(
-      '.noop to production | something something something',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -1777,7 +1668,6 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1818,8 +1708,6 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -1829,7 +1717,6 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1870,8 +1757,6 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -1881,7 +1766,6 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1921,8 +1805,6 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -1932,7 +1814,6 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -1972,8 +1853,6 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
   expect(
     await prechecks(
       '.deploy',
-      '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -1983,7 +1862,6 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
       '',
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2025,9 +1903,7 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
 
   expect(
     await prechecks(
-      '.deploy to development',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -2037,7 +1913,6 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
       '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2084,9 +1959,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
 
   expect(
     await prechecks(
-      '.deploy to staging',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -2096,7 +1969,6 @@ test('runs prechecks and finds that the commit status is success and skip_review
       '', // draft_permitted_targets
       'staging', // the environment the deployment was sent to
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2142,9 +2014,7 @@ test('runs prechecks and finds that no ci checks are defined and skip_reviews is
 
   expect(
     await prechecks(
-      '.deploy to staging',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -2154,7 +2024,6 @@ test('runs prechecks and finds that no ci checks are defined and skip_reviews is
       'development', // draft_permitted_targets
       'staging', // the environment the deployment was sent to
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2177,9 +2046,7 @@ test('runs prechecks on a custom deploy comment with a custom variable at the en
   environmentObj.params = 'something'
   expect(
     await prechecks(
-      '.deploy dev something', // comment with a custom variable at the end
-      '.deploy', // trigger
-      '.noop', // noop trigger
+      '.deploy', // trigger // noop trigger
       'disabled', // update_branch
       'main', // stable_branch
       '123', // issue_number
@@ -2189,7 +2056,6 @@ test('runs prechecks on a custom deploy comment with a custom variable at the en
       '', // draft_permitted_targets
       'dev', // the environment the deployment was sent to
       environmentObj,
-      help_trigger,
       context, // event context
       octokit // octokit instance
     )
@@ -2237,9 +2103,7 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
 
   expect(
     await prechecks(
-      '.deploy to development',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -2249,7 +2113,6 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
       '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2298,9 +2161,7 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
 
   expect(
     await prechecks(
-      '.noop to development',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -2310,7 +2171,6 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
       '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2358,9 +2218,7 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
 
   expect(
     await prechecks(
-      '.deploy to development',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -2370,7 +2228,6 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
       '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2418,9 +2275,7 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
 
   expect(
     await prechecks(
-      '.deploy to development',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -2430,7 +2285,6 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
       '', // draft_permitted_targets
       'development', // the environment the deployment was sent to
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2478,9 +2332,7 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
 
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -2490,7 +2342,6 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
       '', // draft_permitted_targets
       'production', // the environment the deployment was sent to
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2534,9 +2385,7 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
 
   expect(
     await prechecks(
-      '.deploy to staging',
       '.deploy',
-      '.noop',
       'disabled',
       'main',
       '123',
@@ -2546,7 +2395,6 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
       '', // draft_permitted_targets
       'staging', // the environment the deployment was sent to
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2613,9 +2461,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
 
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'force',
       'main',
       '123',
@@ -2625,7 +2471,6 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
       '', // draft_permitted_targets
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2689,9 +2534,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
 
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'force',
       'main',
       '123',
@@ -2701,7 +2544,6 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
       '', // draft_permitted_targets
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )
@@ -2767,9 +2609,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
 
   expect(
     await prechecks(
-      '.noop',
       '.deploy',
-      '.noop',
       'force',
       'main',
       '123',
@@ -2779,7 +2619,6 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
       '', // draft_permitted_targets
       'production',
       environmentObj,
-      help_trigger,
       context,
       octokit
     )

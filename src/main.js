@@ -419,9 +419,7 @@ export async function run() {
 
     // Execute prechecks to ensure the Action can proceed
     const precheckResults = await prechecks(
-      body,
       trigger,
-      noop_trigger,
       update_branch,
       stable_branch,
       issue_number,
@@ -431,7 +429,6 @@ export async function run() {
       draft_permitted_targets,
       environment,
       environmentObj.environmentObj,
-      help_trigger,
       context,
       octokit
     )
