@@ -44,12 +44,16 @@ async function onDeploymentChecks(
   }
 
   // check if the body contains an exact SHA targeted for deployment (SHA1 or SHA256)
+  var sha = null
   const regex = /\.deploy\s+([a-f0-9]{40}|[a-f0-9]{64})/i
   const match = bodyFmt.trim().match(regex)
   if (match) {
-    const sha = match[1] // The captured SHA value
+    sha = match[1] // The captured SHA value
     // if a sha was used, then we need to remove it from the body for env checks
     bodyFmt = bodyFmt.replace(new RegExp(`\\s*${sha}\\s*`, 'g'), '').trim()
+    core.info(
+      `📍 detected SHA in command: ${COLORS.highlight}${sha}${COLORS.reset}`
+    )
   }
 
   // Loop through all the environment targets to see if an explicit target is being used
@@ -61,7 +65,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body on a noop trigger contains the target
@@ -71,7 +76,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a branch deploy
@@ -83,7 +89,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a noop trigger
@@ -95,7 +102,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a stable branch deploy
@@ -110,7 +118,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a stable branch noop trigger
@@ -125,7 +134,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body on a stable branch deploy contains the target
@@ -137,7 +147,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body on a stable branch noop trigger contains the target
@@ -151,7 +162,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body matches the trigger phrase exactly, just use the default environment
@@ -161,7 +173,8 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: false,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body matches the noop_trigger phrase exactly, just use the default environment
@@ -171,7 +184,8 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: false,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
@@ -181,7 +195,8 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: true,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body matches the stable branch phrase exactly on a noop trigger, just use the default environment
@@ -191,13 +206,20 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: true,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
   }
 
-  // If we get here, then no valid environment target was found
-  return {target: false, stable_branch_used: null, noop: null, params: null}
+  // If we get here, then no valid environment target was found - everything gets set to false / null
+  return {
+    target: false,
+    stable_branch_used: null,
+    noop: null,
+    params: null,
+    sha: null
+  }
 }
 
 // Helper function to that does environment checks specific to lock/unlock commands

@@ -44,7 +44,8 @@ test('checks the comment body and does not find an explicit environment target',
       target: 'production',
       noop: false,
       stable_branch_used: false,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -68,7 +69,8 @@ test('checks the comment body and finds an explicit environment target for devel
       target: 'development',
       noop: false,
       stable_branch_used: false,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -92,7 +94,8 @@ test('checks the comment body and finds an explicit environment target for devel
       target: 'development',
       noop: false,
       stable_branch_used: false,
-      params: 'something1 something2 something3'
+      params: 'something1 something2 something3',
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -123,7 +126,8 @@ test('checks the comment body and finds an explicit environment target and an ex
       target: 'development',
       noop: false,
       stable_branch_used: false,
-      params: 'something1 something2 something3'
+      params: 'something1 something2 something3',
+      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -160,7 +164,8 @@ test('checks the comment body and finds an explicit environment target for devel
       target: 'development',
       noop: false,
       stable_branch_used: true,
-      params: 'something1 | something2 something3'
+      params: 'something1 | something2 something3',
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -191,7 +196,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       target: 'staging',
       noop: true,
       stable_branch_used: false,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -215,7 +221,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       target: 'staging',
       noop: true,
       stable_branch_used: true,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -244,7 +251,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       target: 'staging',
       noop: true,
       stable_branch_used: false,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(infoMock).toHaveBeenCalledWith(
@@ -284,7 +292,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       target: 'staging',
       noop: true,
       stable_branch_used: true,
-      params: 'something1 something2 something3'
+      params: 'something1 something2 something3',
+      sha: null
     }
   })
   expect(infoMock).toHaveBeenCalledWith(
@@ -324,7 +333,8 @@ test('checks the comment body and uses the default production environment target
       target: 'production',
       noop: false,
       stable_branch_used: false,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(infoMock).toHaveBeenCalledWith(
@@ -364,7 +374,8 @@ test('checks the comment body and finds an explicit environment target for a pro
       target: 'production',
       noop: false,
       params: null,
-      stable_branch_used: false
+      stable_branch_used: false,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -398,7 +409,8 @@ test('checks the comment body and finds an explicit environment target for a pro
       target: 'production',
       stable_branch_used: false,
       noop: false,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -435,7 +447,8 @@ test('checks the comment body and finds an explicit environment target for a pro
       target: 'production',
       stable_branch_used: false,
       noop: false,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -464,7 +477,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       target: 'staging',
       stable_branch_used: false,
       noop: true,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -488,7 +502,8 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
       target: 'production',
       stable_branch_used: true,
       noop: true,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -512,7 +527,8 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
       target: 'production',
       stable_branch_used: true,
       noop: true,
-      params: 'foo=bar'
+      params: 'foo=bar',
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -536,7 +552,8 @@ test('checks the comment body and finds an explicit environment target for produ
       target: 'production',
       stable_branch_used: false,
       noop: false,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -560,7 +577,8 @@ test('checks the comment body on a noop deploy and does not find an explicit env
       target: 'production',
       stable_branch_used: false,
       noop: true,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -584,7 +602,8 @@ test('checks the comment body on a deployment and does not find any matching env
       noop: null,
       params: null,
       stable_branch_used: null,
-      target: false
+      target: false,
+      sha: null
     }
   })
 
@@ -614,7 +633,8 @@ test('checks the comment body on a stable branch deployment and finds a matching
       target: 'production',
       stable_branch_used: true,
       noop: false,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -638,7 +658,8 @@ test('checks the comment body on a stable branch deployment and finds a matching
       target: 'production',
       stable_branch_used: true,
       noop: false,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -662,7 +683,8 @@ test('checks the comment body on a stable branch deployment and uses the default
       target: 'production',
       stable_branch_used: true,
       noop: false,
-      params: null
+      params: null,
+      sha: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -686,7 +708,8 @@ test('checks the comment body on a stable branch deployment and does not find a 
       noop: null,
       params: null,
       stable_branch_used: null,
-      target: false
+      target: false,
+      sha: null
     }
   })
 
