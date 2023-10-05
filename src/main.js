@@ -430,16 +430,12 @@ export async function run() {
         allowForks: allowForks,
         skipCi: skipCi,
         skipReviews: skipReviews,
-        draft_permitted_targets: draft_permitted_targets,
+        draft_permitted_targets: draft_permitted_targets
       }
     }
 
     // Execute prechecks to ensure the Action can proceed
-    const precheckResults = await prechecks(
-      context,
-      octokit,
-      data
-    )
+    const precheckResults = await prechecks(context, octokit, data)
     core.setOutput('ref', precheckResults.ref)
     core.saveState('ref', precheckResults.ref)
     core.setOutput('sha', precheckResults.sha)

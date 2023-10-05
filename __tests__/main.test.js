@@ -54,6 +54,7 @@ beforeEach(() => {
   process.env.INPUT_UNLOCK_ON_MERGE_MODE = 'false'
   process.env.INPUT_STICKY_LOCKS = 'false'
   process.env.INPUT_STICKY_LOCKS_FOR_NOOP = 'false'
+  process.env.INPUT_ALLOW_SHA_DEPLOYMENTS = 'false'
 
   github.context.payload = {
     issue: {
@@ -581,9 +582,7 @@ test('runs with the deprecated noop input', async () => {
 })
 
 test('successfully runs the action after trimming the body', async () => {
-  jest.spyOn(prechecks, 'prechecks').mockImplementation(trigger => {
-    expect(trigger).toBe('.deploy')
-
+  jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
     return {
       ref: 'test-ref',
       status: true,
