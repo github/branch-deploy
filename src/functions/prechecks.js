@@ -72,7 +72,6 @@ export async function prechecks(
   const skipReviews = skipReviewsArray.includes(environment)
   const allowDraftDeploy = draftPermittedTargetsArray.includes(environment)
 
-  // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref = pr.data.head.ref
   var noopMode = environmentObj.noop
   var forkBypass = false
