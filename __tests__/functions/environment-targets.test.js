@@ -142,6 +142,65 @@ test('checks the comment body and finds an explicit environment target and an ex
   )
 })
 
+test('checks the comment body and finds an explicit environment target and an explicit sha (sha1) for development with params on a noop command', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.noop 82c238c277ca3df56fe9418a5913d9188eafe3bc development | something1 something2 something3',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({
+    environment: 'development',
+    environmentUrl: null,
+    environmentObj: {
+      target: 'development',
+      noop: true,
+      stable_branch_used: false,
+      params: 'something1 something2 something3',
+      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+    }
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    'found environment target for noop trigger: development'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🧮 detected parameters in command: ${COLORS.highlight}something1 something2 something3`
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'params',
+    'something1 something2 something3'
+  )
+})
+
+test('checks the comment body and finds an explicit environment target and an explicit sha (sha1) on a noop command with trailing whitespace', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.noop 82c238c277ca3df56fe9418a5913d9188eafe3bc       ',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({
+    environment: 'production',
+    environmentUrl: null,
+    environmentObj: {
+      target: 'production',
+      noop: true,
+      stable_branch_used: false,
+      params: null,
+      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+    }
+  })
+
+  expect(debugMock).toHaveBeenCalledWith('no parameters detected in command')
+  expect(debugMock).toHaveBeenCalledWith(
+    'using default environment for noop trigger'
+  )
+})
+
 test('checks the comment body and finds an explicit environment target for development to stable_branch with params and a custom separator', async () => {
   expect(
     await environmentTargets(

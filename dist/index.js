@@ -19278,14 +19278,33 @@ async function onDeploymentChecks(
 
   // check if the body contains an exact SHA targeted for deployment (SHA1 or SHA256)
   var sha = null
-  const regex = /\.deploy\s+([a-f0-9]{40}|[a-f0-9]{64})/i
+
+  const escapedTrigger = trigger.replace('.', '\\.')
+  const regex = new RegExp(
+    `${escapedTrigger}\\s+([a-f0-9]{40}|[a-f0-9]{64})`,
+    'i'
+  )
+  const escapedNoopTrigger = noop_trigger.replace('.', '\\.')
+  const noopRegex = new RegExp(
+    `${escapedNoopTrigger}\\s+([a-f0-9]{40}|[a-f0-9]{64})`,
+    'i'
+  )
+
   const match = bodyFmt.trim().match(regex)
+  const noopMatch = bodyFmt.trim().match(noopRegex)
   if (match) {
     sha = match[1] // The captured SHA value
     // if a sha was used, then we need to remove it from the body for env checks
     bodyFmt = bodyFmt.replace(new RegExp(`\\s*${sha}\\s*`, 'g'), '').trim()
     core.info(
       `📍 detected SHA in command: ${COLORS.highlight}${sha}${COLORS.reset}`
+    )
+  } else if (noopMatch) {
+    sha = noopMatch[1] // The captured SHA value
+    // if a sha was used, then we need to remove it from the body for env checks
+    bodyFmt = bodyFmt.replace(new RegExp(`\\s*${sha}\\s*`, 'g'), '').trim()
+    core.info(
+      `📍 detected SHA in noop command: ${COLORS.highlight}${sha}${COLORS.reset}`
     )
   }
 
