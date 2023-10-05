@@ -58,6 +58,13 @@ export async function help(octokit, context, reactionId, inputs) {
     admins_message = `This Action will allow the listed admins to bypass pull request reviews before deployment`
   }
 
+  var sha_deployment_message = defaultSpecificMessage
+  if (inputs.allow_sha_deployments === true) {
+    sha_deployment_message = `This Action will allow deployments to an exact SHA (potentially dangerous/unsafe)`
+  } else {
+    sha_deployment_message = `This Action will not allow deployments to an exact SHA (recommended)`
+  }
+
   // Construct the message to add to the issue comment
   const comment = dedent(`
   ## 📚 Branch Deployment Help
@@ -181,6 +188,9 @@ export async function help(octokit, context, reactionId, inputs) {
   - \`permissions: ${inputs.permissions.join(
     ','
   )}\` - The acceptable permissions that this Action will require to run
+  - \`allow_sha_deployments: ${
+    inputs.allow_sha_deployments
+  }\` - ${sha_deployment_message}
 
   ---
 

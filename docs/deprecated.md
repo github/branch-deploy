@@ -4,7 +4,7 @@ This document contains a list of features that have been deprecated, removed, or
 
 ## `.deploy noop`
 
-> Changes made in `v7.0.0`
+> Changes made in [`v7.0.0`](https://github.com/github/branch-deploy/releases/tag/v7.0.0)
 
 First off, it should be made clear that "noop" style deployments are absolutely still supported in this Action. However, they are no longer invoked with `.deploy noop` and are now invoked with `.noop` by default.
 

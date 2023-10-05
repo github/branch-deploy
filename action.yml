@@ -133,6 +133,10 @@ inputs:
     description: 'If set to "true", then sticky_locks will also be used for noop deployments. This can be useful in some cases but it often leads to locks being left behind when users test noop deployments.'
     required: false
     default: "false"
+  allow_sha_deployments:
+    description: 'If set to "true", then you can deploy a specific sha instead of a branch. Example: ".deploy 1234567890abcdef1234567890abcdef12345678 to production" - This is dangerous and potentially unsafe, view the docs to learn more: https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md'
+    required: false
+    default: "false"
 outputs:
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
@@ -184,6 +188,8 @@ outputs:
     description: 'The string "true" if the global lock was released'
   unlocked_environments:
     description: 'Only exposed when using the "unlock on merge" mode - This output variable will contain a comma separated list of the environments that were unlocked'
+  sha_deployment:
+    description: 'If "allow_sha_deployments" is enabled, and a sha deployment is performed instead of a branch deployment, this output variable will contain the sha that was deployed. Otherwise, this output variable will be empty'
 runs:
   using: "node20"
   main: "dist/index.js"

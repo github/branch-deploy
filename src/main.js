@@ -57,6 +57,7 @@ export async function run() {
     const permissions = core.getInput('permissions')
     const sticky_locks = core.getBooleanInput('sticky_locks')
     const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
+    const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
@@ -184,7 +185,8 @@ export async function run() {
         skipReviews: skipReviews,
         draft_permitted_targets,
         admins: admins,
-        permissions: await stringToArray(permissions)
+        permissions: await stringToArray(permissions),
+        allow_sha_deployments: allow_sha_deployments
       }
 
       // Run the help command and exit
@@ -417,24 +419,24 @@ export async function run() {
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
 
+    const data = {
+      environment: environment,
+      environmentObj: environmentObj.environmentObj,
+      inputs: {
+        allow_sha_deployments: allow_sha_deployments,
+        update_branch: update_branch,
+        stable_branch: stable_branch,
+        trigger: trigger,
+        issue_number: issue_number,
+        allowForks: allowForks,
+        skipCi: skipCi,
+        skipReviews: skipReviews,
+        draft_permitted_targets: draft_permitted_targets
+      }
+    }
+
     // Execute prechecks to ensure the Action can proceed
-    const precheckResults = await prechecks(
-      body,
-      trigger,
-      noop_trigger,
-      update_branch,
-      stable_branch,
-      issue_number,
-      allowForks,
-      skipCi,
-      skipReviews,
-      draft_permitted_targets,
-      environment,
-      environmentObj.environmentObj,
-      help_trigger,
-      context,
-      octokit
-    )
+    const precheckResults = await prechecks(context, octokit, data)
     core.setOutput('ref', precheckResults.ref)
     core.saveState('ref', precheckResults.ref)
     core.setOutput('sha', precheckResults.sha)
@@ -509,17 +511,19 @@ export async function run() {
     if (precheckResults.noopMode) {
       deploymentType = 'noop'
     } else {
-      deploymentType = 'branch'
+      deploymentType = environmentObj.sha !== null ? 'sha' : 'Branch'
     }
     const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
     const commentBody = dedent(`
       ### Deployment Triggered 🚀
 
-      __${context.actor}__, started a __${deploymentType}__ deployment to __${environment}__
+      __${
+        context.actor
+      }__, started a __${deploymentType.toLowerCase()}__ deployment to __${environment}__
 
       You can watch the progress [here](${log_url}) 🔗
 
-      > __Branch__: \`${precheckResults.ref}\`
+      > __${deploymentType}__: \`${precheckResults.ref}\`
     `)
 
     // Make a comment on the PR
@@ -560,8 +564,15 @@ export async function run() {
       production_environments.includes(environment)
     core.debug(`production_environment: ${isProductionEnvironment}`)
 
-    // if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
-    const auto_merge = update_branch === 'disabled' ? false : true
+    // if environmentObj.sha is not null, set auto_merge to false,
+    // otherwise if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
+    // this is important as we cannot reliably merge into the base branch if we are using a SHA
+    const auto_merge =
+      environmentObj.sha !== null
+        ? false
+        : update_branch === 'disabled'
+        ? false
+        : true
 
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({

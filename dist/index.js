@@ -19276,6 +19276,43 @@ async function onDeploymentChecks(
     core.setOutput('params', '')
   }
 
+  // check if the body contains an exact SHA targeted for deployment (SHA1 or SHA256)
+  var sha = null
+
+  // escape all regex special characters in the trigger
+  const escapedTrigger = trigger.replace(/[-[\]/{}()*+?.\\^$|]/g, '\\$&')
+  const regex = new RegExp(
+    `${escapedTrigger}\\s+((?![a-f0-9]{40}[a-f0-9]{24})[a-f0-9]{40}|[a-f0-9]{64})`,
+    'i'
+  )
+  // escape all regex special characters in the noop_trigger
+  const escapedNoopTrigger = noop_trigger.replace(
+    /[-[\]/{}()*+?.\\^$|]/g,
+    '\\$&'
+  )
+  const noopRegex = new RegExp(
+    `${escapedNoopTrigger}\\s+((?![a-f0-9]{40}[a-f0-9]{24})[a-f0-9]{40}|[a-f0-9]{64})`,
+    'i'
+  )
+
+  const match = bodyFmt.trim().match(regex)
+  const noopMatch = bodyFmt.trim().match(noopRegex)
+  if (match) {
+    sha = match[1] // The captured SHA value
+    // if a sha was used, then we need to remove it from the body for env checks
+    bodyFmt = bodyFmt.replace(new RegExp(`\\s*${sha}\\s*`, 'g'), '').trim()
+    core.info(
+      `📍 detected SHA in command: ${COLORS.highlight}${sha}${COLORS.reset}`
+    )
+  } else if (noopMatch) {
+    sha = noopMatch[1] // The captured SHA value
+    // if a sha was used, then we need to remove it from the body for env checks
+    bodyFmt = bodyFmt.replace(new RegExp(`\\s*${sha}\\s*`, 'g'), '').trim()
+    core.info(
+      `📍 detected SHA in noop command: ${COLORS.highlight}${sha}${COLORS.reset}`
+    )
+  }
+
   // Loop through all the environment targets to see if an explicit target is being used
   for (const target of environment_targets_sanitized) {
     // If the body on a branch deploy contains the target
@@ -19285,7 +19322,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body on a noop trigger contains the target
@@ -19295,7 +19333,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a branch deploy
@@ -19307,7 +19346,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a noop trigger
@@ -19319,7 +19359,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a stable branch deploy
@@ -19334,7 +19375,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a stable branch noop trigger
@@ -19349,7 +19391,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body on a stable branch deploy contains the target
@@ -19361,7 +19404,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body on a stable branch noop trigger contains the target
@@ -19375,7 +19419,8 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body matches the trigger phrase exactly, just use the default environment
@@ -19385,7 +19430,8 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: false,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body matches the noop_trigger phrase exactly, just use the default environment
@@ -19395,7 +19441,8 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: false,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
@@ -19405,7 +19452,8 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: true,
         noop: false,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
     // If the body matches the stable branch phrase exactly on a noop trigger, just use the default environment
@@ -19415,13 +19463,20 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: true,
         noop: true,
-        params: paramsTrim
+        params: paramsTrim,
+        sha: sha
       }
     }
   }
 
-  // If we get here, then no valid environment target was found
-  return {target: false, stable_branch_used: null, noop: null, params: null}
+  // If we get here, then no valid environment target was found - everything gets set to false / null
+  return {
+    target: false,
+    stable_branch_used: null,
+    noop: null,
+    params: null,
+    sha: null
+  }
 }
 
 // Helper function to that does environment checks specific to lock/unlock commands
@@ -19992,41 +20047,11 @@ async function isAdmin(context) {
 
 
 // Runs precheck logic before the branch deployment can proceed
-// :param comment: The comment body of the event
-// :param trigger: The trigger word to check for
-// :param update_branch: Defines the action to take if the branch is out-of-date
-// :param stable_branch: The "stable" or "base" branch to deploy to (e.g. master|main)
-// :param issue_number: The issue number of the event
-// :param allowForks: Boolean which defines whether the Action can run from forks or not
-// :param skipCiInput: An array of environments that should not be checked for passing CI (string)
-// :param skipReviewsInput: An array of environments that should not be checked for reviewers (string)
-// :param draft_permitted_targets: An array of environments that can be deployed from a draft PR (string)
-// :param environment: The environment being used for deployment
-// :param environmentObj: The environment object from the environment-targets results
-// :param help_trigger: The trigger to run the help command
 // :param context: The context of the event
 // :param octokit: The octokit client
+// :param data: An object containing data about the event, input options, and more
 // :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
-//
-// note: skipCiInput, skipReviewsInput, and draft_permitted_targets are Strings that get...
-// ... converted into Arrays via the 'stringToArray' function
-async function prechecks(
-  comment,
-  trigger,
-  noop_trigger,
-  update_branch,
-  stable_branch,
-  issue_number,
-  allowForks,
-  skipCiInput,
-  skipReviewsInput,
-  draft_permitted_targets,
-  environment,
-  environmentObj,
-  help_trigger,
-  context,
-  octokit
-) {
+async function prechecks(context, octokit, data) {
   // Setup the message variable
   var message
 
@@ -20055,35 +20080,34 @@ async function prechecks(
   core.debug(`base_ref: ${baseRef}`)
 
   // Setup the skipCi, skipReview, and draft_permitted_targets variables
-  const skipCiArray = await stringToArray(skipCiInput)
-  const skipReviewsArray = await stringToArray(skipReviewsInput)
+  const skipCiArray = await stringToArray(data.inputs.skipCi)
+  const skipReviewsArray = await stringToArray(data.inputs.skipReviews)
   const draftPermittedTargetsArray = await stringToArray(
-    draft_permitted_targets
+    data.inputs.draft_permitted_targets
   )
-  const skipCi = skipCiArray.includes(environment)
-  const skipReviews = skipReviewsArray.includes(environment)
-  const allowDraftDeploy = draftPermittedTargetsArray.includes(environment)
+  const skipCi = skipCiArray.includes(data.environment)
+  const skipReviews = skipReviewsArray.includes(data.environment)
+  const allowDraftDeploy = draftPermittedTargetsArray.includes(data.environment)
 
-  // check if comment starts with the env.DEPLOY_COMMAND variable followed by the 'main' branch or if this is for the current branch
   var ref = pr.data.head.ref
-  var noopMode = environmentObj.noop
+  var noopMode = data.environmentObj.noop
   var forkBypass = false
 
   // Check to see if the "stable" branch was used as the deployment target
-  if (environmentObj.stable_branch_used === true) {
+  if (data.environmentObj.stable_branch_used === true) {
     // Make an API call to get the base branch
     const baseBranch = await octokit.rest.repos.getBranch({
       ...context.repo,
-      branch: stable_branch
+      branch: data.inputs.stable_branch
     })
 
-    // the sha now becomes the sha of the base branch
+    // the sha now becomes the sha of the base branch for "stabe branch" deployments
     sha = baseBranch.data.commit.sha
 
-    ref = stable_branch
+    ref = data.inputs.stable_branch
     forkBypass = true
     core.debug(
-      `${trigger} command used with '${stable_branch}' branch - setting ref to ${ref}`
+      `${data.inputs.trigger} command used with '${data.inputs.stable_branch}' branch - setting ref to ${ref}`
     )
   }
 
@@ -20095,7 +20119,7 @@ async function prechecks(
     core.setOutput('fork', 'true')
 
     // If this Action's inputs have been configured to explicitly prevent forks, exit
-    if (allowForks === false) {
+    if (data.inputs.allowForks === false) {
       message = `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`
       return {message: message, status: false}
     }
@@ -20147,7 +20171,7 @@ async function prechecks(
   const variables = {
     owner: context.repo.owner,
     name: context.repo.repo,
-    number: parseInt(issue_number),
+    number: parseInt(data.inputs.issue_number),
     headers: {
       Accept: 'application/vnd.github.merge-info-preview+json'
     }
@@ -20188,7 +20212,7 @@ async function prechecks(
     // Check to see if skipCi is set for the environment being used
     if (skipCi) {
       core.info(
-        `⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${environment}${COLORS.reset} environment`
+        `⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${data.environment}${COLORS.reset} environment`
       )
       commitStatus = 'skip_ci'
     }
@@ -20265,38 +20289,70 @@ async function prechecks(
   core.debug(`mergeStateStatus: ${mergeStateStatus}`)
   core.debug(`commitStatus: ${commitStatus}`)
   core.debug(`userIsAdmin: ${userIsAdmin}`)
-  core.debug(`update_branch: ${update_branch}`)
+  core.debug(`update_branch: ${data.inputs.update_branch}`)
   core.debug(`skipCi: ${skipCi}`)
   core.debug(`skipReviews: ${skipReviews}`)
-  core.debug(`allowForks: ${allowForks}`)
+  core.debug(`allowForks: ${data.inputs.allowForks}`)
   core.debug(`forkBypass: ${forkBypass}`)
-  core.debug(`environment: ${environment}`)
+  core.debug(`environment: ${data.environment}`)
   core.debug(`behind: ${behind}`)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
-  if (environmentObj.stable_branch_used === true) {
+  if (data.environmentObj.stable_branch_used === true) {
     message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`
     core.info(message)
     core.debug(
       'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
     )
 
+    // If allow_sha_deployments are enabled and the sha is not null, always allow the deployment
+    // note: this is an "unsafe" option
+    // this option is "unsafe" because it bypasses all checks and we cannot guarantee that the sha being deployed has...
+    // ... passed any CI checks or has been reviewed. Additionally, the user could be deploying a sha from a forked repo...
+    // ... which could contain malicious code or a sha that has not been reviewed or tested from another user's branch...
+    // ... this style of deployment is not recommended and should only be used in very specific situations. Read more here:
+    // https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md
+  } else if (
+    data.inputs.allow_sha_deployments === true &&
+    data.environmentObj.sha !== null
+  ) {
+    message = `✅ deployment requested using an exact ${COLORS.highlight}sha${COLORS.reset}`
+    core.info(message)
+    core.warning(
+      `⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md`
+    )
+    core.debug(`an exact sha was used, using sha instead of ref`)
+    // since an exact sha was used, we overwrite both the ref and sha values with the exact sha that was provided by the user
+    sha = data.environmentObj.sha
+    ref = data.environmentObj.sha
+    core.setOutput('sha_deployment', sha)
+
+    // If allow_sha_deployments are not enabled and a sha was provided, exit
+  } else if (
+    data.inputs.allow_sha_deployments === false &&
+    data.environmentObj.sha !== null
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- allow_sha_deployments: \`${data.inputs.allow_sha_deployments}\`\n\n> sha deployments have not been enabled`
+    return {message: message, status: false}
+
     // If update_branch is not "disabled", check the mergeStateStatus to see if it is BEHIND
   } else if (
     (commitStatus === 'SUCCESS' ||
       commitStatus === null ||
       commitStatus === 'skip_ci') &&
-    update_branch !== 'disabled' &&
+    data.inputs.update_branch !== 'disabled' &&
     behind === true
   ) {
     // If the update_branch param is set to "warn", warn and exit
-    if (update_branch === 'warn') {
-      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${update_branch}\`\n\n> Please ensure your branch is up to date with the \`${stable_branch}\` branch and try again`
+    if (data.inputs.update_branch === 'warn') {
+      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${data.inputs.stable_branch}\` branch and try again`
       return {message: message, status: false}
     }
 
     // Execute the logic below only if update_branch is set to "force"
-    core.debug(`update_branch is set to ${COLORS.highlight}${update_branch}`)
+    core.debug(
+      `update_branch is set to ${COLORS.highlight}${data.inputs.update_branch}`
+    )
 
     // Make an API call to update the PR branch
     try {
@@ -20307,12 +20363,12 @@ async function prechecks(
 
       // If the result is not a 202, return an error message and exit
       if (result.status !== 202) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${update_branch}\`\n\n> Failed to update pull request branch with \`${stable_branch}\``
+        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with \`${data.inputs.stable_branch}\``
         return {message: message, status: false}
       }
 
       // If the result is a 202, let the user know the branch was updated and exit so they can retry
-      message = `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${update_branch}\`\n\n> I went ahead and updated your branch with \`${stable_branch}\` - Please try again once this operation is complete`
+      message = `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> I went ahead and updated your branch with \`${data.inputs.stable_branch}\` - Please try again once this operation is complete`
       return {message: message, status: false}
     } catch (error) {
       message = `### ⚠️ Cannot proceed with deployment\n\n\`\`\`text\n${error.message}\n\`\`\``
@@ -22058,6 +22114,13 @@ async function help(octokit, context, reactionId, inputs) {
     admins_message = `This Action will allow the listed admins to bypass pull request reviews before deployment`
   }
 
+  var sha_deployment_message = defaultSpecificMessage
+  if (inputs.allow_sha_deployments === true) {
+    sha_deployment_message = `This Action will allow deployments to an exact SHA (potentially dangerous/unsafe)`
+  } else {
+    sha_deployment_message = `This Action will not allow deployments to an exact SHA (recommended)`
+  }
+
   // Construct the message to add to the issue comment
   const comment = lib_default()(`
   ## 📚 Branch Deployment Help
@@ -22181,6 +22244,9 @@ async function help(octokit, context, reactionId, inputs) {
   - \`permissions: ${inputs.permissions.join(
     ','
   )}\` - The acceptable permissions that this Action will require to run
+  - \`allow_sha_deployments: ${
+    inputs.allow_sha_deployments
+  }\` - ${sha_deployment_message}
 
   ---
 
@@ -22260,6 +22326,7 @@ async function run() {
     const permissions = core.getInput('permissions')
     const sticky_locks = core.getBooleanInput('sticky_locks')
     const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
+    const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
@@ -22387,7 +22454,8 @@ async function run() {
         skipReviews: skipReviews,
         draft_permitted_targets,
         admins: admins,
-        permissions: await stringToArray(permissions)
+        permissions: await stringToArray(permissions),
+        allow_sha_deployments: allow_sha_deployments
       }
 
       // Run the help command and exit
@@ -22620,24 +22688,24 @@ async function run() {
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
 
+    const data = {
+      environment: environment,
+      environmentObj: environmentObj.environmentObj,
+      inputs: {
+        allow_sha_deployments: allow_sha_deployments,
+        update_branch: update_branch,
+        stable_branch: stable_branch,
+        trigger: trigger,
+        issue_number: issue_number,
+        allowForks: allowForks,
+        skipCi: skipCi,
+        skipReviews: skipReviews,
+        draft_permitted_targets: draft_permitted_targets
+      }
+    }
+
     // Execute prechecks to ensure the Action can proceed
-    const precheckResults = await prechecks(
-      body,
-      trigger,
-      noop_trigger,
-      update_branch,
-      stable_branch,
-      issue_number,
-      allowForks,
-      skipCi,
-      skipReviews,
-      draft_permitted_targets,
-      environment,
-      environmentObj.environmentObj,
-      help_trigger,
-      github.context,
-      octokit
-    )
+    const precheckResults = await prechecks(github.context, octokit, data)
     core.setOutput('ref', precheckResults.ref)
     core.saveState('ref', precheckResults.ref)
     core.setOutput('sha', precheckResults.sha)
@@ -22712,17 +22780,19 @@ async function run() {
     if (precheckResults.noopMode) {
       deploymentType = 'noop'
     } else {
-      deploymentType = 'branch'
+      deploymentType = environmentObj.sha !== null ? 'sha' : 'Branch'
     }
     const log_url = `${process.env.GITHUB_SERVER_URL}/${github.context.repo.owner}/${github.context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
     const commentBody = lib_default()(`
       ### Deployment Triggered 🚀
 
-      __${github.context.actor}__, started a __${deploymentType}__ deployment to __${environment}__
+      __${
+        github.context.actor
+      }__, started a __${deploymentType.toLowerCase()}__ deployment to __${environment}__
 
       You can watch the progress [here](${log_url}) 🔗
 
-      > __Branch__: \`${precheckResults.ref}\`
+      > __${deploymentType}__: \`${precheckResults.ref}\`
     `)
 
     // Make a comment on the PR
@@ -22763,8 +22833,15 @@ async function run() {
       production_environments.includes(environment)
     core.debug(`production_environment: ${isProductionEnvironment}`)
 
-    // if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
-    const auto_merge = update_branch === 'disabled' ? false : true
+    // if environmentObj.sha is not null, set auto_merge to false,
+    // otherwise if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
+    // this is important as we cannot reliably merge into the base branch if we are using a SHA
+    const auto_merge =
+      environmentObj.sha !== null
+        ? false
+        : update_branch === 'disabled'
+        ? false
+        : true
 
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
