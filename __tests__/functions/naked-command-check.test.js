@@ -51,7 +51,9 @@ beforeEach(() => {
 
 test('checks the command and finds that it is naked', async () => {
   const body = '.deploy'
-  expect(await nakedCommandCheck(body, param_separator, triggers, octokit, context)).toBe(true)
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(true)
   expect(warningMock).toHaveBeenCalledWith(
     `🩲 naked commands are ${COLORS.warning}not${COLORS.reset} allowed based on your configuration: ${COLORS.highlight}${body}${COLORS.reset}`
   )
@@ -62,25 +64,35 @@ test('checks the command and finds that it is naked', async () => {
 
 test('checks the command and finds that it is naked (noop)', async () => {
   const body = '.noop'
-  expect(await nakedCommandCheck(body, param_separator, triggers, octokit, context)).toBe(true)
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(true)
 })
 
 test('checks the command and finds that it is naked (lock)', async () => {
   const body = '.lock'
-  expect(await nakedCommandCheck(body, param_separator, triggers, octokit, context)).toBe(true)
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(true)
 })
 
 test('checks the command and finds that it is naked (unlock)', async () => {
   const body = '.unlock'
-  expect(await nakedCommandCheck(body, param_separator, triggers, octokit, context)).toBe(true)
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(true)
 })
 
 test('checks the command and finds that it is naked (alias)', async () => {
   const body = '.wcid'
-  expect(await nakedCommandCheck(body, param_separator, triggers, octokit, context)).toBe(true)
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(true)
 })
 
 test('checks the command and finds that it is naked (whitespaces)', async () => {
   const body = '.deploy     '
-  expect(await nakedCommandCheck(body, param_separator, triggers, octokit, context)).toBe(true)
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(true)
 })
