@@ -511,17 +511,19 @@ export async function run() {
     if (precheckResults.noopMode) {
       deploymentType = 'noop'
     } else {
-      deploymentType = 'branch'
+      deploymentType = environmentObj.sha !== null ? 'sha' : 'Branch'
     }
     const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
     const commentBody = dedent(`
       ### Deployment Triggered 🚀
 
-      __${context.actor}__, started a __${deploymentType}__ deployment to __${environment}__
+      __${
+        context.actor
+      }__, started a __${deploymentType.toLowerCase()}__ deployment to __${environment}__
 
       You can watch the progress [here](${log_url}) 🔗
 
-      > __Branch__: \`${precheckResults.ref}\`
+      > __${deploymentType}__: \`${precheckResults.ref}\`
     `)
 
     // Make a comment on the PR
