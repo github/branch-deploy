@@ -419,7 +419,8 @@ export async function run() {
     core.setOutput('environment', environment)
 
     const data = {
-      environmentObj: environmentObj,
+      environment: environment,
+      environmentObj: environmentObj.environmentObj,
       inputs: {
         allow_sha_deployments: allow_sha_deployments,
         update_branch: update_branch,

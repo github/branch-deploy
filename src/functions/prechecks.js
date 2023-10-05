@@ -9,11 +9,7 @@ import {COLORS} from './colors'
 // :param octokit: The octokit client
 // :param data: An object containing data about the event, input options, and more
 // :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
-export async function prechecks(
-  context,
-  octokit,
-  data
-) {
+export async function prechecks(context, octokit, data) {
   // Setup the message variable
   var message
 
@@ -42,14 +38,14 @@ export async function prechecks(
   core.debug(`base_ref: ${baseRef}`)
 
   // Setup the skipCi, skipReview, and draft_permitted_targets variables
-  const skipCiArray = await stringToArray(data.inputs.skipCiInput)
-  const skipReviewsArray = await stringToArray(data.inputs.skipReviewsInput)
+  const skipCiArray = await stringToArray(data.inputs.skipCi)
+  const skipReviewsArray = await stringToArray(data.inputs.skipReviews)
   const draftPermittedTargetsArray = await stringToArray(
     data.inputs.draft_permitted_targets
   )
-  const skipCi = skipCiArray.includes(data.environmentObj.environment)
-  const skipReviews = skipReviewsArray.includes(data.environmentObj.environment)
-  const allowDraftDeploy = draftPermittedTargetsArray.includes(data.environmentObj.environment)
+  const skipCi = skipCiArray.includes(data.environment)
+  const skipReviews = skipReviewsArray.includes(data.environment)
+  const allowDraftDeploy = draftPermittedTargetsArray.includes(data.environment)
 
   var ref = pr.data.head.ref
   var noopMode = data.environmentObj.noop
@@ -174,7 +170,7 @@ export async function prechecks(
     // Check to see if skipCi is set for the environment being used
     if (skipCi) {
       core.info(
-        `⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${data.environmentObj.environment}${COLORS.reset} environment`
+        `⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${data.environment}${COLORS.reset} environment`
       )
       commitStatus = 'skip_ci'
     }
@@ -256,7 +252,7 @@ export async function prechecks(
   core.debug(`skipReviews: ${skipReviews}`)
   core.debug(`allowForks: ${data.inputs.allowForks}`)
   core.debug(`forkBypass: ${forkBypass}`)
-  core.debug(`environment: ${data.inputs.environmentObj.environment}`)
+  core.debug(`environment: ${data.environment}`)
   core.debug(`behind: ${behind}`)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
@@ -274,10 +270,15 @@ export async function prechecks(
     // ... which could contain malicious code or a sha that has not been reviewed or tested from another user's branch...
     // ... this style of deployment is not recommended and should only be used in very specific situations. Read more here:
     // https://github.com/github/branch-deploy/issues/213
-  } else if (data.allow_sha_deployments === true && data.environmentObj.sha !== null) {
+  } else if (
+    data.allow_sha_deployments === true &&
+    data.environmentObj.sha !== null
+  ) {
     message = `✅ deployment requested using an exact ${COLORS.highlight}sha${COLORS.reset}`
     core.info(message)
-    core.warning(`⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/issues/213`)
+    core.warning(
+      `⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/issues/213`
+    )
     core.debug(`an exact sha was used, using sha instead of ref`)
     // since an exact sha was used, we overwrite both the ref and sha values with the exact sha that was provided by the user
     sha = data.environmentObj.sha
@@ -298,7 +299,9 @@ export async function prechecks(
     }
 
     // Execute the logic below only if update_branch is set to "force"
-    core.debug(`update_branch is set to ${COLORS.highlight}${data.inputs.update_branch}`)
+    core.debug(
+      `update_branch is set to ${COLORS.highlight}${data.inputs.update_branch}`
+    )
 
     // Make an API call to update the PR branch
     try {
