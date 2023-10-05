@@ -174,6 +174,38 @@ test('checks the comment body and finds an explicit environment target and an ex
   )
 })
 
+test('checks the comment body and finds an explicit environment target and an explicit sha (sha1) for development with params on a noop command and the sha is a sha256 hash (64 characters)', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.noop f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b development | something1 something2 something3',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({
+    environment: 'development',
+    environmentUrl: null,
+    environmentObj: {
+      target: 'development',
+      noop: true,
+      stable_branch_used: false,
+      params: 'something1 something2 something3',
+      sha: 'f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b'
+    }
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    'found environment target for noop trigger: development'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🧮 detected parameters in command: ${COLORS.highlight}something1 something2 something3`
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'params',
+    'something1 something2 something3'
+  )
+})
+
 test('checks the comment body and finds an explicit environment target and an explicit sha (sha1) on a noop command with trailing whitespace', async () => {
   expect(
     await environmentTargets(

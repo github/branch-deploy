@@ -19282,7 +19282,7 @@ async function onDeploymentChecks(
   // escape all regex special characters in the trigger
   const escapedTrigger = trigger.replace(/[-[\]/{}()*+?.\\^$|]/g, '\\$&')
   const regex = new RegExp(
-    `${escapedTrigger}\\s+([a-f0-9]{40}|[a-f0-9]{64})`,
+    `${escapedTrigger}\\s+((?![a-f0-9]{40}[a-f0-9]{24})[a-f0-9]{40}|[a-f0-9]{64})`,
     'i'
   )
   // escape all regex special characters in the noop_trigger
@@ -19291,7 +19291,7 @@ async function onDeploymentChecks(
     '\\$&'
   )
   const noopRegex = new RegExp(
-    `${escapedNoopTrigger}\\s+([a-f0-9]{40}|[a-f0-9]{64})`,
+    `${escapedNoopTrigger}\\s+((?![a-f0-9]{40}[a-f0-9]{24})[a-f0-9]{40}|[a-f0-9]{64})`,
     'i'
   )
 
