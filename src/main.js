@@ -57,6 +57,7 @@ export async function run() {
     const permissions = core.getInput('permissions')
     const sticky_locks = core.getBooleanInput('sticky_locks')
     const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
+    const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
@@ -417,20 +418,26 @@ export async function run() {
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
 
+    const data = {
+      environmentObj: environmentObj,
+      inputs: {
+        allow_sha_deployments: allow_sha_deployments,
+        update_branch: update_branch,
+        stable_branch: stable_branch,
+        trigger: trigger,
+        issue_number: issue_number,
+        allowForks: allowForks,
+        skipCi: skipCi,
+        skipReviews: skipReviews,
+        draft_permitted_targets: draft_permitted_targets,
+      }
+    }
+
     // Execute prechecks to ensure the Action can proceed
     const precheckResults = await prechecks(
-      trigger,
-      update_branch,
-      stable_branch,
-      issue_number,
-      allowForks,
-      skipCi,
-      skipReviews,
-      draft_permitted_targets,
-      environment,
-      environmentObj.environmentObj,
       context,
-      octokit
+      octokit,
+      data
     )
     core.setOutput('ref', precheckResults.ref)
     core.saveState('ref', precheckResults.ref)
