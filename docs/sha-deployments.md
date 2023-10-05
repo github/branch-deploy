@@ -2,6 +2,16 @@
 
 The following pull request [#212](https://github.com/github/branch-deploy/pull/212) enables users to use the branch-deploy Action to deploy an **exact** SHA1 or SHA256 hash instead of a branch. While this feature can be incredibly useful or even [necessary for some projects](https://github.com/github/branch-deploy/issues/211#issue-1924462155), it can be dangerous and unsafe.
 
+By enabling the `allow_sha_deployments` input option, you can enable SHA deployments for your project, but you should be aware of the risks.
+
+SHA deployments allow you to deploy an **exact** SHA instead of the branch associated with your pull request. This means that you can deploy a commit that is not associated with a pull request, or even a commit that is associated with another user's pull request.
+
+Here is an example:
+
+```text
+.deploy b69ba12504020c9067abe680c1dc28191d4c9be3 to production
+```
+
 ## Why is this option dangerous / unsafe?
 
 Before we start, let's first take a look at how SHA1/256 hashes are used in Git. Branches, tags, and commits, all point to a "SHA" under the hood. So think of a branch / tag as a friendly name to point to a SHA at a certain point in time.
