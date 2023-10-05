@@ -105,6 +105,13 @@ test('checks the command and finds that it is not naked', async () => {
   ).toBe(false)
 })
 
+test('checks the command and finds that it is not naked with "to"', async () => {
+  const body = '.deploy to production'
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(false)
+})
+
 test('checks the command and finds that it is not naked with an alias lock command', async () => {
   const body = '.wcid staging '
   expect(
