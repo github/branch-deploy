@@ -269,7 +269,7 @@ export async function prechecks(context, octokit, data) {
     // ... passed any CI checks or has been reviewed. Additionally, the user could be deploying a sha from a forked repo...
     // ... which could contain malicious code or a sha that has not been reviewed or tested from another user's branch...
     // ... this style of deployment is not recommended and should only be used in very specific situations. Read more here:
-    // https://github.com/github/branch-deploy/issues/213
+    // https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md
   } else if (
     data.inputs.allow_sha_deployments === true &&
     data.environmentObj.sha !== null
@@ -277,7 +277,7 @@ export async function prechecks(context, octokit, data) {
     message = `✅ deployment requested using an exact ${COLORS.highlight}sha${COLORS.reset}`
     core.info(message)
     core.warning(
-      `⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/issues/213`
+      `⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md`
     )
     core.debug(`an exact sha was used, using sha instead of ref`)
     // since an exact sha was used, we overwrite both the ref and sha values with the exact sha that was provided by the user

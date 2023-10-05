@@ -1520,7 +1520,7 @@ test('runs prechecks when an exact sha is set, and the sha deployment feature is
   )
 
   expect(warningMock).toHaveBeenCalledWith(
-    `⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/issues/213`
+    `⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md`
   )
 
   expect(setOutputMock).toHaveBeenCalledWith(
