@@ -19087,6 +19087,46 @@ async function contextCheck(context) {
   return true
 }
 
+;// CONCATENATED MODULE: ./src/functions/naked-command-check.js
+
+
+
+// Helper function to check if a naked command was issued
+// :param body: The body of the issueops command
+// :param param_separator: The separator used to seperate the command from the parameters
+// :param triggers: All the triggers for the Action rolled up into an Array
+// :returns: true if a naked command was issued, false otherwise
+async function nakedCommandCheck(body, param_separator, triggers) {
+  body = body.trim()
+
+  // first remove any params
+  // Seperate the issueops command on the 'param_separator'
+  var paramCheck = body.split(param_separator)
+  paramCheck.shift() // remove everything before the 'param_separator'
+  const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
+  // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
+  if (params !== '') {
+    body = body.split(`${param_separator}${params}`)[0].trim()
+  }
+
+  // loop through all the triggers and check to see if the command is a naked command
+  var nakedCommand = false
+  for (const trigger of triggers) {
+    if (body === trigger) {
+      nakedCommand = true
+      core.warning(
+        `🩲 naked commands are ${COLORS.warning}not${COLORS.reset} allowed based on your configuration: ${COLORS.highlight}${body}${COLORS.reset}`
+      )
+      core.warning(
+        `📚 view the documentation around ${COLORS.highlight}naked commands${COLORS.reset} to learn more: https://github.com/github/branch-deploy/blob/main/docs/naked-commands.md`
+      )
+      break
+    }
+  }
+
+  return nakedCommand
+}
+
 ;// CONCATENATED MODULE: ./src/functions/react-emote.js
 // Fixed presets of allowed emote types as defined by GitHub
 const presets = [
@@ -22293,6 +22333,7 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
@@ -22327,6 +22368,9 @@ async function run() {
     const sticky_locks = core.getBooleanInput('sticky_locks')
     const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
     const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
+    const disable_naked_commands = core.getBooleanInput(
+      'disable_naked_commands'
+    )
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
@@ -22365,6 +22409,20 @@ async function run() {
 
     // deprecated command/input checks
     if ((await isDeprecated(body, octokit, github.context)) === true) {
+      core.saveState('bypass', 'true')
+      return 'safe-exit'
+    }
+
+    if (
+      disable_naked_commands === true &&
+      (await nakedCommandCheck(body, param_separator, [
+        trigger,
+        noop_trigger,
+        lock_trigger,
+        unlock_trigger,
+        lock_info_alias
+      ])) === true
+    ) {
       core.saveState('bypass', 'true')
       return 'safe-exit'
     }

@@ -55,6 +55,7 @@ beforeEach(() => {
   process.env.INPUT_STICKY_LOCKS = 'false'
   process.env.INPUT_STICKY_LOCKS_FOR_NOOP = 'false'
   process.env.INPUT_ALLOW_SHA_DEPLOYMENTS = 'false'
+  process.env.INPUT_DISABLE_NAKED_COMMANDS = 'false'
 
   github.context.payload = {
     issue: {
