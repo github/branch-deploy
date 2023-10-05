@@ -7,6 +7,7 @@ import * as core from '@actions/core'
 const infoMock = jest.spyOn(core, 'info')
 const warningMock = jest.spyOn(core, 'warning')
 const debugMock = jest.spyOn(core, 'debug')
+const setOutputMock = jest.spyOn(core, 'setOutput')
 
 var context
 var getCollabOK
@@ -1520,6 +1521,11 @@ test('runs prechecks when an exact sha is set, and the sha deployment feature is
 
   expect(warningMock).toHaveBeenCalledWith(
     `⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/issues/213`
+  )
+
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'sha_deployment',
+    data.environmentObj.sha
   )
 })
 

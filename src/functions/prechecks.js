@@ -283,6 +283,7 @@ export async function prechecks(context, octokit, data) {
     // since an exact sha was used, we overwrite both the ref and sha values with the exact sha that was provided by the user
     sha = data.environmentObj.sha
     ref = data.environmentObj.sha
+    core.setOutput('sha_deployment', sha)
 
     // If allow_sha_deployments are not enabled and a sha was provided, exit
   } else if (

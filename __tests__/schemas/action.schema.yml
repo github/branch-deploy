@@ -463,3 +463,7 @@ outputs:
     description:
       type: string
       required: true
+  sha_deployment:
+    description:
+      type: string
+      required: true

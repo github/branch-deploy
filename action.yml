@@ -188,6 +188,8 @@ outputs:
     description: 'The string "true" if the global lock was released'
   unlocked_environments:
     description: 'Only exposed when using the "unlock on merge" mode - This output variable will contain a comma separated list of the environments that were unlocked'
+  sha_deployment:
+    description: 'If "allow_sha_deployments" is enabled, and a sha deployment is performed instead of a branch deployment, this output variable will contain the sha that was deployed. Otherwise, this output variable will be empty'
 runs:
   using: "node20"
   main: "dist/index.js"

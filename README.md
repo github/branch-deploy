@@ -314,6 +314,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `global_lock_claimed` | The string "true" if the global lock was claimed |
 | `global_lock_released` | The string "true" if the global lock was released |
 | `unlocked_environments` | Only exposed when using the "unlock on merge" mode - This output variable will contain a comma separated list of the environments that were unlocked - See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
+| `sha_deployment` | If `allow_sha_deployments` is enabled, and a sha deployment is performed instead of a branch deployment, this output variable will contain the sha that was deployed. Otherwise, this output variable will be empty |
 
 ## Custom Deployment Messages ✏️
 
