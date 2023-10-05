@@ -46,6 +46,8 @@ export async function nakedCommandCheck(
       ### Missing Explicit Environment
 
       This style of command is known as a "naked command" and is not allowed based on your configuration. "Naked commands" are commands that do not explicitly specify an environment, for example \`.deploy\` would be a "naked command" whereas \`.deploy production\` would not be.
+
+      > View the [documentation](${docs}) to learn more
     `)
 
       // add a comment to the issue with the message
