@@ -185,7 +185,8 @@ export async function run() {
         skipReviews: skipReviews,
         draft_permitted_targets,
         admins: admins,
-        permissions: await stringToArray(permissions)
+        permissions: await stringToArray(permissions),
+        allow_sha_deployments: allow_sha_deployments
       }
 
       // Run the help command and exit

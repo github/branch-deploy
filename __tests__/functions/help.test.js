@@ -43,7 +43,8 @@ const defaultInputs = {
   skipReviews: '',
   draft_permitted_targets: '',
   admins: 'false',
-  permissions: ['write', 'admin', 'maintain']
+  permissions: ['write', 'admin', 'maintain'],
+  allow_sha_deployments: false
 }
 
 test('successfully calls help with defaults', async () => {
@@ -75,7 +76,8 @@ test('successfully calls help with non-defaults', async () => {
     skipReviews: 'development',
     draft_permitted_targets: 'development',
     admins: 'monalisa',
-    permissions: ['write', 'admin', 'maintain']
+    permissions: ['write', 'admin', 'maintain'],
+    allow_sha_deployments: true
   }
 
   expect(await help(octokit, context, 123, inputs))
@@ -106,7 +108,8 @@ test('successfully calls help with non-defaults', async () => {
     skipReviews: 'development',
     draft_permitted_targets: 'development',
     admins: 'monalisa',
-    permissions: ['write', 'admin', 'maintain']
+    permissions: ['write', 'admin', 'maintain'],
+    allow_sha_deployments: false
   }
 
   expect(await help(octokit, context, 123, inputs))

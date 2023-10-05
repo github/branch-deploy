@@ -350,6 +350,16 @@ inputs:
     default:
       required: true
       type: string
+  allow_sha_deployments:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: true
+      type: string
 
 # outputs section
 outputs:
