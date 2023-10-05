@@ -1480,6 +1480,49 @@ test('runs prechecks on a custom deploy comment with a custom variable at the en
   )
 })
 
+test('runs prechecks when an exact sha is set, but the sha deployment feature is not enabled', async () => {
+  data.inputs.allow_sha_deployments = false
+  data.environmentObj.sha = '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+
+  expect(
+    await prechecks(
+      context, // event context
+      octokit, // octokit instance
+      data // data object
+    )
+  ).toStrictEqual({
+    message: `### ⚠️ Cannot proceed with deployment\n\n- allow_sha_deployments: \`${data.inputs.allow_sha_deployments}\`\n\n> sha deployments have not been enabled`,
+    status: false
+  })
+})
+
+test('runs prechecks when an exact sha is set, and the sha deployment feature is enabled', async () => {
+  data.inputs.allow_sha_deployments = true
+  data.environmentObj.sha = '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+
+  expect(
+    await prechecks(
+      context, // event context
+      octokit, // octokit instance
+      data // data object
+    )
+  ).toStrictEqual({
+    message: `✅ deployment requested using an exact ${COLORS.highlight}sha${COLORS.reset}`,
+    noopMode: false,
+    ref: data.environmentObj.sha,
+    status: true,
+    sha: data.environmentObj.sha
+  })
+
+  expect(infoMock).toHaveBeenCalledWith(
+    `✅ deployment requested using an exact ${COLORS.highlight}sha${COLORS.reset}`
+  )
+
+  expect(warningMock).toHaveBeenCalledWith(
+    `⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/issues/213`
+  )
+})
+
 test('runs prechecks and finds that skip_ci is set and now reviews are defined', async () => {
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {

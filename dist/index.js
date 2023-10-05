@@ -20289,7 +20289,7 @@ async function prechecks(context, octokit, data) {
     // ... this style of deployment is not recommended and should only be used in very specific situations. Read more here:
     // https://github.com/github/branch-deploy/issues/213
   } else if (
-    data.allow_sha_deployments === true &&
+    data.inputs.allow_sha_deployments === true &&
     data.environmentObj.sha !== null
   ) {
     message = `✅ deployment requested using an exact ${COLORS.highlight}sha${COLORS.reset}`
@@ -20301,6 +20301,14 @@ async function prechecks(context, octokit, data) {
     // since an exact sha was used, we overwrite both the ref and sha values with the exact sha that was provided by the user
     sha = data.environmentObj.sha
     ref = data.environmentObj.sha
+
+    // If allow_sha_deployments are not enabled and a sha was provided, exit
+  } else if (
+    data.inputs.allow_sha_deployments === false &&
+    data.environmentObj.sha !== null
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- allow_sha_deployments: \`${data.inputs.allow_sha_deployments}\`\n\n> sha deployments have not been enabled`
+    return {message: message, status: false}
 
     // If update_branch is not "disabled", check the mergeStateStatus to see if it is BEHIND
   } else if (
