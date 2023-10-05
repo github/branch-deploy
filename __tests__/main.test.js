@@ -12,6 +12,7 @@ import * as actionStatus from '../src/functions/action-status'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
 import * as isDeprecated from '../src/functions/deprecated-checks'
+import * as nakedCommandCheck from '../src/functions/naked-command-check'
 import {COLORS} from '../src/functions/colors'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
@@ -574,6 +575,18 @@ test('runs with the unlock trigger', async () => {
 test('runs with the deprecated noop input', async () => {
   github.context.payload.comment.body = '.deploy noop'
   jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+    return true
+  })
+  expect(await run()).toBe('safe-exit')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
+test('runs with a naked command when naked commands are NOT allowed', async () => {
+  process.env.INPUT_DISABLE_NAKED_COMMANDS = 'true'
+  github.context.payload.comment.body = '.deploy'
+  jest.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
     return true
   })
   expect(await run()).toBe('safe-exit')

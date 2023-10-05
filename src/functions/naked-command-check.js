@@ -18,6 +18,7 @@ export async function nakedCommandCheck(
   octokit,
   context
 ) {
+  core.debug(`before - nakedCommandCheck: body: ${body}`)
   body = body.trim()
 
   // first remove any params
@@ -28,7 +29,12 @@ export async function nakedCommandCheck(
   // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
   if (params !== '') {
     body = body.split(`${param_separator}${params}`)[0].trim()
+    core.debug(
+      `params were found and removed for naked command checks: ${params}`
+    )
   }
+
+  core.debug(`after - nakedCommandCheck: body: ${body}`)
 
   // loop through all the triggers and check to see if the command is a naked command
   var nakedCommand = false

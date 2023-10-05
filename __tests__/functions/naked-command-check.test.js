@@ -14,6 +14,7 @@ var param_separator
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'warning').mockImplementation(() => {})
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
 
   triggers = ['.deploy', '.noop', '.lock', '.unlock', '.wcid']
   param_separator = '|'
@@ -92,6 +93,34 @@ test('checks the command and finds that it is naked (alias)', async () => {
 
 test('checks the command and finds that it is naked (whitespaces)', async () => {
   const body = '.deploy     '
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(true)
+})
+
+test('checks the command and finds that it is not naked', async () => {
+  const body = '.deploy production'
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(false)
+})
+
+test('checks the command and finds that it is not naked with an alias lock command', async () => {
+  const body = '.wcid staging '
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(false)
+})
+
+test('checks the command and finds that it is naked with params', async () => {
+  const body = '.deploy | cpus=1 memory=2g,3g env=production'
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(true)
+})
+
+test('checks the command and finds that it is naked with params and extra whitespace', async () => {
+  const body = '.deploy  | cpus=1 memory=2g,3g env=production'
   expect(
     await nakedCommandCheck(body, param_separator, triggers, octokit, context)
   ).toBe(true)
