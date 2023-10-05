@@ -46,12 +46,17 @@ async function onDeploymentChecks(
   // check if the body contains an exact SHA targeted for deployment (SHA1 or SHA256)
   var sha = null
 
-  const escapedTrigger = trigger.replace('.', '\\.')
+  // escape all regex special characters in the trigger
+  const escapedTrigger = trigger.replace(/[-[\]/{}()*+?.\\^$|]/g, '\\$&')
   const regex = new RegExp(
     `${escapedTrigger}\\s+([a-f0-9]{40}|[a-f0-9]{64})`,
     'i'
   )
-  const escapedNoopTrigger = noop_trigger.replace('.', '\\.')
+  // escape all regex special characters in the noop_trigger
+  const escapedNoopTrigger = noop_trigger.replace(
+    /[-[\]/{}()*+?.\\^$|]/g,
+    '\\$&'
+  )
   const noopRegex = new RegExp(
     `${escapedNoopTrigger}\\s+([a-f0-9]{40}|[a-f0-9]{64})`,
     'i'
