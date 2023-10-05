@@ -360,6 +360,16 @@ inputs:
     default:
       required: true
       type: string
+  disable_naked_commands:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: true
+      type: string
 
 # outputs section
 outputs:

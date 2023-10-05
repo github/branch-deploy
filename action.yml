@@ -137,6 +137,10 @@ inputs:
     description: 'If set to "true", then you can deploy a specific sha instead of a branch. Example: ".deploy 1234567890abcdef1234567890abcdef12345678 to production" - This is dangerous and potentially unsafe, view the docs to learn more: https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md'
     required: false
     default: "false"
+  disable_naked_commands:
+    description: 'If set to "true", then naked commands will be disabled. Example: ".deploy" will not trigger a deployment. Instead, you must use ".deploy to production" to trigger a deployment. This is useful if you want to prevent accidental deployments from happening. Read more about naked commands here: https://github.com/github/branch-deploy/blob/main/docs/naked-commands.md'
+    required: false
+    default: "false"
 outputs:
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
