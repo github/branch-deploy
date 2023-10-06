@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import {COLORS} from './colors'
 import dedent from 'dedent-js'
+import {LOCK_METADATA} from './lock-metadata'
 
 const thumbsDown = '-1'
 const docs =
@@ -18,8 +19,32 @@ export async function nakedCommandCheck(
   octokit,
   context
 ) {
+  var nakedCommand = false
   core.debug(`before - nakedCommandCheck: body: ${body}`)
   body = body.trim()
+
+  // ////// checking for lock flags ////////
+  // if the body contains the globalFlag, exit right away as environments are not relevant
+  const globalFlag = core.getInput('global_lock_flag').trim()
+  if (body.includes(globalFlag)) {
+    core.debug('global lock flag found in naked command check')
+    return nakedCommand
+  }
+
+  // remove any lock flags from the body
+  LOCK_METADATA.lockInfoFlags.forEach(flag => {
+    body = body.replace(flag, '').trim()
+  })
+
+  // remove the --reason <text> from the body if it exists
+  if (body.includes('--reason')) {
+    core.debug(
+      `'--reason' found in comment body: ${body} - attempting to remove for naked command checks`
+    )
+    body = body.split('--reason')[0].trim()
+    core.debug(`comment body after '--reason' removal: ${body}`)
+  }
+  ////////// end lock flag checks //////////
 
   // first remove any params
   // Seperate the issueops command on the 'param_separator'
@@ -37,7 +62,6 @@ export async function nakedCommandCheck(
   core.debug(`after - nakedCommandCheck: body: ${body}`)
 
   // loop through all the triggers and check to see if the command is a naked command
-  var nakedCommand = false
   for (const trigger of triggers) {
     if (body === trigger) {
       nakedCommand = true

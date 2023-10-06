@@ -16,6 +16,8 @@ beforeEach(() => {
   jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
 
+  process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
+
   triggers = ['.deploy', '.noop', '.lock', '.unlock', '.wcid']
   param_separator = '|'
 
@@ -77,11 +79,32 @@ test('checks the command and finds that it is naked (lock)', async () => {
   ).toBe(true)
 })
 
+test('checks the command and finds that it is naked (lock) with a reason', async () => {
+  const body = '.lock --reason I am testing a big change'
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(true)
+})
+
+test('checks the command and finds that it is NOT naked (lock) with a reason', async () => {
+  const body = '.lock production --reason I am testing a big change'
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(false)
+})
+
 test('checks the command and finds that it is naked (unlock)', async () => {
   const body = '.unlock'
   expect(
     await nakedCommandCheck(body, param_separator, triggers, octokit, context)
   ).toBe(true)
+})
+
+test('checks the command and finds that it is NOT naked because it is global', async () => {
+  const body = '.unlock --global'
+  expect(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
+  ).toBe(false)
 })
 
 test('checks the command and finds that it is naked (alias)', async () => {
