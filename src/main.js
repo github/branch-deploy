@@ -6,6 +6,7 @@ import dedent from 'dedent-js'
 
 import {triggerCheck} from './functions/trigger-check'
 import {contextCheck} from './functions/context-check'
+import {nakedCommandCheck} from './functions/naked-command-check'
 import {reactEmote} from './functions/react-emote'
 import {environmentTargets} from './functions/environment-targets'
 import {actionStatus} from './functions/action-status'
@@ -58,6 +59,9 @@ export async function run() {
     const sticky_locks = core.getBooleanInput('sticky_locks')
     const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
     const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
+    const disable_naked_commands = core.getBooleanInput(
+      'disable_naked_commands'
+    )
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
@@ -96,6 +100,20 @@ export async function run() {
 
     // deprecated command/input checks
     if ((await isDeprecated(body, octokit, context)) === true) {
+      core.saveState('bypass', 'true')
+      return 'safe-exit'
+    }
+
+    if (
+      disable_naked_commands === true &&
+      (await nakedCommandCheck(
+        body,
+        param_separator,
+        [trigger, noop_trigger, lock_trigger, unlock_trigger, lock_info_alias],
+        octokit,
+        context
+      )) === true
+    ) {
       core.saveState('bypass', 'true')
       return 'safe-exit'
     }
