@@ -105,7 +105,7 @@ jobs:
       # Run your deployment logic for your project here - examples seen below
 
       # Checkout your projects repository based on the ref provided by the branch-deploy step
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -200,7 +200,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checkout your projects repository
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 ```
 
 Sets up your `demo` job, uses an ubuntu runner, and checks out your repo - Just some standard setup for a general Action. We also add an `if:` statement here to only run this workflow on pull request comments to make it a little cleaner
