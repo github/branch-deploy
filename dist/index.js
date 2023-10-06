@@ -22479,13 +22479,13 @@ async function run() {
 
     if (
       disable_naked_commands === true &&
-      (await nakedCommandCheck(body, param_separator, [
-        trigger,
-        noop_trigger,
-        lock_trigger,
-        unlock_trigger,
-        lock_info_alias
-      ])) === true
+      (await nakedCommandCheck(
+        body,
+        param_separator,
+        [trigger, noop_trigger, lock_trigger, unlock_trigger, lock_info_alias],
+        octokit,
+        github.context
+      )) === true
     ) {
       core.saveState('bypass', 'true')
       return 'safe-exit'
