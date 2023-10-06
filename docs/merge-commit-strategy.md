@@ -63,7 +63,7 @@ jobs:
       # Otherwise, all subsequent steps will be skipped
 
       # Check out the repository
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         if: ${{ steps.deployment-check.outputs.continue == 'true' }} # only run if the Action returned 'true' for the 'continue' output
 
       # Do your deployment here! (However you want to do it)

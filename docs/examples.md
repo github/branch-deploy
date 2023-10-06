@@ -56,7 +56,7 @@ jobs:
         uses: github/branch-deploy@vX.X.X
 
         # If the branch-deploy Action was triggered, checkout our branch
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -114,7 +114,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -211,7 +211,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -263,7 +263,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -318,7 +318,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -372,7 +372,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -444,7 +444,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
@@ -521,7 +521,7 @@ jobs:
     steps:
       # checkout the project's repository based on the ref provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ needs.trigger.outputs.ref }}
 
@@ -688,7 +688,7 @@ jobs:
     steps:
       # checkout the project's repository based on the ref provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ needs.trigger.outputs.ref }}
 
@@ -906,7 +906,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ needs.trigger.outputs.ref }}
 
