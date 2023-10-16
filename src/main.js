@@ -424,6 +424,9 @@ export async function run() {
       param_separator // param_separator action input
     )
 
+    // convert the environmentObj to a json string and debug log it
+    core.debug(`environmentObj: ${JSON.stringify(environmentObj)}`)
+
     // deconstruct the environment object to get the environment
     environment = environmentObj.environment
 
@@ -458,7 +461,7 @@ export async function run() {
     core.setOutput('ref', precheckResults.ref)
     core.saveState('ref', precheckResults.ref)
     core.setOutput('sha', precheckResults.sha)
-    core.debug(`sha: ${precheckResults.sha}`)
+    core.debug(`precheckResults.sha: ${precheckResults.sha}`)
 
     // If the prechecks failed, run the actionStatus function and return
     // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
@@ -529,7 +532,8 @@ export async function run() {
     if (precheckResults.noopMode) {
       deploymentType = 'noop'
     } else {
-      deploymentType = environmentObj.sha !== null ? 'sha' : 'Branch'
+      deploymentType =
+        environmentObj.environmentObj.sha !== null ? 'sha' : 'Branch'
     }
     const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
     const commentBody = dedent(`
