@@ -476,7 +476,7 @@ jobs:
 
 ## Multiple Jobs
 
-If you need a complex deployment workflow, you can create a deployment status manually in a separate step
+If you need a complex deployment workflow, you can create a deployment status manually in a separate step. This gives you full control over when and how comments, deployment statuses, and reactions are added to your pull request. See [here](https://github.com/github/branch-deploy/blob/eb9366890f2ba137867043eae5842ce9c0806bfd/README.md#manual-deployment-control) for more details.
 
 > This is a more advanced example
 
@@ -643,7 +643,7 @@ jobs:
 
 A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments. This example showcases building a static site with [hugo](https://gohugo.io/) and deploying it to [GitHub Pages](https://pages.github.com/).
 
-> This live example can be found [here](https://github.com/GrantBirki/blog/blob/25a51aff28c066e378844992c20afc6c58131e26/.github/workflows/branch-deploy.yml)
+> This live example can be found [here](https://github.com/GrantBirki/blog/blob/ddad949e360f553663500cf1052bbfe74630fe53/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch deploy
@@ -659,8 +659,6 @@ permissions:
   deployments: write
   contents: write
   checks: read
-  pages: write
-  id-token: write
 
 # set an environment variable for use in the jobs pointing to my blog
 env:
@@ -880,7 +878,7 @@ jobs:
 
 A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments - Using [Astro](https://astro.build) to create a static site and deploying to [GitHub Pages](https://pages.github.com/)
 
-> A live example can be found [here](https://github.com/GrantBirki/astrowind/blob/72eb4890cfd6eda6b4f6f66c62f24a2f141ee49a/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/GrantBirki/astrowind-hard-fork/blob/be29d05cc0f3fe04e37ade9d38c653ed55c6cf53/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch deploy
@@ -950,7 +948,7 @@ jobs:
           ref: ${{ needs.trigger.outputs.ref }}
 
       - name: build with astro
-        uses: withastro/action@dc081df9eacdb11181ea51e5d05853faa5aee891 # pin@v0.2.0
+        uses: withastro/action@e3193ac80e18917ceaeb9f2d47019ad3b2c0416a # pin@v0.3.0
 
   # deploy to GitHub Pages
   deploy:
