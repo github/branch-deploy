@@ -414,7 +414,7 @@ This example shows how you could use this Action with [Cloudflare Workers](https
 - `.deploy to development` deploys your branch to the development environment (if you have one with your Cloudflare workers)
 - `.deploy` deploys your branch to the production environment
 
-> A live example can be found [here](https://github.com/the-hideout/tarkov-api/blob/8333e038ecf8831128732871e6137435792a5f63/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/tarkov-api/blob/1424b9ab9ea0f84bc6ca28d020dd84ecee53899c/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -459,8 +459,9 @@ jobs:
         if: ${{ steps.branch-deploy.outputs.environment == 'development' &&
           steps.branch-deploy.outputs.noop != 'true' &&
           steps.branch-deploy.outputs.continue == 'true' }}
-        uses: cloudflare/wrangler-action@3424d15af26edad39d5276be3cc0cc9ffec22b55 # pin@1.3.0
+        uses: cloudflare/wrangler-action@4c10c1822abba527d820b29e6333e7f5dac2cabd # pin@2.0.0
         with:
+          wranglerVersion: '2.17.0' # this can be any version of wrangler you want
           apiToken: ${{ secrets.CF_API_TOKEN }}
           environment: 'development' # here we use development
 
@@ -469,8 +470,9 @@ jobs:
         if: ${{ steps.branch-deploy.outputs.continue == 'true' &&
           steps.branch-deploy.outputs.noop != 'true' &&
           steps.branch-deploy.outputs.environment == 'production' }}
-        uses: cloudflare/wrangler-action@3424d15af26edad39d5276be3cc0cc9ffec22b55 # pin@1.3.0
+        uses: cloudflare/wrangler-action@4c10c1822abba527d820b29e6333e7f5dac2cabd # pin@2.0.0
         with:
+          wranglerVersion: '2.17.0' # this can be any version of wrangler you want
           apiToken: ${{ secrets.CF_API_TOKEN }}
 ```
 
