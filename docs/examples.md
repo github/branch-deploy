@@ -511,6 +511,7 @@ jobs:
       - uses: github/branch-deploy@vX.X.X
         id: branch-deploy
         with:
+          trigger: ".deploy"
           skip_completing: 'true' # we will complete the deployment manually
 
   deploy:
@@ -567,9 +568,26 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Fetch the lock.json file from the branch
           gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+            --method GET \
+            repos/{owner}/{repo}/contents/lock.json?ref=${{ needs.trigger.outputs.environment }}-branch-deploy-lock \
+            --jq '.content' \
+            | base64 --decode \
+            > lock.json
+          
+          # Check if the sticky value is true
+          if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
+            echo "The lock is sticky, skipping the delete step"
+          else
+            # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
+            echo "The lock is not sticky, deleting the lock"
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+          fi
+
+          rm lock.json
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
       # this reaction is added by the branch-deploy action by default
@@ -585,7 +603,7 @@ jobs:
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS != 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: rocket
@@ -593,7 +611,7 @@ jobs:
       # if the deployment failed, add a '-1' (thumbs down) reaction to the comment that triggered the deployment
       - name: failure reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS == 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: '-1'
@@ -801,7 +819,7 @@ jobs:
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS != 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: rocket
@@ -809,7 +827,7 @@ jobs:
       # if the deployment failed, add a '-1' (thumbs down) reaction to the comment that triggered the deployment
       - name: failure reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS == 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: '-1'
@@ -986,7 +1004,7 @@ jobs:
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS != 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: rocket
@@ -994,7 +1012,7 @@ jobs:
       # if the deployment failed, add a '-1' (thumbs down) reaction to the comment that triggered the deployment
       - name: failure reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS == 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: '-1'
