@@ -26,8 +26,8 @@ Quick links below to jump to a specific branch-deploy example:
 
 This is the simplest possible example of how you could use the branch-deploy Action for reference
 
-- `.noop` has no effect here (but you could change that)
-- `.deploy` will deploy the current branch (you can configure deployments however you like, this is just an example)
+- `.noop` will run the noop deploy step only (you can configure noop deployments however you like, this is just an example)
+- `.deploy` will deploy the current branch via the deploy step only (you can configure deployments however you like, this is just an example)
 
 ```yaml
 name: branch-deploy
@@ -60,7 +60,12 @@ jobs:
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
-        # If the branch-deploy Action was triggered, run the deployment (i.e. '.deploy')
+        # If the branch-deploy Action was triggered, run the noop deployment (i.e. '.noop')
+      - name: noop deploy
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
+        run: <do-your-noop-deployment> # this could be anything you want
+
+        # If the branch-deploy Action was triggered, run the real deployment (i.e. '.deploy')
       - name: deploy
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
         run: <do-your-deployment> # this could be anything you want
@@ -75,7 +80,7 @@ This example shows how you could use this Action with [Terraform](https://www.te
 
 All deployment results get posted as a comment in the branch deploy output on your pull request
 
-> A live example can be found [here](https://github.com/the-hideout/cloudflare/blob/de0682c6fe0640a9af122306354b9ea9694ca7a2/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/cloudflare/blob/96c5cf77895642e7310c22adf1cece7419e24986/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -154,6 +159,7 @@ jobs:
           echo 'DEPLOY_MESSAGE<<EOF' >> $GITHUB_ENV
           echo "$TF_OUTPUT" >> $GITHUB_ENV
           echo 'EOF' >> $GITHUB_ENV
+
       - name: Terraform apply output
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
         env:
@@ -232,7 +238,7 @@ This example shows how you could use this Action with [Railway](https://railway.
 - `.noop` has no effect here (but you could change that)
 - `.deploy` takes your current branch and deploys it to Railway
 
-> A live example can be found [here](https://github.com/the-hideout/stash/blob/57d85e2092866b675a73ff23203c04962df12385/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/stash/blob/ee8af01919f368f35dede3c93f703fd239dbac3c/.github/workflows/branch-deploy.yml) that has some slight modifications to the example below
 
 ```yaml
 name: branch-deploy
@@ -274,9 +280,9 @@ jobs:
         # Deploy our branch to Railway
       - name: Deploy to Railway
         if: steps.branch-deploy.outputs.continue == 'true'
-        run: railway up
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up  
 ```
 
 ## SSH
@@ -288,7 +294,7 @@ You can define any commands you want to be run in your SSH Action and they would
 - `.noop` has no effect here (but you could change that)
 - `.deploy` runs the SSH action with your branch
 
-> A live example can be found [here](https://github.com/the-hideout/cache/blob/c7dc4fa550f137efebf0ee656413985afba66770/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/cache/blob/3abfa0499e5e83e567980df035efd6a88713496a/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -325,7 +331,7 @@ jobs:
         # Deploy our branch via SSH remote commands
       - name: SSH Remote Deploy
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
-        uses: appleboy/ssh-action@1d1b21ca96111b1eb4c03c21c14ebb971d2200f6 # pin@v0.1.4
+        uses: appleboy/ssh-action@4a03da89e5c43da56e502053be4bbcb293411883 # pin@v0.1.6
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
@@ -342,7 +348,7 @@ This example shows how you could use this Action with [Cloudflare Pages](https:/
 - `.deploy to development` deploys your branch to the development environment
 - `.deploy` deploys your branch to the production environment
 
-> A live example can be found [here](https://github.com/the-hideout/tarkov-dev/blob/3dc501f0117b9a482cfe0954fda75b1b7e2e0cc4/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/tarkov-dev/blob/649ea4b5ddec5546175098a9372464cef5f1b3f6/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -376,6 +382,13 @@ jobs:
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
+        # setup node
+      - uses: actions/setup-node@v4
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        with:
+          node-version: '18'
+          cache: 'npm'
+
         # Install the npm dependencies to build our cloudflare pages site
       - name: Install
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
@@ -390,18 +403,20 @@ jobs:
       - name: deploy - dev
         id: dev-deploy
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' && steps.branch-deploy.outputs.environment == 'development' }}
-        uses: cloudflare/wrangler-action@4c10c1822abba527d820b29e6333e7f5dac2cabd # pin@2.0.0
+        uses: cloudflare/wrangler-action@4b3eae832ab5113c67958be31ca062ad46c593b6 # pin@3.3.1
         with:
+          wranglerVersion: '2.13.0' # this can be any version of wrangler you want
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages publish build/ --project-name=<your-cloudflare-project-name>
+          command: pages publish build/ --project-name=<your-cloudflare-project-name> --branch=preview
 
         # If '.deploy' was used, branch deploy to the production environment
       - name: deploy - prod
         id: prod-deploy
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' && steps.branch-deploy.outputs.environment == 'production' }}
-        uses: cloudflare/wrangler-action@4c10c1822abba527d820b29e6333e7f5dac2cabd # pin@2.0.0
+        uses: cloudflare/wrangler-action@4b3eae832ab5113c67958be31ca062ad46c593b6 # pin@3.3.1
         with:
+          wranglerVersion: '2.13.0' # this can be any version of wrangler you want
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           command: pages publish build/ --project-name=<your-cloudflare-project-name> --branch=main
@@ -414,7 +429,7 @@ This example shows how you could use this Action with [Cloudflare Workers](https
 - `.deploy to development` deploys your branch to the development environment (if you have one with your Cloudflare workers)
 - `.deploy` deploys your branch to the production environment
 
-> A live example can be found [here](https://github.com/the-hideout/tarkov-api/blob/8333e038ecf8831128732871e6137435792a5f63/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/tarkov-api/blob/1424b9ab9ea0f84bc6ca28d020dd84ecee53899c/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -459,8 +474,9 @@ jobs:
         if: ${{ steps.branch-deploy.outputs.environment == 'development' &&
           steps.branch-deploy.outputs.noop != 'true' &&
           steps.branch-deploy.outputs.continue == 'true' }}
-        uses: cloudflare/wrangler-action@3424d15af26edad39d5276be3cc0cc9ffec22b55 # pin@1.3.0
+        uses: cloudflare/wrangler-action@4c10c1822abba527d820b29e6333e7f5dac2cabd # pin@2.0.0
         with:
+          wranglerVersion: '2.17.0' # this can be any version of wrangler you want
           apiToken: ${{ secrets.CF_API_TOKEN }}
           environment: 'development' # here we use development
 
@@ -469,14 +485,15 @@ jobs:
         if: ${{ steps.branch-deploy.outputs.continue == 'true' &&
           steps.branch-deploy.outputs.noop != 'true' &&
           steps.branch-deploy.outputs.environment == 'production' }}
-        uses: cloudflare/wrangler-action@3424d15af26edad39d5276be3cc0cc9ffec22b55 # pin@1.3.0
+        uses: cloudflare/wrangler-action@4c10c1822abba527d820b29e6333e7f5dac2cabd # pin@2.0.0
         with:
+          wranglerVersion: '2.17.0' # this can be any version of wrangler you want
           apiToken: ${{ secrets.CF_API_TOKEN }}
 ```
 
 ## Multiple Jobs
 
-If you need a complex deployment workflow, you can create a deployment status manually in a separate step
+If you need a complex deployment workflow, you can create a deployment status manually in a separate step. This gives you full control over when and how comments, deployment statuses, and reactions are added to your pull request. See [here](https://github.com/github/branch-deploy/blob/eb9366890f2ba137867043eae5842ce9c0806bfd/README.md#manual-deployment-control) for more details.
 
 > This is a more advanced example
 
@@ -511,6 +528,7 @@ jobs:
       - uses: github/branch-deploy@vX.X.X
         id: branch-deploy
         with:
+          trigger: ".deploy"
           skip_completing: 'true' # we will complete the deployment manually
 
   deploy:
@@ -567,9 +585,26 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Fetch the lock.json file from the branch
           gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+            --method GET \
+            repos/{owner}/{repo}/contents/lock.json?ref=${{ needs.trigger.outputs.environment }}-branch-deploy-lock \
+            --jq '.content' \
+            | base64 --decode \
+            > lock.json
+          
+          # Check if the sticky value is true
+          if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
+            echo "The lock is sticky, skipping the delete step"
+          else
+            # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
+            echo "The lock is not sticky, deleting the lock"
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+          fi
+
+          rm lock.json
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
       # this reaction is added by the branch-deploy action by default
@@ -585,7 +620,7 @@ jobs:
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS != 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: rocket
@@ -593,7 +628,7 @@ jobs:
       # if the deployment failed, add a '-1' (thumbs down) reaction to the comment that triggered the deployment
       - name: failure reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS == 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: '-1'
@@ -625,7 +660,7 @@ jobs:
 
 A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments. This example showcases building a static site with [hugo](https://gohugo.io/) and deploying it to [GitHub Pages](https://pages.github.com/).
 
-> This live example can be found [here](https://github.com/GrantBirki/blog/blob/25a51aff28c066e378844992c20afc6c58131e26/.github/workflows/branch-deploy.yml)
+> This live example can be found [here](https://github.com/GrantBirki/blog/blob/ddad949e360f553663500cf1052bbfe74630fe53/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch deploy
@@ -641,8 +676,6 @@ permissions:
   deployments: write
   contents: write
   checks: read
-  pages: write
-  id-token: write
 
 # set an environment variable for use in the jobs pointing to my blog
 env:
@@ -655,6 +688,8 @@ jobs:
       ${{ github.event.issue.pull_request &&
       (contains(github.event.comment.body, '.deploy') ||
       contains(github.event.comment.body, '.lock') ||
+      contains(github.event.comment.body, '.noop') ||
+      contains(github.event.comment.body, '.help') ||
       contains(github.event.comment.body, '.wcid') ||
       contains(github.event.comment.body, '.unlock')) }}
     runs-on: ubuntu-latest
@@ -675,7 +710,7 @@ jobs:
         with:
           trigger: '.deploy'
           environment: 'github-pages'
-          production_environment: 'github-pages'
+          production_environments: 'github-pages'
           skip_completing: 'true' # we will complete the deployment manually in the 'result' job
           admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
 
@@ -783,9 +818,26 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Fetch the lock.json file from the branch
           gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+            --method GET \
+            repos/{owner}/{repo}/contents/lock.json?ref=${{ needs.trigger.outputs.environment }}-branch-deploy-lock \
+            --jq '.content' \
+            | base64 --decode \
+            > lock.json
+          
+          # Check if the sticky value is true
+          if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
+            echo "The lock is sticky, skipping the delete step"
+          else
+            # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
+            echo "The lock is not sticky, deleting the lock"
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+          fi
+
+          rm lock.json
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
       # this reaction is added by the branch-deploy action by default
@@ -801,7 +853,7 @@ jobs:
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS != 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: rocket
@@ -809,7 +861,7 @@ jobs:
       # if the deployment failed, add a '-1' (thumbs down) reaction to the comment that triggered the deployment
       - name: failure reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS == 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: '-1'
@@ -843,7 +895,7 @@ jobs:
 
 A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments - Using [Astro](https://astro.build) to create a static site and deploying to [GitHub Pages](https://pages.github.com/)
 
-> A live example can be found [here](https://github.com/GrantBirki/astrowind/blob/72eb4890cfd6eda6b4f6f66c62f24a2f141ee49a/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/GrantBirki/astrowind-hard-fork/blob/be29d05cc0f3fe04e37ade9d38c653ed55c6cf53/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch deploy
@@ -873,6 +925,8 @@ jobs:
       ${{ github.event.issue.pull_request &&
       (contains(github.event.comment.body, '.deploy') ||
       contains(github.event.comment.body, '.lock') ||
+      contains(github.event.comment.body, '.noop') ||
+      contains(github.event.comment.body, '.help') ||
       contains(github.event.comment.body, '.wcid') ||
       contains(github.event.comment.body, '.unlock')) }}
     runs-on: ubuntu-latest
@@ -893,12 +947,12 @@ jobs:
         with:
           trigger: '.deploy'
           environment: 'github-pages'
-          production_environment: 'github-pages'
+          production_environments: 'github-pages'
           environment_targets: 'github-pages'
           skip_completing: 'true' # we will complete the deployment manually in the 'result' job
           admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
 
-  # build the github-pages site with hugo
+  # build the github-pages site with Astro
   build:
     needs: trigger
     if: ${{ needs.trigger.outputs.continue == 'true' }} # only run if the trigger job set continue to true
@@ -911,7 +965,7 @@ jobs:
           ref: ${{ needs.trigger.outputs.ref }}
 
       - name: build with astro
-        uses: withastro/action@dc081df9eacdb11181ea51e5d05853faa5aee891 # pin@v0.2.0
+        uses: withastro/action@e3193ac80e18917ceaeb9f2d47019ad3b2c0416a # pin@v0.3.0
 
   # deploy to GitHub Pages
   deploy:
@@ -968,9 +1022,26 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Fetch the lock.json file from the branch
           gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+            --method GET \
+            repos/{owner}/{repo}/contents/lock.json?ref=${{ needs.trigger.outputs.environment }}-branch-deploy-lock \
+            --jq '.content' \
+            | base64 --decode \
+            > lock.json
+          
+          # Check if the sticky value is true
+          if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
+            echo "The lock is sticky, skipping the delete step"
+          else
+            # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
+            echo "The lock is not sticky, deleting the lock"
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+          fi
+
+          rm lock.json
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
       # this reaction is added by the branch-deploy action by default
@@ -986,7 +1057,7 @@ jobs:
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS != 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: rocket
@@ -994,7 +1065,7 @@ jobs:
       # if the deployment failed, add a '-1' (thumbs down) reaction to the comment that triggered the deployment
       - name: failure reaction
         if: ${{ steps.deploy-status.outputs.DEPLOY_STATUS == 'failure' }}
-        uses: GrantBirki/comment@1e9986de26cf23e6c4350276234c91705c540fef # pin@v2.0.3
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         with:
           comment-id: ${{ needs.trigger.outputs.comment_id }}
           reactions: '-1'
@@ -1235,7 +1306,7 @@ jobs:
       # Add a new reaction based on if the deployment succeeded or failed.
       - name: Add Reaction
         id: add-reaction
-        uses: GrantBirki/comment@v2.0.6
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         env:
           REACTION: ${{ env.DEPLOYMENT_STATUS == 'success' && 'rocket' || '-1' }}
         with:
