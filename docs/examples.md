@@ -26,8 +26,8 @@ Quick links below to jump to a specific branch-deploy example:
 
 This is the simplest possible example of how you could use the branch-deploy Action for reference
 
-- `.noop` has no effect here (but you could change that)
-- `.deploy` will deploy the current branch (you can configure deployments however you like, this is just an example)
+- `.noop` will run the noop deploy step only (you can configure noop deployments however you like, this is just an example)
+- `.deploy` will deploy the current branch via the deploy step only (you can configure deployments however you like, this is just an example)
 
 ```yaml
 name: branch-deploy
@@ -60,7 +60,12 @@ jobs:
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
-        # If the branch-deploy Action was triggered, run the deployment (i.e. '.deploy')
+        # If the branch-deploy Action was triggered, run the noop deployment (i.e. '.noop')
+      - name: noop deploy
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
+        run: <do-your-noop-deployment> # this could be anything you want
+
+        # If the branch-deploy Action was triggered, run the real deployment (i.e. '.deploy')
       - name: deploy
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
         run: <do-your-deployment> # this could be anything you want
@@ -75,7 +80,7 @@ This example shows how you could use this Action with [Terraform](https://www.te
 
 All deployment results get posted as a comment in the branch deploy output on your pull request
 
-> A live example can be found [here](https://github.com/the-hideout/cloudflare/blob/de0682c6fe0640a9af122306354b9ea9694ca7a2/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/cloudflare/blob/96c5cf77895642e7310c22adf1cece7419e24986/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -154,6 +159,7 @@ jobs:
           echo 'DEPLOY_MESSAGE<<EOF' >> $GITHUB_ENV
           echo "$TF_OUTPUT" >> $GITHUB_ENV
           echo 'EOF' >> $GITHUB_ENV
+
       - name: Terraform apply output
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
         env:
@@ -232,7 +238,7 @@ This example shows how you could use this Action with [Railway](https://railway.
 - `.noop` has no effect here (but you could change that)
 - `.deploy` takes your current branch and deploys it to Railway
 
-> A live example can be found [here](https://github.com/the-hideout/stash/blob/57d85e2092866b675a73ff23203c04962df12385/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/stash/blob/ee8af01919f368f35dede3c93f703fd239dbac3c/.github/workflows/branch-deploy.yml) that has some slight modifications to the example below
 
 ```yaml
 name: branch-deploy
@@ -274,9 +280,9 @@ jobs:
         # Deploy our branch to Railway
       - name: Deploy to Railway
         if: steps.branch-deploy.outputs.continue == 'true'
-        run: railway up
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up  
 ```
 
 ## SSH
@@ -288,7 +294,7 @@ You can define any commands you want to be run in your SSH Action and they would
 - `.noop` has no effect here (but you could change that)
 - `.deploy` runs the SSH action with your branch
 
-> A live example can be found [here](https://github.com/the-hideout/cache/blob/c7dc4fa550f137efebf0ee656413985afba66770/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/cache/blob/3abfa0499e5e83e567980df035efd6a88713496a/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -325,7 +331,7 @@ jobs:
         # Deploy our branch via SSH remote commands
       - name: SSH Remote Deploy
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
-        uses: appleboy/ssh-action@1d1b21ca96111b1eb4c03c21c14ebb971d2200f6 # pin@v0.1.4
+        uses: appleboy/ssh-action@4a03da89e5c43da56e502053be4bbcb293411883 # pin@v0.1.6
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
@@ -342,7 +348,7 @@ This example shows how you could use this Action with [Cloudflare Pages](https:/
 - `.deploy to development` deploys your branch to the development environment
 - `.deploy` deploys your branch to the production environment
 
-> A live example can be found [here](https://github.com/the-hideout/tarkov-dev/blob/3dc501f0117b9a482cfe0954fda75b1b7e2e0cc4/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/tarkov-dev/blob/649ea4b5ddec5546175098a9372464cef5f1b3f6/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -376,6 +382,13 @@ jobs:
         with:
           ref: ${{ steps.branch-deploy.outputs.ref }}
 
+        # setup node
+      - uses: actions/setup-node@v4
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        with:
+          node-version: '18'
+          cache: 'npm'
+
         # Install the npm dependencies to build our cloudflare pages site
       - name: Install
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
@@ -390,18 +403,20 @@ jobs:
       - name: deploy - dev
         id: dev-deploy
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' && steps.branch-deploy.outputs.environment == 'development' }}
-        uses: cloudflare/wrangler-action@4c10c1822abba527d820b29e6333e7f5dac2cabd # pin@2.0.0
+        uses: cloudflare/wrangler-action@4b3eae832ab5113c67958be31ca062ad46c593b6 # pin@3.3.1
         with:
+          wranglerVersion: '2.13.0' # this can be any version of wrangler you want
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages publish build/ --project-name=<your-cloudflare-project-name>
+          command: pages publish build/ --project-name=<your-cloudflare-project-name> --branch=preview
 
         # If '.deploy' was used, branch deploy to the production environment
       - name: deploy - prod
         id: prod-deploy
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' && steps.branch-deploy.outputs.environment == 'production' }}
-        uses: cloudflare/wrangler-action@4c10c1822abba527d820b29e6333e7f5dac2cabd # pin@2.0.0
+        uses: cloudflare/wrangler-action@4b3eae832ab5113c67958be31ca062ad46c593b6 # pin@3.3.1
         with:
+          wranglerVersion: '2.13.0' # this can be any version of wrangler you want
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           command: pages publish build/ --project-name=<your-cloudflare-project-name> --branch=main
