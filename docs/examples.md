@@ -673,6 +673,8 @@ jobs:
       ${{ github.event.issue.pull_request &&
       (contains(github.event.comment.body, '.deploy') ||
       contains(github.event.comment.body, '.lock') ||
+      contains(github.event.comment.body, '.noop') ||
+      contains(github.event.comment.body, '.help') ||
       contains(github.event.comment.body, '.wcid') ||
       contains(github.event.comment.body, '.unlock')) }}
     runs-on: ubuntu-latest
@@ -693,7 +695,7 @@ jobs:
         with:
           trigger: '.deploy'
           environment: 'github-pages'
-          production_environment: 'github-pages'
+          production_environments: 'github-pages'
           skip_completing: 'true' # we will complete the deployment manually in the 'result' job
           admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
 
@@ -911,7 +913,7 @@ jobs:
         with:
           trigger: '.deploy'
           environment: 'github-pages'
-          production_environment: 'github-pages'
+          production_environments: 'github-pages'
           environment_targets: 'github-pages'
           skip_completing: 'true' # we will complete the deployment manually in the 'result' job
           admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
