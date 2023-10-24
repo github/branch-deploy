@@ -803,9 +803,26 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Fetch the lock.json file from the branch
           gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+            --method GET \
+            repos/{owner}/{repo}/contents/lock.json?ref=${{ needs.trigger.outputs.environment }}-branch-deploy-lock \
+            --jq '.content' \
+            | base64 --decode \
+            > lock.json
+          
+          # Check if the sticky value is true
+          if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
+            echo "The lock is sticky, skipping the delete step"
+          else
+            # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
+            echo "The lock is not sticky, deleting the lock"
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+          fi
+
+          rm lock.json
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
       # this reaction is added by the branch-deploy action by default
@@ -893,6 +910,8 @@ jobs:
       ${{ github.event.issue.pull_request &&
       (contains(github.event.comment.body, '.deploy') ||
       contains(github.event.comment.body, '.lock') ||
+      contains(github.event.comment.body, '.noop') ||
+      contains(github.event.comment.body, '.help') ||
       contains(github.event.comment.body, '.wcid') ||
       contains(github.event.comment.body, '.unlock')) }}
     runs-on: ubuntu-latest
@@ -918,7 +937,7 @@ jobs:
           skip_completing: 'true' # we will complete the deployment manually in the 'result' job
           admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
 
-  # build the github-pages site with hugo
+  # build the github-pages site with Astro
   build:
     needs: trigger
     if: ${{ needs.trigger.outputs.continue == 'true' }} # only run if the trigger job set continue to true
@@ -988,9 +1007,26 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Fetch the lock.json file from the branch
           gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+            --method GET \
+            repos/{owner}/{repo}/contents/lock.json?ref=${{ needs.trigger.outputs.environment }}-branch-deploy-lock \
+            --jq '.content' \
+            | base64 --decode \
+            > lock.json
+          
+          # Check if the sticky value is true
+          if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
+            echo "The lock is sticky, skipping the delete step"
+          else
+            # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
+            echo "The lock is not sticky, deleting the lock"
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+          fi
+
+          rm lock.json
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
       # this reaction is added by the branch-deploy action by default
@@ -1255,7 +1291,7 @@ jobs:
       # Add a new reaction based on if the deployment succeeded or failed.
       - name: Add Reaction
         id: add-reaction
-        uses: GrantBirki/comment@v2.0.6
+        uses: GrantBirki/comment@e6bf4bc177996c9572b4ddb98b25eb1a80f9abc9 # pin@v2.0.7
         env:
           REACTION: ${{ env.DEPLOYMENT_STATUS == 'success' && 'rocket' || '-1' }}
         with:
