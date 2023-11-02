@@ -592,3 +592,5 @@ Check out the [usage guide](docs/usage.md) for more information
 All contributions are welcome from all!
 
 Check out the [contributing guide](CONTRIBUTING.md) to learn more
+
+If you are a maintainer of this Action, please see the [maintainer guide](docs/maintainer-guide.md) for more information
