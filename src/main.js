@@ -593,8 +593,8 @@ export async function run() {
       environmentObj.sha !== null
         ? false
         : update_branch === 'disabled'
-        ? false
-        : true
+          ? false
+          : true
 
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
