@@ -6,7 +6,7 @@ A GitHub Action to enable branch deployments using IssueOps!
 
 ![ship-it](docs/assets/ship-it.jpg)
 
-This Action does the heavy lifting for you to enable branch deployments:
+This Test Action does the heavy lifting for you to enable branch deployments:
 
 - 🔍 Detects when IssueOps commands are used on a pull request
 - ✏️ Configurable - Choose your command syntax, environment, noop trigger, base branch, reaction, and more
