@@ -32,7 +32,7 @@
     "@actions/github": "^6.0.0",
     "@octokit/plugin-retry": "^6.0.1",
     "dedent-js": "^1.0.1",
-    "github-username-regex": "^1.0.0",
+    "github-username-regex-js": "^1.0.0",
     "nunjucks": "^3.2.4",
     "@octokit/rest": "^20.0.2"
   },

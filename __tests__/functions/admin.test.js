@@ -64,6 +64,28 @@ test('runs isAdmin checks and finds a valid admin via handle reference', async (
   )
 })
 
+test('runs isAdmin checks and finds a valid handle that is a GitHub EMU', async () => {
+  process.env.INPUT_ADMINS = 'username_company'
+  const contextNoAdmin = {
+    actor: 'username_company'
+  }
+  expect(await isAdmin(contextNoAdmin)).toStrictEqual(true)
+  expect(debugMock).toHaveBeenCalledWith(
+    'username_company is an admin via handle reference'
+  )
+})
+
+test('runs isAdmin checks and does not find a valid admin due to a bad GitHub handle', async () => {
+  process.env.INPUT_ADMINS = 'mona%lisa-'
+  const contextNoAdmin = {
+    actor: 'mona%lisa-'
+  }
+  expect(await isAdmin(contextNoAdmin)).toStrictEqual(false)
+  expect(debugMock).toHaveBeenCalledWith(
+    'mona%lisa- is not a valid GitHub username... skipping admin check'
+  )
+})
+
 test('runs isAdmin checks and does not find a valid admin', async () => {
   process.env.INPUT_ADMINS = 'monalisa'
   const contextNoAdmin = {

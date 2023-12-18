@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import githubUsernameRegex from 'github-username-regex'
+import githubUsernameRegex from 'github-username-regex-js'
 import {octokitRetry} from '@octokit/plugin-retry'
 import {COLORS} from './colors'
 
