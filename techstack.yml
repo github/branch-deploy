@@ -2,7 +2,7 @@ repo_name: DinnerMonster/branch-deploy
 report_id: 5c6fd36481d632f4e76e61db92dea209
 version: 0.1
 repo_type: Public
-timestamp: '2023-12-21T16:27:30+00:00'
+timestamp: '2024-01-05T08:16:48+00:00'
 requested_by: GrantBirki
 provider: github
 branch: main
@@ -17,6 +17,7 @@ tools:
   category: Languages & Frameworks
   sub_category: Languages
   image_url: https://img.stackshare.io/service/1209/javascript.jpeg
+  detection_source_url: https://github.com/DinnerMonster/branch-deploy
   detection_source: Repo Metadata
 - name: Node.js
   description: A platform built on Chrome's JavaScript runtime for easily building
@@ -27,6 +28,7 @@ tools:
   category: Languages & Frameworks
   sub_category: Frameworks (Full Stack)
   image_url: https://img.stackshare.io/service/1011/n1JRsFeB_400x400.png
+  detection_source_url: https://github.com/DinnerMonster/branch-deploy/blob/main/package.json
   detection_source: package.json
   last_updated_by: Grant Birkinbine
   last_updated_on: 2022-04-28 13:51:27.000000000 Z
@@ -53,6 +55,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Code Review
   image_url: https://img.stackshare.io/service/3337/Q4L7Jncy.jpg
+  detection_source_url: https://github.com/DinnerMonster/branch-deploy/blob/main/package.json
   detection_source: package.json
   last_updated_by: Grant Birkinbine
   last_updated_on: 2022-04-28 13:51:27.000000000 Z
@@ -64,6 +67,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Version Control System
   image_url: https://img.stackshare.io/service/1046/git.png
+  detection_source_url: https://github.com/DinnerMonster/branch-deploy
   detection_source: Repo Metadata
 - name: GitHub Actions
   description: Automate your workflow from idea to production
@@ -73,6 +77,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Continuous Integration
   image_url: https://img.stackshare.io/service/11563/actions.png
+  detection_source_url: https://github.com/DinnerMonster/branch-deploy/blob/main/.github/workflows/codeql-analysis.yml
   detection_source: ".github/workflows/codeql-analysis.yml"
   last_updated_by: Grant Birkinbine
   last_updated_on: 2022-05-03 20:49:03.000000000 Z
@@ -98,6 +103,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Tools for GitHub
   image_url: https://img.stackshare.io/service/9827/octokit-dotnet_2.png
+  detection_source_url: https://github.com/DinnerMonster/branch-deploy/blob/main/package.json
   detection_source: package.json
   last_updated_by: GrantBirki
   last_updated_on: 2023-02-01 21:55:41.000000000 Z
@@ -123,6 +129,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Front End Package Manager
   image_url: https://img.stackshare.io/service/1120/lejvzrnlpb308aftn31u.png
+  detection_source_url: https://github.com/DinnerMonster/branch-deploy/blob/main/package.json
   detection_source: package.json
   last_updated_by: Grant Birkinbine
   last_updated_on: 2022-04-28 13:51:27.000000000 Z
@@ -134,6 +141,7 @@ tools:
   category: Communications
   sub_category: Large Language Model Tools
   image_url: https://img.stackshare.io/service/48790/default_5b6c6b73f1ff3775c85d2a1ba954cb87e30cbf13.jpg
+  detection_source_url: https://github.com/DinnerMonster/branch-deploy/blob/main/dist/licenses.txt
   detection_source: dist/licenses.txt
   last_updated_by: Grant Birkinbine
   last_updated_on: 2022-04-28 13:51:27.000000000 Z
@@ -146,6 +154,7 @@ tools:
   category: Languages & Frameworks
   sub_category: Languages
   image_url: https://img.stackshare.io/service/4631/default_c2062d40130562bdc836c13dbca02d318205a962.png
+  detection_source_url: https://github.com/DinnerMonster/branch-deploy
   detection_source: Repo Metadata
 - name: "@babel/plugin-transform-modules-commonjs"
   description: This plugin transforms ES2015 modules to CommonJS
