@@ -230,6 +230,16 @@ inputs:
     default:
       type: string
       required: true
+  update_branch_base:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: true
+      type: string
   required_contexts:
     description:
       type: string
