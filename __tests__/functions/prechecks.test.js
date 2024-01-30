@@ -107,6 +107,19 @@ beforeEach(() => {
     },
     graphql: graphQLOK
   }
+
+  // mock the request for fetching the baseBranch variable
+  octokit.rest.repos.getBranch = jest
+    .fn()
+    .mockReturnValueOnce(
+      {
+        data: {
+          commit: {sha: 'deadbeef'},
+          head: {ref: 'test-branch'}
+        },
+        status: 200
+      }
+    )
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment', async () => {
@@ -777,7 +790,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: `422`\n- update_branch: `force`\n\n> Failed to update pull request branch with `main`',
+      '### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: `422`\n- update_branch: `force`\n\n> Failed to update pull request branch with the `test-branch` branch',
     status: false
   })
 })
@@ -846,7 +859,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` branch and try again',
+      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `test-branch` branch and try again',
     status: false
   })
 })
@@ -1019,7 +1032,7 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` branch and try again',
+      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `test-branch` branch and try again',
     status: false
   })
 })
@@ -1817,9 +1830,6 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
     },
     status: 200
   })
-  octokit.rest.repos.getBranch = jest
-    .fn()
-    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
   octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValueOnce({data: {behind_by: 1}, status: 200})
