@@ -54,13 +54,13 @@ export async function prechecks(context, octokit, data) {
   // Check to see if the "stable" branch was used as the deployment target
   if (data.environmentObj.stable_branch_used === true) {
     // Make an API call to get the base branch
-    const baseBranch = await octokit.rest.repos.getBranch({
+    const stableBaseBranch = await octokit.rest.repos.getBranch({
       ...context.repo,
       branch: data.inputs.stable_branch
     })
 
-    // the sha now becomes the sha of the base branch for "stabe branch" deployments
-    sha = baseBranch.data.commit.sha
+    // the sha now becomes the sha of the base branch for "stable branch" deployments
+    sha = stableBaseBranch.data.commit.sha
 
     ref = data.inputs.stable_branch
     forkBypass = true
