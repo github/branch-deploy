@@ -211,16 +211,16 @@ export async function prechecks(context, octokit, data) {
   // Get admin data
   const userIsAdmin = await isAdmin(context)
 
+  // Make an API call to get the base branch that the pull request is targeting
+  const baseBranch = await octokit.rest.repos.getBranch({
+    ...context.repo,
+    branch: pr.data.base.ref
+  })
+
   // Check to see if the branch is behind the base branch
   var behind = false
   // if the mergeStateStatus is 'BLOCKED' or 'HAS_HOOKS' check to see if the branch is out-of-date with the base branch
   if (mergeStateStatus === 'BLOCKED' || mergeStateStatus === 'HAS_HOOKS') {
-    // Make an API call to get the base branch
-    const baseBranch = await octokit.rest.repos.getBranch({
-      ...context.repo,
-      branch: pr.data.base.ref
-    })
-
     // Make an API call to compare the base branch and the PR branch
     const compare = await octokit.rest.repos.compareCommits({
       ...context.repo,
@@ -292,7 +292,7 @@ export async function prechecks(context, octokit, data) {
     message = `### ⚠️ Cannot proceed with deployment\n\n- allow_sha_deployments: \`${data.inputs.allow_sha_deployments}\`\n\n> sha deployments have not been enabled`
     return {message: message, status: false}
 
-    // If update_branch is not "disabled", check the mergeStateStatus to see if it is BEHIND
+    // If update_branch is not "disabled", proceed with 'update_branch' logic
   } else if (
     (commitStatus === 'SUCCESS' ||
       commitStatus === null ||
@@ -302,11 +302,12 @@ export async function prechecks(context, octokit, data) {
   ) {
     // If the update_branch param is set to "warn", warn and exit
     if (data.inputs.update_branch === 'warn') {
-      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${data.inputs.stable_branch}\` branch and try again`
+      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${baseBranch.data.head.ref}\` branch and try again`
       return {message: message, status: false}
     }
 
     // Execute the logic below only if update_branch is set to "force"
+    // This logic will attempt to update the pull request's branch so that it is no longer 'behind'
     core.debug(
       `update_branch is set to ${COLORS.highlight}${data.inputs.update_branch}`
     )
@@ -320,7 +321,7 @@ export async function prechecks(context, octokit, data) {
 
       // If the result is not a 202, return an error message and exit
       if (result.status !== 202) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with \`${data.inputs.stable_branch}\``
+        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with the \`${baseBranch.data.head.ref}\` branch`
         return {message: message, status: false}
       }
 
