@@ -104,7 +104,6 @@ export async function prechecks(context, octokit, data) {
   }
 
   // Check to ensure PR CI checks are passing and the PR has been reviewed
-  // mergeStateStatus is in the query below but not used at this time
   const query = `query($owner:String!, $name:String!, $number:Int!) {
                     repository(owner:$owner, name:$name) {
                         pullRequest(number:$number) {
