@@ -109,17 +109,13 @@ beforeEach(() => {
   }
 
   // mock the request for fetching the baseBranch variable
-  octokit.rest.repos.getBranch = jest
-    .fn()
-    .mockReturnValueOnce(
-      {
-        data: {
-          commit: {sha: 'deadbeef'},
-          head: {ref: 'test-branch'}
-        },
-        status: 200
-      }
-    )
+  octokit.rest.repos.getBranch = jest.fn().mockReturnValueOnce({
+    data: {
+      commit: {sha: 'deadbeef'},
+      head: {ref: 'test-branch'}
+    },
+    status: 200
+  })
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment', async () => {
