@@ -64,12 +64,18 @@ beforeEach(() => {
 })
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is not', async () => {
-  expect(await isOutdated(context, octokit, data)).toStrictEqual(false)
+  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+    branch: '',
+    outdated: false
+  })
 })
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is not using outdated_mode pr_base', async () => {
   data.outdated_mode = 'pr_base'
-  expect(await isOutdated(context, octokit, data)).toStrictEqual(false)
+  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+    branch: 'test-branch',
+    outdated: false
+  })
   expect(debugMock).toHaveBeenCalledWith(
     'checking isOutdated with pr_base mode'
   )
@@ -77,7 +83,10 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is not using outdated_mode default_branch', async () => {
   data.outdated_mode = 'default_branch'
-  expect(await isOutdated(context, octokit, data)).toStrictEqual(false)
+  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+    branch: 'stable-branch',
+    outdated: false
+  })
   expect(debugMock).toHaveBeenCalledWith(
     'checking isOutdated with default_branch mode'
   )
@@ -87,13 +96,19 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
   octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValue({data: {behind_by: 1}, status: 200})
-  expect(await isOutdated(context, octokit, data)).toStrictEqual(true)
+  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+    branch: 'test-branch',
+    outdated: true
+  })
   expect(debugMock).toHaveBeenCalledWith('checking isOutdated with strict mode')
 })
 
 test('checks the mergeStateStatus and finds that it is BEHIND', async () => {
   data.mergeStateStatus = 'BEHIND'
-  expect(await isOutdated(context, octokit, data)).toStrictEqual(true)
+  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+    branch: 'test-branch',
+    outdated: true
+  })
   expect(debugMock).toHaveBeenCalledWith(
     'mergeStateStatus is BEHIND - exiting isOutdated logic early'
   )

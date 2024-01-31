@@ -15,13 +15,13 @@ export async function isOutdated(context, octokit, data) {
   // Helper function to compare two branches
   // :param baseBranch: The base branch to compare against
   // :param prBranch: The PR branch to compare
-  // :return: A boolean value indicating if the PR branch is behind the base branch or not
+  // :return: An object containing a boolean value indicating if the PR branch is behind the base branch or not, and a string containing the name of the branch that is behind
   async function compareBranches(baseBranch, prBranch) {
     // if the mergeStateStatus is BEHIND, then we know the PR is behind the base branch
     // in this case we can skip the commit comparison
     if (data.mergeStateStatus === 'BEHIND') {
       core.debug(`mergeStateStatus is BEHIND - exiting isOutdated logic early`)
-      return true
+      return {outdated: true, branch: baseBranch.data.name}
     }
 
     const compare = await octokit.rest.repos.compareCommits({
@@ -35,10 +35,10 @@ export async function isOutdated(context, octokit, data) {
       core.warning(
         `The PR branch is behind the base branch by ${COLORS.highlight}${compare.data.behind_by} ${commits}${COLORS.reset}`
       )
-      return true
+      return {outdated: true, branch: baseBranch.data.name}
     } else {
       core.debug(`The PR branch is not behind the base branch - OK`)
-      return false
+      return {outdated: false, branch: baseBranch.data.name}
     }
   }
 
@@ -60,7 +60,16 @@ export async function isOutdated(context, octokit, data) {
         data.stableBaseBranch,
         data.pr
       )
-      return isBehindBaseBranch || isBehindStableBaseBranch
+
+      // Return the first branch that is behind (if any)
+      if (isBehindBaseBranch.outdated === true) {
+        return isBehindBaseBranch
+      } else if (isBehindStableBaseBranch.outdated === true) {
+        return isBehindStableBaseBranch
+      } else {
+        // If neither branch is behind, then the PR is not outdated
+        return {outdated: false, branch: ''}
+      }
     }
   }
 }
