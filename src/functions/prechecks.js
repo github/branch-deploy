@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import {validPermissions} from './valid-permissions'
 import {isAdmin} from './admin'
+import {isOutdated} from './outdated-check'
 import {stringToArray} from './string-to-array'
 import {COLORS} from './colors'
 
@@ -217,28 +218,12 @@ export async function prechecks(context, octokit, data) {
     branch: pr.data.base.ref
   })
 
-  // Check to see if the branch is behind the base branch
-  var outdated = false
-  // if the mergeStateStatus is not 'BEHIND', then we need to make some comparison API calls to double check in case it is actually behind
-  if (mergeStateStatus !== 'BEHIND') {
-    // Make an API call to compare the base branch and the PR branch
-    const compare = await octokit.rest.repos.compareCommits({
-      ...context.repo,
-      base: baseBranch.data.commit.sha,
-      head: pr.data.head.sha
-    })
-
-    // If the PR branch is behind the base branch, set the outdated variable to true
-    if (compare.data.behind_by > 0) {
-      outdated = true
-    } else {
-      outdated = false
-    }
-
-    // If the mergeStateStatus is 'BEHIND' set the outdated variable to true because we know for certain it is behind the target branch we plan on merging into
-  } else if (mergeStateStatus === 'BEHIND') {
-    outdated = true
-  }
+  // Check to see if the branch is outdated or not based on the Action's configuration
+  const outdated = await isOutdated(context, octokit, {
+    baseBranch: baseBranch,
+    pr: pr,
+    mergeStateStatus: mergeStateStatus
+  })
 
   // log values for debugging
   core.debug('precheck values for debugging:')
