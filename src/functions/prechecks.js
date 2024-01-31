@@ -222,7 +222,8 @@ export async function prechecks(context, octokit, data) {
   const outdated = await isOutdated(context, octokit, {
     baseBranch: baseBranch,
     pr: pr,
-    mergeStateStatus: mergeStateStatus
+    mergeStateStatus: mergeStateStatus,
+    outdated_mode: data.inputs.outdated_mode
   })
 
   // log values for debugging
