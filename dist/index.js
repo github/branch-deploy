@@ -40278,8 +40278,8 @@ async function prechecks(context, octokit, data) {
 
   // Check to see if the branch is behind the base branch
   var behind = false
-  // if the mergeStateStatus is 'BLOCKED' or 'HAS_HOOKS' check to see if the branch is out-of-date with the base branch
-  if (mergeStateStatus === 'BLOCKED' || mergeStateStatus === 'HAS_HOOKS') {
+  // if the mergeStateStatus is not 'BEHIND', make API calls to compare the base branch and the PR branch
+  if (mergeStateStatus !== 'BEHIND') {
     // Make an API call to compare the base branch and the PR branch
     const compare = await octokit.rest.repos.compareCommits({
       ...context.repo,
