@@ -219,7 +219,7 @@ export async function prechecks(context, octokit, data) {
 
   // Check to see if the branch is behind the base branch
   var behind = false
-  // if the mergeStateStatus is not 'BEHIND', make API calls to compare the base branch and the PR branch
+  // if the mergeStateStatus is not 'BEHIND', then we need to make some comparison API calls to double check in case it is actually behind
   if (mergeStateStatus !== 'BEHIND') {
     // Make an API call to compare the base branch and the PR branch
     const compare = await octokit.rest.repos.compareCommits({
@@ -235,7 +235,7 @@ export async function prechecks(context, octokit, data) {
       behind = false
     }
 
-    // If the mergeStateStatus is 'BEHIND' set the behind variable to true
+    // If the mergeStateStatus is 'BEHIND' set the behind variable to true because we know for certain it is behind the target branch we plan on merging into
   } else if (mergeStateStatus === 'BEHIND') {
     behind = true
   }
