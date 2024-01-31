@@ -1,5 +1,3 @@
-// outdated_mode
-
 import * as core from '@actions/core'
 import {COLORS} from './colors'
 

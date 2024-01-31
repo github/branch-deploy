@@ -110,7 +110,7 @@ beforeEach(() => {
   }
 
   // mock the request for fetching the baseBranch variable
-  octokit.rest.repos.getBranch = jest.fn().mockReturnValueOnce({
+  octokit.rest.repos.getBranch = jest.fn().mockReturnValue({
     data: {
       commit: {sha: 'deadbeef'},
       name: 'test-branch'

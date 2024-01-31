@@ -52,14 +52,14 @@ export async function prechecks(context, octokit, data) {
   var noopMode = data.environmentObj.noop
   var forkBypass = false
 
+  // Make an API call to get the base branch
+  const stableBaseBranch = await octokit.rest.repos.getBranch({
+    ...context.repo,
+    branch: data.inputs.stable_branch
+  })
+
   // Check to see if the "stable" branch was used as the deployment target
   if (data.environmentObj.stable_branch_used === true) {
-    // Make an API call to get the base branch
-    const stableBaseBranch = await octokit.rest.repos.getBranch({
-      ...context.repo,
-      branch: data.inputs.stable_branch
-    })
-
     // the sha now becomes the sha of the base branch for "stable branch" deployments
     sha = stableBaseBranch.data.commit.sha
 
@@ -220,7 +220,8 @@ export async function prechecks(context, octokit, data) {
 
   // Check to see if the branch is outdated or not based on the Action's configuration
   const outdated = await isOutdated(context, octokit, {
-    baseBranch: baseBranch,
+    baseBranch: baseBranch, // this is the base branch that the PR is targeting
+    stableBaseBranch: stableBaseBranch, // this is the 'stable' branch (aka: the default branch of the repo)
     pr: pr,
     mergeStateStatus: mergeStateStatus,
     outdated_mode: data.inputs.outdated_mode
