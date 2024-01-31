@@ -116,6 +116,10 @@ beforeEach(() => {
     },
     status: 200
   })
+
+  octokit.rest.repos.compareCommits = jest
+    .fn()
+    .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment', async () => {
@@ -131,7 +135,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 test('runs prechecks and finds that the IssueOps command is valid for a rollback deployment', async () => {
   octokit.rest.repos.getBranch = jest
     .fn()
-    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+    .mockReturnValue({data: {commit: {sha: 'deadbeef'}}, status: 200})
 
   data.environmentObj.stable_branch_used = true
 
@@ -514,7 +518,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
   })
   octokit.rest.repos.getBranch = jest
     .fn()
-    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+    .mockReturnValue({data: {commit: {sha: 'deadbeef'}}, status: 200})
 
   data.environmentObj.stable_branch_used = true
 
