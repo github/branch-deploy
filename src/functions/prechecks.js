@@ -217,10 +217,6 @@ export async function prechecks(context, octokit, data) {
     branch: pr.data.base.ref
   })
 
-  // dump the baseBranch to json for debugging
-  core.info('baseBranch:')
-  core.info(JSON.stringify(baseBranch))
-
   // Check to see if the branch is behind the base branch
   var behind = false
   // if the mergeStateStatus is 'BLOCKED' or 'HAS_HOOKS' check to see if the branch is out-of-date with the base branch
@@ -306,7 +302,7 @@ export async function prechecks(context, octokit, data) {
   ) {
     // If the update_branch param is set to "warn", warn and exit
     if (data.inputs.update_branch === 'warn') {
-      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${baseBranch.data.head.ref}\` branch and try again`
+      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${baseBranch.data.name}\` branch and try again`
       return {message: message, status: false}
     }
 
@@ -325,7 +321,7 @@ export async function prechecks(context, octokit, data) {
 
       // If the result is not a 202, return an error message and exit
       if (result.status !== 202) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with the \`${baseBranch.data.head.ref}\` branch`
+        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with the \`${baseBranch.data.name}\` branch`
         return {message: message, status: false}
       }
 
