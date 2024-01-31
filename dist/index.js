@@ -40069,19 +40069,26 @@ async function isAdmin(context) {
 // :param data: An object containing all of the data needed for this function
 // :return: A boolean value indicating if the PR branch is outdated or not
 async function isOutdated(context, octokit, data) {
-  core.debug(`outdated_mode: ${data.outdatedMode}`)
+  core.debug(`outdated_mode: ${data.outdated_mode}`)
 
-  // Check to see if the branch is behind the base branch
-  // if the mergeStateStatus is not 'BEHIND', then we need to make some comparison API calls to double check in case it is actually behind
-  if (data.mergeStateStatus !== 'BEHIND') {
-    // Make an API call to compare the base branch and the PR branch
+  // Helper function to compare two branches
+  // :param baseBranch: The base branch to compare against
+  // :param prBranch: The PR branch to compare
+  // :return: A boolean value indicating if the PR branch is behind the base branch or not
+  async function compareBranches(baseBranch, prBranch) {
+    // if the mergeStateStatus is BEHIND, then we know the PR is behind the base branch
+    // in this case we can skip the commit comparison
+    if (data.mergeStateStatus === 'BEHIND') {
+      core.debug(`mergeStateStatus is BEHIND - exiting isOutdated logic early`)
+      return true
+    }
+
     const compare = await octokit.rest.repos.compareCommits({
       ...context.repo,
-      base: data.baseBranch.data.commit.sha,
-      head: data.pr.data.head.sha
+      base: baseBranch.data.commit.sha,
+      head: prBranch.data.head.sha
     })
 
-    // If the PR branch is behind the base branch, set the outdated variable to true
     if (compare.data.behind_by > 0) {
       const commits = compare.data.behind_by === 1 ? 'commit' : 'commits'
       core.warning(
@@ -40092,13 +40099,28 @@ async function isOutdated(context, octokit, data) {
       core.debug(`The PR branch is not behind the base branch - OK`)
       return false
     }
+  }
 
-    // If the mergeStateStatus is 'BEHIND' set the outdated variable to true because we know for certain it is behind the target branch we plan on merging into
-  } else if (data.mergeStateStatus === 'BEHIND') {
-    core.warning(
-      `The PR branch is behind the base branch since mergeStateStatus is ${COLORS.highlight}BEHIND${COLORS.reset}`
-    )
-    return true
+  // Check based on the outdated_mode
+  // pr_base: compare the PR branch to the base branch it is targeting
+  // default_branch: compare the PR branch to the default branch of the repo (aka the "stable" branch)
+  // strict: compare the PR branch to both the base branch and the default branch (default mode)
+  switch (data.outdated_mode) {
+    case 'pr_base':
+      core.debug(`checking isOutdated with pr_base mode`)
+      return await compareBranches(data.baseBranch, data.pr)
+    case 'default_branch':
+      core.debug(`checking isOutdated with default_branch mode`)
+      return await compareBranches(data.stableBaseBranch, data.pr)
+    case 'strict': {
+      core.debug(`checking isOutdated with strict mode`)
+      const isBehindBaseBranch = await compareBranches(data.baseBranch, data.pr)
+      const isBehindStableBaseBranch = await compareBranches(
+        data.stableBaseBranch,
+        data.pr
+      )
+      return isBehindBaseBranch || isBehindStableBaseBranch
+    }
   }
 }
 

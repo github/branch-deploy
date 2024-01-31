@@ -2,7 +2,7 @@ import * as core from '@actions/core'
 import {isOutdated} from '../../src/functions/outdated-check'
 // import {COLORS} from '../../src/functions/colors'
 
-// const infoMock = jest.spyOn(core, 'info')
+const debugMock = jest.spyOn(core, 'debug')
 
 var context
 var octokit
@@ -15,7 +15,15 @@ beforeEach(() => {
   jest.spyOn(core, 'warning').mockImplementation(() => {})
 
   data = {
+    outdated_mode: 'strict',
     mergeStateStatus: 'CLEAN',
+    stableBaseBranch: {
+      data: {
+        commit: {sha: 'beefdead'},
+        name: 'stable-branch'
+      },
+      status: 200
+    },
     baseBranch: {
       data: {
         commit: {sha: 'deadbeef'},
@@ -49,7 +57,7 @@ beforeEach(() => {
       repos: {
         compareCommits: jest
           .fn()
-          .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
+          .mockReturnValue({data: {behind_by: 0}, status: 200})
       }
     }
   }
@@ -59,14 +67,34 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
   expect(await isOutdated(context, octokit, data)).toStrictEqual(false)
 })
 
+test('checks if the branch is out-of-date via commit comparison and finds that it is not using outdated_mode pr_base', async () => {
+  data.outdated_mode = 'pr_base'
+  expect(await isOutdated(context, octokit, data)).toStrictEqual(false)
+  expect(debugMock).toHaveBeenCalledWith(
+    'checking isOutdated with pr_base mode'
+  )
+})
+
+test('checks if the branch is out-of-date via commit comparison and finds that it is not using outdated_mode default_branch', async () => {
+  data.outdated_mode = 'default_branch'
+  expect(await isOutdated(context, octokit, data)).toStrictEqual(false)
+  expect(debugMock).toHaveBeenCalledWith(
+    'checking isOutdated with default_branch mode'
+  )
+})
+
 test('checks if the branch is out-of-date via commit comparison and finds that it is', async () => {
   octokit.rest.repos.compareCommits = jest
     .fn()
-    .mockReturnValueOnce({data: {behind_by: 1}, status: 200})
+    .mockReturnValue({data: {behind_by: 1}, status: 200})
   expect(await isOutdated(context, octokit, data)).toStrictEqual(true)
+  expect(debugMock).toHaveBeenCalledWith('checking isOutdated with strict mode')
 })
 
 test('checks the mergeStateStatus and finds that it is BEHIND', async () => {
   data.mergeStateStatus = 'BEHIND'
   expect(await isOutdated(context, octokit, data)).toStrictEqual(true)
+  expect(debugMock).toHaveBeenCalledWith(
+    'mergeStateStatus is BEHIND - exiting isOutdated logic early'
+  )
 })
