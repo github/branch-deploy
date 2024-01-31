@@ -40062,9 +40062,18 @@ async function isAdmin(context) {
 
 
 
+// Helper function to check to see if the PR branch is outdated in anyway based on the Action's configuration
+//
+// outdated_mode can be: pr_base, default_branch, or strict (default)
+//
+// :param context: The context of the Action
+// :param octokit: An authenticated instance of the GitHub client
+// :param data: An object containing all of the data needed for this function
+// :return: A boolean value indicating if the PR branch is outdated or not
 async function isOutdated(context, octokit, data) {
+  core.debug(`outdated_mode: ${data.outdatedMode}`)
+
   // Check to see if the branch is behind the base branch
-  var outdated = false
   // if the mergeStateStatus is not 'BEHIND', then we need to make some comparison API calls to double check in case it is actually behind
   if (data.mergeStateStatus !== 'BEHIND') {
     // Make an API call to compare the base branch and the PR branch
@@ -40079,10 +40088,10 @@ async function isOutdated(context, octokit, data) {
       core.warning(
         `The PR branch is behind the base branch by ${COLORS.highlight}${compare.data.behind_by} commits${COLORS.reset}`
       )
-      outdated = true
+      return true
     } else {
       core.debug(`The PR branch is not behind the base branch - OK`)
-      outdated = false
+      return false
     }
 
     // If the mergeStateStatus is 'BEHIND' set the outdated variable to true because we know for certain it is behind the target branch we plan on merging into
@@ -40090,10 +40099,8 @@ async function isOutdated(context, octokit, data) {
     core.warning(
       `The PR branch is behind the base branch since mergeStateStatus is ${COLORS.highlight}BEHIND${COLORS.reset}`
     )
-    outdated = true
+    return true
   }
-
-  return outdated
 }
 
 ;// CONCATENATED MODULE: ./src/functions/prechecks.js
@@ -40321,7 +40328,8 @@ async function prechecks(context, octokit, data) {
   const outdated = await isOutdated(context, octokit, {
     baseBranch: baseBranch,
     pr: pr,
-    mergeStateStatus: mergeStateStatus
+    mergeStateStatus: mergeStateStatus,
+    outdated_mode: data.inputs.outdated_mode
   })
 
   // log values for debugging
@@ -42357,6 +42365,7 @@ async function run() {
     const lock_info_alias = core.getInput('lock_info_alias')
     const global_lock_flag = core.getInput('global_lock_flag')
     const update_branch = core.getInput('update_branch')
+    const outdated_mode = core.getInput('outdated_mode')
     const required_contexts = core.getInput('required_contexts')
     const allowForks = core.getBooleanInput('allow_forks')
     const skipCi = core.getInput('skip_ci')
@@ -42508,6 +42517,7 @@ async function run() {
         help_trigger: help_trigger,
         lock_info_alias: lock_info_alias,
         update_branch: update_branch,
+        outdated_mode: outdated_mode,
         required_contexts: required_contexts,
         allowForks: allowForks,
         skipCi: skipCi,
@@ -42757,6 +42767,7 @@ async function run() {
       inputs: {
         allow_sha_deployments: allow_sha_deployments,
         update_branch: update_branch,
+        outdated_mode: outdated_mode,
         stable_branch: stable_branch,
         trigger: trigger,
         issue_number: issue_number,
