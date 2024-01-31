@@ -218,7 +218,7 @@ export async function prechecks(context, octokit, data) {
   })
 
   // Check to see if the branch is behind the base branch
-  var behind = false
+  var outdated = false
   // if the mergeStateStatus is not 'BEHIND', then we need to make some comparison API calls to double check in case it is actually behind
   if (mergeStateStatus !== 'BEHIND') {
     // Make an API call to compare the base branch and the PR branch
@@ -228,16 +228,16 @@ export async function prechecks(context, octokit, data) {
       head: pr.data.head.sha
     })
 
-    // If the PR branch is behind the base branch, set the behind variable to true
+    // If the PR branch is behind the base branch, set the outdated variable to true
     if (compare.data.behind_by > 0) {
-      behind = true
+      outdated = true
     } else {
-      behind = false
+      outdated = false
     }
 
-    // If the mergeStateStatus is 'BEHIND' set the behind variable to true because we know for certain it is behind the target branch we plan on merging into
+    // If the mergeStateStatus is 'BEHIND' set the outdated variable to true because we know for certain it is behind the target branch we plan on merging into
   } else if (mergeStateStatus === 'BEHIND') {
-    behind = true
+    outdated = true
   }
 
   // log values for debugging
@@ -252,7 +252,7 @@ export async function prechecks(context, octokit, data) {
   core.debug(`allowForks: ${data.inputs.allowForks}`)
   core.debug(`forkBypass: ${forkBypass}`)
   core.debug(`environment: ${data.environment}`)
-  core.debug(`behind: ${behind}`)
+  core.debug(`outdated: ${outdated}`)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (data.environmentObj.stable_branch_used === true) {
@@ -298,7 +298,7 @@ export async function prechecks(context, octokit, data) {
       commitStatus === null ||
       commitStatus === 'skip_ci') &&
     data.inputs.update_branch !== 'disabled' &&
-    behind === true
+    outdated === true
   ) {
     // If the update_branch param is set to "warn", warn and exit
     if (data.inputs.update_branch === 'warn') {
