@@ -40276,6 +40276,10 @@ async function prechecks(context, octokit, data) {
     branch: pr.data.base.ref
   })
 
+  // dump the baseBranch to json for debugging
+  core.info('baseBranch:')
+  core.info(JSON.stringify(baseBranch))
+
   // Check to see if the branch is behind the base branch
   var behind = false
   // if the mergeStateStatus is 'BLOCKED' or 'HAS_HOOKS' check to see if the branch is out-of-date with the base branch
