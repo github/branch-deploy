@@ -112,7 +112,7 @@ beforeEach(() => {
   octokit.rest.repos.getBranch = jest.fn().mockReturnValueOnce({
     data: {
       commit: {sha: 'deadbeef'},
-      head: {ref: 'test-branch'}
+      name: 'test-branch'
     },
     status: 200
   })
