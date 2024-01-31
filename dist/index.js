@@ -40085,8 +40085,9 @@ async function isOutdated(context, octokit, data) {
 
     // If the PR branch is behind the base branch, set the outdated variable to true
     if (compare.data.behind_by > 0) {
+      const commits = compare.data.behind_by === 1 ? 'commit' : 'commits'
       core.warning(
-        `The PR branch is behind the base branch by ${COLORS.highlight}${compare.data.behind_by} commits${COLORS.reset}`
+        `The PR branch is behind the base branch by ${COLORS.highlight}${compare.data.behind_by} ${commits}${COLORS.reset}`
       )
       return true
     } else {
