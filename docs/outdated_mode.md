@@ -22,6 +22,8 @@ If your branch is determined to be out-of-date, the branch-deploy Action will no
 
 It should be noted that if you are using the `force` value for the `update_branch` input option, the branch-deploy Action will only attempt to update your branch with the target base branch of the pull request. This means that if your target base branch is something other than the default|stable branch, the branch-deploy Action will only attempt to update your branch with the latest commits from the target base branch. You will still be warned about your branch being out-of-date with the default|stable branch but it will not try to update your branch with the latest commits from the default|stable branch due to the complexity and potential risk involved with such a merge. You will need to manually update your branch with the latest commits from the default|stable branch if you want to deploy your branch and that is the case.
 
+The final bit of important information to note is that [rollback](../README.md#rollbacks-🔄) deployments (i.e `.deploy main`) will always work even if the default|stable branch is considered out-of-date. This is for safety reasons so that users of this Action can always rollback their changes in the event of an issue.
+
 ## About the `outdated_mode` input option
 
 The `outdated_mode` input option is useful when you want to ensure that the branch-deploy Action only deploys branches that are up-to-date. This is especially useful when you have a large team of developers working on a project and you want to ensure that commits are not rolled back accidentally when you are deploying a branch. For the sake of availability and deployment confidence, this input option is set to `strict` by default. This will ensure that your branch is up-to-date with the latest commits from both the default|stable branch and the branch that your pull request is merging into.
@@ -31,6 +33,8 @@ The `outdated_mode` input option is useful when you want to ensure that the bran
 This section will go into a few example scenarios to help you understand how the `outdated_mode` input option works in practice.
 
 > Big thanks to @jessew-albert for providing these examples!
+
+For all scenarios, we assume that we are operating on a pull request that is at branch `featureB` (commit `featB2`) in the diagram. The target base branch of the pull request is `featureA` and the default|stable branch is `main`.
 
 ### Scenario 1
 
@@ -100,4 +104,27 @@ gitGraph
    checkout featureB
    commit id: "featB1"
    commit id: "featB2"
+```
+
+### Scenario 3
+
+In this scenario, the branch `featureB` is now out-of-date in all cases. This is because the `featureB` branch is behind both the `featureA` branch and the `main` branch. This is the worst-case scenario and the branch-deploy Action will prevent the deployment from happening in all cases. It does not matter what value you have set for the `outdated_mode` input option. Whether you have it set to `strict`, `pr_base`, or `default_branch`, all options in this case are out-of-date and the branch-deploy Action will prevent the deployment from happening.
+
+```mermaid
+gitGraph
+   commit id: "A"
+   commit id: "B"
+   branch featureA
+   checkout featureA
+   commit id: "featA1"
+   commit id: "featA2"
+   branch featureB
+   checkout featureB
+   commit id: "featB1"
+   commit id: "featB2"
+   checkout featureA
+   commit id: "featA3"
+   checkout main
+   commit id: "C"
+   commit id: "D"
 ```
