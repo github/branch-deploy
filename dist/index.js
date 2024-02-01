@@ -40375,7 +40375,7 @@ async function prechecks(context, octokit, data) {
   core.debug(`allowForks: ${data.inputs.allowForks}`)
   core.debug(`forkBypass: ${forkBypass}`)
   core.debug(`environment: ${data.environment}`)
-  core.debug(`outdated: ${outdated}`)
+  core.debug(`outdated: ${outdated.outdated}`)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (data.environmentObj.stable_branch_used === true) {
@@ -40421,11 +40421,11 @@ async function prechecks(context, octokit, data) {
       commitStatus === null ||
       commitStatus === 'skip_ci') &&
     data.inputs.update_branch !== 'disabled' &&
-    outdated === true
+    outdated.outdated === true
   ) {
     // If the update_branch param is set to "warn", warn and exit
     if (data.inputs.update_branch === 'warn') {
-      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${baseBranch.data.name}\` branch and try again`
+      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${outdated.branch}\` branch and try again`
       return {message: message, status: false}
     }
 
@@ -40444,7 +40444,7 @@ async function prechecks(context, octokit, data) {
 
       // If the result is not a 202, return an error message and exit
       if (result.status !== 202) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with the \`${baseBranch.data.name}\` branch`
+        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with the \`${outdated.branch}\` branch`
         return {message: message, status: false}
       }
 
