@@ -128,3 +128,27 @@ gitGraph
    commit id: "C"
    commit id: "D"
 ```
+
+### Scenario 4
+
+In this example, the `featureB` branch is behind `featureA` but up-to-date with `main`. In this case, the `outdated_mode` input option will determine whether the branch-deploy Action will allow the deployment to happen or not.
+
+- If the `outdated_mode` input option is set to `strict` (default), the branch-deploy Action will consider the `featureB` branch to be out-of-date and prevent the deployment from happening. This is because the `featureB` branch is behind the `featureA` branch. Even though the `featureB` branch is up-to-date with the `main` branch, it is still considered out-of-date because it is behind the `featureA` branch when the `outdated_mode` input option is set to `strict` so both the target base branch (of the pull request) and the default|stable branch are considered.
+- If the `outdated_mode` input option is set to `pr_base`, the branch-deploy Action will consider the `featureB` branch to be out-of-date and prevent the deployment from happening. This is because the `featureB` branch is behind the `featureA` branch. In this case, the default|stable branch is not considered, only the target base branch (of the pull request) is considered.
+- If the `outdated_mode` input option is set to `default_branch`, the branch-deploy Action will consider the `featureB` branch to be up-to-date and allow the deployment to happen. This is because the `featureB` branch is up-to-date with the `main` branch. Even though the `featureB` branch is behind the `featureA` branch, that is not relevant in this case because `default_branch` option only evaluates the default|stable branch.
+
+```mermaid
+gitGraph
+   commit id: "A"
+   commit id: "B"
+   branch featureA
+   checkout featureA
+   commit id: "featA1"
+   commit id: "featA2"
+   branch featureB
+   checkout featureB
+   commit id: "featB1"
+   commit id: "featB2"
+   checkout featureA
+   commit id: "featA3"
+```
