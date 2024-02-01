@@ -58,3 +58,46 @@ Let's pretend that we are trying to run the `.deploy` command on the pull reques
 - If the `outdated_mode` input option is set to `strict`, the branch-deploy Action will consider the `featureB` branch to be out-of-date and prevent the deployment from happening. This is because the `featureB` branch is behind the `main` branch. If this branch were to be deployed, it would roll back the commits made to `main` and that could cause issues. Even though the `featureB` branch is up-to-date with the `featureA` branch, it is still considered out-of-date because it is behind the `main` branch when the `outdated_mode` input option is set to `strict`.
 - If the `outdated_mode` input option is set to `pr_base`, the branch-deploy Action will consider the `featureB` branch to be up-to-date and allow the deployment to happen. This is because the `featureB` branch is up-to-date with the `featureA` branch. The `featureB` branch is behind the `main` branch but that is not relevant in this case because the target base branch of the pull request is `featureA` and not `main`.
 - If the `outdated_mode` input option is set to `default_branch`, the branch-deploy Action will consider the `featureB` branch to be out-of-date and prevent the deployment from happening. This is because the `featureB` branch is behind the `main` branch. If this branch were to be deployed, it would roll back the commits made to `main` and that could cause issues. Even though the `featureB` branch is up-to-date with the `featureA` branch, it is still considered out-of-date because it is behind the `main` branch when the `outdated_mode` input option is set to `default_branch`.
+
+### Scenario 2
+
+This scenario shows the "ideal" situation for a successful deployment. In this example, the `featureB` branch is up-to-date with both the `featureA` branch and the `main` branch. When this is the case, it does not matter which value you have set for the `outdated_mode` input option. Whether you have it set to `strict`, `pr_base`, or `default_branch`, all options in this case are up-to-date and the branch-deploy Action will allow the deployment to happen. Hooray!
+
+This diagram expands upon [Scenario 1](#scenario-1) and shows the `featureB` branch being updated by having `main` merged into it:
+
+```mermaid
+gitGraph
+   commit id: "A"
+   commit id: "B"
+   branch featureA
+   checkout featureA
+   commit id: "featA1"
+   commit id: "featA2"
+   branch featureB
+   checkout featureB
+   commit id: "featB1"
+   commit id: "featB2"
+   checkout main
+   commit id: "C"
+   commit id: "D"
+   checkout featureB
+   merge main
+```
+
+Alternatively, you could rebase the stack with `featureA` and `featureB` on top of `main`:
+
+```mermaid
+gitGraph
+   commit id: "A"
+   commit id: "B"
+   commit id: "C"
+   commit id: "D"
+   branch featureA
+   checkout featureA
+   commit id: "featA1"
+   commit id: "featA2"
+   branch featureB
+   checkout featureB
+   commit id: "featB1"
+   commit id: "featB2"
+```
