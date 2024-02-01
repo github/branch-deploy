@@ -119,7 +119,7 @@ beforeEach(() => {
   })
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return false
+    return {outdated: false, branch: 'test-branch'}
   })
 })
 
@@ -715,7 +715,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
   data.environmentObj.noop = true
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return true
+    return {outdated: true, branch: 'base-ref'}
   })
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
@@ -791,7 +791,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
   })
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return true
+    return {outdated: true, branch: 'base-ref'}
   })
 
   data.environmentObj.noop = true
@@ -799,7 +799,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: `422`\n- update_branch: `force`\n\n> Failed to update pull request branch with the `test-branch` branch',
+      '### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: `422`\n- update_branch: `force`\n\n> Failed to update pull request branch with the `base-ref` branch',
     status: false
   })
 })
@@ -829,7 +829,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
   })
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return true
+    return {outdated: true, branch: 'base-ref'}
   })
 
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue(null)
@@ -872,12 +872,12 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
   data.inputs.update_branch = 'warn'
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return true
+    return {outdated: true, branch: 'base-ref'}
   })
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `test-branch` branch and try again',
+      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `base-ref` branch and try again',
     status: false
   })
 })
@@ -1049,12 +1049,12 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
   data.inputs.update_branch = 'warn'
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return true
+    return {outdated: true, branch: 'base-ref'}
   })
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `test-branch` branch and try again',
+      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `base-ref` branch and try again',
     status: false
   })
 })
@@ -1084,7 +1084,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
   })
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return true
+    return {outdated: true, branch: 'base-ref'}
   })
 
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
@@ -1858,7 +1858,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
   })
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return true
+    return {outdated: true, branch: 'base-ref'}
   })
 
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
