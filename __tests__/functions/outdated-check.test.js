@@ -69,6 +69,27 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
   })
 })
 
+test('checks if the branch is out-of-date via commit comparison and finds that it is not, when the stable branch and base branch are the same (i.e a PR to main)', async () => {
+  data.baseBranch = data.stableBaseBranch
+  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+    branch: '',
+    outdated: false
+  })
+})
+
+test('checks if the branch is out-of-date via commit comparison and finds that it is, when the stable branch and base branch are the same (i.e a PR to main)', async () => {
+  data.baseBranch = data.stableBaseBranch
+
+  octokit.rest.repos.compareCommits = jest
+    .fn()
+    .mockReturnValue({data: {behind_by: 1}, status: 200})
+
+  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+    branch: 'stable-branch',
+    outdated: true
+  })
+})
+
 test('checks if the branch is out-of-date via commit comparison and finds that it is not using outdated_mode pr_base', async () => {
   data.outdated_mode = 'pr_base'
   expect(await isOutdated(context, octokit, data)).toStrictEqual({
