@@ -68,7 +68,10 @@ export async function isOutdated(context, octokit, data) {
         return isBehindStableBaseBranch
       } else {
         // If neither branch is behind, then the PR is not outdated
-        return {outdated: false, branch: ''}
+        return {
+          outdated: false,
+          branch: `${data.baseBranch.data.name}|${data.stableBaseBranch.data.name}`
+        }
       }
     }
   }

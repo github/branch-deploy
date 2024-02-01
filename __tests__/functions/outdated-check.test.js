@@ -64,7 +64,7 @@ beforeEach(() => {
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is not', async () => {
   expect(await isOutdated(context, octokit, data)).toStrictEqual({
-    branch: '',
+    branch: 'test-branch|stable-branch',
     outdated: false
   })
 })
@@ -72,7 +72,7 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
 test('checks if the branch is out-of-date via commit comparison and finds that it is not, when the stable branch and base branch are the same (i.e a PR to main)', async () => {
   data.baseBranch = data.stableBaseBranch
   expect(await isOutdated(context, octokit, data)).toStrictEqual({
-    branch: '',
+    branch: 'stable-branch|stable-branch',
     outdated: false
   })
 })
