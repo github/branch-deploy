@@ -25,3 +25,36 @@ It should be noted that if you are using the `force` value for the `update_branc
 ## About the `outdated_mode` input option
 
 The `outdated_mode` input option is useful when you want to ensure that the branch-deploy Action only deploys branches that are up-to-date. This is especially useful when you have a large team of developers working on a project and you want to ensure that commits are not rolled back accidentally when you are deploying a branch. For the sake of availability and deployment confidence, this input option is set to `strict` by default. This will ensure that your branch is up-to-date with the latest commits from both the default|stable branch and the branch that your pull request is merging into.
+
+## Example Scenarios
+
+This section will go into a few example scenarios to help you understand how the `outdated_mode` input option works in practice.
+
+> Big thanks to @jessew-albert for providing these examples!
+
+### Scenario 1
+
+This example diagram shows a scenario where a branch is created from the default|stable branch (`main` in this case). The name of this branch is `featureA` and a following branch is created from `featureA` called `featureB`. A few commits are made to the `featureB` branch and sometime later, another developer merges two commits into `main`. The `featureB` branch is now out-of-date with `main` even though it is up-to-date with the `featureA` branch. In this example, the target base branch of `featureB` is `featureA`.
+
+```mermaid
+gitGraph
+   commit id: "A"
+   commit id: "B"
+   branch featureA
+   checkout featureA
+   commit id: "featA1"
+   commit id: "featA2"
+   branch featureB
+   checkout featureB
+   commit id: "featB1"
+   commit id: "featB2"
+   checkout main
+   commit id: "C"
+   commit id: "D"
+```
+
+Let's pretend that we are trying to run the `.deploy` command on the pull request associated with `featureB` (which is trying to merge into `featureA`).
+
+- If the `outdated_mode` input option is set to `strict`, the branch-deploy Action will consider the `featureB` branch to be out-of-date and prevent the deployment from happening. This is because the `featureB` branch is behind the `main` branch. If this branch were to be deployed, it would roll back the commits made to `main` and that could cause issues. Even though the `featureB` branch is up-to-date with the `featureA` branch, it is still considered out-of-date because it is behind the `main` branch when the `outdated_mode` input option is set to `strict`.
+- If the `outdated_mode` input option is set to `pr_base`, the branch-deploy Action will consider the `featureB` branch to be up-to-date and allow the deployment to happen. This is because the `featureB` branch is up-to-date with the `featureA` branch. The `featureB` branch is behind the `main` branch but that is not relevant in this case because the target base branch of the pull request is `featureA` and not `main`.
+- If the `outdated_mode` input option is set to `default_branch`, the branch-deploy Action will consider the `featureB` branch to be out-of-date and prevent the deployment from happening. This is because the `featureB` branch is behind the `main` branch. If this branch were to be deployed, it would roll back the commits made to `main` and that could cause issues. Even though the `featureB` branch is up-to-date with the `featureA` branch, it is still considered out-of-date because it is behind the `main` branch when the `outdated_mode` input option is set to `default_branch`.
