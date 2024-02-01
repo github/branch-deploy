@@ -1,6 +1,5 @@
 import * as core from '@actions/core'
 import {isOutdated} from '../../src/functions/outdated-check'
-// import {COLORS} from '../../src/functions/colors'
 
 const debugMock = jest.spyOn(core, 'debug')
 
