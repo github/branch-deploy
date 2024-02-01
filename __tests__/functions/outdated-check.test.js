@@ -103,6 +103,22 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
   expect(debugMock).toHaveBeenCalledWith('checking isOutdated with strict mode')
 })
 
+test('checks if the branch is out-of-date via commit comparison and finds that it is only behind the stable branch', async () => {
+  octokit.rest.repos.compareCommits = jest
+    .fn()
+    .mockImplementationOnce(() =>
+      Promise.resolve({data: {behind_by: 0}, status: 200})
+    )
+    .mockImplementationOnce(() =>
+      Promise.resolve({data: {behind_by: 1}, status: 200})
+    )
+  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+    branch: 'stable-branch',
+    outdated: true
+  })
+  expect(debugMock).toHaveBeenCalledWith('checking isOutdated with strict mode')
+})
+
 test('checks the mergeStateStatus and finds that it is BEHIND', async () => {
   data.mergeStateStatus = 'BEHIND'
   expect(await isOutdated(context, octokit, data)).toStrictEqual({
