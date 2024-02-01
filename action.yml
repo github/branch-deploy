@@ -85,6 +85,10 @@ inputs:
     description: 'Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself'
     required: false
     default: "warn"
+  outdated_mode:
+    description: 'The mode to use for determining if a branch is up-to-date or not before allowing deployments. This option is closely related to the "update_branch" input option above. There are three available modes to choose from "pr_base", "default_branch", or "strict". The default is "strict" to help ensure that deployments are using the most up-to-date code. Please see the docs/outdated_mode.md document for more details.'
+    required: false
+    default: "strict"
   required_contexts:
     description: 'Manually enforce commit status checks before a deployment can continue. Only use this option if you wish to manually override the settings you have configured for your branch protection settings for your GitHub repository. Default is "false" - Example value: "context1,context2,context3" - In most cases you will not need to touch this option'
     required: false

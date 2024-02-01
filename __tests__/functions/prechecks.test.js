@@ -1,6 +1,7 @@
 import {prechecks} from '../../src/functions/prechecks'
 import {COLORS} from '../../src/functions/colors'
 import * as isAdmin from '../../src/functions/admin'
+import * as isOutdated from '../../src/functions/outdated-check'
 import * as core from '@actions/core'
 
 // Globals for testing
@@ -107,6 +108,19 @@ beforeEach(() => {
     },
     graphql: graphQLOK
   }
+
+  // mock the request for fetching the baseBranch variable
+  octokit.rest.repos.getBranch = jest.fn().mockReturnValue({
+    data: {
+      commit: {sha: 'deadbeef'},
+      name: 'test-branch'
+    },
+    status: 200
+  })
+
+  jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
+    return {outdated: false, branch: 'test-branch'}
+  })
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment', async () => {
@@ -122,7 +136,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 test('runs prechecks and finds that the IssueOps command is valid for a rollback deployment', async () => {
   octokit.rest.repos.getBranch = jest
     .fn()
-    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+    .mockReturnValue({data: {commit: {sha: 'deadbeef'}}, status: 200})
 
   data.environmentObj.stable_branch_used = true
 
@@ -505,7 +519,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
   })
   octokit.rest.repos.getBranch = jest
     .fn()
-    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+    .mockReturnValue({data: {commit: {sha: 'deadbeef'}}, status: 200})
 
   data.environmentObj.stable_branch_used = true
 
@@ -700,6 +714,10 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
   data.inputs.update_branch = 'force'
   data.environmentObj.noop = true
 
+  jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
+    return {outdated: true, branch: 'base-ref'}
+  })
+
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `force`\n\n> I went ahead and updated your branch with `main` - Please try again once this operation is complete',
@@ -772,12 +790,16 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
     status: 422
   })
 
+  jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
+    return {outdated: true, branch: 'base-ref'}
+  })
+
   data.environmentObj.noop = true
   data.inputs.update_branch = 'force'
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: `422`\n- update_branch: `force`\n\n> Failed to update pull request branch with `main`',
+      '### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: `422`\n- update_branch: `force`\n\n> Failed to update pull request branch with the `base-ref` branch',
     status: false
   })
 })
@@ -805,6 +827,11 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       }
     }
   })
+
+  jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
+    return {outdated: true, branch: 'base-ref'}
+  })
+
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue(null)
 
   data.environmentObj.noop = true
@@ -844,9 +871,13 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
   data.environmentObj.noop = true
   data.inputs.update_branch = 'warn'
 
+  jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
+    return {outdated: true, branch: 'base-ref'}
+  })
+
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` branch and try again',
+      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `base-ref` branch and try again',
     status: false
   })
 })
@@ -1017,9 +1048,13 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
 
   data.inputs.update_branch = 'warn'
 
+  jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
+    return {outdated: true, branch: 'base-ref'}
+  })
+
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` branch and try again',
+      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `base-ref` branch and try again',
     status: false
   })
 })
@@ -1046,6 +1081,10 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
         }
       }
     }
+  })
+
+  jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
+    return {outdated: true, branch: 'base-ref'}
   })
 
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
@@ -1817,12 +1856,11 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
     },
     status: 200
   })
-  octokit.rest.repos.getBranch = jest
-    .fn()
-    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
-  octokit.rest.repos.compareCommits = jest
-    .fn()
-    .mockReturnValueOnce({data: {behind_by: 1}, status: 200})
+
+  jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
+    return {outdated: true, branch: 'base-ref'}
+  })
+
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
     data: {
       message: 'Updating pull request branch.',
@@ -1879,9 +1917,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
   octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
-  octokit.rest.repos.compareCommits = jest
-    .fn()
-    .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
+
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
     data: {
       message: 'Updating pull request branch.',
@@ -1940,9 +1976,6 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
   octokit.rest.repos.getBranch = jest
     .fn()
     .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
-  octokit.rest.repos.compareCommits = jest
-    .fn()
-    .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
     data: {
       message: 'Updating pull request branch.',

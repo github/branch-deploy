@@ -40056,7 +40056,88 @@ async function isAdmin(context) {
   return false
 }
 
+;// CONCATENATED MODULE: ./src/functions/outdated-check.js
+
+
+
+// Helper function to check to see if the PR branch is outdated in anyway based on the Action's configuration
+//
+// outdated_mode can be: pr_base, default_branch, or strict (default)
+//
+// :param context: The context of the Action
+// :param octokit: An authenticated instance of the GitHub client
+// :param data: An object containing all of the data needed for this function
+// :return: A boolean value indicating if the PR branch is outdated or not
+async function isOutdated(context, octokit, data) {
+  core.debug(`outdated_mode: ${data.outdated_mode}`)
+
+  // Helper function to compare two branches
+  // :param baseBranch: The base branch to compare against
+  // :param prBranch: The PR branch to compare
+  // :return: An object containing a boolean value indicating if the PR branch is behind the base branch or not, and a string containing the name of the branch that is behind
+  async function compareBranches(baseBranch, prBranch) {
+    // if the mergeStateStatus is BEHIND, then we know the PR is behind the base branch
+    // in this case we can skip the commit comparison
+    if (data.mergeStateStatus === 'BEHIND') {
+      core.debug(`mergeStateStatus is BEHIND - exiting isOutdated logic early`)
+      return {outdated: true, branch: baseBranch.data.name}
+    }
+
+    const compare = await octokit.rest.repos.compareCommits({
+      ...context.repo,
+      base: baseBranch.data.commit.sha,
+      head: prBranch.data.head.sha
+    })
+
+    if (compare.data.behind_by > 0) {
+      const commits = compare.data.behind_by === 1 ? 'commit' : 'commits'
+      core.warning(
+        `The PR branch is behind the base branch by ${COLORS.highlight}${compare.data.behind_by} ${commits}${COLORS.reset}`
+      )
+      return {outdated: true, branch: baseBranch.data.name}
+    } else {
+      core.debug(`The PR branch is not behind the base branch - OK`)
+      return {outdated: false, branch: baseBranch.data.name}
+    }
+  }
+
+  // Check based on the outdated_mode
+  // pr_base: compare the PR branch to the base branch it is targeting
+  // default_branch: compare the PR branch to the default branch of the repo (aka the "stable" branch)
+  // strict: compare the PR branch to both the base branch and the default branch (default mode)
+  switch (data.outdated_mode) {
+    case 'pr_base':
+      core.debug(`checking isOutdated with pr_base mode`)
+      return await compareBranches(data.baseBranch, data.pr)
+    case 'default_branch':
+      core.debug(`checking isOutdated with default_branch mode`)
+      return await compareBranches(data.stableBaseBranch, data.pr)
+    case 'strict': {
+      core.debug(`checking isOutdated with strict mode`)
+      const isBehindBaseBranch = await compareBranches(data.baseBranch, data.pr)
+      const isBehindStableBaseBranch = await compareBranches(
+        data.stableBaseBranch,
+        data.pr
+      )
+
+      // Return the first branch that is behind (if any)
+      if (isBehindBaseBranch.outdated === true) {
+        return isBehindBaseBranch
+      } else if (isBehindStableBaseBranch.outdated === true) {
+        return isBehindStableBaseBranch
+      } else {
+        // If neither branch is behind, then the PR is not outdated
+        return {
+          outdated: false,
+          branch: `${data.baseBranch.data.name}|${data.stableBaseBranch.data.name}`
+        }
+      }
+    }
+  }
+}
+
 ;// CONCATENATED MODULE: ./src/functions/prechecks.js
+
 
 
 
@@ -40110,16 +40191,16 @@ async function prechecks(context, octokit, data) {
   var noopMode = data.environmentObj.noop
   var forkBypass = false
 
+  // Make an API call to get the base branch
+  const stableBaseBranch = await octokit.rest.repos.getBranch({
+    ...context.repo,
+    branch: data.inputs.stable_branch
+  })
+
   // Check to see if the "stable" branch was used as the deployment target
   if (data.environmentObj.stable_branch_used === true) {
-    // Make an API call to get the base branch
-    const baseBranch = await octokit.rest.repos.getBranch({
-      ...context.repo,
-      branch: data.inputs.stable_branch
-    })
-
-    // the sha now becomes the sha of the base branch for "stabe branch" deployments
-    sha = baseBranch.data.commit.sha
+    // the sha now becomes the sha of the base branch for "stable branch" deployments
+    sha = stableBaseBranch.data.commit.sha
 
     ref = data.inputs.stable_branch
     forkBypass = true
@@ -40163,7 +40244,6 @@ async function prechecks(context, octokit, data) {
   }
 
   // Check to ensure PR CI checks are passing and the PR has been reviewed
-  // mergeStateStatus is in the query below but not used at this time
   const query = `query($owner:String!, $name:String!, $number:Int!) {
                     repository(owner:$owner, name:$name) {
                         pullRequest(number:$number) {
@@ -40271,34 +40351,20 @@ async function prechecks(context, octokit, data) {
   // Get admin data
   const userIsAdmin = await isAdmin(context)
 
-  // Check to see if the branch is behind the base branch
-  var behind = false
-  // if the mergeStateStatus is 'BLOCKED' or 'HAS_HOOKS' check to see if the branch is out-of-date with the base branch
-  if (mergeStateStatus === 'BLOCKED' || mergeStateStatus === 'HAS_HOOKS') {
-    // Make an API call to get the base branch
-    const baseBranch = await octokit.rest.repos.getBranch({
-      ...context.repo,
-      branch: pr.data.base.ref
-    })
+  // Make an API call to get the base branch that the pull request is targeting
+  const baseBranch = await octokit.rest.repos.getBranch({
+    ...context.repo,
+    branch: pr.data.base.ref
+  })
 
-    // Make an API call to compare the base branch and the PR branch
-    const compare = await octokit.rest.repos.compareCommits({
-      ...context.repo,
-      base: baseBranch.data.commit.sha,
-      head: pr.data.head.sha
-    })
-
-    // If the PR branch is behind the base branch, set the behind variable to true
-    if (compare.data.behind_by > 0) {
-      behind = true
-    } else {
-      behind = false
-    }
-
-    // If the mergeStateStatus is 'BEHIND' set the behind variable to true
-  } else if (mergeStateStatus === 'BEHIND') {
-    behind = true
-  }
+  // Check to see if the branch is outdated or not based on the Action's configuration
+  const outdated = await isOutdated(context, octokit, {
+    baseBranch: baseBranch, // this is the base branch that the PR is targeting
+    stableBaseBranch: stableBaseBranch, // this is the 'stable' branch (aka: the default branch of the repo)
+    pr: pr,
+    mergeStateStatus: mergeStateStatus,
+    outdated_mode: data.inputs.outdated_mode
+  })
 
   // log values for debugging
   core.debug('precheck values for debugging:')
@@ -40312,7 +40378,7 @@ async function prechecks(context, octokit, data) {
   core.debug(`allowForks: ${data.inputs.allowForks}`)
   core.debug(`forkBypass: ${forkBypass}`)
   core.debug(`environment: ${data.environment}`)
-  core.debug(`behind: ${behind}`)
+  core.debug(`outdated: ${outdated.outdated}`)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (data.environmentObj.stable_branch_used === true) {
@@ -40352,21 +40418,22 @@ async function prechecks(context, octokit, data) {
     message = `### ⚠️ Cannot proceed with deployment\n\n- allow_sha_deployments: \`${data.inputs.allow_sha_deployments}\`\n\n> sha deployments have not been enabled`
     return {message: message, status: false}
 
-    // If update_branch is not "disabled", check the mergeStateStatus to see if it is BEHIND
+    // If update_branch is not "disabled", proceed with 'update_branch' logic
   } else if (
     (commitStatus === 'SUCCESS' ||
       commitStatus === null ||
       commitStatus === 'skip_ci') &&
     data.inputs.update_branch !== 'disabled' &&
-    behind === true
+    outdated.outdated === true
   ) {
     // If the update_branch param is set to "warn", warn and exit
     if (data.inputs.update_branch === 'warn') {
-      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${data.inputs.stable_branch}\` branch and try again`
+      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${outdated.branch}\` branch and try again`
       return {message: message, status: false}
     }
 
     // Execute the logic below only if update_branch is set to "force"
+    // This logic will attempt to update the pull request's branch so that it is no longer 'behind'
     core.debug(
       `update_branch is set to ${COLORS.highlight}${data.inputs.update_branch}`
     )
@@ -40380,7 +40447,7 @@ async function prechecks(context, octokit, data) {
 
       // If the result is not a 202, return an error message and exit
       if (result.status !== 202) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with \`${data.inputs.stable_branch}\``
+        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with the \`${outdated.branch}\` branch`
         return {message: message, status: false}
       }
 
@@ -42246,6 +42313,7 @@ async function help(octokit, context, reactionId, inputs) {
     inputs.reaction
   }\` - The GitHub reaction icon to add to the deployment comment when a deployment is triggered
   - \`update_branch: ${inputs.update_branch}\` - ${update_branch_message}
+  - \`outdated_mode: ${inputs.outdated_mode}\`
   - \`required_contexts: ${
     inputs.required_contexts
   }\` - ${required_contexts_message}
@@ -42332,6 +42400,7 @@ async function run() {
     const lock_info_alias = core.getInput('lock_info_alias')
     const global_lock_flag = core.getInput('global_lock_flag')
     const update_branch = core.getInput('update_branch')
+    const outdated_mode = core.getInput('outdated_mode')
     const required_contexts = core.getInput('required_contexts')
     const allowForks = core.getBooleanInput('allow_forks')
     const skipCi = core.getInput('skip_ci')
@@ -42483,6 +42552,7 @@ async function run() {
         help_trigger: help_trigger,
         lock_info_alias: lock_info_alias,
         update_branch: update_branch,
+        outdated_mode: outdated_mode,
         required_contexts: required_contexts,
         allowForks: allowForks,
         skipCi: skipCi,
@@ -42732,6 +42802,7 @@ async function run() {
       inputs: {
         allow_sha_deployments: allow_sha_deployments,
         update_branch: update_branch,
+        outdated_mode: outdated_mode,
         stable_branch: stable_branch,
         trigger: trigger,
         issue_number: issue_number,

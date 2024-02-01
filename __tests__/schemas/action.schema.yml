@@ -230,6 +230,16 @@ inputs:
     default:
       type: string
       required: true
+  outdated_mode:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: true
+      type: string
   required_contexts:
     description:
       type: string

@@ -46,6 +46,7 @@ export async function run() {
     const lock_info_alias = core.getInput('lock_info_alias')
     const global_lock_flag = core.getInput('global_lock_flag')
     const update_branch = core.getInput('update_branch')
+    const outdated_mode = core.getInput('outdated_mode')
     const required_contexts = core.getInput('required_contexts')
     const allowForks = core.getBooleanInput('allow_forks')
     const skipCi = core.getInput('skip_ci')
@@ -197,6 +198,7 @@ export async function run() {
         help_trigger: help_trigger,
         lock_info_alias: lock_info_alias,
         update_branch: update_branch,
+        outdated_mode: outdated_mode,
         required_contexts: required_contexts,
         allowForks: allowForks,
         skipCi: skipCi,
@@ -446,6 +448,7 @@ export async function run() {
       inputs: {
         allow_sha_deployments: allow_sha_deployments,
         update_branch: update_branch,
+        outdated_mode: outdated_mode,
         stable_branch: stable_branch,
         trigger: trigger,
         issue_number: issue_number,
