@@ -22,7 +22,7 @@ If your branch is determined to be out-of-date, the branch-deploy Action will no
 
 It should be noted that if you are using the `force` value for the `update_branch` input option, the branch-deploy Action will only attempt to update your branch with the target base branch of the pull request. This means that if your target base branch is something other than the default|stable branch, the branch-deploy Action will only attempt to update your branch with the latest commits from the target base branch. You will still be warned about your branch being out-of-date with the default|stable branch but it will not try to update your branch with the latest commits from the default|stable branch due to the complexity and potential risk involved with such a merge. You will need to manually update your branch with the latest commits from the default|stable branch if you want to deploy your branch and that is the case.
 
-The final bit of important information to note is that [rollback](../README.md#rollbacks-🔄) deployments (i.e `.deploy main`) will always work even if the default|stable branch is considered out-of-date. This is for safety reasons so that users of this Action can always rollback their changes in the event of an issue.
+The final bit of important information to note is that [rollback](../README.md#rollbacks-) deployments (i.e `.deploy main`) will always work even if the default|stable branch is considered out-of-date. This is for safety reasons so that users of this Action can always rollback their changes in the event of an issue.
 
 ## About the `outdated_mode` input option
 
