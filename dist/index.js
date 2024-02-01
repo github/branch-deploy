@@ -42313,6 +42313,7 @@ async function help(octokit, context, reactionId, inputs) {
     inputs.reaction
   }\` - The GitHub reaction icon to add to the deployment comment when a deployment is triggered
   - \`update_branch: ${inputs.update_branch}\` - ${update_branch_message}
+  - \`outdated_mode: ${inputs.outdated_mode}\`
   - \`required_contexts: ${
     inputs.required_contexts
   }\` - ${required_contexts_message}
