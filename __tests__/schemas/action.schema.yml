@@ -260,6 +260,16 @@ inputs:
     default:
       type: string
       required: false
+  checks:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
   skip_reviews:
     description:
       type: string
