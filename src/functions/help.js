@@ -27,6 +27,13 @@ export async function help(octokit, context, reactionId, inputs) {
     required_contexts_message = `There are required contexts designated for this Action`
   }
 
+  var checks_message = defaultSpecificMessage
+  if (inputs.checks.trim() === 'required') {
+    checks_message = `Only required CI checks must pass before a deployment can be requested`
+  } else {
+    checks_message = `All CI checks must pass before a deployment can be requested`
+  }
+
   var skip_ci_message = defaultSpecificMessage
   if (inputs.skipCi.trim() !== '') {
     skip_ci_message = `This Action will not require passing CI for the environments specified`
@@ -181,6 +188,7 @@ export async function help(octokit, context, reactionId, inputs) {
     inputs.allowForks === 'true' ? 'run' : 'not run'
   } on forked repositories
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
+  - \`checks: ${inputs.checks}\` - ${checks_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`draft_permitted_targets: ${
     inputs.draft_permitted_targets
