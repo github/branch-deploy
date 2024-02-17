@@ -47,6 +47,7 @@ export async function prechecks(context, octokit, data) {
   const skipCi = skipCiArray.includes(data.environment)
   const skipReviews = skipReviewsArray.includes(data.environment)
   const allowDraftDeploy = draftPermittedTargetsArray.includes(data.environment)
+  const checks = data.inputs.checks
 
   var ref = pr.data.head.ref
   var noopMode = data.environmentObj.noop
@@ -118,6 +119,14 @@ export async function prechecks(context, octokit, data) {
                                         }
                                         statusCheckRollup {
                                             state
+                                            contexts(first:100) {
+                                                nodes {
+                                                    ... on CheckRun {
+                                                        isRequired(pullRequestNumber:$number)
+                                                        conclusion
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -182,6 +191,18 @@ export async function prechecks(context, octokit, data) {
     ) {
       core.info('💡 no CI checks have been defined for this pull request')
       commitStatus = null
+
+      // If only the required checks need to pass
+    } else if (checks === 'required') {
+      commitStatus =
+        result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.nodes
+          .filter(x => x.isRequired)
+          .reduce(
+            (acc, x) => acc && ['SUCCESS', 'SKIPPED'].includes(x.conclusion),
+            true
+          )
+          ? 'SUCCESS'
+          : 'FAILURE'
 
       // If there are CI checked defined, we need to check for the 'state' of the latest commit
     } else {

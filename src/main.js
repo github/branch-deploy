@@ -50,6 +50,7 @@ export async function run() {
     const required_contexts = core.getInput('required_contexts')
     const allowForks = core.getBooleanInput('allow_forks')
     const skipCi = core.getInput('skip_ci')
+    const checks = core.getInput('checks')
     const skipReviews = core.getInput('skip_reviews')
     const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
     const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
@@ -202,6 +203,7 @@ export async function run() {
         required_contexts: required_contexts,
         allowForks: allowForks,
         skipCi: skipCi,
+        checks: checks,
         skipReviews: skipReviews,
         draft_permitted_targets,
         admins: admins,
@@ -454,6 +456,7 @@ export async function run() {
         issue_number: issue_number,
         allowForks: allowForks,
         skipCi: skipCi,
+        checks: checks,
         skipReviews: skipReviews,
         draft_permitted_targets: draft_permitted_targets
       }

@@ -40186,6 +40186,7 @@ async function prechecks(context, octokit, data) {
   const skipCi = skipCiArray.includes(data.environment)
   const skipReviews = skipReviewsArray.includes(data.environment)
   const allowDraftDeploy = draftPermittedTargetsArray.includes(data.environment)
+  const checks = data.inputs.checks
 
   var ref = pr.data.head.ref
   var noopMode = data.environmentObj.noop
@@ -40257,6 +40258,14 @@ async function prechecks(context, octokit, data) {
                                         }
                                         statusCheckRollup {
                                             state
+                                            contexts(first:100) {
+                                                nodes {
+                                                    ... on CheckRun {
+                                                        isRequired(pullRequestNumber:$number)
+                                                        conclusion
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -40321,6 +40330,18 @@ async function prechecks(context, octokit, data) {
     ) {
       core.info('💡 no CI checks have been defined for this pull request')
       commitStatus = null
+
+      // If only the required checks need to pass
+    } else if (checks === 'required') {
+      commitStatus =
+        result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.nodes
+          .filter(x => x.isRequired)
+          .reduce(
+            (acc, x) => acc && ['SUCCESS', 'SKIPPED'].includes(x.conclusion),
+            true
+          )
+          ? 'SUCCESS'
+          : 'FAILURE'
 
       // If there are CI checked defined, we need to check for the 'state' of the latest commit
     } else {
@@ -42404,6 +42425,7 @@ async function run() {
     const required_contexts = core.getInput('required_contexts')
     const allowForks = core.getBooleanInput('allow_forks')
     const skipCi = core.getInput('skip_ci')
+    const checks = core.getInput('checks')
     const skipReviews = core.getInput('skip_reviews')
     const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
     const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
@@ -42556,6 +42578,7 @@ async function run() {
         required_contexts: required_contexts,
         allowForks: allowForks,
         skipCi: skipCi,
+        checks: checks,
         skipReviews: skipReviews,
         draft_permitted_targets,
         admins: admins,
@@ -42808,6 +42831,7 @@ async function run() {
         issue_number: issue_number,
         allowForks: allowForks,
         skipCi: skipCi,
+        checks: checks,
         skipReviews: skipReviews,
         draft_permitted_targets: draft_permitted_targets
       }
