@@ -98,7 +98,7 @@ inputs:
     required: false
     default: ""
   checks:
-    description: 'The mode to use for CI checks. "all" requires all checks to pass no matter what, "required" only waits for required checks.'
+    description: 'This input defines how the branch-deploy Action will handle the status of CI checks on your PR/branch before deployments can continue. `"all"` requires that all CI checks must pass in order for a deployment to be triggered. `"required"` only waits for required CI checks to be passing.'
     required: false
     default: "all"
   skip_reviews:
