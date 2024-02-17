@@ -97,6 +97,10 @@ inputs:
     description: 'A comma separated list of environments that will not use passing CI as a requirement for deployment. Use this option to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string "" - Example: "development,staging"'
     required: false
     default: ""
+  checks:
+    description: 'The mode to use for CI checks. "all" requires all checks to pass no matter what, "required" only waits for required checks.'
+    required: false
+    default: "all"
   skip_reviews:
     description: 'A comma separated list of environment that will not use reviews/approvals as a requirement for deployment. Use this options to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string "" - Example: "development,staging"'
     required: false

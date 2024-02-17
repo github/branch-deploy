@@ -43,7 +43,8 @@ beforeEach(() => {
       allowForks: true,
       skipCi: '',
       skipReviews: '',
-      draft_permitted_targets: ''
+      draft_permitted_targets: '',
+      checks: 'all'
     }
   }
 
@@ -87,7 +88,23 @@ beforeEach(() => {
                   totalCount: 3
                 },
                 statusCheckRollup: {
-                  state: 'SUCCESS'
+                  state: 'SUCCESS',
+                  contexts: {
+                    nodes: [
+                      {
+                        isRequired: true,
+                        conclusion: 'SUCCESS'
+                      },
+                      {
+                        isRequired: true,
+                        conclusion: 'SKIPPED'
+                      },
+                      {
+                        isRequired: false,
+                        conclusion: 'SUCCESS'
+                      }
+                    ]
+                  }
                 }
               }
             }
@@ -124,6 +141,57 @@ beforeEach(() => {
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment', async () => {
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message: '✅ PR is approved and all CI checks passed',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true,
+    sha: 'abc123'
+  })
+})
+
+test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with required checks', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'CLEAN',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 3
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE',
+                  contexts: {
+                    nodes: [
+                      {
+                        isRequired: true,
+                        conclusion: 'SUCCESS'
+                      },
+                      {
+                        isRequired: true,
+                        conclusion: 'SKIPPED'
+                      },
+                      {
+                        isRequired: false,
+                        conclusion: 'FAILURE'
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+
+  data.inputs.checks = 'required'
+
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
@@ -612,6 +680,54 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       }
     }
   })
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
+    status: false
+  })
+})
+
+test('runs prechecks and finds the PR is approved but CI is failing', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                checkSuites: {
+                  totalCount: 3
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE',
+                  contexts: {
+                    nodes: [
+                      {
+                        isRequired: true,
+                        conclusion: 'SUCCESS'
+                      },
+                      {
+                        isRequired: true,
+                        conclusion: 'FAILURE'
+                      },
+                      {
+                        isRequired: false,
+                        conclusion: 'SUCCESS'
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+
+  data.inputs.checks = 'required'
+
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
