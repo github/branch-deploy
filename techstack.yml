@@ -2,7 +2,7 @@ repo_name: DinnerMonster/branch-deploy
 report_id: 5c6fd36481d632f4e76e61db92dea209
 version: 0.1
 repo_type: Public
-timestamp: '2024-01-05T08:16:48+00:00'
+timestamp: '2024-02-29T19:10:32+00:00'
 requested_by: GrantBirki
 provider: github
 branch: main
@@ -108,7 +108,7 @@ tools:
   last_updated_by: GrantBirki
   last_updated_on: 2023-02-01 21:55:41.000000000 Z
 - name: Prettier
-  description: 'Prettier is an opinionated code formatter. '
+  description: Prettier is an opinionated code formatter.
   website_url: https://prettier.io/
   version: 2.5.1
   license: MIT
