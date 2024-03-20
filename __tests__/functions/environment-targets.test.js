@@ -41,7 +41,7 @@ test('checks the comment body and does not find an explicit environment target',
     environment: 'production',
     environmentUrl: null,
     environmentObj: {
-      target: 'production',
+      targets: ['production'],
       noop: false,
       stable_branch_used: false,
       params: null,
@@ -66,7 +66,7 @@ test('checks the comment body and finds an explicit environment target for devel
     environment: 'development',
     environmentUrl: null,
     environmentObj: {
-      target: 'development',
+      targets: ['development'],
       noop: false,
       stable_branch_used: false,
       params: null,
@@ -1039,5 +1039,30 @@ test('checks the comment body on a lock info request and uses the development en
   ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for lock request: development'
+  )
+})
+
+test('checks the comment body and finds multiple environment targets', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy development production',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({
+    environment: 'development',
+    environmentUrl: null,
+    environmentObj: {
+      targets: ['development'],
+      noop: false,
+      stable_branch_used: false,
+      params: null,
+      sha: null
+    }
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    'found environment target for branch deploy: development'
   )
 })
