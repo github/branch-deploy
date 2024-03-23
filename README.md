@@ -89,6 +89,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
 
 jobs:
   demo:
@@ -189,6 +190,7 @@ permissions:
   deployments: write # Required for updating deployment statuses
   contents: write # Required for reading/writing the lock file
   checks: read # Required for checking if the CI checks have passed in order to deploy the PR
+  statuses: read # Required for checking if all commit statuses are "success" in order to deploy the PR
 ```
 
 These are the minimum permissions you need to run this Action
@@ -455,6 +457,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
 ```
 
 Permissions Explained:
@@ -463,6 +466,7 @@ Permissions Explained:
 - `deployments`: `write` - Required to update repository deployment statuses
 - `contents`: `write` - Write access is required for this Action to create "lock" branches for deployments
 - `checks`: `read` - Only read access is needed for this Action to get the status of other CI checks
+- `statuses`: `read` - Only read access is needed for this Action to get the commit statuses of commits in the PR
 
 It should also be noted that this Action has built in functions to check the permissions of a user who invokes a IssueOps command. If the user does not have `write` or greater permissions to the repository, their command will be rejected
 
