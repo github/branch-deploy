@@ -41597,7 +41597,10 @@ async function unlock(
     core.debug(`unlock() error.message: ${error.message}`)
 
     // The the error caught was a 422 - Reference does not exist, this is OK - It means the lock branch does not exist
-    if (error.status === 422 && error.message === 'Reference does not exist') {
+    if (
+      error.status === 422 &&
+      error.message.startsWith('Reference does not exist')
+    ) {
       // If silent, exit here
       if (silent) {
         core.debug('no deployment lock currently set - silent')
