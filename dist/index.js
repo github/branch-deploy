@@ -40005,6 +40005,7 @@ async function orgTeamCheck(actor, orgTeams) {
         core.warning(`non 204 response from org team check: ${result.status}`)
       }
     } catch (error) {
+      core.debug(`orgTeamCheck() error.status: ${error.status}`)
       // If any of the API calls returns a 404, the user is not in the team
       if (error.status === 404) {
         core.debug(`${actor} is not a member of the ${orgTeam} team`)
@@ -40754,6 +40755,7 @@ async function checkLockFile(octokit, context, branchName) {
 
     return lockData
   } catch (error) {
+    core.debug(`checkLockFile() error.status: ${error.status}`)
     // If the lock file doesn't exist, return false
     if (error.status === 404) {
       const lockFileNotFoundMsg = `🔍 lock file does not exist on branch: ${COLORS.highlight}${branchName}`
@@ -41049,6 +41051,7 @@ async function checkBranch(octokit, context, branchName) {
     core.debug(`branch '${branchName}' exists`)
     return true
   } catch (error) {
+    core.debug(`checkBranch() error.status: ${error.status}`)
     // Check if the error was due to the lock branch not existing
     if (error.status === 404) {
       core.debug(`lock branch ${branchName} does not exist`)

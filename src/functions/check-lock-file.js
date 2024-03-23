@@ -27,6 +27,7 @@ export async function checkLockFile(octokit, context, branchName) {
 
     return lockData
   } catch (error) {
+    core.debug(`checkLockFile() error.status: ${error.status}`)
     // If the lock file doesn't exist, return false
     if (error.status === 404) {
       const lockFileNotFoundMsg = `🔍 lock file does not exist on branch: ${COLORS.highlight}${branchName}`

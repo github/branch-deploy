@@ -58,6 +58,7 @@ async function orgTeamCheck(actor, orgTeams) {
         core.warning(`non 204 response from org team check: ${result.status}`)
       }
     } catch (error) {
+      core.debug(`orgTeamCheck() error.status: ${error.status}`)
       // If any of the API calls returns a 404, the user is not in the team
       if (error.status === 404) {
         core.debug(`${actor} is not a member of the ${orgTeam} team`)
