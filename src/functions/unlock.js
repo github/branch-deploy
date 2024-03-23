@@ -144,6 +144,10 @@ export async function unlock(
       return false
     }
   } catch (error) {
+    // debug the error msg
+    core.debug(`unlock() error.status: ${error.status}`)
+    core.debug(`unlock() error.message: ${error.message}`)
+
     // The the error caught was a 422 - Reference does not exist, this is OK - It means the lock branch does not exist
     if (error.status === 422 && error.message === 'Reference does not exist') {
       // If silent, exit here
