@@ -143,7 +143,11 @@ test('Does not find a deployment lock branch so it lets the user know - silent m
       git: {
         deleteRef: jest
           .fn()
-          .mockRejectedValue(new NotFoundError('Reference does not exist'))
+          .mockRejectedValue(
+            new NotFoundError(
+              'Reference does not exist - https://docs.github.com/rest/git/refs#delete-a-reference'
+            )
+          )
       }
     }
   }
@@ -174,7 +178,11 @@ test('Does not find a deployment lock branch so it lets the user know', async ()
       git: {
         deleteRef: jest
           .fn()
-          .mockRejectedValue(new NotFoundError('Reference does not exist'))
+          .mockRejectedValue(
+            new NotFoundError(
+              'Reference does not exist - https://docs.github.com/rest/git/refs#delete-a-reference'
+            )
+          )
       }
     }
   }
@@ -201,7 +209,11 @@ test('Does not find a deployment lock branch so it lets the user know', async ()
       git: {
         deleteRef: jest
           .fn()
-          .mockRejectedValue(new NotFoundError('Reference does not exist'))
+          .mockRejectedValue(
+            new NotFoundError(
+              'Reference does not exist - https://docs.github.com/rest/git/refs#delete-a-reference'
+            )
+          )
       }
     }
   }
