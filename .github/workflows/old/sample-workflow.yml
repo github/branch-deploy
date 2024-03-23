@@ -9,6 +9,7 @@
 #   deployments: write
 #   contents: write
 #   checks: read
+#   statuses: read
 
 # jobs:
 #   sample:

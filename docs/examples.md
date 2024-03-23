@@ -42,6 +42,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
 
 jobs:
   deploy:
@@ -99,6 +100,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
 
 jobs:
   deploy:
@@ -200,6 +202,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
 
 jobs:
   deploy:
@@ -252,6 +255,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
 
 jobs:
   deploy:
@@ -282,7 +286,7 @@ jobs:
         if: steps.branch-deploy.outputs.continue == 'true'
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up  
+        run: railway up
 ```
 
 ## SSH
@@ -309,6 +313,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
 
 jobs:
   deploy:
@@ -363,6 +368,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
 
 jobs:
   deploy:
@@ -444,6 +450,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
 
 jobs:
   deploy:
@@ -509,6 +516,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
 
 jobs:
   trigger:
@@ -592,7 +600,7 @@ jobs:
             --jq '.content' \
             | base64 --decode \
             > lock.json
-          
+
           # Check if the sticky value is true
           if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
             echo "The lock is sticky, skipping the delete step"
@@ -676,6 +684,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
 
 # set an environment variable for use in the jobs pointing to my blog
 env:
@@ -825,7 +834,7 @@ jobs:
             --jq '.content' \
             | base64 --decode \
             > lock.json
-          
+
           # Check if the sticky value is true
           if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
             echo "The lock is sticky, skipping the delete step"
@@ -911,6 +920,7 @@ permissions:
   deployments: write
   contents: write
   checks: read
+  statuses: read
   pages: write
   id-token: write
 
@@ -1029,7 +1039,7 @@ jobs:
             --jq '.content' \
             | base64 --decode \
             > lock.json
-          
+
           # Check if the sticky value is true
           if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
             echo "The lock is sticky, skipping the delete step"
@@ -1113,6 +1123,7 @@ env:
 
 permissions:
   checks: read
+  statuses: read
   contents: write
   deployments: write
   packages: read
