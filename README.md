@@ -537,6 +537,54 @@ When using this option, you will need to manually set your deployment status dep
 
 An example workflow using this option can be found [here](https://github.com/github/branch-deploy/blob/main/docs/examples.md#multiple-jobs)
 
+## Saving on Actions Compute
+
+If you are looking to save on Actions compute time, here is a helpful tip! You can use the `if` conditional to only run this Action when a specific comment is made on a pull request. This can help you save on Actions compute time by only running this Action when it should truly be invoked.
+
+Here is an example workflow demonstrating the `if` conditional:
+
+```yaml
+name: "branch deploy demo"
+
+# The workflow to execute on is comments that are newly created
+on:
+  issue_comment:
+    types: [created]
+
+# Permissions needed for reacting and adding comments for IssueOps commands
+permissions:
+  pull-requests: write
+  deployments: write
+  contents: write
+  checks: read
+  statuses: read
+
+jobs:
+  demo:
+    if: # only run on pull request comments and very specific comment body string as defined in our branch-deploy settings - this will save on Actions compute time
+      ${{ github.event.issue.pull_request &&
+      (startsWith(github.event.comment.body, '.deploy') ||
+      startsWith(github.event.comment.body, '.noop') ||
+      startsWith(github.event.comment.body, '.lock') ||
+      startsWith(github.event.comment.body, '.help') ||
+      startsWith(github.event.comment.body, '.wcid') ||
+      startsWith(github.event.comment.body, '.unlock')) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: github/branch-deploy@vX.X.X # replace with the latest version
+        id: branch-deploy
+        with:
+          trigger: ".deploy"
+          noop_trigger: ".noop"
+          lock_trigger: ".lock"
+          unlock_trigger: ".unlock"
+          help_trigger: ".help"
+          lock_info_alias: ".wcid"
+          # these are all the command definitions that we want to listen for (above) ^
+
+      # Run your deployment logic for your project below...
+```
+
 ## Examples
 
 This section contains real world examples of how this Action can be used
