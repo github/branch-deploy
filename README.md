@@ -193,7 +193,7 @@ permissions:
   statuses: read # Required for checking if all commit statuses are "success" in order to deploy the PR
 ```
 
-These are the minimum permissions you need to run this Action
+These are the minimum permissions you need to run this Action. If you need further assistance with permissions within GitHub Actions, please review the following [documentation](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token).
 
 ```yaml
 jobs:
