@@ -55,7 +55,7 @@
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.24.1",
     "@babel/preset-env": "^7.24.3",
-    "@types/node": "^20.11.30",
+    "@types/node": "^20.12.2",
     "@vercel/ncc": "^0.38.1",
     "@babel/core": "^7.24.3",
     "babel-jest": "^29.7.0",
