@@ -42140,7 +42140,7 @@ async function postDeploy(
       )
     } else {
       core.info(nonStickyMsg)
-      core.debug(`lockData.sticky: ${lockData.sticky}`)
+      core.debug(`lockData.sticky: ${lockData?.sticky}`)
 
       // remove the lock - use silent mode
       await unlock(
@@ -42184,11 +42184,11 @@ async function postDeploy(
   core.debug(JSON.stringify(lockData))
 
   // if the lock is sticky, we will NOT remove it
-  if (lockData.sticky === true) {
+  if (lockData?.sticky === true) {
     core.info(stickyMsg)
   } else {
     core.info(nonStickyMsg)
-    core.debug(`lockData.sticky: ${lockData.sticky}`)
+    core.debug(`lockData.sticky: ${lockData?.sticky}`)
 
     // remove the lock - use silent mode
     await unlock(
