@@ -12,6 +12,9 @@ export function truncateCommentBody(message) {
   if (message.length <= maxCommentLength) {
     return message
   }
-  let truncated = message.substring(0, maxCommentLength - truncatedMessageStart.length - truncatedMessageEnd.length)
+  let truncated = message.substring(
+    0,
+    maxCommentLength - truncatedMessageStart.length - truncatedMessageEnd.length
+  )
   return truncatedMessageStart + truncated + truncatedMessageEnd
 }

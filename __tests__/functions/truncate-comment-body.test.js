@@ -1,4 +1,4 @@
-import { truncateCommentBody } from '../../src/functions/truncate-comment-body'
+import {truncateCommentBody} from '../../src/functions/truncate-comment-body'
 
 test('truncates a long message', () => {
   const message = 'a'.repeat(65537)
@@ -8,7 +8,6 @@ test('truncates a long message', () => {
 
 test('does not truncate a short message', () => {
   const message = 'a'.repeat(65536)
-  const got= truncateCommentBody(message)
+  const got = truncateCommentBody(message)
   expect(got).toEqual(message)
 })
-

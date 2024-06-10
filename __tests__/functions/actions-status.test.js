@@ -1,5 +1,5 @@
 import {actionStatus} from '../../src/functions/action-status'
-import { truncateCommentBody } from '../../src/functions/truncate-comment-body'
+import {truncateCommentBody} from '../../src/functions/truncate-comment-body'
 
 var context
 var octokit
@@ -160,7 +160,9 @@ test('uses default log url when the "message" variable is empty for a success', 
 
 test('truncates the message when it is too large for an issue comment', async () => {
   const message = 'a'.repeat(65538)
-  expect(await actionStatus(context, octokit, 123, message, true)).toBe(undefined)
+  expect(await actionStatus(context, octokit, 123, message, true)).toBe(
+    undefined
+  )
   expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
     body: truncateCommentBody(message),
     issue_number: 1,

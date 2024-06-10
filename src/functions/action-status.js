@@ -1,4 +1,4 @@
-import { truncateCommentBody } from "./truncate-comment-body"
+import {truncateCommentBody} from './truncate-comment-body'
 
 // Default failure reaction
 const thumbsDown = '-1'
