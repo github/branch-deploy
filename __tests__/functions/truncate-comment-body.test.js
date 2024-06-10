@@ -1,4 +1,11 @@
+import * as core from '@actions/core'
 import {truncateCommentBody} from '../../src/functions/truncate-comment-body'
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  jest.spyOn(core, 'warning').mockImplementation(() => {})
+})
 
 test('truncates a long message', () => {
   const message = 'a'.repeat(65537)
