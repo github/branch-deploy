@@ -1,3 +1,5 @@
+import {truncateCommentBody} from './truncate-comment-body'
+
 // Default failure reaction
 const thumbsDown = '-1'
 // Default success reaction
@@ -28,11 +30,10 @@ export async function actionStatus(
     message = 'Unknown error, [check logs](' + log_url + ') for more details.'
   }
 
-  // add a comment to the issue with the message
   await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: context.issue.number,
-    body: message
+    body: truncateCommentBody(message)
   })
 
   // Select the reaction to add to the issue_comment
