@@ -1,3 +1,4 @@
+import * as core from '@actions/core'
 import {actionStatus} from '../../src/functions/action-status'
 import {truncateCommentBody} from '../../src/functions/truncate-comment-body'
 
@@ -5,6 +6,10 @@ var context
 var octokit
 beforeEach(() => {
   jest.clearAllMocks()
+
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  jest.spyOn(core, 'warning').mockImplementation(() => {})
+
   process.env.GITHUB_SERVER_URL = 'https://github.com'
   process.env.GITHUB_RUN_ID = '12345'
 
