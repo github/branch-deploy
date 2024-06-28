@@ -149,6 +149,22 @@ inputs:
     description: 'If set to "true", then naked commands will be disabled. Example: ".deploy" will not trigger a deployment. Instead, you must use ".deploy to production" to trigger a deployment. This is useful if you want to prevent accidental deployments from happening. Read more about naked commands here: https://github.com/github/branch-deploy/blob/main/docs/naked-commands.md'
     required: false
     default: "false"
+  successful_deploy_labels:
+    description: 'A comma separated list of labels to add to the pull request when a deployment is successful. Example: "deployed,success"'
+    required: false
+    default: ""
+  successful_noop_labels:
+    description: 'A comma separated list of labels to add to the pull request when a noop deployment is successful. Example: "noop,success"'
+    required: false
+    default: ""
+  failed_deploy_labels:
+    description: 'A comma separated list of labels to add to the pull request when a deployment fails. Example: "failed,deploy-failed"'
+    required: false
+    default: ""
+  failed_noop_labels:
+    description: 'A comma separated list of labels to add to the pull request when a noop deployment fails. Example: "failed,noop-failed"'
+    required: false
+    default: ""
 outputs:
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'

@@ -390,6 +390,46 @@ inputs:
     default:
       required: true
       type: string
+  successful_deploy_labels:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: true
+      type: string
+  successful_noop_labels:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: true
+      type: string
+  failed_deploy_labels:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: true
+      type: string
+  failed_noop_labels:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: true
+      type: string
 
 # outputs section
 outputs:

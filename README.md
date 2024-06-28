@@ -289,6 +289,10 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `sticky_locks_for_noop` | `false` | `"false"` | If set to `"true"`, then sticky_locks will also be used for noop deployments. This can be useful in some cases but it often leads to locks being left behind when users test noop deployments. |
 | `allow_sha_deployments` | `false` | `"false"` | If set to `"true"`, then you can deploy a specific sha instead of a branch. Example: `".deploy 1234567890abcdef1234567890abcdef12345678 to production"` - This is dangerous and potentially unsafe, [view the docs](docs/sha-deployments.md) to learn more |
 | `disable_naked_commands` | `false` | `"false"` | If set to `"true"`, then naked commands will be disabled. Example: `.deploy` will not trigger a deployment. Instead, you must use `.deploy to production` to trigger a deployment. This is useful if you want to prevent accidental deployments from happening. View the [docs](docs/naked-commands.md) to learn more |
+| `successful_deploy_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a deployment is successful. Example: `"deployed,success"` |
+| `successful_noop_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a noop deployment is successful. Example: `"noop,success"` |
+| `failed_deploy_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a deployment fails. Example: `"failed,deploy-failed"` |
+| `failed_noop_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a noop deployment fails. Example: `"failed,noop-failed"` |
 
 ## Outputs 📤
 
