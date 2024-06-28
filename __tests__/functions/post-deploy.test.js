@@ -519,6 +519,26 @@ test('successfully completes a noop branch deployment and applies success labels
   ).toBe('success - noop')
 })
 
+test('successfully completes a noop branch deployment that fails and applies success labels', async () => {
+  labels.successful_noop = ['ready-for-review', 'noop-success']
+
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'failure',
+      'test-ref',
+      true,
+      456,
+      'production',
+      null, // environment_url
+      labels
+    )
+  ).toBe('success - noop')
+})
+
 test('updates with a failure for a production branch deployment', async () => {
   expect(
     await postDeploy(
