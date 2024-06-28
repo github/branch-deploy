@@ -10,7 +10,11 @@ const validBooleanInputs = {
   skip_completing: false
 }
 const validInputs = {
-  status: 'success'
+  status: 'success',
+  successful_deploy_labels: '',
+  successful_noop_labels: '',
+  failed_deploy_labels: '',
+  failed_noop_labels: '',
 }
 
 const validStates = {
