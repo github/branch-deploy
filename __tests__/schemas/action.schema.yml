@@ -537,3 +537,19 @@ outputs:
     description:
       type: string
       required: true
+  review_decision:
+    description:
+      type: string
+      required: true
+  is_outdated:
+    description:
+      type: string
+      required: true
+  merge_state_status:
+    description:
+      type: string
+      required: true
+  commit_status:
+    description:
+      type: string
+      required: true

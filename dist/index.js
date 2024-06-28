@@ -40726,6 +40726,12 @@ async function prechecks(context, octokit, data) {
   core.debug(`environment: ${data.environment}`)
   core.debug(`outdated: ${outdated.outdated}`)
 
+  // output values
+  core.setOutput('commit_status', commitStatus)
+  core.setOutput('review_decision', reviewDecision)
+  core.setOutput('is_outdated', outdated.outdated)
+  core.setOutput('merge_state_status', mergeStateStatus)
+
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (data.environmentObj.stable_branch_used === true) {
     message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`
