@@ -56,8 +56,6 @@ export async function postDeploy(
     }
   }
 
-  core.info(`labels: ${JSON.stringify(labels)}`)
-
   // check the deployment status
   var success
   if (status === 'success') {

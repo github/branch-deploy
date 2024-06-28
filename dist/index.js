@@ -40168,7 +40168,7 @@ async function isDeprecated(body, octokit, context) {
 // Helper function to convert a String to an Array specifically in Actions
 // :param string: A comma seperated string to convert to an array
 // :return Array: The function returns an Array - can be empty
-async function stringToArray(string) {
+function stringToArray(string) {
   try {
     // If the String is empty, return an empty Array
     if (string.trim() === '') {
@@ -40209,9 +40209,7 @@ async function stringToArray(string) {
 // :returns: An error string if the actor doesn't have permissions, otherwise true
 async function validPermissions(octokit, context) {
   // fetch the defined permissions from the Action input
-  const validPermissionsArray = await stringToArray(
-    core.getInput('permissions')
-  )
+  const validPermissionsArray = stringToArray(core.getInput('permissions'))
 
   core.setOutput('actor', context.actor)
 
@@ -40503,9 +40501,9 @@ async function prechecks(context, octokit, data) {
   core.debug(`base_ref: ${baseRef}`)
 
   // Setup the skipCi, skipReview, and draft_permitted_targets variables
-  const skipCiArray = await stringToArray(data.inputs.skipCi)
-  const skipReviewsArray = await stringToArray(data.inputs.skipReviews)
-  const draftPermittedTargetsArray = await stringToArray(
+  const skipCiArray = stringToArray(data.inputs.skipCi)
+  const skipReviewsArray = stringToArray(data.inputs.skipReviews)
+  const draftPermittedTargetsArray = stringToArray(
     data.inputs.draft_permitted_targets
   )
   const skipCi = skipCiArray.includes(data.environment)
@@ -42210,8 +42208,6 @@ async function postDeploy(
     }
   }
 
-  core.info(`labels: ${JSON.stringify(labels)}`)
-
   // check the deployment status
   var success
   if (status === 'success') {
@@ -42877,7 +42873,7 @@ async function run() {
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
-    const production_environments = await stringToArray(
+    const production_environments = stringToArray(
       core.getInput('production_environments')
     )
     const environment_targets = core.getInput('environment_targets')
@@ -43048,7 +43044,7 @@ async function run() {
         skipReviews: skipReviews,
         draft_permitted_targets,
         admins: admins,
-        permissions: await stringToArray(permissions),
+        permissions: stringToArray(permissions),
         allow_sha_deployments: allow_sha_deployments
       }
 

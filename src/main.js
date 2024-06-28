@@ -36,7 +36,7 @@ export async function run() {
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
-    const production_environments = await stringToArray(
+    const production_environments = stringToArray(
       core.getInput('production_environments')
     )
     const environment_targets = core.getInput('environment_targets')
@@ -207,7 +207,7 @@ export async function run() {
         skipReviews: skipReviews,
         draft_permitted_targets,
         admins: admins,
-        permissions: await stringToArray(permissions),
+        permissions: stringToArray(permissions),
         allow_sha_deployments: allow_sha_deployments
       }
 

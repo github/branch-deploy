@@ -39,9 +39,9 @@ export async function prechecks(context, octokit, data) {
   core.debug(`base_ref: ${baseRef}`)
 
   // Setup the skipCi, skipReview, and draft_permitted_targets variables
-  const skipCiArray = await stringToArray(data.inputs.skipCi)
-  const skipReviewsArray = await stringToArray(data.inputs.skipReviews)
-  const draftPermittedTargetsArray = await stringToArray(
+  const skipCiArray = stringToArray(data.inputs.skipCi)
+  const skipReviewsArray = stringToArray(data.inputs.skipReviews)
+  const draftPermittedTargetsArray = stringToArray(
     data.inputs.draft_permitted_targets
   )
   const skipCi = skipCiArray.includes(data.environment)
