@@ -122,6 +122,9 @@ export async function postDeploy(
       )
     }
 
+    // apply successful noop labels if they exist
+    core.debug(`labels.successful_noop: ${labels.successful_noop}`)
+
     return 'success - noop'
   }
 

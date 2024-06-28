@@ -12,6 +12,7 @@ const warningMock = jest.spyOn(core, 'warning')
 
 var octokit
 var context
+var labels
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -56,6 +57,13 @@ beforeEach(() => {
         })
       }
     }
+  }
+
+  labels = {
+    successful_deploy: [],
+    successful_noop: [],
+    failed_deploy: [],
+    failed_noop: []
   }
 })
 
