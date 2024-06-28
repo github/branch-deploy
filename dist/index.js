@@ -39450,7 +39450,7 @@ async function reactEmote(reaction, context, octokit) {
 // Helper function to check an Action's input to ensure it is valid
 // :param input: The input to check
 // :returns: The input if it is valid, null otherwise
-async function checkInput(input) {
+function checkInput(input) {
   // if the input is an empty string (most common), return null
   if (input === '' || input?.trim() === '') {
     return null
@@ -39903,7 +39903,7 @@ async function findEnvironmentUrl(environment, environment_urls) {
   // The structure: "<environment1>|<url1>,<environment2>|<url2>,etc"
 
   // If the environment URLs are empty, just return an empty string
-  if ((await checkInput(environment_urls)) === null) {
+  if (checkInput(environment_urls) === null) {
     return null
   }
 
@@ -40168,7 +40168,7 @@ async function isDeprecated(body, octokit, context) {
 // Helper function to convert a String to an Array specifically in Actions
 // :param string: A comma seperated string to convert to an array
 // :return Array: The function returns an Array - can be empty
-async function stringToArray(string) {
+function stringToArray(string) {
   try {
     // If the String is empty, return an empty Array
     if (string.trim() === '') {
@@ -40209,9 +40209,7 @@ async function stringToArray(string) {
 // :returns: An error string if the actor doesn't have permissions, otherwise true
 async function validPermissions(octokit, context) {
   // fetch the defined permissions from the Action input
-  const validPermissionsArray = await stringToArray(
-    core.getInput('permissions')
-  )
+  const validPermissionsArray = stringToArray(core.getInput('permissions'))
 
   core.setOutput('actor', context.actor)
 
@@ -40503,9 +40501,9 @@ async function prechecks(context, octokit, data) {
   core.debug(`base_ref: ${baseRef}`)
 
   // Setup the skipCi, skipReview, and draft_permitted_targets variables
-  const skipCiArray = await stringToArray(data.inputs.skipCi)
-  const skipReviewsArray = await stringToArray(data.inputs.skipReviews)
-  const draftPermittedTargetsArray = await stringToArray(
+  const skipCiArray = stringToArray(data.inputs.skipCi)
+  const skipReviewsArray = stringToArray(data.inputs.skipReviews)
+  const draftPermittedTargetsArray = stringToArray(
     data.inputs.draft_permitted_targets
   )
   const skipCi = skipCiArray.includes(data.environment)
@@ -40594,6 +40592,9 @@ async function prechecks(context, octokit, data) {
                                         }
                                     }
                                 }
+                            }
+                            reviews(states: APPROVED) {
+                                totalCount
                             }
                         }
                     }
@@ -40712,6 +40713,9 @@ async function prechecks(context, octokit, data) {
     outdated_mode: data.inputs.outdated_mode
   })
 
+  const approvedReviewsCount =
+    result?.repository?.pullRequest?.reviews?.totalCount
+
   // log values for debugging
   core.debug('precheck values for debugging:')
   core.debug(`reviewDecision: ${reviewDecision}`)
@@ -40725,6 +40729,17 @@ async function prechecks(context, octokit, data) {
   core.debug(`forkBypass: ${forkBypass}`)
   core.debug(`environment: ${data.environment}`)
   core.debug(`outdated: ${outdated.outdated}`)
+  core.debug(`approvedReviewsCount: ${approvedReviewsCount}`)
+
+  // output values
+  core.setOutput('commit_status', commitStatus)
+  core.setOutput('review_decision', reviewDecision)
+  core.setOutput('is_outdated', outdated.outdated)
+  core.setOutput('merge_state_status', mergeStateStatus)
+  core.setOutput('approved_reviews_count', approvedReviewsCount)
+
+  // save state values
+  core.saveState('approved_reviews_count', approvedReviewsCount)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (data.environmentObj.stable_branch_used === true) {
@@ -41945,6 +41960,81 @@ async function unlock(
   }
 }
 
+;// CONCATENATED MODULE: ./src/functions/label.js
+
+
+// Helper function to add labels to a pull request
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :param labelsToAdd: An array of labels to add to the pull request (Array)
+// :parm labelsToRemove: An array of labels to remove from the pull request (Array)
+// :returns: An object containing the labels added and removed (Object)
+async function label(context, octokit, labelsToAdd, labelsToRemove) {
+  // Get the owner, repo, and issue number from the context
+  const {owner, repo} = context.repo
+  const issueNumber = context.issue.number
+  var addedLabels = []
+  var removedLabels = []
+
+  // exit early if there are no labels to add or remove
+  if (labelsToAdd.length === 0 && labelsToRemove.length === 0) {
+    core.debug('🏷️ no labels to add or remove')
+    return {
+      added: [],
+      removed: []
+    }
+  }
+
+  // first, find and cleanup labelsToRemove if any are provided
+  if (labelsToRemove.length > 0) {
+    // Fetch current labels on the issue
+    core.debug('fetching current labels on the issue')
+    const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
+      owner: owner,
+      repo: repo,
+      issue_number: issueNumber
+    })
+    const currentLabels = currentLabelsResult.data.map(label => label.name)
+
+    core.debug(`current labels: ${currentLabels}`)
+    core.debug(`labels to remove: ${labelsToRemove}`)
+
+    // Remove unwanted labels
+    for (const label of labelsToRemove) {
+      if (currentLabels.includes(label)) {
+        await octokit.rest.issues.removeLabel({
+          owner: owner,
+          repo: repo,
+          issue_number: issueNumber,
+          name: label
+        })
+      }
+    }
+    core.info(`🏷️ labels removed: ${labelsToRemove}`)
+
+    removedLabels = labelsToRemove
+  }
+
+  // now, add the labels if any are provided
+  if (labelsToAdd.length > 0) {
+    core.debug(`attempting to apply labels: ${labelsToAdd}`)
+    await octokit.rest.issues.addLabels({
+      owner: owner,
+      repo: repo,
+      issue_number: issueNumber,
+      labels: labelsToAdd
+    })
+    core.info(`🏷️ labels added: ${labelsToAdd}`)
+
+    addedLabels = labelsToAdd
+  }
+
+  return {
+    added: addedLabels,
+    removed: removedLabels
+  }
+}
+
 // EXTERNAL MODULE: external "fs"
 var external_fs_ = __nccwpck_require__(7147);
 // EXTERNAL MODULE: ./node_modules/nunjucks/index.js
@@ -41964,6 +42054,7 @@ var nunjucks_default = /*#__PURE__*/__nccwpck_require__.n(nunjucks);
 // :param status: The status of the deployment (String)
 // :param noop: Indicates whether the deployment is a noop or not (Boolean)
 // :param ref: The ref (branch) which is being used for deployment (String)
+// :param approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
 // :returns: The formatted message (String)
 async function postDeployMessage(
   context,
@@ -41971,15 +42062,14 @@ async function postDeployMessage(
   environment_url,
   status,
   noop,
-  ref
+  ref,
+  approved_reviews_count
 ) {
   // fetch the inputs
   const environment_url_in_comment = core.getBooleanInput(
     'environment_url_in_comment'
   )
-  const deployMessagePath = await checkInput(
-    core.getInput('deploy_message_path')
-  )
+  const deployMessagePath = checkInput(core.getInput('deploy_message_path'))
 
   // if the 'deployMessagePath' exists, use that instead of the env var option
   // the env var option can often fail if the message is too long so this is the preferred option
@@ -41993,14 +42083,15 @@ async function postDeployMessage(
         status,
         noop,
         ref,
-        actor: context.actor
+        actor: context.actor,
+        approved_reviews_count
       }
       return nunjucks_default().render(deployMessagePath, vars)
     }
   }
 
   // If we get here, try to use the env var option with the default message structure
-  const deployMessageEnvVar = await checkInput(process.env.DEPLOY_MESSAGE)
+  const deployMessageEnvVar = checkInput(process.env.DEPLOY_MESSAGE)
 
   var deployTypeString = ' ' // a single space as a default
 
@@ -42074,6 +42165,7 @@ async function postDeployMessage(
 
 
 
+
 const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`
 const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
 
@@ -42089,8 +42181,8 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 // :param deployment_id: The id of the deployment (String)
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
-// :param environment_url_in_comment: Indicates whether the environment url should be added to the comment (Boolean)
-// :param deployMessagePath: The path to the deploy message file (String) (optional, can be null)
+// :param approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
+// :param labels: A dictionary of labels to apply to the issue (Object)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 async function postDeploy(
   context,
@@ -42102,7 +42194,9 @@ async function postDeploy(
   noop,
   deployment_id,
   environment,
-  environment_url
+  environment_url,
+  approved_reviews_count,
+  labels
 ) {
   // check the inputs to ensure they are valid
   if (!comment_id || comment_id.length === 0) {
@@ -42136,7 +42230,8 @@ async function postDeploy(
     environment_url,
     status,
     noop,
-    ref
+    ref,
+    approved_reviews_count
   )
 
   // update the action status to indicate the result of the deployment as a comment
@@ -42144,10 +42239,28 @@ async function postDeploy(
 
   // Update the deployment status of the branch-deploy
   var deploymentStatus
+  var labelsToAdd
+  var labelsToRemove
   if (success) {
     deploymentStatus = 'success'
+
+    if (noop === true) {
+      labelsToAdd = labels.successful_noop
+      labelsToRemove = labels.failed_noop
+    } else {
+      labelsToAdd = labels.successful_deploy
+      labelsToRemove = labels.failed_deploy
+    }
   } else {
     deploymentStatus = 'failure'
+
+    if (noop === true) {
+      labelsToAdd = labels.failed_noop
+      labelsToRemove = labels.successful_noop
+    } else {
+      labelsToAdd = labels.failed_deploy
+      labelsToRemove = labels.successful_deploy
+    }
   }
 
   // if the deployment mode is noop, return here
@@ -42188,6 +42301,9 @@ async function postDeploy(
         true // silent mode
       )
     }
+
+    // attempt to add labels to the pull request (if any)
+    await label(context, octokit, labelsToAdd, labelsToRemove)
 
     return 'success - noop'
   }
@@ -42237,11 +42353,15 @@ async function postDeploy(
     )
   }
 
+  // attempt to add labels to the pull request (if any)
+  await label(context, octokit, labelsToAdd, labelsToRemove)
+
   // if the post deploy comment logic completes successfully, return
   return 'success'
 }
 
 ;// CONCATENATED MODULE: ./src/functions/post.js
+
 
 
 
@@ -42260,11 +42380,20 @@ async function post() {
     const noop = core.getState('noop') === 'true'
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
-    const environment_url = await checkInput(core.getState('environment_url'))
+    const environment_url = checkInput(core.getState('environment_url'))
+    const approved_reviews_count = core.getState('approved_reviews_count')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
     const skip_completing = core.getBooleanInput('skip_completing')
+    const labels = {
+      successful_deploy: stringToArray(
+        core.getInput('successful_deploy_labels')
+      ),
+      successful_noop: stringToArray(core.getInput('successful_noop_labels')),
+      failed_deploy: stringToArray(core.getInput('failed_deploy_labels')),
+      failed_noop: stringToArray(core.getInput('failed_noop_labels'))
+    }
 
     // If bypass is set, exit the workflow
     if (bypass) {
@@ -42305,7 +42434,9 @@ async function post() {
       noop,
       deployment_id,
       environment,
-      environment_url
+      environment_url,
+      approved_reviews_count,
+      labels
     )
 
     return
@@ -42753,7 +42884,7 @@ async function run() {
     const stable_branch = core.getInput('stable_branch')
     const noop_trigger = core.getInput('noop_trigger')
     const lock_trigger = core.getInput('lock_trigger')
-    const production_environments = await stringToArray(
+    const production_environments = stringToArray(
       core.getInput('production_environments')
     )
     const environment_targets = core.getInput('environment_targets')
@@ -42924,7 +43055,7 @@ async function run() {
         skipReviews: skipReviews,
         draft_permitted_targets,
         admins: admins,
-        permissions: await stringToArray(permissions),
+        permissions: stringToArray(permissions),
         allow_sha_deployments: allow_sha_deployments
       }
 

@@ -7,9 +7,7 @@ import {stringToArray} from './string-to-array'
 // :returns: An error string if the actor doesn't have permissions, otherwise true
 export async function validPermissions(octokit, context) {
   // fetch the defined permissions from the Action input
-  const validPermissionsArray = await stringToArray(
-    core.getInput('permissions')
-  )
+  const validPermissionsArray = stringToArray(core.getInput('permissions'))
 
   core.setOutput('actor', context.actor)
 

@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 
 import {actionStatus} from './action-status'
+import {label} from './label'
 import {createDeploymentStatus} from './deployment'
 import {unlock} from './unlock'
 import {lock} from './lock'
@@ -22,8 +23,8 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 // :param deployment_id: The id of the deployment (String)
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
-// :param environment_url_in_comment: Indicates whether the environment url should be added to the comment (Boolean)
-// :param deployMessagePath: The path to the deploy message file (String) (optional, can be null)
+// :param approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
+// :param labels: A dictionary of labels to apply to the issue (Object)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(
   context,
@@ -35,7 +36,9 @@ export async function postDeploy(
   noop,
   deployment_id,
   environment,
-  environment_url
+  environment_url,
+  approved_reviews_count,
+  labels
 ) {
   // check the inputs to ensure they are valid
   if (!comment_id || comment_id.length === 0) {
@@ -69,7 +72,8 @@ export async function postDeploy(
     environment_url,
     status,
     noop,
-    ref
+    ref,
+    approved_reviews_count
   )
 
   // update the action status to indicate the result of the deployment as a comment
@@ -77,10 +81,28 @@ export async function postDeploy(
 
   // Update the deployment status of the branch-deploy
   var deploymentStatus
+  var labelsToAdd
+  var labelsToRemove
   if (success) {
     deploymentStatus = 'success'
+
+    if (noop === true) {
+      labelsToAdd = labels.successful_noop
+      labelsToRemove = labels.failed_noop
+    } else {
+      labelsToAdd = labels.successful_deploy
+      labelsToRemove = labels.failed_deploy
+    }
   } else {
     deploymentStatus = 'failure'
+
+    if (noop === true) {
+      labelsToAdd = labels.failed_noop
+      labelsToRemove = labels.successful_noop
+    } else {
+      labelsToAdd = labels.failed_deploy
+      labelsToRemove = labels.successful_deploy
+    }
   }
 
   // if the deployment mode is noop, return here
@@ -121,6 +143,9 @@ export async function postDeploy(
         true // silent mode
       )
     }
+
+    // attempt to add labels to the pull request (if any)
+    await label(context, octokit, labelsToAdd, labelsToRemove)
 
     return 'success - noop'
   }
@@ -169,6 +194,9 @@ export async function postDeploy(
       true // silent mode
     )
   }
+
+  // attempt to add labels to the pull request (if any)
+  await label(context, octokit, labelsToAdd, labelsToRemove)
 
   // if the post deploy comment logic completes successfully, return
   return 'success'

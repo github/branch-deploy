@@ -3,6 +3,7 @@ import {octokitRetry} from '@octokit/plugin-retry'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 
+import {stringToArray} from './string-to-array'
 import {contextCheck} from './context-check'
 import {checkInput} from './check-input'
 import {postDeploy} from './post-deploy'
@@ -16,11 +17,20 @@ export async function post() {
     const noop = core.getState('noop') === 'true'
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
-    const environment_url = await checkInput(core.getState('environment_url'))
+    const environment_url = checkInput(core.getState('environment_url'))
+    const approved_reviews_count = core.getState('approved_reviews_count')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
     const skip_completing = core.getBooleanInput('skip_completing')
+    const labels = {
+      successful_deploy: stringToArray(
+        core.getInput('successful_deploy_labels')
+      ),
+      successful_noop: stringToArray(core.getInput('successful_noop_labels')),
+      failed_deploy: stringToArray(core.getInput('failed_deploy_labels')),
+      failed_noop: stringToArray(core.getInput('failed_noop_labels'))
+    }
 
     // If bypass is set, exit the workflow
     if (bypass) {
@@ -61,7 +71,9 @@ export async function post() {
       noop,
       deployment_id,
       environment,
-      environment_url
+      environment_url,
+      approved_reviews_count,
+      labels
     )
 
     return

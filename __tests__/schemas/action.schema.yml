@@ -390,6 +390,46 @@ inputs:
     default:
       required: true
       type: string
+  successful_deploy_labels:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: false
+      type: string
+  successful_noop_labels:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: false
+      type: string
+  failed_deploy_labels:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: false
+      type: string
+  failed_noop_labels:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      required: false
+      type: string
 
 # outputs section
 outputs:
@@ -494,6 +534,26 @@ outputs:
       type: string
       required: true
   sha_deployment:
+    description:
+      type: string
+      required: true
+  review_decision:
+    description:
+      type: string
+      required: true
+  is_outdated:
+    description:
+      type: string
+      required: true
+  merge_state_status:
+    description:
+      type: string
+      required: true
+  commit_status:
+    description:
+      type: string
+      required: true
+  approved_reviews_count:
     description:
       type: string
       required: true

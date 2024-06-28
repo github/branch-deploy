@@ -6,12 +6,14 @@ import * as unlock from '../../src/functions/unlock'
 import * as createDeploymentStatus from '../../src/functions/deployment'
 import * as postDeployMessage from '../../src/functions/post-deploy-message'
 import * as core from '@actions/core'
+import * as label from '../../src/functions/label'
 
 const infoMock = jest.spyOn(core, 'info')
 const warningMock = jest.spyOn(core, 'warning')
 
 var octokit
 var context
+var labels
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -19,6 +21,9 @@ beforeEach(() => {
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(label, 'label').mockImplementation(() => {
     return undefined
   })
   jest.spyOn(postDeployMessage, 'postDeployMessage').mockImplementation(() => {
@@ -57,6 +62,13 @@ beforeEach(() => {
       }
     }
   }
+
+  labels = {
+    successful_deploy: [],
+    successful_noop: [],
+    failed_deploy: [],
+    failed_noop: []
+  }
 })
 
 test('successfully completes a production branch deployment', async () => {
@@ -73,10 +85,12 @@ test('successfully completes a production branch deployment', async () => {
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       456,
       'production',
-      '' // environment_url
+      null, // environment_url
+      1, // approved_reviews_count
+      labels
     )
   ).toBe('success')
 
@@ -120,7 +134,74 @@ test('successfully completes a production branch deployment', async () => {
     'success',
     456,
     'production',
-    '' // environment_url
+    null // environment_url
+  )
+})
+
+test('successfully completes a production branch deployment that fails', async () => {
+  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
+  const createDeploymentStatusSpy = jest.spyOn(
+    createDeploymentStatus,
+    'createDeploymentStatus'
+  )
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'failure',
+      'test-ref',
+      false, // noop
+      456,
+      'production',
+      null, // environment_url
+      1, // approved_reviews_count
+      labels
+    )
+  ).toBe('success')
+
+  expect(actionStatusSpy).toHaveBeenCalled()
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    12345,
+    'Updated 1 server',
+    false
+  )
+  expect(createDeploymentStatusSpy).toHaveBeenCalled()
+  expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    'test-ref',
+    'failure',
+    456,
+    'production',
+    null // environment_url
   )
 })
 
@@ -138,11 +219,12 @@ test('successfully completes a production branch deployment with an environment 
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       456,
       'production',
       'https://example.com', // environment_url
-      true // environment url in comment
+      1, // approved_reviews_count
+      labels
     )
   ).toBe('success')
 
@@ -210,10 +292,12 @@ test('successfully completes a production branch deployment and removes a non-st
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       456,
       'production',
-      '' // environment_url
+      null, // environment_url
+      1, // approved_reviews_count
+      labels
     )
   ).toBe('success')
 
@@ -258,7 +342,7 @@ test('successfully completes a production branch deployment and removes a non-st
     'success',
     456,
     'production',
-    '' // environment_url
+    null // environment_url
   )
   expect(infoMock).toHaveBeenCalledWith(
     `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
@@ -283,7 +367,10 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
       'test-ref',
       true,
       456,
-      'production'
+      'production',
+      null, // environment_url
+      1, // approved_reviews_count
+      labels
     )
   ).toBe('success - noop')
 
@@ -328,7 +415,10 @@ test('successfully completes a noop branch deployment but does not get any lock 
       'test-ref',
       true,
       456,
-      'production'
+      'production',
+      null, // environment_url
+      1, // approved_reviews_count
+      labels
     )
   ).toBe('success - noop')
 
@@ -368,9 +458,12 @@ test('successfully completes a production branch deployment with no custom messa
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       456,
-      'production'
+      'production',
+      null, // environment_url
+      1, // approved_reviews_count
+      labels
     )
   ).toBe('success')
   expect(actionStatusSpy).toHaveBeenCalled()
@@ -406,7 +499,52 @@ test('successfully completes a noop branch deployment', async () => {
       'test-ref',
       true,
       456,
-      'production'
+      'production',
+      null, // environment_url
+      1, // approved_reviews_count
+      labels
+    )
+  ).toBe('success - noop')
+})
+
+test('successfully completes a noop branch deployment and applies success labels', async () => {
+  labels.successful_noop = ['ready-for-review', 'noop-success']
+
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'success',
+      'test-ref',
+      true,
+      456,
+      'production',
+      null, // environment_url
+      1, // approved_reviews_count
+      labels
+    )
+  ).toBe('success - noop')
+})
+
+test('successfully completes a noop branch deployment that fails and applies success labels', async () => {
+  labels.successful_noop = ['ready-for-review', 'noop-success']
+
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'failure',
+      'test-ref',
+      true,
+      456,
+      'production',
+      null, // environment_url
+      1, // approved_reviews_count
+      labels
     )
   ).toBe('success - noop')
 })
@@ -420,9 +558,12 @@ test('updates with a failure for a production branch deployment', async () => {
       12345,
       'failure',
       'test-ref',
-      false,
+      false, // noop
       456,
-      'production'
+      'production',
+      null, // environment_url
+      1, // approved_reviews_count
+      labels
     )
   ).toBe('success')
 })
@@ -436,9 +577,12 @@ test('updates with an unknown for a production branch deployment', async () => {
       12345,
       'unknown',
       'test-ref',
-      false,
+      false, // noop
       456,
-      'production'
+      'production',
+      null, // environment_url
+      1, // approved_reviews_count
+      labels
     )
   ).toBe('success')
 })
@@ -484,7 +628,7 @@ test('fails due to no deployment_id', async () => {
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       ''
     )
   } catch (e) {
@@ -502,7 +646,7 @@ test('fails due to no environment', async () => {
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       456,
       ''
     )

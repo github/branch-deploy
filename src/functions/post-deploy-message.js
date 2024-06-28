@@ -11,6 +11,7 @@ import nunjucks from 'nunjucks'
 // :param status: The status of the deployment (String)
 // :param noop: Indicates whether the deployment is a noop or not (Boolean)
 // :param ref: The ref (branch) which is being used for deployment (String)
+// :param approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
 // :returns: The formatted message (String)
 export async function postDeployMessage(
   context,
@@ -18,15 +19,14 @@ export async function postDeployMessage(
   environment_url,
   status,
   noop,
-  ref
+  ref,
+  approved_reviews_count
 ) {
   // fetch the inputs
   const environment_url_in_comment = core.getBooleanInput(
     'environment_url_in_comment'
   )
-  const deployMessagePath = await checkInput(
-    core.getInput('deploy_message_path')
-  )
+  const deployMessagePath = checkInput(core.getInput('deploy_message_path'))
 
   // if the 'deployMessagePath' exists, use that instead of the env var option
   // the env var option can often fail if the message is too long so this is the preferred option
@@ -40,14 +40,15 @@ export async function postDeployMessage(
         status,
         noop,
         ref,
-        actor: context.actor
+        actor: context.actor,
+        approved_reviews_count
       }
       return nunjucks.render(deployMessagePath, vars)
     }
   }
 
   // If we get here, try to use the env var option with the default message structure
-  const deployMessageEnvVar = await checkInput(process.env.DEPLOY_MESSAGE)
+  const deployMessageEnvVar = checkInput(process.env.DEPLOY_MESSAGE)
 
   var deployTypeString = ' ' // a single space as a default
 

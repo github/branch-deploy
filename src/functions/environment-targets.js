@@ -329,7 +329,7 @@ async function findEnvironmentUrl(environment, environment_urls) {
   // The structure: "<environment1>|<url1>,<environment2>|<url2>,etc"
 
   // If the environment URLs are empty, just return an empty string
-  if ((await checkInput(environment_urls)) === null) {
+  if (checkInput(environment_urls) === null) {
     return null
   }
 

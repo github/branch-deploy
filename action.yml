@@ -149,6 +149,22 @@ inputs:
     description: 'If set to "true", then naked commands will be disabled. Example: ".deploy" will not trigger a deployment. Instead, you must use ".deploy to production" to trigger a deployment. This is useful if you want to prevent accidental deployments from happening. Read more about naked commands here: https://github.com/github/branch-deploy/blob/main/docs/naked-commands.md'
     required: false
     default: "false"
+  successful_deploy_labels:
+    description: 'A comma separated list of labels to add to the pull request when a deployment is successful. Example: "deployed,success"'
+    required: false
+    default: ""
+  successful_noop_labels:
+    description: 'A comma separated list of labels to add to the pull request when a noop deployment is successful. Example: "noop,success"'
+    required: false
+    default: ""
+  failed_deploy_labels:
+    description: 'A comma separated list of labels to add to the pull request when a deployment fails. Example: "failed,deploy-failed"'
+    required: false
+    default: ""
+  failed_noop_labels:
+    description: 'A comma separated list of labels to add to the pull request when a noop deployment fails. Example: "failed,noop-failed"'
+    required: false
+    default: ""
 outputs:
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
@@ -202,6 +218,16 @@ outputs:
     description: 'Only exposed when using the "unlock on merge" mode - This output variable will contain a comma separated list of the environments that were unlocked'
   sha_deployment:
     description: 'If "allow_sha_deployments" is enabled, and a sha deployment is performed instead of a branch deployment, this output variable will contain the sha that was deployed. Otherwise, this output variable will be empty'
+  review_decision:
+    description: 'The pull request review status. Can be one of a few values - examples: APPROVED, skip_reviews, REVIEW_REQUIRED, null'
+  is_outdated:
+    description: 'The string "true" if the branch is outdated, otherwise "false"'
+  merge_state_status:
+    description: 'The status of the merge state. Can be one of a few values - examples: "DIRTY", "DRAFT", "CLEAN", etc'
+  commit_status:
+    description: 'The status of the commit. Can be one of a few values - examples: "SUCCESS", null, "skip_ci", "PENDING", "FAILURE" etc'
+  approved_reviews_count:
+    description: 'The number of approved reviews on the pull request'
 runs:
   using: "node20"
   main: "dist/index.js"

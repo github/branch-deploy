@@ -289,6 +289,10 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `sticky_locks_for_noop` | `false` | `"false"` | If set to `"true"`, then sticky_locks will also be used for noop deployments. This can be useful in some cases but it often leads to locks being left behind when users test noop deployments. |
 | `allow_sha_deployments` | `false` | `"false"` | If set to `"true"`, then you can deploy a specific sha instead of a branch. Example: `".deploy 1234567890abcdef1234567890abcdef12345678 to production"` - This is dangerous and potentially unsafe, [view the docs](docs/sha-deployments.md) to learn more |
 | `disable_naked_commands` | `false` | `"false"` | If set to `"true"`, then naked commands will be disabled. Example: `.deploy` will not trigger a deployment. Instead, you must use `.deploy to production` to trigger a deployment. This is useful if you want to prevent accidental deployments from happening. View the [docs](docs/naked-commands.md) to learn more |
+| `successful_deploy_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a deployment is successful. Example: `"deployed,success"` |
+| `successful_noop_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a noop deployment is successful. Example: `"noop,success"` |
+| `failed_deploy_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a deployment fails. Example: `"failed,deploy-failed"` |
+| `failed_noop_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a noop deployment fails. Example: `"failed,noop-failed"` |
 
 ## Outputs 📤
 
@@ -320,6 +324,11 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `global_lock_released` | The string "true" if the global lock was released |
 | `unlocked_environments` | Only exposed when using the "unlock on merge" mode - This output variable will contain a comma separated list of the environments that were unlocked - See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
 | `sha_deployment` | If `allow_sha_deployments` is enabled, and a sha deployment is performed instead of a branch deployment, this output variable will contain the sha that was deployed. Otherwise, this output variable will be empty |
+| `review_decision` | The pull request review status. Can be one of a few values - examples: `APPROVED`, `skip_reviews`, `REVIEW_REQUIRED`, `null` |
+| `is_outdated` | The string `"true"` if the branch is out-of-date, otherwise `"false"` |
+| `merge_state_status` | The status of the merge state. Can be one of a few values - examples: `"DIRTY"`, `"DRAFT"`, `"CLEAN"`, etc |
+| `commit_status` | The status of the commit. Can be one of a few values - examples: `"SUCCESS"`, `null`, `"skip_ci"`, `"PENDING"`, `"FAILURE"` etc |
+| `approved_reviews_count` | The number of approved reviews on the pull request |
 
 ## Custom Deployment Messages ✏️
 

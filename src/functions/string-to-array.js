@@ -3,7 +3,7 @@ import * as core from '@actions/core'
 // Helper function to convert a String to an Array specifically in Actions
 // :param string: A comma seperated string to convert to an array
 // :return Array: The function returns an Array - can be empty
-export async function stringToArray(string) {
+export function stringToArray(string) {
   try {
     // If the String is empty, return an empty Array
     if (string.trim() === '') {
