@@ -591,7 +591,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
         reviewDecision: 'REVIEW_REQUIRED',
         reviews: {
           total: 0
-        },
+        }
       }
     }
   })
@@ -614,7 +614,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
         reviewDecision: null,
         reviews: {
           total: 0
-        },
+        }
       }
     }
   })
@@ -828,7 +828,7 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
         reviewDecision: 'APPROVED',
         reviews: {
           total: 1
-        },
+        }
       }
     }
   })

@@ -62,7 +62,7 @@ export async function label(context, octokit, labelsToAdd, labelsToRemove) {
       labels: labelsToAdd
     })
     core.info(`🏷️ labels added: ${labelsToAdd}`)
-    
+
     addedLabels = labelsToAdd
   }
 

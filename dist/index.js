@@ -40715,7 +40715,8 @@ async function prechecks(context, octokit, data) {
     outdated_mode: data.inputs.outdated_mode
   })
 
-  const approvedReviewsCount = result.repository.pullRequest.reviews.totalCount
+  const approvedReviewsCount =
+    result?.repository?.pullRequest?.reviews?.totalCount
 
   // log values for debugging
   core.debug('precheck values for debugging:')
@@ -40737,6 +40738,7 @@ async function prechecks(context, octokit, data) {
   core.setOutput('review_decision', reviewDecision)
   core.setOutput('is_outdated', outdated.outdated)
   core.setOutput('merge_state_status', mergeStateStatus)
+  core.setOutput('approved_reviews_count', approvedReviewsCount)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (data.environmentObj.stable_branch_used === true) {
@@ -41963,27 +41965,73 @@ async function unlock(
 // Helper function to add labels to a pull request
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
-// :param labels: An array of labels to add to the pull request (Array)
-// :returns: The result of the label addition (Object)
-async function label(context, octokit, labels) {
-  // Get the owner and repo from the context
+// :param labelsToAdd: An array of labels to add to the pull request (Array)
+// :parm labelsToRemove: An array of labels to remove from the pull request (Array)
+// :returns: An object containing the labels added and removed (Object)
+async function label(context, octokit, labelsToAdd, labelsToRemove) {
+  // Get the owner, repo, and issue number from the context
   const {owner, repo} = context.repo
+  const issueNumber = context.issue.number
+  var addedLabels = []
+  var removedLabels = []
 
-  if (labels.length === 0) {
-    core.debug('🏷️ no labels to add')
-    return
+  // exit early if there are no labels to add or remove
+  if (labelsToAdd.length === 0 && labelsToRemove.length === 0) {
+    core.debug('🏷️ no labels to add or remove')
+    return {
+      added: [],
+      removed: []
+    }
   }
 
-  core.debug(`attempting to apply labels: ${labels}`)
-  const result = await octokit.rest.issues.addLabels({
-    owner: owner,
-    repo: repo,
-    issue_number: context.issue.number,
-    labels: labels
-  })
-  core.info(`🏷️ labels added: ${labels}`)
+  // first, find and cleanup labelsToRemove if any are provided
+  if (labelsToRemove.length > 0) {
+    // Fetch current labels on the issue
+    core.debug('fetching current labels on the issue')
+    const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
+      owner: owner,
+      repo: repo,
+      issue_number: issueNumber
+    })
+    const currentLabels = currentLabelsResult.data.map(label => label.name)
 
-  return result
+    core.debug(`current labels: ${currentLabels}`)
+    core.debug(`labels to remove: ${labelsToRemove}`)
+
+    // Remove unwanted labels
+    for (const label of labelsToRemove) {
+      if (currentLabels.includes(label)) {
+        await octokit.rest.issues.removeLabel({
+          owner: owner,
+          repo: repo,
+          issue_number: issueNumber,
+          name: label
+        })
+      }
+    }
+    core.info(`🏷️ labels removed: ${labelsToRemove}`)
+
+    removedLabels = labelsToRemove
+  }
+
+  // now, add the labels if any are provided
+  if (labelsToAdd.length > 0) {
+    core.debug(`attempting to apply labels: ${labelsToAdd}`)
+    await octokit.rest.issues.addLabels({
+      owner: owner,
+      repo: repo,
+      issue_number: issueNumber,
+      labels: labelsToAdd
+    })
+    core.info(`🏷️ labels added: ${labelsToAdd}`)
+
+    addedLabels = labelsToAdd
+  }
+
+  return {
+    added: addedLabels,
+    removed: removedLabels
+  }
 }
 
 // EXTERNAL MODULE: external "fs"
@@ -42185,21 +42233,26 @@ async function postDeploy(
   // Update the deployment status of the branch-deploy
   var deploymentStatus
   var labelsToAdd
+  var labelsToRemove
   if (success) {
     deploymentStatus = 'success'
 
     if (noop === true) {
       labelsToAdd = labels.successful_noop
+      labelsToRemove = labels.failed_noop
     } else {
       labelsToAdd = labels.successful_deploy
+      labelsToRemove = labels.failed_deploy
     }
   } else {
     deploymentStatus = 'failure'
 
     if (noop === true) {
       labelsToAdd = labels.failed_noop
+      labelsToRemove = labels.successful_noop
     } else {
       labelsToAdd = labels.failed_deploy
+      labelsToRemove = labels.successful_deploy
     }
   }
 
@@ -42243,7 +42296,7 @@ async function postDeploy(
     }
 
     // attempt to add labels to the pull request (if any)
-    await label(context, octokit, labelsToAdd)
+    await label(context, octokit, labelsToAdd, labelsToRemove)
 
     return 'success - noop'
   }
@@ -42294,7 +42347,7 @@ async function postDeploy(
   }
 
   // attempt to add labels to the pull request (if any)
-  await label(context, octokit, labelsToAdd)
+  await label(context, octokit, labelsToAdd, labelsToRemove)
 
   // if the post deploy comment logic completes successfully, return
   return 'success'

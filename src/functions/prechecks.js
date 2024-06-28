@@ -251,7 +251,8 @@ export async function prechecks(context, octokit, data) {
     outdated_mode: data.inputs.outdated_mode
   })
 
-  const approvedReviewsCount = result?.repository?.pullRequest?.reviews?.totalCount
+  const approvedReviewsCount =
+    result?.repository?.pullRequest?.reviews?.totalCount
 
   // log values for debugging
   core.debug('precheck values for debugging:')
