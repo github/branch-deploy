@@ -398,7 +398,7 @@ inputs:
       type: boolean
       required: true
     default:
-      required: true
+      required: false
       type: string
   successful_noop_labels:
     description:
@@ -408,7 +408,7 @@ inputs:
       type: boolean
       required: true
     default:
-      required: true
+      required: false
       type: string
   failed_deploy_labels:
     description:
@@ -418,7 +418,7 @@ inputs:
       type: boolean
       required: true
     default:
-      required: true
+      required: false
       type: string
   failed_noop_labels:
     description:
@@ -428,7 +428,7 @@ inputs:
       type: boolean
       required: true
     default:
-      required: true
+      required: false
       type: string
 
 # outputs section
