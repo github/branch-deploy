@@ -84,7 +84,8 @@ test('successfully completes a production branch deployment', async () => {
       false,
       456,
       'production',
-      '' // environment_url
+      null, // environment_url
+      labels
     )
   ).toBe('success')
 
@@ -128,7 +129,7 @@ test('successfully completes a production branch deployment', async () => {
     'success',
     456,
     'production',
-    '' // environment_url
+    null, // environment_url
   )
 })
 
@@ -150,7 +151,7 @@ test('successfully completes a production branch deployment with an environment 
       456,
       'production',
       'https://example.com', // environment_url
-      true // environment url in comment
+      labels
     )
   ).toBe('success')
 
@@ -221,7 +222,8 @@ test('successfully completes a production branch deployment and removes a non-st
       false,
       456,
       'production',
-      '' // environment_url
+      null, // environment_url
+      labels
     )
   ).toBe('success')
 
@@ -266,7 +268,7 @@ test('successfully completes a production branch deployment and removes a non-st
     'success',
     456,
     'production',
-    '' // environment_url
+    null, // environment_url
   )
   expect(infoMock).toHaveBeenCalledWith(
     `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
@@ -291,7 +293,9 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
       'test-ref',
       true,
       456,
-      'production'
+      'production',
+      null, // environment_url
+      labels
     )
   ).toBe('success - noop')
 
@@ -336,7 +340,9 @@ test('successfully completes a noop branch deployment but does not get any lock 
       'test-ref',
       true,
       456,
-      'production'
+      'production',
+      null, // environment_url
+      labels
     )
   ).toBe('success - noop')
 
@@ -378,7 +384,9 @@ test('successfully completes a production branch deployment with no custom messa
       'test-ref',
       false,
       456,
-      'production'
+      'production',
+      null, // environment_url
+      labels
     )
   ).toBe('success')
   expect(actionStatusSpy).toHaveBeenCalled()
@@ -414,7 +422,9 @@ test('successfully completes a noop branch deployment', async () => {
       'test-ref',
       true,
       456,
-      'production'
+      'production',
+      null, // environment_url
+      labels
     )
   ).toBe('success - noop')
 })
@@ -430,7 +440,9 @@ test('updates with a failure for a production branch deployment', async () => {
       'test-ref',
       false,
       456,
-      'production'
+      'production',
+      null, // environment_url
+      labels
     )
   ).toBe('success')
 })
@@ -446,7 +458,9 @@ test('updates with an unknown for a production branch deployment', async () => {
       'test-ref',
       false,
       456,
-      'production'
+      'production',
+      null, // environment_url
+      labels
     )
   ).toBe('success')
 })
