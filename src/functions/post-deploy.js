@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 
 import {actionStatus} from './action-status'
+import {label} from './label'
 import {createDeploymentStatus} from './deployment'
 import {unlock} from './unlock'
 import {lock} from './lock'
@@ -77,10 +78,24 @@ export async function postDeploy(
 
   // Update the deployment status of the branch-deploy
   var deploymentStatus
+  var labelsToAdd
   if (success) {
     deploymentStatus = 'success'
+
+    if (noop === true) {
+      labelsToAdd = labels.successful_noop
+    } else {
+      labelsToAdd = labels.successful_deploy
+    }
+
   } else {
     deploymentStatus = 'failure'
+
+    if (noop === true) {
+      labelsToAdd = labels.failed_noop
+    } else {
+      labelsToAdd = labels.failed_deploy
+    }
   }
 
   // if the deployment mode is noop, return here
@@ -122,8 +137,8 @@ export async function postDeploy(
       )
     }
 
-    // apply successful noop labels if they exist
-    core.debug(`labels.successful_noop: ${labels.successful_noop}`)
+    // attempt to add labels to the pull request (if any)
+    await label(context, octokit, labelsToAdd)
 
     return 'success - noop'
   }
@@ -172,6 +187,9 @@ export async function postDeploy(
       true // silent mode
     )
   }
+
+  // attempt to add labels to the pull request (if any)
+  await label(context, octokit, labelsToAdd)
 
   // if the post deploy comment logic completes successfully, return
   return 'success'

@@ -6,6 +6,7 @@ import * as unlock from '../../src/functions/unlock'
 import * as createDeploymentStatus from '../../src/functions/deployment'
 import * as postDeployMessage from '../../src/functions/post-deploy-message'
 import * as core from '@actions/core'
+import * as label from '../../src/functions/label'
 
 const infoMock = jest.spyOn(core, 'info')
 const warningMock = jest.spyOn(core, 'warning')
@@ -20,6 +21,9 @@ beforeEach(() => {
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  jest.spyOn(label, 'label').mockImplementation(() => {
     return undefined
   })
   jest.spyOn(postDeployMessage, 'postDeployMessage').mockImplementation(() => {
@@ -412,6 +416,26 @@ test('successfully completes a production branch deployment with no custom messa
 })
 
 test('successfully completes a noop branch deployment', async () => {
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'success',
+      'test-ref',
+      true,
+      456,
+      'production',
+      null, // environment_url
+      labels
+    )
+  ).toBe('success - noop')
+})
+
+test('successfully completes a noop branch deployment and applies success labels', async () => {
+  labels.successful_noop = ['ready-for-review', 'noop-success']
+
   expect(
     await postDeploy(
       context,
