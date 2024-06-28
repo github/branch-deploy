@@ -80,6 +80,9 @@ beforeEach(() => {
       pullRequest: {
         reviewDecision: 'APPROVED',
         mergeStateStatus: 'CLEAN',
+        reviews: {
+          total: 1
+        },
         commits: {
           nodes: [
             {
@@ -156,6 +159,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       pullRequest: {
         reviewDecision: 'APPROVED',
         mergeStateStatus: 'CLEAN',
+        reviews: {
+          total: 1
+        },
         commits: {
           nodes: [
             {
@@ -310,6 +316,9 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
     repository: {
       pullRequest: {
         reviewDecision: null,
+        reviews: {
+          total: 0
+        },
         commits: {
           nodes: [
             {
@@ -345,6 +354,9 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
+        reviews: {
+          total: 0
+        },
         commits: {
           nodes: [
             {
@@ -379,6 +391,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         commits: {
           nodes: [
             {
@@ -426,6 +441,9 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 4
+        },
         commits: {
           nodes: [
             {
@@ -472,6 +490,9 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
+        reviews: {
+          total: 0
+        },
         commits: {
           nodes: [
             {
@@ -504,6 +525,9 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
+        reviews: {
+          total: 0
+        },
         commits: {
           nodes: [
             {
@@ -533,6 +557,9 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
     repository: {
       pullRequest: {
         reviewDecision: null,
+        reviews: {
+          total: 0
+        },
         commits: {
           nodes: [
             {
@@ -561,7 +588,10 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
-        reviewDecision: 'REVIEW_REQUIRED'
+        reviewDecision: 'REVIEW_REQUIRED',
+        reviews: {
+          total: 0
+        },
       }
     }
   })
@@ -581,7 +611,10 @@ test('runs prechecks and deploys to the stable branch', async () => {
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
-        reviewDecision: null
+        reviewDecision: null,
+        reviews: {
+          total: 0
+        },
       }
     }
   })
@@ -605,6 +638,9 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         commits: {
           nodes: [
             {
@@ -663,6 +699,9 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         commits: {
           nodes: [
             {
@@ -692,6 +731,9 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         commits: {
           nodes: [
             {
@@ -783,7 +825,10 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
-        reviewDecision: 'APPROVED'
+        reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
       }
     }
   })
@@ -801,6 +846,9 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         mergeStateStatus: 'BEHIND',
         commits: {
           nodes: [
@@ -846,6 +894,9 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         mergeStateStatus: 'DIRTY',
         commits: {
           nodes: [
@@ -880,6 +931,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         mergeStateStatus: 'BEHIND',
         commits: {
           nodes: [
@@ -925,6 +979,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         mergeStateStatus: 'BEHIND',
         commits: {
           nodes: [
@@ -965,6 +1022,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         mergeStateStatus: 'BEHIND',
         commits: {
           nodes: [
@@ -1003,6 +1063,9 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         mergeStateStatus: 'BLOCKED',
         commits: {
           nodes: [
@@ -1059,6 +1122,9 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         mergeStateStatus: 'CLEAN',
         commits: {
           nodes: [
@@ -1109,6 +1175,9 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         mergeStateStatus: 'BEHIND',
         commits: {
           nodes: [
@@ -1143,6 +1212,9 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         mergeStateStatus: 'BEHIND',
         commits: {
           nodes: [
@@ -1180,6 +1252,9 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         mergeStateStatus: 'BEHIND',
         commits: {
           nodes: [
@@ -1423,6 +1498,9 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         commits: {
           nodes: [
             {
@@ -1491,6 +1569,9 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
+        reviews: {
+          total: 1
+        },
         commits: {
           nodes: [
             {
