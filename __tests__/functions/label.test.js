@@ -1,8 +1,11 @@
 import {label} from '../../src/functions/label'
+import * as core from '@actions/core'
 
 var context
 var octokit
 beforeEach(() => {
+  jest.spyOn(core, 'info').mockImplementation(() => {})
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.clearAllMocks()
 
   context = {
