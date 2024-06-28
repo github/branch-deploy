@@ -1,7 +1,7 @@
 // Helper function to check an Action's input to ensure it is valid
 // :param input: The input to check
 // :returns: The input if it is valid, null otherwise
-export async function checkInput(input) {
+export function checkInput(input) {
   // if the input is an empty string (most common), return null
   if (input === '' || input?.trim() === '') {
     return null

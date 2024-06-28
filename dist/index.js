@@ -39450,7 +39450,7 @@ async function reactEmote(reaction, context, octokit) {
 // Helper function to check an Action's input to ensure it is valid
 // :param input: The input to check
 // :returns: The input if it is valid, null otherwise
-async function checkInput(input) {
+function checkInput(input) {
   // if the input is an empty string (most common), return null
   if (input === '' || input?.trim() === '') {
     return null
@@ -39903,7 +39903,7 @@ async function findEnvironmentUrl(environment, environment_urls) {
   // The structure: "<environment1>|<url1>,<environment2>|<url2>,etc"
 
   // If the environment URLs are empty, just return an empty string
-  if ((await checkInput(environment_urls)) === null) {
+  if (checkInput(environment_urls) === null) {
     return null
   }
 
@@ -41977,9 +41977,7 @@ async function postDeployMessage(
   const environment_url_in_comment = core.getBooleanInput(
     'environment_url_in_comment'
   )
-  const deployMessagePath = await checkInput(
-    core.getInput('deploy_message_path')
-  )
+  const deployMessagePath = checkInput(core.getInput('deploy_message_path'))
 
   // if the 'deployMessagePath' exists, use that instead of the env var option
   // the env var option can often fail if the message is too long so this is the preferred option
@@ -42000,7 +41998,7 @@ async function postDeployMessage(
   }
 
   // If we get here, try to use the env var option with the default message structure
-  const deployMessageEnvVar = await checkInput(process.env.DEPLOY_MESSAGE)
+  const deployMessageEnvVar = checkInput(process.env.DEPLOY_MESSAGE)
 
   var deployTypeString = ' ' // a single space as a default
 
@@ -42260,7 +42258,7 @@ async function post() {
     const noop = core.getState('noop') === 'true'
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
-    const environment_url = await checkInput(core.getState('environment_url'))
+    const environment_url = checkInput(core.getState('environment_url'))
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')

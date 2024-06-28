@@ -16,7 +16,7 @@ export async function post() {
     const noop = core.getState('noop') === 'true'
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
-    const environment_url = await checkInput(core.getState('environment_url'))
+    const environment_url = checkInput(core.getState('environment_url'))
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')

@@ -24,9 +24,7 @@ export async function postDeployMessage(
   const environment_url_in_comment = core.getBooleanInput(
     'environment_url_in_comment'
   )
-  const deployMessagePath = await checkInput(
-    core.getInput('deploy_message_path')
-  )
+  const deployMessagePath = checkInput(core.getInput('deploy_message_path'))
 
   // if the 'deployMessagePath' exists, use that instead of the env var option
   // the env var option can often fail if the message is too long so this is the preferred option
@@ -47,7 +45,7 @@ export async function postDeployMessage(
   }
 
   // If we get here, try to use the env var option with the default message structure
-  const deployMessageEnvVar = await checkInput(process.env.DEPLOY_MESSAGE)
+  const deployMessageEnvVar = checkInput(process.env.DEPLOY_MESSAGE)
 
   var deployTypeString = ' ' // a single space as a default
 
