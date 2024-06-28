@@ -22,8 +22,6 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 // :param deployment_id: The id of the deployment (String)
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
-// :param environment_url_in_comment: Indicates whether the environment url should be added to the comment (Boolean)
-// :param deployMessagePath: The path to the deploy message file (String) (optional, can be null)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(
   context,
