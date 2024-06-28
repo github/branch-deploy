@@ -4,7 +4,7 @@ import * as core from '@actions/core'
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
 // :param labels: An array of labels to add to the pull request (Array)
-// :returns: Nothing
+// :returns: The result of the label addition (Object)
 export async function label(context, octokit, labels) {
   // Get the owner and repo from the context
   const {owner, repo} = context.repo
@@ -15,11 +15,13 @@ export async function label(context, octokit, labels) {
   }
 
   core.debug(`attempting to apply labels: ${labels}`)
-  await octokit.rest.issues.addLabels({
+  const result = await octokit.rest.issues.addLabels({
     owner: owner,
     repo: repo,
     issue_number: context.issue.number,
     labels: labels
   })
   core.info(`🏷️ labels added: ${labels}`)
+
+  return result
 }
