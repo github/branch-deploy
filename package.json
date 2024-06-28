@@ -34,7 +34,7 @@
     "dedent-js": "^1.0.1",
     "github-username-regex-js": "^1.0.0",
     "nunjucks": "^3.2.4",
-    "@octokit/rest": "^20.1.0"
+    "@octokit/rest": "^21.0.0"
   },
   "jest": {
     "coverageReporters": [
@@ -59,11 +59,11 @@
     "@vercel/ncc": "^0.38.1",
     "@babel/core": "^7.24.4",
     "babel-jest": "^29.7.0",
-    "eslint": "^8.57.0",
-    "eslint-plugin-jest": "^27.9.0",
+    "eslint": "^9.6.0",
+    "eslint-plugin-jest": "^28.6.0",
     "jest": "^29.7.0",
     "js-yaml": "^4.1.0",
     "make-coverage-badge": "^1.2.0",
-    "prettier": "3.2.5"
+    "prettier": "3.3.2"
   }
 }
