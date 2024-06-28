@@ -137,6 +137,72 @@ test('successfully completes a production branch deployment', async () => {
   )
 })
 
+test('successfully completes a production branch deployment that fails', async () => {
+  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
+  const createDeploymentStatusSpy = jest.spyOn(
+    createDeploymentStatus,
+    'createDeploymentStatus'
+  )
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'failure',
+      'test-ref',
+      false, // noop
+      456,
+      'production',
+      null, // environment_url
+      labels
+    )
+  ).toBe('success')
+
+  expect(actionStatusSpy).toHaveBeenCalled()
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    12345,
+    'Updated 1 server',
+    false
+  )
+  expect(createDeploymentStatusSpy).toHaveBeenCalled()
+  expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
+    {
+      rest: {
+        repos: {
+          createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
+        }
+      }
+    },
+    {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      payload: {comment: {id: '1'}},
+      repo: {owner: 'corp', repo: 'test'},
+      workflow: 'test-workflow'
+    },
+    'test-ref',
+    'failure',
+    456,
+    'production',
+    null, // environment_url
+  )
+})
+
 test('successfully completes a production branch deployment with an environment url', async () => {
   const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
   const createDeploymentStatusSpy = jest.spyOn(
