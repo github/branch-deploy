@@ -328,6 +328,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `is_outdated` | The string `"true"` if the branch is out-of-date, otherwise `"false"` |
 | `merge_state_status` | The status of the merge state. Can be one of a few values - examples: `"DIRTY"`, `"DRAFT"`, `"CLEAN"`, etc |
 | `commit_status` | The status of the commit. Can be one of a few values - examples: `"SUCCESS"`, `null`, `"skip_ci"`, `"PENDING"`, `"FAILURE"` etc |
+| `approved_reviews_count` | The number of approved reviews on the pull request |
 
 ## Custom Deployment Messages ✏️
 

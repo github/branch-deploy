@@ -553,3 +553,7 @@ outputs:
     description:
       type: string
       required: true
+  approved_reviews_count:
+    description:
+      type: string
+      required: true

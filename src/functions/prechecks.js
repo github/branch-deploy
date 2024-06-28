@@ -131,6 +131,9 @@ export async function prechecks(context, octokit, data) {
                                     }
                                 }
                             }
+                            reviews(states: APPROVED) {
+                                totalCount
+                            }
                         }
                     }
                 }`
@@ -248,6 +251,8 @@ export async function prechecks(context, octokit, data) {
     outdated_mode: data.inputs.outdated_mode
   })
 
+  const approvedReviewsCount = result.repository.pullRequest.reviews.totalCount
+
   // log values for debugging
   core.debug('precheck values for debugging:')
   core.debug(`reviewDecision: ${reviewDecision}`)
@@ -261,12 +266,14 @@ export async function prechecks(context, octokit, data) {
   core.debug(`forkBypass: ${forkBypass}`)
   core.debug(`environment: ${data.environment}`)
   core.debug(`outdated: ${outdated.outdated}`)
+  core.debug(`approvedReviewsCount: ${approvedReviewsCount}`)
 
   // output values
   core.setOutput('commit_status', commitStatus)
   core.setOutput('review_decision', reviewDecision)
   core.setOutput('is_outdated', outdated.outdated)
   core.setOutput('merge_state_status', mergeStateStatus)
+  core.setOutput('approved_reviews_count', approvedReviewsCount)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (data.environmentObj.stable_branch_used === true) {

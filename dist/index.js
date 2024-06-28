@@ -40595,6 +40595,9 @@ async function prechecks(context, octokit, data) {
                                     }
                                 }
                             }
+                            reviews(states: APPROVED) {
+                                totalCount
+                            }
                         }
                     }
                 }`
@@ -40712,6 +40715,8 @@ async function prechecks(context, octokit, data) {
     outdated_mode: data.inputs.outdated_mode
   })
 
+  const approvedReviewsCount = result.repository.pullRequest.reviews.totalCount
+
   // log values for debugging
   core.debug('precheck values for debugging:')
   core.debug(`reviewDecision: ${reviewDecision}`)
@@ -40725,6 +40730,7 @@ async function prechecks(context, octokit, data) {
   core.debug(`forkBypass: ${forkBypass}`)
   core.debug(`environment: ${data.environment}`)
   core.debug(`outdated: ${outdated.outdated}`)
+  core.debug(`approvedReviewsCount: ${approvedReviewsCount}`)
 
   // output values
   core.setOutput('commit_status', commitStatus)
