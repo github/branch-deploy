@@ -41945,6 +41945,35 @@ async function unlock(
   }
 }
 
+;// CONCATENATED MODULE: ./src/functions/label.js
+
+
+// Helper function to add labels to a pull request
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :param labels: An array of labels to add to the pull request (Array)
+// :returns: The result of the label addition (Object)
+async function label(context, octokit, labels) {
+  // Get the owner and repo from the context
+  const {owner, repo} = context.repo
+
+  if (labels.length === 0) {
+    core.debug('🏷️ no labels to add')
+    return
+  }
+
+  core.debug(`attempting to apply labels: ${labels}`)
+  const result = await octokit.rest.issues.addLabels({
+    owner: owner,
+    repo: repo,
+    issue_number: context.issue.number,
+    labels: labels
+  })
+  core.info(`🏷️ labels added: ${labels}`)
+
+  return result
+}
+
 // EXTERNAL MODULE: external "fs"
 var external_fs_ = __nccwpck_require__(7147);
 // EXTERNAL MODULE: ./node_modules/nunjucks/index.js
@@ -42072,6 +42101,7 @@ async function postDeployMessage(
 
 
 
+
 const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`
 const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
 
@@ -42087,8 +42117,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 // :param deployment_id: The id of the deployment (String)
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
-// :param environment_url_in_comment: Indicates whether the environment url should be added to the comment (Boolean)
-// :param deployMessagePath: The path to the deploy message file (String) (optional, can be null)
+// :param labels: A dictionary of labels to apply to the issue (Object)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 async function postDeploy(
   context,
@@ -42100,7 +42129,8 @@ async function postDeploy(
   noop,
   deployment_id,
   environment,
-  environment_url
+  environment_url,
+  labels
 ) {
   // check the inputs to ensure they are valid
   if (!comment_id || comment_id.length === 0) {
@@ -42142,10 +42172,23 @@ async function postDeploy(
 
   // Update the deployment status of the branch-deploy
   var deploymentStatus
+  var labelsToAdd
   if (success) {
     deploymentStatus = 'success'
+
+    if (noop === true) {
+      labelsToAdd = labels.successful_noop
+    } else {
+      labelsToAdd = labels.successful_deploy
+    }
   } else {
     deploymentStatus = 'failure'
+
+    if (noop === true) {
+      labelsToAdd = labels.failed_noop
+    } else {
+      labelsToAdd = labels.failed_deploy
+    }
   }
 
   // if the deployment mode is noop, return here
@@ -42186,6 +42229,9 @@ async function postDeploy(
         true // silent mode
       )
     }
+
+    // attempt to add labels to the pull request (if any)
+    await label(context, octokit, labelsToAdd)
 
     return 'success - noop'
   }
@@ -42235,11 +42281,15 @@ async function postDeploy(
     )
   }
 
+  // attempt to add labels to the pull request (if any)
+  await label(context, octokit, labelsToAdd)
+
   // if the post deploy comment logic completes successfully, return
   return 'success'
 }
 
 ;// CONCATENATED MODULE: ./src/functions/post.js
+
 
 
 
@@ -42263,6 +42313,14 @@ async function post() {
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
     const skip_completing = core.getBooleanInput('skip_completing')
+    const labels = {
+      successful_deploy: stringToArray(
+        core.getInput('successful_deploy_labels')
+      ),
+      successful_noop: stringToArray(core.getInput('successful_noop_labels')),
+      failed_deploy: stringToArray(core.getInput('failed_deploy_labels')),
+      failed_noop: stringToArray(core.getInput('failed_noop_labels'))
+    }
 
     // If bypass is set, exit the workflow
     if (bypass) {
@@ -42303,7 +42361,8 @@ async function post() {
       noop,
       deployment_id,
       environment,
-      environment_url
+      environment_url,
+      labels
     )
 
     return

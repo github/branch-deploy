@@ -36,7 +36,9 @@ test('adds a single label to a pull request', async () => {
 })
 
 test('adds two labels to a pull request', async () => {
-  expect(await label(context, octokit, ['read-for-review', 'cool-label'])).toStrictEqual({
+  expect(
+    await label(context, octokit, ['read-for-review', 'cool-label'])
+  ).toStrictEqual({
     data: {}
   })
 })

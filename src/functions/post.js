@@ -3,7 +3,7 @@ import {octokitRetry} from '@octokit/plugin-retry'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 
-import { stringToArray } from './string-to-array'
+import {stringToArray} from './string-to-array'
 import {contextCheck} from './context-check'
 import {checkInput} from './check-input'
 import {postDeploy} from './post-deploy'
@@ -23,7 +23,9 @@ export async function post() {
     const status = core.getInput('status')
     const skip_completing = core.getBooleanInput('skip_completing')
     const labels = {
-      successful_deploy: stringToArray(core.getInput('successful_deploy_labels')),
+      successful_deploy: stringToArray(
+        core.getInput('successful_deploy_labels')
+      ),
       successful_noop: stringToArray(core.getInput('successful_noop_labels')),
       failed_deploy: stringToArray(core.getInput('failed_deploy_labels')),
       failed_noop: stringToArray(core.getInput('failed_noop_labels'))

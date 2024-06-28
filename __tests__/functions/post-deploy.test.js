@@ -133,7 +133,7 @@ test('successfully completes a production branch deployment', async () => {
     'success',
     456,
     'production',
-    null, // environment_url
+    null // environment_url
   )
 })
 
@@ -199,7 +199,7 @@ test('successfully completes a production branch deployment that fails', async (
     'failure',
     456,
     'production',
-    null, // environment_url
+    null // environment_url
   )
 })
 
@@ -338,7 +338,7 @@ test('successfully completes a production branch deployment and removes a non-st
     'success',
     456,
     'production',
-    null, // environment_url
+    null // environment_url
   )
   expect(infoMock).toHaveBeenCalledWith(
     `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`

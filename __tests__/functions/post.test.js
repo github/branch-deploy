@@ -14,7 +14,7 @@ const validInputs = {
   successful_deploy_labels: '',
   successful_noop_labels: '',
   failed_deploy_labels: '',
-  failed_noop_labels: '',
+  failed_noop_labels: ''
 }
 
 const validStates = {

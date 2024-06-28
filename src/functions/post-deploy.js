@@ -87,7 +87,6 @@ export async function postDeploy(
     } else {
       labelsToAdd = labels.successful_deploy
     }
-
   } else {
     deploymentStatus = 'failure'
 
