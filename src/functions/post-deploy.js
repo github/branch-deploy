@@ -79,21 +79,26 @@ export async function postDeploy(
   // Update the deployment status of the branch-deploy
   var deploymentStatus
   var labelsToAdd
+  var labelsToRemove
   if (success) {
     deploymentStatus = 'success'
 
     if (noop === true) {
       labelsToAdd = labels.successful_noop
+      labelsToRemove = labels.failed_noop
     } else {
       labelsToAdd = labels.successful_deploy
+      labelsToRemove = labels.failed_deploy
     }
   } else {
     deploymentStatus = 'failure'
 
     if (noop === true) {
       labelsToAdd = labels.failed_noop
+      labelsToRemove = labels.successful_noop
     } else {
       labelsToAdd = labels.failed_deploy
+      labelsToRemove = labels.successful_deploy
     }
   }
 
@@ -137,7 +142,7 @@ export async function postDeploy(
     }
 
     // attempt to add labels to the pull request (if any)
-    await label(context, octokit, labelsToAdd)
+    await label(context, octokit, labelsToAdd, labelsToRemove)
 
     return 'success - noop'
   }
@@ -188,7 +193,7 @@ export async function postDeploy(
   }
 
   // attempt to add labels to the pull request (if any)
-  await label(context, octokit, labelsToAdd)
+  await label(context, octokit, labelsToAdd, labelsToRemove)
 
   // if the post deploy comment logic completes successfully, return
   return 'success'
