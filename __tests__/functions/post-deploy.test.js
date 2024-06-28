@@ -85,7 +85,7 @@ test('successfully completes a production branch deployment', async () => {
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       456,
       'production',
       null, // environment_url
@@ -151,7 +151,7 @@ test('successfully completes a production branch deployment with an environment 
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       456,
       'production',
       'https://example.com', // environment_url
@@ -223,7 +223,7 @@ test('successfully completes a production branch deployment and removes a non-st
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       456,
       'production',
       null, // environment_url
@@ -386,7 +386,7 @@ test('successfully completes a production branch deployment with no custom messa
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       456,
       'production',
       null, // environment_url
@@ -462,7 +462,7 @@ test('updates with a failure for a production branch deployment', async () => {
       12345,
       'failure',
       'test-ref',
-      false,
+      false, // noop
       456,
       'production',
       null, // environment_url
@@ -480,7 +480,7 @@ test('updates with an unknown for a production branch deployment', async () => {
       12345,
       'unknown',
       'test-ref',
-      false,
+      false, // noop
       456,
       'production',
       null, // environment_url
@@ -530,7 +530,7 @@ test('fails due to no deployment_id', async () => {
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       ''
     )
   } catch (e) {
@@ -548,7 +548,7 @@ test('fails due to no environment', async () => {
       12345,
       'success',
       'test-ref',
-      false,
+      false, // noop
       456,
       ''
     )
