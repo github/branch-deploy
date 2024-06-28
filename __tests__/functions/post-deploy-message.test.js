@@ -11,6 +11,7 @@ var environment_url_simple
 var status
 var noop
 var ref
+var approved_reviews_count
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -27,6 +28,7 @@ beforeEach(() => {
   status = 'success'
   noop = false
   ref = 'test-ref'
+  approved_reviews_count = '4'
 
   context = {
     actor: 'monalisa',
@@ -52,7 +54,8 @@ test('successfully constructs a post deploy message with the defaults', async ()
       environment_url, // environment_url
       status, // status
       noop, // noop
-      ref // ref
+      ref, // ref
+      approved_reviews_count // approved_reviews_count
     )
   ).toStrictEqual(
     dedent(`
@@ -72,7 +75,8 @@ test('successfully constructs a post deploy message with the defaults during a "
       environment_url, // environment_url
       status, // status
       true, // noop
-      ref // ref
+      ref, // ref
+      approved_reviews_count // approved_reviews_count
     )
   ).toStrictEqual(
     dedent(`
@@ -90,7 +94,8 @@ test('successfully constructs a post deploy message with the defaults during a d
       environment_url, // environment_url
       'failure', // status
       noop, // noop
-      ref // ref
+      ref, // ref
+      approved_reviews_count // approved_reviews_count
     )
   ).toStrictEqual(
     dedent(`
@@ -108,7 +113,8 @@ test('successfully constructs a post deploy message with the defaults during a d
       environment_url, // environment_url
       'unknown', // status
       noop, // noop
-      ref // ref
+      ref, // ref
+      approved_reviews_count // approved_reviews_count
     )
   ).toStrictEqual(
     dedent(`
@@ -128,7 +134,8 @@ test('successfully constructs a post deploy message with a custom env var', asyn
       environment_url, // environment_url
       status, // status
       noop, // noop
-      ref // ref
+      ref, // ref
+      approved_reviews_count // approved_reviews_count
     )
   ).toStrictEqual(
     dedent(`
@@ -156,7 +163,8 @@ test('successfully constructs a post deploy message with a custom markdown file'
       environment_url, // environment_url
       status, // status
       noop, // noop
-      ref // ref
+      ref, // ref
+      approved_reviews_count // approved_reviews_count
     )
   ).toStrictEqual(
     dedent(`### Deployment Results :rocket:
@@ -169,6 +177,7 @@ test('successfully constructs a post deploy message with a custom markdown file'
     - \`noop\` - Whether or not the deployment is a noop (Boolean)
     - \`ref\` - The ref of the deployment (String)
     - \`actor\` - The GitHub username of the actor who triggered the deployment (String)
+    - \`approved_reviews_count\` - The number of approved reviews on the pull request at the time of deployment (String of a number)
 
     Here is an example:
 
@@ -177,6 +186,8 @@ test('successfully constructs a post deploy message with a custom markdown file'
     You can view the deployment [here](https://example.com).
 
 
+
+    > This deployment had \`4\` approvals.
 
     `)
   )

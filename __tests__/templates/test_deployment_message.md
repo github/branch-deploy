@@ -8,6 +8,7 @@ The following variables are available to use in this template:
 - `noop` - Whether or not the deployment is a noop (Boolean)
 - `ref` - The ref of the deployment (String)
 - `actor` - The GitHub username of the actor who triggered the deployment (String)
+- `approved_reviews_count` - The number of approved reviews on the pull request at the time of deployment (String of a number)
 
 Here is an example:
 
@@ -16,3 +17,5 @@ Here is an example:
 {% if environment_url %}You can view the deployment [here]({{ environment_url }}).{% endif %}
 
 {% if noop %}This was a noop deployment.{% endif %}
+
+> This deployment had `{{ approved_reviews_count }}` approvals.

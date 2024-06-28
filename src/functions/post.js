@@ -18,6 +18,7 @@ export async function post() {
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
     const environment_url = checkInput(core.getState('environment_url'))
+    const approved_reviews_count = core.getState('approved_reviews_count')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
@@ -71,6 +72,7 @@ export async function post() {
       deployment_id,
       environment,
       environment_url,
+      approved_reviews_count,
       labels
     )
 

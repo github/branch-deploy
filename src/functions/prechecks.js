@@ -276,6 +276,9 @@ export async function prechecks(context, octokit, data) {
   core.setOutput('merge_state_status', mergeStateStatus)
   core.setOutput('approved_reviews_count', approvedReviewsCount)
 
+  // save state values
+  core.saveState('approved_reviews_count', approvedReviewsCount)
+
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (data.environmentObj.stable_branch_used === true) {
     message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`

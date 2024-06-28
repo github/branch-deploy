@@ -23,7 +23,8 @@ const validStates = {
   noop: 'false',
   deployment_id: '456',
   environment: 'production',
-  token: 'test-token'
+  token: 'test-token',
+  approved_reviews_count: '1'
 }
 
 const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation(() => {})

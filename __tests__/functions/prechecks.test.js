@@ -23,6 +23,7 @@ beforeEach(() => {
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
+  jest.spyOn(core, 'saveState').mockImplementation(() => {})
   process.env.INPUT_PERMISSIONS = 'admin,write,maintain'
 
   data = {

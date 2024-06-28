@@ -23,6 +23,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 // :param deployment_id: The id of the deployment (String)
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
+// :param approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
 // :param labels: A dictionary of labels to apply to the issue (Object)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(
@@ -36,6 +37,7 @@ export async function postDeploy(
   deployment_id,
   environment,
   environment_url,
+  approved_reviews_count,
   labels
 ) {
   // check the inputs to ensure they are valid
@@ -70,7 +72,8 @@ export async function postDeploy(
     environment_url,
     status,
     noop,
-    ref
+    ref,
+    approved_reviews_count
   )
 
   // update the action status to indicate the result of the deployment as a comment

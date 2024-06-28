@@ -89,6 +89,7 @@ test('successfully completes a production branch deployment', async () => {
       456,
       'production',
       null, // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success')
@@ -155,6 +156,7 @@ test('successfully completes a production branch deployment that fails', async (
       456,
       'production',
       null, // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success')
@@ -221,6 +223,7 @@ test('successfully completes a production branch deployment with an environment 
       456,
       'production',
       'https://example.com', // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success')
@@ -293,6 +296,7 @@ test('successfully completes a production branch deployment and removes a non-st
       456,
       'production',
       null, // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success')
@@ -365,6 +369,7 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
       456,
       'production',
       null, // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success - noop')
@@ -412,6 +417,7 @@ test('successfully completes a noop branch deployment but does not get any lock 
       456,
       'production',
       null, // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success - noop')
@@ -456,6 +462,7 @@ test('successfully completes a production branch deployment with no custom messa
       456,
       'production',
       null, // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success')
@@ -494,6 +501,7 @@ test('successfully completes a noop branch deployment', async () => {
       456,
       'production',
       null, // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success - noop')
@@ -514,6 +522,7 @@ test('successfully completes a noop branch deployment and applies success labels
       456,
       'production',
       null, // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success - noop')
@@ -534,6 +543,7 @@ test('successfully completes a noop branch deployment that fails and applies suc
       456,
       'production',
       null, // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success - noop')
@@ -552,6 +562,7 @@ test('updates with a failure for a production branch deployment', async () => {
       456,
       'production',
       null, // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success')
@@ -570,6 +581,7 @@ test('updates with an unknown for a production branch deployment', async () => {
       456,
       'production',
       null, // environment_url
+      1, // approved_reviews_count
       labels
     )
   ).toBe('success')

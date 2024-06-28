@@ -40738,6 +40738,9 @@ async function prechecks(context, octokit, data) {
   core.setOutput('merge_state_status', mergeStateStatus)
   core.setOutput('approved_reviews_count', approvedReviewsCount)
 
+  // save state values
+  core.saveState('approved_reviews_count', approvedReviewsCount)
+
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (data.environmentObj.stable_branch_used === true) {
     message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`
@@ -42051,6 +42054,7 @@ var nunjucks_default = /*#__PURE__*/__nccwpck_require__.n(nunjucks);
 // :param status: The status of the deployment (String)
 // :param noop: Indicates whether the deployment is a noop or not (Boolean)
 // :param ref: The ref (branch) which is being used for deployment (String)
+// :param approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
 // :returns: The formatted message (String)
 async function postDeployMessage(
   context,
@@ -42058,7 +42062,8 @@ async function postDeployMessage(
   environment_url,
   status,
   noop,
-  ref
+  ref,
+  approved_reviews_count
 ) {
   // fetch the inputs
   const environment_url_in_comment = core.getBooleanInput(
@@ -42078,7 +42083,8 @@ async function postDeployMessage(
         status,
         noop,
         ref,
-        actor: context.actor
+        actor: context.actor,
+        approved_reviews_count
       }
       return nunjucks_default().render(deployMessagePath, vars)
     }
@@ -42175,6 +42181,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 // :param deployment_id: The id of the deployment (String)
 // :param environment: The environment of the deployment (String)
 // :param environment_url: The environment url of the deployment (String)
+// :param approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
 // :param labels: A dictionary of labels to apply to the issue (Object)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 async function postDeploy(
@@ -42188,6 +42195,7 @@ async function postDeploy(
   deployment_id,
   environment,
   environment_url,
+  approved_reviews_count,
   labels
 ) {
   // check the inputs to ensure they are valid
@@ -42222,7 +42230,8 @@ async function postDeploy(
     environment_url,
     status,
     noop,
-    ref
+    ref,
+    approved_reviews_count
   )
 
   // update the action status to indicate the result of the deployment as a comment
@@ -42372,6 +42381,7 @@ async function post() {
     const deployment_id = core.getState('deployment_id')
     const environment = core.getState('environment')
     const environment_url = checkInput(core.getState('environment_url'))
+    const approved_reviews_count = core.getState('approved_reviews_count')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const status = core.getInput('status')
@@ -42425,6 +42435,7 @@ async function post() {
       deployment_id,
       environment,
       environment_url,
+      approved_reviews_count,
       labels
     )
 
