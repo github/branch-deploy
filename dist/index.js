@@ -43198,7 +43198,7 @@ async function run() {
             core.info(
               `🔒 the deployment lock is currently claimed by ${COLORS.highlight}${lockData.created_by}`
             )
-          } else if (lockStatus === null) {
+          } else {
             // format the lock details message
             var lockCommand
             var lockTarget
