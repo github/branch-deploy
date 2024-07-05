@@ -43444,7 +43444,7 @@ async function run() {
       production_environments.includes(environment)
     core.debug(`production_environment: ${isProductionEnvironment}`)
 
-    // if environmentObj.sha is not null, set auto_merge to false,
+    // if environmentObj.environmentObj.sha is not null, set auto_merge to false,
     // otherwise if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
     // this is important as we cannot reliably merge into the base branch if we are using a SHA
     const auto_merge =
