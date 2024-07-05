@@ -36,6 +36,7 @@ beforeEach(() => {
   process.env.INPUT_GITHUB_TOKEN = 'faketoken'
   process.env.INPUT_TRIGGER = '.deploy'
   process.env.INPUT_REACTION = 'eyes'
+  process.env.INPUT_UPDATE_BRANCH = 'warn'
   process.env.INPUT_ENVIRONMENT = 'production'
   process.env.INPUT_ENVIRONMENT_TARGETS = 'production,development,staging'
   process.env.INPUT_ENVIRONMENT_URLS = ''
@@ -114,7 +115,8 @@ beforeEach(() => {
       ref: 'test-ref',
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
-      noopMode: false
+      noopMode: false,
+      sha: null
     }
   })
 })
@@ -597,6 +599,17 @@ test('runs with a naked command when naked commands are NOT allowed', async () =
 })
 
 test('successfully runs the action on a deployment to an exact sha in development with params', async () => {
+  process.env.INPUT_ALLOW_SHA_DEPLOYMENTS = 'true'
+  jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
+    return {
+      ref: 'test-ref',
+      status: true,
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: false,
+      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+    }
+  })
+
   github.context.payload.comment.body =
     '.deploy 82c238c277ca3df56fe9418a5913d9188eafe3bc development | something1 something2 something3'
 

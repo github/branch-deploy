@@ -43447,11 +43447,9 @@ async function run() {
     // if environmentObj.sha is not null, set auto_merge to false,
     // otherwise if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
     // this is important as we cannot reliably merge into the base branch if we are using a SHA
-
-    console.log('update_branch', update_branch)
-
     const auto_merge =
-      environmentObj?.sha !== null && environmentObj?.sha !== undefined
+      environmentObj.environmentObj.sha !== null &&
+      environmentObj.environmentObj.sha !== undefined
         ? false
         : update_branch === 'disabled'
           ? false
