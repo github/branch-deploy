@@ -82,7 +82,7 @@ beforeEach(() => {
         reviewDecision: 'APPROVED',
         mergeStateStatus: 'CLEAN',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         commits: {
           nodes: [
@@ -161,7 +161,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
         reviewDecision: 'APPROVED',
         mergeStateStatus: 'CLEAN',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         commits: {
           nodes: [
@@ -318,7 +318,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       pullRequest: {
         reviewDecision: null,
         reviews: {
-          total: 0
+          totalCount: 0
         },
         commits: {
           nodes: [
@@ -356,7 +356,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
         reviews: {
-          total: 0
+          totalCount: 0
         },
         commits: {
           nodes: [
@@ -393,7 +393,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         commits: {
           nodes: [
@@ -443,7 +443,7 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 4
+          totalCount: 4
         },
         commits: {
           nodes: [
@@ -492,7 +492,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
         reviews: {
-          total: 0
+          totalCount: 0
         },
         commits: {
           nodes: [
@@ -527,7 +527,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
         reviews: {
-          total: 0
+          totalCount: 0
         },
         commits: {
           nodes: [
@@ -559,7 +559,7 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       pullRequest: {
         reviewDecision: null,
         reviews: {
-          total: 0
+          totalCount: 0
         },
         commits: {
           nodes: [
@@ -591,7 +591,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
         reviews: {
-          total: 0
+          totalCount: 0
         }
       }
     }
@@ -614,7 +614,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
       pullRequest: {
         reviewDecision: null,
         reviews: {
-          total: 0
+          totalCount: 0
         }
       }
     }
@@ -640,7 +640,7 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         commits: {
           nodes: [
@@ -701,7 +701,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         commits: {
           nodes: [
@@ -733,7 +733,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         commits: {
           nodes: [
@@ -828,7 +828,7 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         }
       }
     }
@@ -848,7 +848,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         mergeStateStatus: 'BEHIND',
         commits: {
@@ -896,7 +896,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         mergeStateStatus: 'DIRTY',
         commits: {
@@ -933,7 +933,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         mergeStateStatus: 'BEHIND',
         commits: {
@@ -981,7 +981,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         mergeStateStatus: 'BEHIND',
         commits: {
@@ -1024,7 +1024,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         mergeStateStatus: 'BEHIND',
         commits: {
@@ -1065,7 +1065,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         mergeStateStatus: 'BLOCKED',
         commits: {
@@ -1124,7 +1124,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         mergeStateStatus: 'CLEAN',
         commits: {
@@ -1177,7 +1177,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         mergeStateStatus: 'BEHIND',
         commits: {
@@ -1214,7 +1214,7 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         mergeStateStatus: 'BEHIND',
         commits: {
@@ -1254,7 +1254,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         mergeStateStatus: 'BEHIND',
         commits: {
@@ -1500,7 +1500,7 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         commits: {
           nodes: [
@@ -1571,7 +1571,7 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
       pullRequest: {
         reviewDecision: 'APPROVED',
         reviews: {
-          total: 1
+          totalCount: 1
         },
         commits: {
           nodes: [
