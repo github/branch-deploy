@@ -24,7 +24,8 @@ const validStates = {
   deployment_id: '456',
   environment: 'production',
   token: 'test-token',
-  approved_reviews_count: '1'
+  approved_reviews_count: '1',
+  environment_url: 'https://example.com'
 }
 
 const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation(() => {})
@@ -56,6 +57,18 @@ beforeEach(() => {
 })
 
 test('successfully runs post() Action logic', async () => {
+  expect(await post()).toBeUndefined()
+})
+
+test('successfully runs post() Action logic when environment_url is not defined', async () => {
+  const noEnvironmentUrl = {
+    environment_url: null
+  }
+
+  jest.spyOn(core, 'getState').mockImplementation(name => {
+    return noEnvironmentUrl[name]
+  })
+
   expect(await post()).toBeUndefined()
 })
 

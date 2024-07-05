@@ -403,10 +403,9 @@ export async function run() {
         )
         core.saveState('bypass', 'true')
         return 'safe-exit'
-      }
-
-      // If the request is an unlock request, attempt to release the lock
-      if (isUnlock) {
+      } else {
+        // if it isn't a lock or lock info command, it must be an unlock command
+        core.debug('running unlock command logic')
         await unlock(octokit, context, reactRes.data.id)
         core.saveState('bypass', 'true')
         return 'safe-exit'
@@ -595,8 +594,11 @@ export async function run() {
     // if environmentObj.sha is not null, set auto_merge to false,
     // otherwise if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
     // this is important as we cannot reliably merge into the base branch if we are using a SHA
+
+    console.log('update_branch', update_branch)
+
     const auto_merge =
-      environmentObj.sha !== null
+      environmentObj?.sha !== null && environmentObj?.sha !== undefined
         ? false
         : update_branch === 'disabled'
           ? false
