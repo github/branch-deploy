@@ -42503,6 +42503,11 @@ async function identicalCommitCheck(octokit, context, environment) {
       })
       latestDeploymentTreeSha = commitData.data.commit.tree.sha
       break
+    } else {
+      core.debug(
+        `deployment.payload.type is not of the branch-deploy type: ${deployment.payload.type} - skipping...`
+      )
+      continue
     }
   }
 
@@ -43193,7 +43198,7 @@ async function run() {
             core.info(
               `🔒 the deployment lock is currently claimed by ${COLORS.highlight}${lockData.created_by}`
             )
-          } else if (lockStatus === null) {
+          } else {
             // format the lock details message
             var lockCommand
             var lockTarget
@@ -43251,10 +43256,9 @@ async function run() {
         )
         core.saveState('bypass', 'true')
         return 'safe-exit'
-      }
-
-      // If the request is an unlock request, attempt to release the lock
-      if (isUnlock) {
+      } else {
+        // if it isn't a lock or lock info command, it must be an unlock command
+        core.debug('running unlock command logic')
         await unlock(octokit, github.context, reactRes.data.id)
         core.saveState('bypass', 'true')
         return 'safe-exit'
@@ -43440,11 +43444,12 @@ async function run() {
       production_environments.includes(environment)
     core.debug(`production_environment: ${isProductionEnvironment}`)
 
-    // if environmentObj.sha is not null, set auto_merge to false,
+    // if environmentObj.environmentObj.sha is not null, set auto_merge to false,
     // otherwise if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
     // this is important as we cannot reliably merge into the base branch if we are using a SHA
     const auto_merge =
-      environmentObj.sha !== null
+      environmentObj.environmentObj.sha !== null &&
+      environmentObj.environmentObj.sha !== undefined
         ? false
         : update_branch === 'disabled'
           ? false

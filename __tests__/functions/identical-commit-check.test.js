@@ -58,6 +58,14 @@ beforeEach(() => {
         listDeployments: jest.fn().mockReturnValue({
           data: [
             {
+              sha: 'deadbeef',
+              id: 123395608,
+              created_at: '2023-02-01T21:30:40Z',
+              payload: {
+                type: 'some-other-type'
+              }
+            },
+            {
               sha: 'beefdead',
               id: 785395609,
               created_at: '2023-02-01T20:26:33Z',

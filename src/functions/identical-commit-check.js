@@ -54,6 +54,11 @@ export async function identicalCommitCheck(octokit, context, environment) {
       })
       latestDeploymentTreeSha = commitData.data.commit.tree.sha
       break
+    } else {
+      core.debug(
+        `deployment.payload.type is not of the branch-deploy type: ${deployment.payload.type} - skipping...`
+      )
+      continue
     }
   }
 
