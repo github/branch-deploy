@@ -430,6 +430,26 @@ inputs:
     default:
       required: false
       type: string
+  skip_successful_noop_labels_if_approved:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
+  skip_successful_deploy_labels_if_approved:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
 
 # outputs section
 outputs:

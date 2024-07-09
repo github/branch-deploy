@@ -9,7 +9,10 @@ import * as core from '@actions/core'
 import * as label from '../../src/functions/label'
 
 const infoMock = jest.spyOn(core, 'info')
+const debugMock = jest.spyOn(core, 'debug')
 const warningMock = jest.spyOn(core, 'warning')
+
+const review_decision = 'APPROVED'
 
 var octokit
 var context
@@ -67,7 +70,9 @@ beforeEach(() => {
     successful_deploy: [],
     successful_noop: [],
     failed_deploy: [],
-    failed_noop: []
+    failed_noop: [],
+    skip_successful_noop_labels_if_approved: false,
+    skip_successful_deploy_labels_if_approved: false
   }
 })
 
@@ -90,7 +95,8 @@ test('successfully completes a production branch deployment', async () => {
       'production',
       null, // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success')
 
@@ -157,7 +163,8 @@ test('successfully completes a production branch deployment that fails', async (
       'production',
       null, // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success')
 
@@ -224,7 +231,8 @@ test('successfully completes a production branch deployment with an environment 
       'production',
       'https://example.com', // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success')
 
@@ -297,7 +305,8 @@ test('successfully completes a production branch deployment and removes a non-st
       'production',
       null, // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success')
 
@@ -370,7 +379,8 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
       'production',
       null, // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success - noop')
 
@@ -418,7 +428,8 @@ test('successfully completes a noop branch deployment but does not get any lock 
       'production',
       null, // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success - noop')
 
@@ -463,7 +474,8 @@ test('successfully completes a production branch deployment with no custom messa
       'production',
       null, // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success')
   expect(actionStatusSpy).toHaveBeenCalled()
@@ -502,7 +514,8 @@ test('successfully completes a noop branch deployment', async () => {
       'production',
       null, // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success - noop')
 })
@@ -523,13 +536,68 @@ test('successfully completes a noop branch deployment and applies success labels
       'production',
       null, // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success - noop')
 })
 
-test('successfully completes a noop branch deployment that fails and applies success labels', async () => {
+test('successfully completes a noop branch deployment and does not apply labels due to skip config', async () => {
   labels.successful_noop = ['ready-for-review', 'noop-success']
+  labels.skip_successful_noop_labels_if_approved = true
+
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'success',
+      'test-ref',
+      true,
+      456,
+      'production',
+      null, // environment_url
+      1, // approved_reviews_count
+      labels,
+      review_decision
+    )
+  ).toBe('success - noop')
+
+  expect(infoMock).toHaveBeenCalledWith(
+    `⏩ skipping noop labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
+  )
+})
+
+test('successfully completes a branch deployment and does not apply labels due to skip config', async () => {
+  labels.successful_deploy = ['ready-to-merge', 'deploy-success']
+  labels.skip_successful_deploy_labels_if_approved = true
+
+  expect(
+    await postDeploy(
+      context,
+      octokit,
+      123,
+      12345,
+      'success',
+      'test-ref',
+      false, // noop
+      456,
+      'production',
+      null, // environment_url
+      1, // approved_reviews_count
+      labels,
+      review_decision
+    )
+  ).toBe('success')
+
+  expect(infoMock).toHaveBeenCalledWith(
+    `⏩ skipping deploy labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
+  )
+})
+
+test('successfully completes a noop branch deployment that fails and applies failure labels', async () => {
+  labels.failed_noop = ['help', 'oh-no']
 
   expect(
     await postDeploy(
@@ -539,14 +607,18 @@ test('successfully completes a noop branch deployment that fails and applies suc
       12345,
       'failure',
       'test-ref',
-      true,
+      true, // noop
       456,
       'production',
       null, // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success - noop')
+
+  expect(debugMock).toHaveBeenCalledWith('deploymentStatus: failure')
+  expect(debugMock).toHaveBeenCalledWith('deployment mode: noop')
 })
 
 test('updates with a failure for a production branch deployment', async () => {
@@ -563,7 +635,8 @@ test('updates with a failure for a production branch deployment', async () => {
       'production',
       null, // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success')
 })
@@ -582,7 +655,8 @@ test('updates with an unknown for a production branch deployment', async () => {
       'production',
       null, // environment_url
       1, // approved_reviews_count
-      labels
+      labels,
+      review_decision
     )
   ).toBe('success')
 })

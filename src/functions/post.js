@@ -21,6 +21,7 @@ export async function post() {
     const approved_reviews_count = core.getState('approved_reviews_count')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
+    const review_decision = core.getState('review_decision')
     const status = core.getInput('status')
     const skip_completing = core.getBooleanInput('skip_completing')
     const labels = {
@@ -29,7 +30,13 @@ export async function post() {
       ),
       successful_noop: stringToArray(core.getInput('successful_noop_labels')),
       failed_deploy: stringToArray(core.getInput('failed_deploy_labels')),
-      failed_noop: stringToArray(core.getInput('failed_noop_labels'))
+      failed_noop: stringToArray(core.getInput('failed_noop_labels')),
+      skip_successful_noop_labels_if_approved: core.getBooleanInput(
+        'skip_successful_noop_labels_if_approved'
+      ),
+      skip_successful_deploy_labels_if_approved: core.getBooleanInput(
+        'skip_successful_deploy_labels_if_approved'
+      )
     }
 
     // If bypass is set, exit the workflow
@@ -73,7 +80,8 @@ export async function post() {
       environment,
       environment_url,
       approved_reviews_count,
-      labels
+      labels,
+      review_decision
     )
 
     return

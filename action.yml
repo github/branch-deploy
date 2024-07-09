@@ -165,6 +165,14 @@ inputs:
     description: 'A comma separated list of labels to add to the pull request when a noop deployment fails. Example: "failed,noop-failed"'
     required: false
     default: ""
+  skip_successful_noop_labels_if_approved:
+    description: 'Whether or not the post run logic should skip adding successful noop labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a .noop completes but want to skip adding that label in situations where the pull request is already approved.'
+    required: false
+    default: "false"
+  skip_successful_deploy_labels_if_approved:
+    description: 'Whether or not the post run logic should skip adding successful deploy labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a .deploy completes but want to skip adding that label in situations where the pull request is already approved.'
+    required: false
+    default: "false"
 outputs:
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'

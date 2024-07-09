@@ -25,6 +25,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 // :param environment_url: The environment url of the deployment (String)
 // :param approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
 // :param labels: A dictionary of labels to apply to the issue (Object)
+// :param review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(
   context,
@@ -38,7 +39,8 @@ export async function postDeploy(
   environment,
   environment_url,
   approved_reviews_count,
-  labels
+  labels,
+  review_decision
 ) {
   // check the inputs to ensure they are valid
   if (!comment_id || comment_id.length === 0) {
@@ -105,6 +107,8 @@ export async function postDeploy(
     }
   }
 
+  core.debug(`deploymentStatus: ${deploymentStatus}`)
+
   // if the deployment mode is noop, return here
   if (noop === true) {
     core.debug('deployment mode: noop')
@@ -144,8 +148,18 @@ export async function postDeploy(
       )
     }
 
-    // attempt to add labels to the pull request (if any)
-    await label(context, octokit, labelsToAdd, labelsToRemove)
+    // check to see if the pull request labels should be applied or not
+    if (
+      labels.skip_successful_noop_labels_if_approved === true &&
+      review_decision === 'APPROVED'
+    ) {
+      core.info(
+        `⏩ skipping noop labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
+      )
+    } else {
+      // attempt to add labels to the pull request (if any)
+      await label(context, octokit, labelsToAdd, labelsToRemove)
+    }
 
     return 'success - noop'
   }
@@ -195,8 +209,18 @@ export async function postDeploy(
     )
   }
 
-  // attempt to add labels to the pull request (if any)
-  await label(context, octokit, labelsToAdd, labelsToRemove)
+  // check to see if the pull request labels should be applied or not
+  if (
+    labels.skip_successful_deploy_labels_if_approved === true &&
+    review_decision === 'APPROVED'
+  ) {
+    core.info(
+      `⏩ skipping deploy labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
+    )
+  } else {
+    // attempt to add labels to the pull request (if any)
+    await label(context, octokit, labelsToAdd, labelsToRemove)
+  }
 
   // if the post deploy comment logic completes successfully, return
   return 'success'
