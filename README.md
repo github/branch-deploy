@@ -293,6 +293,8 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `successful_noop_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a noop deployment is successful. Example: `"noop,success"` |
 | `failed_deploy_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a deployment fails. Example: `"failed,deploy-failed"` |
 | `failed_noop_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a noop deployment fails. Example: `"failed,noop-failed"` |
+| `skip_successful_noop_labels_if_approved` | `false` | `"false"` | Whether or not the post run logic should skip adding successful noop labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a `.noop` completes but want to skip adding that label in situations where the pull request is already approved. |
+| `skip_successful_deploy_labels_if_approved` | `false` | `"false"` | Whether or not the post run logic should skip adding successful deploy labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a `.deploy` completes but want to skip adding that label in situations where the pull request is already approved. |
 
 ## Outputs 📤
 

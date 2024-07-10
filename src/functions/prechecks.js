@@ -277,6 +277,7 @@ export async function prechecks(context, octokit, data) {
   core.setOutput('approved_reviews_count', approvedReviewsCount)
 
   // save state values
+  core.saveState('review_decision', reviewDecision)
   core.saveState('approved_reviews_count', approvedReviewsCount)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review

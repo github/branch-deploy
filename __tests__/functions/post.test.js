@@ -14,7 +14,9 @@ const validInputs = {
   successful_deploy_labels: '',
   successful_noop_labels: '',
   failed_deploy_labels: '',
-  failed_noop_labels: ''
+  failed_noop_labels: '',
+  skip_successful_noop_labels_if_approved: 'false',
+  skip_successful_deploy_labels_if_approved: 'false'
 }
 
 const validStates = {
@@ -25,7 +27,8 @@ const validStates = {
   environment: 'production',
   token: 'test-token',
   approved_reviews_count: '1',
-  environment_url: 'https://example.com'
+  environment_url: 'https://example.com',
+  review_decision: 'APPROVED'
 }
 
 const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation(() => {})
