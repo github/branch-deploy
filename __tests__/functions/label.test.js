@@ -58,6 +58,15 @@ test('adds two labels to a pull request and removes none', async () => {
   })
 })
 
+test('adds a single label to a pull request and tries to remove a label but it is not on the PR to begin with', async () => {
+  expect(
+    await label(context, octokit, ['read-for-review'], ['unknown-label'])
+  ).toStrictEqual({
+    added: ['read-for-review'],
+    removed: []
+  })
+})
+
 test('does not add or remove any labels', async () => {
   expect(await label(context, octokit, [], [])).toStrictEqual({
     added: [],
