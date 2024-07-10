@@ -370,7 +370,7 @@ async function checkLockOwner(
   var header = ''
   if (sticky === true) {
     header = 'claim deployment lock'
-  } else if (sticky === false) {
+  } else {
     header = 'proceed with deployment'
   }
 
