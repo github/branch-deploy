@@ -1,7 +1,4 @@
 {
-  "name": "branch-deploy-action",
-  "version": "0.0.0",
-  "private": true,
   "description": "Enabling Branch Deployments through IssueOps with GitHub Actions",
   "main": "lib/main.js",
   "scripts": {
@@ -53,17 +50,17 @@
     }
   },
   "devDependencies": {
-    "@babel/plugin-transform-modules-commonjs": "^7.24.1",
-    "@babel/preset-env": "^7.24.4",
-    "@types/node": "^20.12.2",
+    "@babel/plugin-transform-modules-commonjs": "^7.24.7",
+    "@babel/preset-env": "^7.24.7",
+    "@types/node": "^20.14.10",
     "@vercel/ncc": "^0.38.1",
-    "@babel/core": "^7.24.4",
+    "@babel/core": "^7.24.7",
     "babel-jest": "^29.7.0",
     "eslint": "^8.57.0",
-    "eslint-plugin-jest": "^27.9.0",
+    "eslint-plugin-jest": "^28.6.0",
     "jest": "^29.7.0",
     "js-yaml": "^4.1.0",
     "make-coverage-badge": "^1.2.0",
-    "prettier": "3.2.5"
+    "prettier": "^3.3.2"
   }
 }
