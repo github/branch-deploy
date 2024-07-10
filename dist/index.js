@@ -41492,6 +41492,8 @@ async function checkLockOwner(
   let reasonText = ''
   if (lockData.reason) {
     reasonText = `- __Reason__: \`${lockData.reason}\``
+  } else {
+    core.debug('no reason detected')
   }
 
   // dynamic lock text
@@ -41543,6 +41545,9 @@ async function checkLockOwner(
   core.setFailed(comment)
 
   // Return false to indicate that the lock was not claimed
+  core.debug(
+    `the lock was not claimed as it is owned by ${lockData.created_by}`
+  )
   return false
 }
 
