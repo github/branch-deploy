@@ -41160,7 +41160,7 @@ async function createLock(
   environment,
   global,
   reactionId,
-  leaveComment = true
+  leaveComment
 ) {
   core.debug('attempting to create lock...')
 
@@ -41424,7 +41424,7 @@ async function checkLockOwner(
   lockData,
   sticky,
   reactionId,
-  leaveComment = true
+  leaveComment
 ) {
   core.debug('checking the owner of the lock...')
   // If the requestor is the one who owns the lock, return 'owner'
