@@ -10,8 +10,8 @@ export async function label(context, octokit, labelsToAdd, labelsToRemove) {
   // Get the owner, repo, and issue number from the context
   const {owner, repo} = context.repo
   const issueNumber = context.issue.number
-  var addedLabels = []
-  var removedLabels = []
+  var addedLabels = [] // an array of labels that were actually added
+  var removedLabels = [] // an array of labels that were actually removed
 
   // exit early if there are no labels to add or remove
   if (labelsToAdd.length === 0 && labelsToRemove.length === 0) {
@@ -45,11 +45,12 @@ export async function label(context, octokit, labelsToAdd, labelsToRemove) {
           issue_number: issueNumber,
           name: label
         })
+        core.info(`🏷️ label removed: ${label}`)
+        removedLabels.push(label)
+      } else {
+        core.debug(`🏷️ label not found: '${label}' so it was not removed`)
       }
     }
-    core.info(`🏷️ labels removed: ${labelsToRemove}`)
-
-    removedLabels = labelsToRemove
   }
 
   // now, add the labels if any are provided
