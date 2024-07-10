@@ -765,6 +765,40 @@ test('checks a lock and finds that it is from another owner and that no reason w
   )
 })
 
+test('checks a lock and finds that it is from another owner and that no reason was set - it was a lock for the production environment and sticky is set to false', async () => {
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockReturnValue({data: {content: lockBase64OctocatNoReason}})
+      }
+    }
+  }
+  expect(
+    await lock(octokit, context, ref, 123, false, environment)
+  ).toStrictEqual({
+    environment: 'production',
+    global: false,
+    globalFlag: '--global',
+    lockData: null,
+    status: false
+  })
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch name: ${environment}-branch-deploy-lock`
+  )
+  expect(debugMock).toHaveBeenCalledWith(`no reason detected`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `the lock was not claimed as it is owned by octocat`
+  )
+})
+
 test('Determines that the lock request is coming from current owner of the lock (GLOBAL lock) and exits - sticky', async () => {
   context.actor = 'octocat'
   context.payload.comment.body = '.lock --global'
