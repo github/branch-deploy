@@ -1,7 +1,9 @@
 import * as core from '@actions/core'
 import {isOutdated} from '../../src/functions/outdated-check'
+import {COLORS} from '../../src/functions/colors'
 
 const debugMock = jest.spyOn(core, 'debug')
+const warningMock = jest.spyOn(core, 'warning')
 
 var context
 var octokit
@@ -121,6 +123,23 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
     outdated: true
   })
   expect(debugMock).toHaveBeenCalledWith('checking isOutdated with strict mode')
+  expect(warningMock).toHaveBeenCalledWith(
+    `The PR branch is behind the base branch by ${COLORS.highlight}1 commit${COLORS.reset}`
+  )
+})
+
+test('checks if the branch is out-of-date via commit comparison and finds that it is by many commits', async () => {
+  octokit.rest.repos.compareCommits = jest
+    .fn()
+    .mockReturnValue({data: {behind_by: 45}, status: 200})
+  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+    branch: 'test-branch',
+    outdated: true
+  })
+  expect(debugMock).toHaveBeenCalledWith('checking isOutdated with strict mode')
+  expect(warningMock).toHaveBeenCalledWith(
+    `The PR branch is behind the base branch by ${COLORS.highlight}45 commits${COLORS.reset}`
+  )
 })
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is only behind the stable branch', async () => {
