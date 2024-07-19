@@ -50,7 +50,7 @@ export async function unlockOnMerge(octokit, context, environment_targets) {
           true // silent
         )
 
-        // if the result is 'removed lock - silent', then the lock was successfully removed - appead to the array for later use
+        // if the result is 'removed lock - silent', then the lock was successfully removed - append to the array for later use
         if (result === 'removed lock - silent') {
           releasedEnvironments.push(environment)
         }
