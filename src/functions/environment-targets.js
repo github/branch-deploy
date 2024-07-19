@@ -446,10 +446,8 @@ export async function environmentTargets(
     )
 
     return {environment: false, environmentUrl: null}
-  }
-
-  // If lockChecks is set to false, this request is for a branch deploy to check the body for an environment target
-  if (lockChecks === false) {
+  } else {
+    // If lockChecks is set to false, this request is for a branch deploy to check the body for an environment target
     const environmentObj = await onDeploymentChecks(
       environment_targets_sanitized,
       body,
