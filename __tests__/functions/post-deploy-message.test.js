@@ -2,7 +2,7 @@ import {postDeployMessage} from '../../src/functions/post-deploy-message'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 
-// const debugMock = jest.spyOn(core, 'debug')
+const debugMock = jest.spyOn(core, 'debug')
 
 var context
 var environment
@@ -122,6 +122,28 @@ test('successfully constructs a post deploy message with the defaults during a d
 
       Warning: deployment status is unknown, please use caution`)
   )
+})
+
+test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status and the DEPLOY_MESSAGE_PATH is unset', async () => {
+  process.env.INPUT_DEPLOY_MESSAGE_PATH = ''
+  expect(
+    await postDeployMessage(
+      context, // context
+      environment, // environment
+      environment_url, // environment_url
+      'unknown', // status
+      noop, // noop
+      ref, // ref
+      approved_reviews_count // approved_reviews_count
+    )
+  ).toStrictEqual(
+    dedent(`
+      ### Deployment Results ⚠️
+
+      Warning: deployment status is unknown, please use caution`)
+  )
+
+  expect(debugMock).toHaveBeenCalledWith('deployMessagePath is not set - null')
 })
 
 test('successfully constructs a post deploy message with a custom env var', async () => {

@@ -42093,6 +42093,8 @@ async function postDeployMessage(
       }
       return nunjucks_default().render(deployMessagePath, vars)
     }
+  } else {
+    core.debug(`deployMessagePath is not set - ${deployMessagePath}`)
   }
 
   // If we get here, try to use the env var option with the default message structure
