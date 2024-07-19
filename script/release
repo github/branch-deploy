@@ -14,10 +14,11 @@ echo -e "The latest release tag is: ${BLUE}${latest_tag}${OFF}"
 read -p 'New Release Tag (vX.X.X format): ' new_tag
 
 tag_regex='^v\d\.\d\.\d$'
-echo "$new_tag" | grep -P -q $tag_regex
+echo "$new_tag" | grep -E -q $tag_regex
 
 if [[ $? -ne 0 ]]; then
-    echo "Tag: $new_tag is valid"
+  echo -e "${RED}ERROR${OFF} - Tag: $new_tag is not valid. Please use vX.X.X format."
+  exit 1
 fi
 
 git tag -a $new_tag -m "$new_tag Release"
