@@ -42642,9 +42642,11 @@ async function unlockOnMerge(octokit, context, environment_targets) {
           true // silent
         )
 
-        // if the result is 'removed lock - silent', then the lock was successfully removed - appead to the array for later use
+        // if the result is 'removed lock - silent', then the lock was successfully removed - append to the array for later use
         if (result === 'removed lock - silent') {
           releasedEnvironments.push(environment)
+        } else {
+          core.debug(`unlock result for unlock-on-merge: ${result}`)
         }
 
         // log the result and format the output as it will always be a string ending with '- silent'
@@ -42662,7 +42664,7 @@ async function unlockOnMerge(octokit, context, environment_targets) {
     }
   }
 
-  // if we get here, all locks were made a best effort to be released
+  // if we get here, all locks had a best effort attempt to be released
   core.setOutput('unlocked_environments', releasedEnvironments.join(','))
   return true
 }

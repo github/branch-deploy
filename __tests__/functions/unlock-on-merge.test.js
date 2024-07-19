@@ -68,6 +68,20 @@ test('successfully unlocks all environments on a pull request merge', async () =
   )
 })
 
+test('finds that no deployment lock is set so none are removed', async () => {
+  jest.spyOn(unlock, 'unlock').mockImplementation(() => {
+    return 'no deployment lock currently set - silent'
+  })
+
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(true)
+  expect(debugMock).toHaveBeenCalledWith(
+    'unlock result for unlock-on-merge: no deployment lock currently set - silent'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('unlocked_environments', '')
+})
+
 test('only unlocks one environment because the other has no lock and the other is not associated with the pull request', async () => {
   checkLockFile.checkLockFile.mockImplementationOnce(() => {
     return {
