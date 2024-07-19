@@ -17,7 +17,7 @@ export async function help(octokit, context, reactionId, inputs) {
   } else if (inputs.update_branch.trim() === 'disabled') {
     update_branch_message =
       'This Action will not update the branch to the base branch before deployment'
-  }
+  } else update_branch_message = 'Unknown value for update_branch'
 
   var required_contexts_message = defaultSpecificMessage
   if (inputs.required_contexts.trim() === 'false') {

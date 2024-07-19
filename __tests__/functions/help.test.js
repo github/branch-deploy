@@ -132,3 +132,41 @@ test('successfully calls help with non-defaults', async () => {
     expect.stringMatching(/## 📚 Branch Deployment Help/)
   )
 })
+
+test('successfully calls help with non-defaults and unknown update_branch setting', async () => {
+  const inputs = {
+    trigger: '.deploy',
+    reaction: 'eyes',
+    environment: 'production',
+    stable_branch: 'main',
+    noop_trigger: '.noop',
+    lock_trigger: '.lock',
+    production_environments: 'production,production-eu,production-ap',
+    environment_targets: 'production,staging,development',
+    unlock_trigger: '.unlock',
+    help_trigger: '.help',
+    lock_info_alias: '.wcid',
+    global_lock_flag: '--global',
+    update_branch: 'bugzzz',
+    outdated_mode: 'default_branch',
+    required_contexts: 'cat',
+    allowForks: 'false',
+    skipCi: 'development',
+    skipReviews: 'development',
+    draft_permitted_targets: 'development',
+    admins: 'monalisa',
+    permissions: ['write', 'admin', 'maintain'],
+    allow_sha_deployments: false,
+    checks: 'required'
+  }
+
+  expect(await help(octokit, context, 123, inputs))
+
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringMatching(/## 📚 Branch Deployment Help/)
+  )
+
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringMatching(/Unknown value for update_branch/)
+  )
+})
