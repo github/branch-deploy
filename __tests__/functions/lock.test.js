@@ -26,6 +26,9 @@ const lockBase64Monalisa =
 const lockBase64Octocat =
   'ewogICAgInJlYXNvbiI6ICJUZXN0aW5nIG15IG5ldyBmZWF0dXJlIHdpdGggbG90cyBvZiBjYXRzIiwKICAgICJicmFuY2giOiAib2N0b2NhdHMtZXZlcnl3aGVyZSIsCiAgICAiY3JlYXRlZF9hdCI6ICIyMDIyLTA2LTE0VDIxOjEyOjE0LjA0MVoiLAogICAgImNyZWF0ZWRfYnkiOiAib2N0b2NhdCIsCiAgICAic3RpY2t5IjogdHJ1ZSwKICAgICJlbnZpcm9ubWVudCI6ICJwcm9kdWN0aW9uIiwKICAgICJ1bmxvY2tfY29tbWFuZCI6ICIudW5sb2NrIHByb2R1Y3Rpb24iLAogICAgImdsb2JhbCI6IGZhbHNlLAogICAgImxpbmsiOiAiaHR0cHM6Ly9naXRodWIuY29tL3Rlc3Qtb3JnL3Rlc3QtcmVwby9wdWxsLzIjaXNzdWVjb21tZW50LTQ1NiIKfQo='
 
+const lockBase64OctocatNoReason =
+  'ewogICAgInJlYXNvbiI6IG51bGwsCiAgICAiYnJhbmNoIjogIm9jdG9jYXRzLWV2ZXJ5d2hlcmUiLAogICAgImNyZWF0ZWRfYXQiOiAiMjAyMi0wNi0xNFQyMToxMjoxNC4wNDFaIiwKICAgICJjcmVhdGVkX2J5IjogIm9jdG9jYXQiLAogICAgInN0aWNreSI6IHRydWUsCiAgICAiZW52aXJvbm1lbnQiOiAicHJvZHVjdGlvbiIsCiAgICAidW5sb2NrX2NvbW1hbmQiOiAiLnVubG9jayBwcm9kdWN0aW9uIiwKICAgICJnbG9iYWwiOiBmYWxzZSwKICAgICJsaW5rIjogImh0dHBzOi8vZ2l0aHViLmNvbS90ZXN0LW9yZy90ZXN0LXJlcG8vcHVsbC8yI2lzc3VlY29tbWVudC00NTYiCn0K'
+
 const lockBase64OctocatGlobal =
   'ewogICAgInJlYXNvbiI6ICJUZXN0aW5nIG15IG5ldyBmZWF0dXJlIHdpdGggbG90cyBvZiBjYXRzIiwKICAgICJicmFuY2giOiAib2N0b2NhdHMtZXZlcnl3aGVyZSIsCiAgICAiY3JlYXRlZF9hdCI6ICIyMDIyLTA2LTE0VDIxOjEyOjE0LjA0MVoiLAogICAgImNyZWF0ZWRfYnkiOiAib2N0b2NhdCIsCiAgICAic3RpY2t5IjogdHJ1ZSwKICAgICJlbnZpcm9ubWVudCI6IG51bGwsCiAgICAidW5sb2NrX2NvbW1hbmQiOiAiLnVubG9jayAtLWdsb2JhbCIsCiAgICAiZ2xvYmFsIjogdHJ1ZSwKICAgICJsaW5rIjogImh0dHBzOi8vZ2l0aHViLmNvbS90ZXN0LW9yZy90ZXN0LXJlcG8vcHVsbC8yI2lzc3VlY29tbWVudC00NTYiCn0K'
 
@@ -728,6 +731,74 @@ test('Determines that the lock request is coming from current owner of the lock 
   )
 })
 
+test('checks a lock and finds that it is from another owner and that no reason was set - it was a lock for the production environment', async () => {
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockReturnValue({data: {content: lockBase64OctocatNoReason}})
+      }
+    }
+  }
+  expect(
+    await lock(octokit, context, ref, 123, true, environment)
+  ).toStrictEqual({
+    environment: 'production',
+    global: false,
+    globalFlag: '--global',
+    lockData: null,
+    status: false
+  })
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch name: ${environment}-branch-deploy-lock`
+  )
+  expect(debugMock).toHaveBeenCalledWith(`no reason detected`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `the lock was not claimed as it is owned by octocat`
+  )
+})
+
+test('checks a lock and finds that it is from another owner and that no reason was set - it was a lock for the production environment and sticky is set to false', async () => {
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: jest
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: jest
+          .fn()
+          .mockReturnValue({data: {content: lockBase64OctocatNoReason}})
+      }
+    }
+  }
+  expect(
+    await lock(octokit, context, ref, 123, false, environment)
+  ).toStrictEqual({
+    environment: 'production',
+    global: false,
+    globalFlag: '--global',
+    lockData: null,
+    status: false
+  })
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch name: ${environment}-branch-deploy-lock`
+  )
+  expect(debugMock).toHaveBeenCalledWith(`no reason detected`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `the lock was not claimed as it is owned by octocat`
+  )
+})
+
 test('Determines that the lock request is coming from current owner of the lock (GLOBAL lock) and exits - sticky', async () => {
   context.actor = 'octocat'
   context.payload.comment.body = '.lock --global'
@@ -967,9 +1038,9 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
   )
 })
 
-test('successfully obtains a deployment lock (sticky) by creating the branch and lock file with a --reason', async () => {
+test('successfully obtains a deployment lock (sticky) by creating the branch and lock file with a --reason and assuming a null environment to start (but it is production)', async () => {
   context.payload.comment.body = '.lock --reason because something is broken'
-  expect(await lock(octokit, context, ref, 123, true, null)).toStrictEqual(
+  expect(await lock(octokit, context, ref, 123, true)).toStrictEqual(
     createdLock
   )
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)

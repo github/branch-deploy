@@ -40020,10 +40020,8 @@ async function environmentTargets(
     )
 
     return {environment: false, environmentUrl: null}
-  }
-
-  // If lockChecks is set to false, this request is for a branch deploy to check the body for an environment target
-  if (lockChecks === false) {
+  } else {
+    // If lockChecks is set to false, this request is for a branch deploy to check the body for an environment target
     const environmentObj = await onDeploymentChecks(
       environment_targets_sanitized,
       body,
@@ -41160,7 +41158,7 @@ async function createLock(
   environment,
   global,
   reactionId,
-  leaveComment = true
+  leaveComment
 ) {
   core.debug('attempting to create lock...')
 
@@ -41424,7 +41422,7 @@ async function checkLockOwner(
   lockData,
   sticky,
   reactionId,
-  leaveComment = true
+  leaveComment
 ) {
   core.debug('checking the owner of the lock...')
   // If the requestor is the one who owns the lock, return 'owner'
@@ -41484,7 +41482,7 @@ async function checkLockOwner(
   var header = ''
   if (sticky === true) {
     header = 'claim deployment lock'
-  } else if (sticky === false) {
+  } else {
     header = 'proceed with deployment'
   }
 
@@ -41492,6 +41490,8 @@ async function checkLockOwner(
   let reasonText = ''
   if (lockData.reason) {
     reasonText = `- __Reason__: \`${lockData.reason}\``
+  } else {
+    core.debug('no reason detected')
   }
 
   // dynamic lock text
@@ -41543,6 +41543,9 @@ async function checkLockOwner(
   core.setFailed(comment)
 
   // Return false to indicate that the lock was not claimed
+  core.debug(
+    `the lock was not claimed as it is owned by ${lockData.created_by}`
+  )
   return false
 }
 
@@ -42090,6 +42093,8 @@ async function postDeployMessage(
       }
       return nunjucks_default().render(deployMessagePath, vars)
     }
+  } else {
+    core.debug(`deployMessagePath is not set - ${deployMessagePath}`)
   }
 
   // If we get here, try to use the env var option with the default message structure
@@ -42637,9 +42642,11 @@ async function unlockOnMerge(octokit, context, environment_targets) {
           true // silent
         )
 
-        // if the result is 'removed lock - silent', then the lock was successfully removed - appead to the array for later use
+        // if the result is 'removed lock - silent', then the lock was successfully removed - append to the array for later use
         if (result === 'removed lock - silent') {
           releasedEnvironments.push(environment)
+        } else {
+          core.debug(`unlock result for unlock-on-merge: ${result}`)
         }
 
         // log the result and format the output as it will always be a string ending with '- silent'
@@ -42657,7 +42664,7 @@ async function unlockOnMerge(octokit, context, environment_targets) {
     }
   }
 
-  // if we get here, all locks were made a best effort to be released
+  // if we get here, all locks had a best effort attempt to be released
   core.setOutput('unlocked_environments', releasedEnvironments.join(','))
   return true
 }
@@ -42676,13 +42683,13 @@ async function help(octokit, context, reactionId, inputs) {
   if (inputs.update_branch.trim() === 'warn') {
     update_branch_message =
       'This Action will warn if the branch is out of date with the base branch'
-  } else if (inputs.update_branch === 'force') {
+  } else if (inputs.update_branch.trim() === 'force') {
     update_branch_message =
       'This Action will force update the branch to the base branch if it is out of date'
-  } else if (inputs.update_branch === 'disabled') {
+  } else if (inputs.update_branch.trim() === 'disabled') {
     update_branch_message =
       'This Action will not update the branch to the base branch before deployment'
-  }
+  } else update_branch_message = 'Unknown value for update_branch'
 
   var required_contexts_message = defaultSpecificMessage
   if (inputs.required_contexts.trim() === 'false') {

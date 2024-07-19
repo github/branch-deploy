@@ -11,13 +11,13 @@ export async function help(octokit, context, reactionId, inputs) {
   if (inputs.update_branch.trim() === 'warn') {
     update_branch_message =
       'This Action will warn if the branch is out of date with the base branch'
-  } else if (inputs.update_branch === 'force') {
+  } else if (inputs.update_branch.trim() === 'force') {
     update_branch_message =
       'This Action will force update the branch to the base branch if it is out of date'
-  } else if (inputs.update_branch === 'disabled') {
+  } else if (inputs.update_branch.trim() === 'disabled') {
     update_branch_message =
       'This Action will not update the branch to the base branch before deployment'
-  }
+  } else update_branch_message = 'Unknown value for update_branch'
 
   var required_contexts_message = defaultSpecificMessage
   if (inputs.required_contexts.trim() === 'false') {

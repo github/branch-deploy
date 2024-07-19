@@ -46,7 +46,7 @@ async function createLock(
   environment,
   global,
   reactionId,
-  leaveComment = true
+  leaveComment
 ) {
   core.debug('attempting to create lock...')
 
@@ -310,7 +310,7 @@ async function checkLockOwner(
   lockData,
   sticky,
   reactionId,
-  leaveComment = true
+  leaveComment
 ) {
   core.debug('checking the owner of the lock...')
   // If the requestor is the one who owns the lock, return 'owner'
@@ -370,7 +370,7 @@ async function checkLockOwner(
   var header = ''
   if (sticky === true) {
     header = 'claim deployment lock'
-  } else if (sticky === false) {
+  } else {
     header = 'proceed with deployment'
   }
 
@@ -378,6 +378,8 @@ async function checkLockOwner(
   let reasonText = ''
   if (lockData.reason) {
     reasonText = `- __Reason__: \`${lockData.reason}\``
+  } else {
+    core.debug('no reason detected')
   }
 
   // dynamic lock text
@@ -429,6 +431,9 @@ async function checkLockOwner(
   core.setFailed(comment)
 
   // Return false to indicate that the lock was not claimed
+  core.debug(
+    `the lock was not claimed as it is owned by ${lockData.created_by}`
+  )
   return false
 }
 
