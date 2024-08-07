@@ -40514,10 +40514,18 @@ async function prechecks(context, octokit, data) {
   var forkBypass = false
 
   // Make an API call to get the base branch
+  // https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#get-a-branch
   const stableBaseBranch = await octokit.rest.repos.getBranch({
     ...context.repo,
     branch: data.inputs.stable_branch
   })
+
+  // we also want to output the default branch tree sha of the base branch (e.g. the default branch)
+  // this can be useful for subsequent workflow steps that may need to do commit comparisons
+  core.setOutput(
+    'default_branch_tree_sha',
+    stableBaseBranch?.data?.commit?.commit?.tree?.sha
+  )
 
   // Check to see if the "stable" branch was used as the deployment target
   if (data.environmentObj.stable_branch_used === true) {

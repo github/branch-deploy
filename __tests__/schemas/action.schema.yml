@@ -489,6 +489,10 @@ outputs:
     description:
       type: string
       required: true
+  default_branch_tree_sha:
+    description:
+      type: string
+      required: true
   base_ref:
     description:
       type: string

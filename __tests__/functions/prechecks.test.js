@@ -133,7 +133,7 @@ beforeEach(() => {
   // mock the request for fetching the baseBranch variable
   octokit.rest.repos.getBranch = jest.fn().mockReturnValue({
     data: {
-      commit: {sha: 'deadbeef'},
+      commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
       name: 'test-branch'
     },
     status: 200
@@ -209,9 +209,10 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a rollback deployment', async () => {
-  octokit.rest.repos.getBranch = jest
-    .fn()
-    .mockReturnValue({data: {commit: {sha: 'deadbeef'}}, status: 200})
+  octokit.rest.repos.getBranch = jest.fn().mockReturnValue({
+    data: {commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}}},
+    status: 200
+  })
 
   data.environmentObj.stable_branch_used = true
 
@@ -619,9 +620,10 @@ test('runs prechecks and deploys to the stable branch', async () => {
       }
     }
   })
-  octokit.rest.repos.getBranch = jest
-    .fn()
-    .mockReturnValue({data: {commit: {sha: 'deadbeef'}}, status: 200})
+  octokit.rest.repos.getBranch = jest.fn().mockReturnValue({
+    data: {commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}}},
+    status: 200
+  })
 
   data.environmentObj.stable_branch_used = true
 
@@ -1098,9 +1100,10 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
     },
     status: 200
   })
-  octokit.rest.repos.getBranch = jest
-    .fn()
-    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+  octokit.rest.repos.getBranch = jest.fn().mockReturnValueOnce({
+    data: {commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}}},
+    status: 200
+  })
   octokit.rest.repos.compareCommits = jest
     .fn()
     .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
@@ -2112,9 +2115,10 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
     },
     status: 200
   })
-  octokit.rest.repos.getBranch = jest
-    .fn()
-    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+  octokit.rest.repos.getBranch = jest.fn().mockReturnValueOnce({
+    data: {commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}}},
+    status: 200
+  })
 
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
     data: {
@@ -2171,9 +2175,10 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
     },
     status: 200
   })
-  octokit.rest.repos.getBranch = jest
-    .fn()
-    .mockReturnValueOnce({data: {commit: {sha: 'deadbeef'}}, status: 200})
+  octokit.rest.repos.getBranch = jest.fn().mockReturnValueOnce({
+    data: {commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}}},
+    status: 200
+  })
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
     data: {
       message: 'Updating pull request branch.',
@@ -2191,4 +2196,9 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
     ref: 'test-ref',
     sha: 'abc123'
   })
+
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'default_branch_tree_sha',
+    'beefdead'
+  )
 })

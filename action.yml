@@ -192,6 +192,8 @@ outputs:
     description: 'The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not'
   sha:
     description: The sha of the branch to be deployed
+  default_branch_tree_sha:
+    description: The sha of the default branch tree (useful for subsequent workflow steps if they need to do commit comparisons)
   base_ref:
     description: The base ref that the pull request is merging into
   ref:
