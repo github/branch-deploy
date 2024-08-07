@@ -59,6 +59,13 @@ export async function prechecks(context, octokit, data) {
     branch: data.inputs.stable_branch
   })
 
+  // we also want to output the default branch tree sha of the base branch (e.g. the default branch)
+  // this can be useful for subsequent workflow steps that may need to do commit comparisons
+  core.setOutput(
+    'default_branch_tree_sha',
+    stableBaseBranch.data.commit.tree.sha
+  )
+
   // Check to see if the "stable" branch was used as the deployment target
   if (data.environmentObj.stable_branch_used === true) {
     // the sha now becomes the sha of the base branch for "stable branch" deployments
