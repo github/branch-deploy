@@ -40514,6 +40514,7 @@ async function prechecks(context, octokit, data) {
   var forkBypass = false
 
   // Make an API call to get the base branch
+  // https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#get-a-branch
   const stableBaseBranch = await octokit.rest.repos.getBranch({
     ...context.repo,
     branch: data.inputs.stable_branch
