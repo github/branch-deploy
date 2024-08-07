@@ -64,7 +64,7 @@ export async function prechecks(context, octokit, data) {
   // this can be useful for subsequent workflow steps that may need to do commit comparisons
   core.setOutput(
     'default_branch_tree_sha',
-    stableBaseBranch.data.commit.tree.sha
+    stableBaseBranch?.data?.commit?.tree?.sha
   )
 
   // Check to see if the "stable" branch was used as the deployment target
