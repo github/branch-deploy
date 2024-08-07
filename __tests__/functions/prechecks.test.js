@@ -2196,4 +2196,9 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
     ref: 'test-ref',
     sha: 'abc123'
   })
+
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'default_branch_tree_sha',
+    'beefdead'
+  )
 })
