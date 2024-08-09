@@ -57,13 +57,41 @@ export async function run() {
     const admins = core.getInput('admins')
     const environment_urls = core.getInput('environment_urls')
     const param_separator = core.getInput('param_separator')
-    const permissions = core.getInput('permissions')
+    const permissions = stringToArray(core.getInput('permissions'))
     const sticky_locks = core.getBooleanInput('sticky_locks')
     const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
     const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
     const disable_naked_commands = core.getBooleanInput(
       'disable_naked_commands'
     )
+
+    // rollup all the inputs into a single object
+    const inputs = {
+      trigger: trigger,
+      reaction: reaction,
+      environment: environment,
+      stable_branch: stable_branch,
+      noop_trigger: noop_trigger,
+      lock_trigger: lock_trigger,
+      production_environments: production_environments,
+      environment_targets: environment_targets,
+      unlock_trigger: unlock_trigger,
+      global_lock_flag: global_lock_flag,
+      help_trigger: help_trigger,
+      lock_info_alias: lock_info_alias,
+      update_branch: update_branch,
+      outdated_mode: outdated_mode,
+      required_contexts: required_contexts,
+      allowForks: allowForks,
+      skipCi: skipCi,
+      checks: checks,
+      skipReviews: skipReviews,
+      draft_permitted_targets,
+      admins: admins,
+      permissions: permissions,
+      allow_sha_deployments: allow_sha_deployments,
+      disable_naked_commands: disable_naked_commands,
+    }
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
@@ -169,7 +197,7 @@ export async function run() {
     if (isHelp) {
       core.debug('help command detected')
       // Check to ensure the user has valid permissions
-      const validPermissionsRes = await validPermissions(octokit, context)
+      const validPermissionsRes = await validPermissions(octokit, context, permissions)
       // If the user doesn't have valid permissions, return an error
       if (validPermissionsRes !== true) {
         await actionStatus(
@@ -184,33 +212,6 @@ export async function run() {
         return 'failure'
       }
 
-      // rollup all the inputs into a single object
-      const inputs = {
-        trigger: trigger,
-        reaction: reaction,
-        environment: environment,
-        stable_branch: stable_branch,
-        noop_trigger: noop_trigger,
-        lock_trigger: lock_trigger,
-        production_environments: production_environments,
-        environment_targets: environment_targets,
-        unlock_trigger: unlock_trigger,
-        global_lock_flag: global_lock_flag,
-        help_trigger: help_trigger,
-        lock_info_alias: lock_info_alias,
-        update_branch: update_branch,
-        outdated_mode: outdated_mode,
-        required_contexts: required_contexts,
-        allowForks: allowForks,
-        skipCi: skipCi,
-        checks: checks,
-        skipReviews: skipReviews,
-        draft_permitted_targets,
-        admins: admins,
-        permissions: stringToArray(permissions),
-        allow_sha_deployments: allow_sha_deployments
-      }
-
       // Run the help command and exit
       await help(octokit, context, reactRes.data.id, inputs)
       core.saveState('bypass', 'true')
@@ -220,7 +221,7 @@ export async function run() {
     // If the command is a lock/unlock request
     if (isLock || isUnlock || isLockInfoAlias) {
       // Check to ensure the user has valid permissions
-      const validPermissionsRes = await validPermissions(octokit, context)
+      const validPermissionsRes = await validPermissions(octokit, context, permissions)
       // If the user doesn't have valid permissions, return an error
       if (validPermissionsRes !== true) {
         await actionStatus(
@@ -446,19 +447,8 @@ export async function run() {
     const data = {
       environment: environment,
       environmentObj: environmentObj.environmentObj,
-      inputs: {
-        allow_sha_deployments: allow_sha_deployments,
-        update_branch: update_branch,
-        outdated_mode: outdated_mode,
-        stable_branch: stable_branch,
-        trigger: trigger,
-        issue_number: issue_number,
-        allowForks: allowForks,
-        skipCi: skipCi,
-        checks: checks,
-        skipReviews: skipReviews,
-        draft_permitted_targets: draft_permitted_targets
-      }
+      issue_number: issue_number,
+      inputs: inputs
     }
 
     // Execute prechecks to ensure the Action can proceed
