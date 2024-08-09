@@ -43016,8 +43016,6 @@ async function run() {
     // get all the Actions inputs and roll up them into a single object
     const inputs = getInputs()
 
-    var environment = inputs.environment
-
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
       additionalPlugins: [dist_node.octokitRetry]
@@ -43026,6 +43024,9 @@ async function run() {
     // Set the state so that the post run logic will trigger
     core.saveState('isPost', 'true')
     core.saveState('actionsToken', token)
+
+    // setup the environment variable which is dynamically set throughout the Action
+    var environment = inputs.environment
 
     // If we are running in the 'unlock on merge' mode, run auto-unlock logic
     if (inputs.unlockOnMergeMode) {
