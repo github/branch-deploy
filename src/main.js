@@ -23,81 +23,18 @@ import {unlockOnMerge} from './functions/unlock-on-merge'
 import {help} from './functions/help'
 import {LOCK_METADATA} from './functions/lock-metadata'
 import {COLORS} from './functions/colors'
-import {stringToArray} from './functions/string-to-array'
+import {getInputs} from './functions/inputs'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
   try {
     // Get the inputs for the branch-deploy Action
     const token = core.getInput('github_token', {required: true})
-    var environment = core.getInput('environment', {required: true})
-    const trigger = core.getInput('trigger', {required: true})
-    const reaction = core.getInput('reaction')
-    const stable_branch = core.getInput('stable_branch')
-    const noop_trigger = core.getInput('noop_trigger')
-    const lock_trigger = core.getInput('lock_trigger')
-    const production_environments = stringToArray(
-      core.getInput('production_environments')
-    )
-    const environment_targets = core.getInput('environment_targets')
-    const draft_permitted_targets = core.getInput('draft_permitted_targets')
-    const unlock_trigger = core.getInput('unlock_trigger')
-    const help_trigger = core.getInput('help_trigger')
-    const lock_info_alias = core.getInput('lock_info_alias')
-    const global_lock_flag = core.getInput('global_lock_flag')
-    const update_branch = core.getInput('update_branch')
-    const outdated_mode = core.getInput('outdated_mode')
-    const required_contexts = core.getInput('required_contexts')
-    const allowForks = core.getBooleanInput('allow_forks')
-    const skipCi = core.getInput('skip_ci')
-    const checks = core.getInput('checks')
-    const skipReviews = core.getInput('skip_reviews')
-    const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
-    const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
-    const admins = core.getInput('admins')
-    const environment_urls = core.getInput('environment_urls')
-    const param_separator = core.getInput('param_separator')
-    const permissions = stringToArray(core.getInput('permissions'))
-    const sticky_locks = core.getBooleanInput('sticky_locks')
-    const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
-    const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
-    const disable_naked_commands = core.getBooleanInput(
-      'disable_naked_commands'
-    )
 
-    // rollup all the inputs into a single object
-    const inputs = {
-      trigger: trigger,
-      reaction: reaction,
-      environment: environment,
-      stable_branch: stable_branch,
-      noop_trigger: noop_trigger,
-      lock_trigger: lock_trigger,
-      production_environments: production_environments,
-      environment_targets: environment_targets,
-      unlock_trigger: unlock_trigger,
-      global_lock_flag: global_lock_flag,
-      help_trigger: help_trigger,
-      lock_info_alias: lock_info_alias,
-      update_branch: update_branch,
-      outdated_mode: outdated_mode,
-      required_contexts: required_contexts,
-      allowForks: allowForks,
-      skipCi: skipCi,
-      checks: checks,
-      skipReviews: skipReviews,
-      draft_permitted_targets,
-      admins: admins,
-      permissions: permissions,
-      allow_sha_deployments: allow_sha_deployments,
-      disable_naked_commands: disable_naked_commands,
-      mergeDeployMode: mergeDeployMode,
-      unlockOnMergeMode: unlockOnMergeMode,
-      environment_urls: environment_urls,
-      param_separator: param_separator,
-      sticky_locks: sticky_locks,
-      sticky_locks_for_noop: sticky_locks_for_noop
-    }
+    // get all the Actions inputs and roll up them into a single object
+    const inputs = getInputs()
+
+    var environment = inputs.environment
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
@@ -109,15 +46,15 @@ export async function run() {
     core.saveState('actionsToken', token)
 
     // If we are running in the 'unlock on merge' mode, run auto-unlock logic
-    if (unlockOnMergeMode) {
+    if (inputs.unlockOnMergeMode) {
       core.info(`🏃 running in 'unlock on merge' mode`)
-      await unlockOnMerge(octokit, context, environment_targets)
+      await unlockOnMerge(octokit, context, inputs.environment_targets)
       core.saveState('bypass', 'true')
       return 'success - unlock on merge mode'
     }
 
     // If we are running in the merge deploy mode, run commit checks
-    if (mergeDeployMode) {
+    if (inputs.mergeDeployMode) {
       core.info(`🏃 running in 'merge deploy' mode`)
       await identicalCommitCheck(octokit, context, environment)
       // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
@@ -141,11 +78,17 @@ export async function run() {
     }
 
     if (
-      disable_naked_commands === true &&
+      inputs.disable_naked_commands === true &&
       (await nakedCommandCheck(
         body,
-        param_separator,
-        [trigger, noop_trigger, lock_trigger, unlock_trigger, lock_info_alias],
+        inputs.param_separator,
+        [
+          inputs.trigger,
+          inputs.noop_trigger,
+          inputs.lock_trigger,
+          inputs.unlock_trigger,
+          inputs.lock_info_alias
+        ],
         octokit,
         context
       )) === true
@@ -163,12 +106,12 @@ export async function run() {
     core.setOutput('issue_number', issue_number)
 
     // check if the comment is a trigger and what type of trigger it is
-    const isDeploy = await triggerCheck(body, trigger)
-    const isNoopDeploy = await triggerCheck(body, noop_trigger)
-    const isLock = await triggerCheck(body, lock_trigger)
-    const isUnlock = await triggerCheck(body, unlock_trigger)
-    const isHelp = await triggerCheck(body, help_trigger)
-    const isLockInfoAlias = await triggerCheck(body, lock_info_alias)
+    const isDeploy = await triggerCheck(body, inputs.trigger)
+    const isNoopDeploy = await triggerCheck(body, inputs.noop_trigger)
+    const isLock = await triggerCheck(body, inputs.lock_trigger)
+    const isUnlock = await triggerCheck(body, inputs.unlock_trigger)
+    const isHelp = await triggerCheck(body, inputs.help_trigger)
+    const isLockInfoAlias = await triggerCheck(body, inputs.lock_info_alias)
 
     if (isDeploy || isNoopDeploy) {
       core.setOutput('type', 'deploy')
@@ -192,7 +135,7 @@ export async function run() {
     core.setOutput('triggered', 'true')
 
     // Add the reaction to the issue_comment which triggered the Action
-    const reactRes = await reactEmote(reaction, context, octokit)
+    const reactRes = await reactEmote(inputs.reaction, context, octokit)
     core.setOutput('comment_id', context.payload.comment.id)
     core.saveState('comment_id', context.payload.comment.id)
     core.setOutput('initial_reaction_id', reactRes.data.id)
@@ -206,7 +149,7 @@ export async function run() {
       const validPermissionsRes = await validPermissions(
         octokit,
         context,
-        permissions
+        inputs.permissions
       )
       // If the user doesn't have valid permissions, return an error
       if (validPermissionsRes !== true) {
@@ -234,7 +177,7 @@ export async function run() {
       const validPermissionsRes = await validPermissions(
         octokit,
         context,
-        permissions
+        inputs.permissions
       )
       // If the user doesn't have valid permissions, return an error
       if (validPermissionsRes !== true) {
@@ -254,8 +197,8 @@ export async function run() {
       const lockEnvTargetCheckObj = await environmentTargets(
         environment, // the default environment from the Actions inputs
         body, // the body of the comment
-        lock_trigger, // the lock_trigger
-        unlock_trigger, // the unlock_trigger
+        inputs.lock_trigger, // the lock_trigger
+        inputs.unlock_trigger, // the unlock_trigger
         null, // the stable_branch is not used for lock/unlock
         context, // the context object
         octokit, // the octokit object
@@ -366,10 +309,10 @@ export async function run() {
             var lockTarget
             if (lockResponse.global) {
               lockTarget = 'global'
-              lockCommand = `${lock_trigger} ${lockResponse.globalFlag}`
+              lockCommand = `${inputs.lock_trigger} ${lockResponse.globalFlag}`
             } else {
               lockTarget = lockResponse.environment
-              lockCommand = `${lock_trigger} ${lockTarget}`
+              lockCommand = `${inputs.lock_trigger} ${lockTarget}`
             }
 
             const lockMessage = dedent(`
@@ -431,15 +374,15 @@ export async function run() {
     const environmentObj = await environmentTargets(
       environment, // environment
       body, // comment body
-      trigger, // trigger
-      noop_trigger, // noop trigger
-      stable_branch, // ref
+      inputs.trigger, // trigger
+      inputs.noop_trigger, // noop trigger
+      inputs.stable_branch, // ref
       context, // context object
       octokit, // octokit object
       reactRes.data.id, // reaction id
       false, // lockChecks set to false as this is for a deployment
-      environment_urls, // environment_urls action input
-      param_separator // param_separator action input
+      inputs.environment_urls, // environment_urls action input
+      inputs.param_separator // param_separator action input
     )
 
     // convert the environmentObj to a json string and debug log it
@@ -488,10 +431,10 @@ export async function run() {
     }
 
     core.info(
-      `🍯 sticky_locks: ${COLORS.highlight}${sticky_locks}${COLORS.reset}`
+      `🍯 sticky_locks: ${COLORS.highlight}${inputs.sticky_locks}${COLORS.reset}`
     )
     core.info(
-      `🍯 sticky_locks_for_noop: ${COLORS.highlight}${sticky_locks_for_noop}${COLORS.reset}`
+      `🍯 sticky_locks_for_noop: ${COLORS.highlight}${inputs.sticky_locks_for_noop}${COLORS.reset}`
     )
 
     // conditionally handle how we want to apply locks on deployments
@@ -501,14 +444,14 @@ export async function run() {
     // if sticky_locks is false, then no sticky locks will be applied and only non-sticky locks will be used
     // if sticky_locks is true but sticky_locks_for_noop is false, then we will only use sticky locks on non-noop deployments
     if (precheckResults.noopMode) {
-      if (sticky_locks_for_noop) {
+      if (inputs.sticky_locks_for_noop) {
         stickyLocks = true
       } else {
         stickyLocks = false
       }
       core.debug(`🔒 noop mode detected and using stickyLocks: ${stickyLocks}`)
     } else {
-      stickyLocks = sticky_locks
+      stickyLocks = inputs.sticky_locks
     }
 
     // if we are using sticky_locks in deployments, don't leave a comment as this is inferred by the user
@@ -581,18 +524,20 @@ export async function run() {
     // Get required_contexts for the deployment
     var requiredContexts = []
     if (
-      required_contexts &&
-      required_contexts !== '' &&
-      required_contexts !== 'false'
+      inputs.required_contexts &&
+      inputs.required_contexts !== '' &&
+      inputs.required_contexts !== 'false'
     ) {
-      requiredContexts = required_contexts.split(',').map(function (item) {
-        return item.trim()
-      })
+      requiredContexts = inputs.required_contexts
+        .split(',')
+        .map(function (item) {
+          return item.trim()
+        })
     }
 
     // Check if the environment is a production environment
     const isProductionEnvironment =
-      production_environments.includes(environment)
+      inputs.production_environments.includes(environment)
     core.debug(`production_environment: ${isProductionEnvironment}`)
 
     // if environmentObj.environmentObj.sha is not null, set auto_merge to false,
@@ -602,7 +547,7 @@ export async function run() {
       environmentObj.environmentObj.sha !== null &&
       environmentObj.environmentObj.sha !== undefined
         ? false
-        : update_branch === 'disabled'
+        : inputs.update_branch === 'disabled'
           ? false
           : true
 
