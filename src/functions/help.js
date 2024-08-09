@@ -152,6 +152,7 @@ export async function help(octokit, context, reactionId, inputs) {
   - \`${inputs.trigger} ${inputs.stable_branch}\` - Rollback the \`${
     inputs.environment
   }\` environment to the \`${inputs.stable_branch}\` branch
+  - \`${inputs.trigger} ${inputs.stable_branch} to <environment>\` - Rollback the specified \`<environment>\` to the \`${inputs.stable_branch}\` branch (long form syntax)
   - \`${inputs.noop_trigger}\` - Deploy this branch to the \`${
     inputs.environment
   }\` environment in noop mode
