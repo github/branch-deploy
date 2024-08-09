@@ -42910,6 +42910,21 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 
+// Helper function to validate the input values
+// :param input: The input value to validate (string)
+// :param validValues: An array of valid values for the input (array)
+function validateInput(input, validValues) {
+  if (!validValues.includes(input)) {
+    throw new Error(
+      `Invalid value for '${input}': ${input}. Must be one of: ${validValues.join(
+        ', '
+      )}`
+    )
+  }
+}
+
+// Helper function to get all the inputs for the Action
+// :returns: An object containing all the inputs
 function getInputs() {
   var environment = core.getInput('environment', {required: true})
   const trigger = core.getInput('trigger', {required: true})
@@ -42943,6 +42958,11 @@ function getInputs() {
   const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
   const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
   const disable_naked_commands = core.getBooleanInput('disable_naked_commands')
+
+  // validate inputs
+  validateInput(update_branch, ['disabled', 'warn', 'force'])
+  validateInput(outdated_mode, ['pr_base', 'default_branch', 'strict'])
+  validateInput(checks, ['all', 'required'])
 
   // rollup all the inputs into a single object
   return {

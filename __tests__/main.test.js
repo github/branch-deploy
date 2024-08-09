@@ -58,6 +58,8 @@ beforeEach(() => {
   process.env.INPUT_STICKY_LOCKS_FOR_NOOP = 'false'
   process.env.INPUT_ALLOW_SHA_DEPLOYMENTS = 'false'
   process.env.INPUT_DISABLE_NAKED_COMMANDS = 'false'
+  process.env.INPUT_OUTDATED_MODE = 'default_branch'
+  process.env.INPUT_CHECKS = 'all'
 
   github.context.payload = {
     issue: {
@@ -820,6 +822,15 @@ test('successfully runs in unlockOnMergeMode', async () => {
   expect(await run()).toBe('success - unlock on merge mode')
   expect(infoMock).toHaveBeenCalledWith(`🏃 running in 'unlock on merge' mode`)
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
+test('handles an input validation error and exits', async () => {
+  process.env.INPUT_UPDATE_BRANCH = 'badvalue'
+  try {
+    await run()
+  } catch (e) {
+    expect(setFailedMock.toHaveBeenCalled())
+  }
 })
 
 test('handles and unexpected error and exits', async () => {
