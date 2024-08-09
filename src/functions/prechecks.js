@@ -15,7 +15,11 @@ export async function prechecks(context, octokit, data) {
   var message
 
   // Check if the user has valid permissions
-  const validPermissionsRes = await validPermissions(octokit, context, data.inputs.permissions)
+  const validPermissionsRes = await validPermissions(
+    octokit,
+    context,
+    data.inputs.permissions
+  )
   if (validPermissionsRes !== true) {
     return {message: validPermissionsRes, status: false}
   }

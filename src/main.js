@@ -90,7 +90,7 @@ export async function run() {
       admins: admins,
       permissions: permissions,
       allow_sha_deployments: allow_sha_deployments,
-      disable_naked_commands: disable_naked_commands,
+      disable_naked_commands: disable_naked_commands
     }
 
     // Create an octokit client with the retry plugin
@@ -197,7 +197,11 @@ export async function run() {
     if (isHelp) {
       core.debug('help command detected')
       // Check to ensure the user has valid permissions
-      const validPermissionsRes = await validPermissions(octokit, context, permissions)
+      const validPermissionsRes = await validPermissions(
+        octokit,
+        context,
+        permissions
+      )
       // If the user doesn't have valid permissions, return an error
       if (validPermissionsRes !== true) {
         await actionStatus(
@@ -221,7 +225,11 @@ export async function run() {
     // If the command is a lock/unlock request
     if (isLock || isUnlock || isLockInfoAlias) {
       // Check to ensure the user has valid permissions
-      const validPermissionsRes = await validPermissions(octokit, context, permissions)
+      const validPermissionsRes = await validPermissions(
+        octokit,
+        context,
+        permissions
+      )
       // If the user doesn't have valid permissions, return an error
       if (validPermissionsRes !== true) {
         await actionStatus(

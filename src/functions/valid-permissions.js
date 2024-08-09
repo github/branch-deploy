@@ -5,7 +5,11 @@ import * as core from '@actions/core'
 // :param context: The GitHub Actions event context
 // :param validPermissionsArray: An array of permissions that the actor must have
 // :returns: An error string if the actor doesn't have permissions, otherwise true
-export async function validPermissions(octokit, context, validPermissionsArray) {
+export async function validPermissions(
+  octokit,
+  context,
+  validPermissionsArray
+) {
   // fetch the defined permissions from the Action input
 
   core.setOutput('actor', context.actor)
