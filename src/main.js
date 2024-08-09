@@ -90,7 +90,13 @@ export async function run() {
       admins: admins,
       permissions: permissions,
       allow_sha_deployments: allow_sha_deployments,
-      disable_naked_commands: disable_naked_commands
+      disable_naked_commands: disable_naked_commands,
+      mergeDeployMode: mergeDeployMode,
+      unlockOnMergeMode: unlockOnMergeMode,
+      environment_urls: environment_urls,
+      param_separator: param_separator,
+      sticky_locks: sticky_locks,
+      sticky_locks_for_noop: sticky_locks_for_noop
     }
 
     // Create an octokit client with the retry plugin
