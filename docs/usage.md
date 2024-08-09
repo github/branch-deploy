@@ -47,7 +47,7 @@ It should be noted that anytime you use a `.lock`, `.unlock`, or `.lock --detail
 
 If something goes wrong and you need to redeploy the main/master/base branch of your repository, you can use the following set of commands:
 
-- `.deploy main` - Rolls back to the `main` branch in production
+- `.deploy main` - Rolls back to the `main` branch in production (or the defined default environment)
 - `.deploy main to <environment>` - Rolls back to the `main` branch in the specified environment
 - `.noop main` - Rolls back to the `main` branch in production as a noop deploy
 - `.noop main to <environment>` - Rolls back to the `main` branch in the specified environment as a noop deploy
