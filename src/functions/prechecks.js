@@ -15,7 +15,11 @@ export async function prechecks(context, octokit, data) {
   var message
 
   // Check if the user has valid permissions
-  const validPermissionsRes = await validPermissions(octokit, context)
+  const validPermissionsRes = await validPermissions(
+    octokit,
+    context,
+    data.inputs.permissions
+  )
   if (validPermissionsRes !== true) {
     return {message: validPermissionsRes, status: false}
   }
@@ -149,7 +153,7 @@ export async function prechecks(context, octokit, data) {
   const variables = {
     owner: context.repo.owner,
     name: context.repo.repo,
-    number: parseInt(data.inputs.issue_number),
+    number: parseInt(data.issue_number),
     headers: {
       Accept: 'application/vnd.github.merge-info-preview+json'
     }

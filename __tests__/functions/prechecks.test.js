@@ -35,17 +35,18 @@ beforeEach(() => {
       params: null,
       sha: null
     },
+    issue_number: '123',
     inputs: {
       allow_sha_deployments: false,
       update_branch: 'disabled',
       stable_branch: 'main',
       trigger: '.deploy',
-      issue_number: '123',
       allowForks: true,
       skipCi: '',
       skipReviews: '',
       draft_permitted_targets: '',
-      checks: 'all'
+      checks: 'all',
+      permissions: ['admin', 'write', 'maintain']
     }
   }
 

@@ -5,6 +5,8 @@ const setOutputMock = jest.spyOn(core, 'setOutput')
 
 var octokit
 var context
+var permissions = ['write', 'maintain', 'admin']
+
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
@@ -29,7 +31,7 @@ beforeEach(() => {
 })
 
 test('determines that a user has valid permissions to invoke the Action', async () => {
-  expect(await validPermissions(octokit, context)).toEqual(true)
+  expect(await validPermissions(octokit, context, permissions)).toEqual(true)
   expect(setOutputMock).toHaveBeenCalledWith('actor', 'monalisa')
 })
 
@@ -43,7 +45,7 @@ test('determines that a user has does not valid permissions to invoke the Action
       }
     })
 
-  expect(await validPermissions(octokit, context)).toEqual(
+  expect(await validPermissions(octokit, context, permissions)).toEqual(
     '👋 __monalisa__, seems as if you have not write/maintain/admin permissions in this repo, permissions: read'
   )
   expect(setOutputMock).toHaveBeenCalledWith('actor', 'monalisa')
@@ -56,7 +58,7 @@ test('fails to get actor permissions due to a bad status code', async () => {
       status: 500
     })
 
-  expect(await validPermissions(octokit, context)).toEqual(
+  expect(await validPermissions(octokit, context, permissions)).toEqual(
     'Permission check returns non-200 status: 500'
   )
   expect(setOutputMock).toHaveBeenCalledWith('actor', 'monalisa')
