@@ -42911,12 +42911,13 @@ async function help(octokit, context, reactionId, inputs) {
 
 
 // Helper function to validate the input values
-// :param input: The input value to validate (string)
+// :param inputName: The name of the input being validated (string)
+// :param inputValue: The input value to validate (string)
 // :param validValues: An array of valid values for the input (array)
-function validateInput(input, validValues) {
-  if (!validValues.includes(input)) {
+function validateInput(inputName, inputValue, validValues) {
+  if (!validValues.includes(inputValue)) {
     throw new Error(
-      `Invalid value for '${input}': ${input}. Must be one of: ${validValues.join(
+      `Invalid value for '${inputName}': ${inputValue}. Must be one of: ${validValues.join(
         ', '
       )}`
     )
@@ -42960,9 +42961,13 @@ function getInputs() {
   const disable_naked_commands = core.getBooleanInput('disable_naked_commands')
 
   // validate inputs
-  validateInput(update_branch, ['disabled', 'warn', 'force'])
-  validateInput(outdated_mode, ['pr_base', 'default_branch', 'strict'])
-  validateInput(checks, ['all', 'required'])
+  validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
+  validateInput('outdated_mode', outdated_mode, [
+    'pr_base',
+    'default_branch',
+    'strict'
+  ])
+  validateInput('checks', checks, ['all', 'required'])
 
   // rollup all the inputs into a single object
   return {
