@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import {unlock} from './unlock'
 import {LOCK_METADATA} from './lock-metadata'
 import {checkLockFile} from './check-lock-file'
+import {constructValidBranchName} from './valid-branch-name'
 
 // Helper function to automatically find, and release a deployment lock when a pull request is merged
 // :param octokit: the authenticated octokit instance
@@ -28,7 +29,7 @@ export async function unlockOnMerge(octokit, context, environment_targets) {
   var releasedEnvironments = []
   for (const environment of environment_targets.split(',')) {
     // construct the lock branch name for this environment
-    var lockBranch = `${environment}-${LOCK_METADATA.lockBranchSuffix}`
+    var lockBranch = `${constructValidBranchName(environment)}-${LOCK_METADATA.lockBranchSuffix}`
 
     // attempt to fetch the lockFile for this branch
     var lockFile = await checkLockFile(octokit, context, lockBranch)
