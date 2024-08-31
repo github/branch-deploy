@@ -41055,7 +41055,30 @@ async function prechecks(context, octokit, data) {
   }
 }
 
+;// CONCATENATED MODULE: ./src/functions/valid-branch-name.js
+
+
+// Helper function to create a valid branch name that will pass GitHub's API ref validation
+// :param branch: The branch name
+// :returns: A string of the branch name with proper formatting
+function constructValidBranchName(branch) {
+  core.debug(`constructing valid branch name: ${branch}`)
+
+  if (branch === null) {
+    return null
+  } else if (branch === undefined) {
+    return undefined
+  }
+
+  // If environment contains any spaces, replace all of them with a hyphen
+  branch = branch.replace(/\s/g, '-')
+
+  core.debug(`constructed valid branch name: ${branch}`)
+  return branch
+}
+
 ;// CONCATENATED MODULE: ./src/functions/check-lock-file.js
+
 
 
 
@@ -41068,6 +41091,8 @@ const LOCK_FILE = LOCK_METADATA.lockFile
 // :param branchName: The name of the branch to check
 // :return: The lock file contents if it exists, false if not
 async function checkLockFile(octokit, context, branchName) {
+  branchName = constructValidBranchName(branchName)
+
   core.debug(`checking if lock file exists on branch: ${branchName}`)
   // If the lock branch exists, check if a lock file exists
   try {
@@ -41133,6 +41158,7 @@ async function timeDiff(firstDate, secondDate) {
 
 
 
+
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
 const GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
@@ -41150,7 +41176,7 @@ async function constructBranchName(environment, global) {
   }
 
   // If the lock is not global, return the environment-specific lock branch name
-  return `${environment}-${LOCK_BRANCH_SUFFIX}`
+  return `${constructValidBranchName(environment)}-${LOCK_BRANCH_SUFFIX}`
 }
 
 // Helper function for creating a lock file for branch-deployment locks
@@ -41790,6 +41816,7 @@ async function lock(
 
 
 
+
 // Constants for the lock file
 const unlock_LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
 const unlock_GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
@@ -41876,7 +41903,7 @@ async function unlock(
       branchName = unlock_GLOBAL_LOCK_BRANCH
       successText = '`global`'
     } else {
-      branchName = `${environment}-${unlock_LOCK_BRANCH_SUFFIX}`
+      branchName = `${constructValidBranchName(environment)}-${unlock_LOCK_BRANCH_SUFFIX}`
       successText = `\`${environment}\``
     }
 
@@ -42610,6 +42637,7 @@ async function identicalCommitCheck(octokit, context, environment) {
 
 
 
+
 // Helper function to automatically find, and release a deployment lock when a pull request is merged
 // :param octokit: the authenticated octokit instance
 // :param context: the context object
@@ -42635,7 +42663,7 @@ async function unlockOnMerge(octokit, context, environment_targets) {
   var releasedEnvironments = []
   for (const environment of environment_targets.split(',')) {
     // construct the lock branch name for this environment
-    var lockBranch = `${environment}-${LOCK_METADATA.lockBranchSuffix}`
+    var lockBranch = `${constructValidBranchName(environment)}-${LOCK_METADATA.lockBranchSuffix}`
 
     // attempt to fetch the lockFile for this branch
     var lockFile = await checkLockFile(octokit, context, lockBranch)
@@ -43033,6 +43061,7 @@ function getInputs() {
 
 
 
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
@@ -43263,7 +43292,7 @@ async function run() {
             // special comment for global deploy locks
             let globalMsg = ''
             let environmentMsg = `- __Environment__: \`${lockData.environment}\``
-            let lockBranchName = `${lockData.environment}-${LOCK_METADATA.lockBranchSuffix}`
+            let lockBranchName = `${constructValidBranchName(lockData.environment)}-${LOCK_METADATA.lockBranchSuffix}`
             if (lockData.global === true) {
               globalMsg = lib_default()(`
 
