@@ -32,6 +32,18 @@ test('replaces spaces with hyphens', async () => {
   )
 })
 
+test('replaces multiple spaces with hyphens', async () => {
+  expect(constructValidBranchName(`super duper ${branchName}`)).toBe(
+    `super-duper-${branchName}`
+  )
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructing valid branch name: super duper ${branchName}`
+  )
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed valid branch name: super-duper-${branchName}`
+  )
+})
+
 test('returns null if the branch is null', async () => {
   expect(constructValidBranchName(null)).toBe(null)
 })
