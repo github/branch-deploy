@@ -24,6 +24,7 @@ import {help} from './functions/help'
 import {LOCK_METADATA} from './functions/lock-metadata'
 import {COLORS} from './functions/colors'
 import {getInputs} from './functions/inputs'
+import {constructValidBranchName} from './functions/valid-branch-name'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -255,7 +256,7 @@ export async function run() {
             // special comment for global deploy locks
             let globalMsg = ''
             let environmentMsg = `- __Environment__: \`${lockData.environment}\``
-            let lockBranchName = `${lockData.environment}-${LOCK_METADATA.lockBranchSuffix}`
+            let lockBranchName = `${constructValidBranchName(lockData.environment)}-${LOCK_METADATA.lockBranchSuffix}`
             if (lockData.global === true) {
               globalMsg = dedent(`
 

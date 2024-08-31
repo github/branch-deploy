@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import {actionStatus} from './action-status'
 import dedent from 'dedent-js'
 import {LOCK_METADATA} from './lock-metadata'
+import {constructValidBranchName} from './valid-branch-name'
 import {COLORS} from './colors'
 
 // Constants for the lock file
@@ -90,7 +91,7 @@ export async function unlock(
       branchName = GLOBAL_LOCK_BRANCH
       successText = '`global`'
     } else {
-      branchName = `${environment}-${LOCK_BRANCH_SUFFIX}`
+      branchName = `${constructValidBranchName(environment)}-${LOCK_BRANCH_SUFFIX}`
       successText = `\`${environment}\``
     }
 
