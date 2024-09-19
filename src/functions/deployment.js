@@ -38,6 +38,7 @@ export async function createDeploymentStatus(
 // :param context: The GitHub Actions event context
 // :param environment: The environment to check for (ex: production)
 // :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+// :returns: true if the deployment is active for the given environment at the given commit sha, false otherwise
 export async function activeDeployment(octokit, context, environment, sha) {
   const deployment = await latestDeployment(octokit, context, environment)
 
