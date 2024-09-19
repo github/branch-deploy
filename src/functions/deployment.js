@@ -33,6 +33,23 @@ export async function createDeploymentStatus(
   return result
 }
 
+// Helper function to check and see if a given sha is active and deployed to a given environment
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param environment: The environment to check for (ex: production)
+// :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+export async function activeDeployment(octokit, context, environment, sha) {
+  const deployment = await latestDeployment(octokit, context, environment)
+
+  // If no deployment was found, return false
+  if (deployment === null) {
+    return false
+  }
+
+  // Otherwise, check to see if the deployment is active
+  return deployment.state === 'ACTIVE' && deployment.commit.oid === sha
+}
+
 // Helper function to get the latest deployment for a given environment
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
