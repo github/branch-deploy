@@ -123,3 +123,17 @@ test('successfully fetches the latest deployment', async () => {
 
   expect(octokit.graphql).toHaveBeenCalled()
 })
+
+test('returns null if no deployments are found', async () => {
+  octokit = createMockGraphQLOctokit({
+    repository: {
+      deployments: {
+        nodes: []
+      }
+    }
+  })
+
+  expect(await latestDeployment(octokit, context, environment)).toBeNull()
+
+  expect(octokit.graphql).toHaveBeenCalled()
+})
