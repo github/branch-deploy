@@ -567,7 +567,8 @@ export async function run() {
       production_environment: isProductionEnvironment,
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
       payload: {
-        type: 'branch-deploy'
+        type: 'branch-deploy',
+        sha: precheckResults.sha,
       }
     })
     core.setOutput('deployment_id', createDeploy.id)
