@@ -173,6 +173,10 @@ inputs:
     description: 'Whether or not the post run logic should skip adding successful deploy labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a .deploy completes but want to skip adding that label in situations where the pull request is already approved.'
     required: false
     default: "false"
+  enforced_deployment_order:
+    description: 'A comma separated list of environments that must be deployed in a specific order. Example: `"development,staging,production"`. If this is set then you cannot deploy to latter environments unless the former ones have a successful and active deployment on the latest commit first.'
+    required: false
+    default: ""
 outputs:
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'

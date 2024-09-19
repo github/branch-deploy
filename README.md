@@ -295,6 +295,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `failed_noop_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a noop deployment fails. Example: `"failed,noop-failed"` |
 | `skip_successful_noop_labels_if_approved` | `false` | `"false"` | Whether or not the post run logic should skip adding successful noop labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a `.noop` completes but want to skip adding that label in situations where the pull request is already approved. |
 | `skip_successful_deploy_labels_if_approved` | `false` | `"false"` | Whether or not the post run logic should skip adding successful deploy labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a `.deploy` completes but want to skip adding that label in situations where the pull request is already approved. |
+| `enforced_deployment_order` | `false` | `""` | A comma separated list of environments that must be deployed in a specific order. Example: `"development,staging,production"`. If this is set then you cannot deploy to latter environments unless the former ones have a successful and active deployment on the latest commit first. |
 
 ## Outputs 📤
 
