@@ -40127,6 +40127,7 @@ async function createDeploymentStatus(
 // :param context: The GitHub Actions event context
 // :param environment: The environment to check for (ex: production)
 // :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+// :returns: true if the deployment is active for the given environment at the given commit sha, false otherwise
 async function activeDeployment(octokit, context, environment, sha) {
   const deployment = await latestDeployment(octokit, context, environment)
 
@@ -42891,6 +42892,15 @@ async function help(octokit, context, reactionId, inputs) {
     sha_deployment_message = `This Action will not allow deployments to an exact SHA (recommended)`
   }
 
+  var enforced_deployment_order_message = defaultSpecificMessage
+  if (inputs.enforced_deployment_order.length > 0) {
+    enforced_deployment_order_message = `Deployments are required to follow a specific deployment order by environment before the next one can proceed: ${inputs.enforced_deployment_order.join(
+      ', '
+    )}`
+  } else {
+    enforced_deployment_order_message = `Deployments can be made to any environment in any order`
+  }
+
   // Construct the message to add to the issue comment
   const comment = lib_default()(`
   ## 📚 Branch Deployment Help
@@ -42960,6 +42970,7 @@ async function help(octokit, context, reactionId, inputs) {
   - \`${
     inputs.environment_targets
   }\` - The list of environments that can be targeted for deployment
+  - Deployment Order: ${enforced_deployment_order_message}
 
   ### 🔭 Example Commands
 
@@ -43092,6 +43103,9 @@ function getInputs() {
   const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
   const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
   const disable_naked_commands = core.getBooleanInput('disable_naked_commands')
+  const enforced_deployment_order = stringToArray(
+    core.getInput('enforced_deployment_order')
+  )
 
   // validate inputs
   validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -43133,7 +43147,8 @@ function getInputs() {
     environment_urls: environment_urls,
     param_separator: param_separator,
     sticky_locks: sticky_locks,
-    sticky_locks_for_noop: sticky_locks_for_noop
+    sticky_locks_for_noop: sticky_locks_for_noop,
+    enforced_deployment_order: enforced_deployment_order
   }
 }
 
