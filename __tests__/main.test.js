@@ -13,6 +13,7 @@ import * as github from '@actions/github'
 import * as core from '@actions/core'
 import * as isDeprecated from '../src/functions/deprecated-checks'
 import * as nakedCommandCheck from '../src/functions/naked-command-check'
+import * as validDeploymentOrder from '../src/functions/valid-deployment-order'
 import {COLORS} from '../src/functions/colors'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
@@ -60,6 +61,7 @@ beforeEach(() => {
   process.env.INPUT_DISABLE_NAKED_COMMANDS = 'false'
   process.env.INPUT_OUTDATED_MODE = 'default_branch'
   process.env.INPUT_CHECKS = 'all'
+  process.env.INPUT_ENFORCED_DEPLOYMENT_ORDER = ''
 
   github.context.payload = {
     issue: {
@@ -121,6 +123,11 @@ beforeEach(() => {
       sha: null
     }
   })
+  jest
+    .spyOn(validDeploymentOrder, 'validDeploymentOrder')
+    .mockImplementation(() => {
+      return true
+    })
 })
 
 test('successfully runs the action', async () => {

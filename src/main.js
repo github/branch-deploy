@@ -25,6 +25,7 @@ import {LOCK_METADATA} from './functions/lock-metadata'
 import {COLORS} from './functions/colors'
 import {getInputs} from './functions/inputs'
 import {constructValidBranchName} from './functions/valid-branch-name'
+import {validDeploymentOrder} from './functions/valid-deployment-order'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -433,6 +434,58 @@ export async function run() {
     }
 
     // check for enforced deployment order
+    if (inputs.enforced_deployment_order.length > 0) {
+      const deploymentOrderResults = await validDeploymentOrder(
+        octokit,
+        context,
+        inputs.enforced_deployment_order,
+        environment,
+        precheckResults.sha
+      )
+
+      if (!deploymentOrderResults.valid) {
+        // construct a colorized list of the previous environments that do not have active deployments
+        const combined_environments = deploymentOrderResults
+          .map(result => {
+            const color = result.active ? COLORS.success : COLORS.error
+            return color + result.environment + COLORS.reset
+          })
+          .join(', ')
+
+        // construct a markdown message with checks or x's for each environment in an ordered list
+        const combined_environments_markdown = deploymentOrderResults
+          .map(result => {
+            const emoji = result.active ? '🟢' : '🔴'
+            return `- ${emoji} **${result.environment}**`
+          })
+          .join('\n')
+
+        // format the error message
+        const enforced_deployment_order_failure_message = dedent(`
+            ### 🚦 Invalid Deployment Order
+
+            The deployment to \`${environment}\` cannot be proceed as the following environments need successful deployments first:
+
+            ${combined_environments_markdown}
+
+            > The deployment order is configured by the \`enforced_deployment_order: ${inputs.enforced_deployment_order}\` input option
+          `)
+
+        await actionStatus(
+          context,
+          octokit,
+          reactRes.data.id, // original reaction id
+          enforced_deployment_order_failure_message // message
+        )
+        // Set the bypass state to true so that the post run logic will not run
+        core.saveState('bypass', 'true')
+        core.setFailed(
+          `🚦 deployment order checks failed as not all previous environments have active deployments: ${combined_environments}`
+        )
+
+        return 'failure'
+      }
+    }
 
     // conditionally handle how we want to apply locks on deployments
     core.info(

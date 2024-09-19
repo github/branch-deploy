@@ -43152,7 +43152,96 @@ function getInputs() {
   }
 }
 
+;// CONCATENATED MODULE: ./src/functions/valid-deployment-order.js
+
+
+
+
+// Helper function to ensure the deployment order is enforced (if any)
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param enforced_deployment_order: The enforced deployment order (ex: ['development', 'staging', 'production'])
+// :param environment: The environment to check for (ex: production)
+// :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+// :returns: an object with the valid: true if the deployment order is valid, false otherwise, and results: an array of the previous environments in the enforced deployment order that do not have active deployments
+async function validDeploymentOrder(
+  octokit,
+  context,
+  enforced_deployment_order,
+  environment,
+  sha
+) {
+  core.info(`🚦 deployment order is ${COLORS.highlight}enforced${COLORS.reset}`)
+
+  if (enforced_deployment_order.length === 1) {
+    core.warning(
+      `💡 Having only one environment in the enforced deployment order will always cause the deployment order checks to pass if the environment names match. This is likely not what you want. Please wither unset the enforced deployment order or add more environments to it.`
+    )
+    return {valid: enforced_deployment_order[0] === environment, results: []}
+  }
+
+  // if the enforced deployment order is set, check to see if the current environment is the first in the list
+  // this indicates that we can proceed with the deployment right away as there are no previous environments to gate it
+  if (enforced_deployment_order[0] === environment) {
+    core.info(
+      `🚦 deployment order checks passed as ${COLORS.highlight}${environment}${COLORS.reset} is the first environment in the enforced deployment order`
+    )
+    return {valid: true, results: []}
+  }
+
+  // determine all the previous environments in the enforced deployment order prior to the current environment
+  const previous_environments = enforced_deployment_order.slice(
+    0,
+    enforced_deployment_order.indexOf(environment)
+  )
+
+  core.debug(
+    `environments that require active deployments: ${previous_environments}`
+  )
+
+  // iterate over the previous environments and check to see if they have an active deployment
+  let results = []
+  for (const previous_environment of previous_environments) {
+    core.debug(`checking if ${previous_environment} has an active deployment`)
+    const is_active = await activeDeployment(
+      octokit,
+      context,
+      previous_environment,
+      sha
+    )
+
+    if (!is_active) {
+      core.error(
+        `🚦 deployment order checks failed as ${COLORS.highlight}${previous_environment}${COLORS.reset} does not have an active deployment at sha: ${sha}`
+      )
+      results.push({environment: previous_environment, active: false})
+      continue
+    }
+
+    core.debug(
+      `deployment for ${previous_environment} is active at sha: ${sha}`
+    )
+    results.push({environment: previous_environment, active: true})
+  }
+
+  // if all previous environments have active deployments, we can proceed with the deployment
+  if (results.every(result => result.active === true)) {
+    core.info(
+      `🚦 deployment order checks passed as all previous environments have active deployments`
+    )
+    return {valid: true, results: results}
+  }
+
+  // if we made it this far, it means that not all previous environments have active deployments and we cannot proceed
+  core.error(
+    `🚦 deployment order checks failed as not all previous environments have active deployments`
+  )
+
+  return {valid: false, results: results}
+}
+
 ;// CONCATENATED MODULE: ./src/main.js
+
 
 
 
@@ -43588,6 +43677,58 @@ async function run() {
     }
 
     // check for enforced deployment order
+    if (inputs.enforced_deployment_order.length > 0) {
+      const deploymentOrderResults = await validDeploymentOrder(
+        octokit,
+        github.context,
+        inputs.enforced_deployment_order,
+        environment,
+        precheckResults.sha
+      )
+
+      if (!deploymentOrderResults.valid) {
+        // construct a colorized list of the previous environments that do not have active deployments
+        const combined_environments = deploymentOrderResults
+          .map(result => {
+            const color = result.active ? COLORS.success : COLORS.error
+            return color + result.environment + COLORS.reset
+          })
+          .join(', ')
+
+        // construct a markdown message with checks or x's for each environment in an ordered list
+        const combined_environments_markdown = deploymentOrderResults
+          .map(result => {
+            const emoji = result.active ? '🟢' : '🔴'
+            return `- ${emoji} **${result.environment}**`
+          })
+          .join('\n')
+
+        // format the error message
+        const enforced_deployment_order_failure_message = lib_default()(`
+            ### 🚦 Invalid Deployment Order
+
+            The deployment to \`${environment}\` cannot be proceed as the following environments need successful deployments first:
+
+            ${combined_environments_markdown}
+
+            > The deployment order is configured by the \`enforced_deployment_order: ${inputs.enforced_deployment_order}\` input option
+          `)
+
+        await actionStatus(
+          github.context,
+          octokit,
+          reactRes.data.id, // original reaction id
+          enforced_deployment_order_failure_message // message
+        )
+        // Set the bypass state to true so that the post run logic will not run
+        core.saveState('bypass', 'true')
+        core.setFailed(
+          `🚦 deployment order checks failed as not all previous environments have active deployments: ${combined_environments}`
+        )
+
+        return 'failure'
+      }
+    }
 
     // conditionally handle how we want to apply locks on deployments
     core.info(
