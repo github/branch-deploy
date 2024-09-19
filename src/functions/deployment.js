@@ -84,7 +84,7 @@ export async function latestDeployment(octokit, context, environment) {
   //       "environment": "production",
   //       "updatedAt": "2024-09-19T20:18:23Z",
   //       "id": "DE_kwDOID9x8N5sC6QZ",
-  //       "payload": "{\\\"type\\\":\\\"branch-deploy\\\"}",
+  //       "payload": "{\\\"type\\\":\\\"branch-deploy\\\", \\\"sha\\\": \\\"315cec138fc9d7dbc8a47c6bba4217d3965ede3b\\\"}",
   //       "state": "ACTIVE",
   //       "creator": {
   //           "login": "github-actions"
