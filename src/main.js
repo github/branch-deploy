@@ -432,14 +432,15 @@ export async function run() {
       return 'failure'
     }
 
+    // check for enforced deployment order
+
+    // conditionally handle how we want to apply locks on deployments
     core.info(
       `🍯 sticky_locks: ${COLORS.highlight}${inputs.sticky_locks}${COLORS.reset}`
     )
     core.info(
       `🍯 sticky_locks_for_noop: ${COLORS.highlight}${inputs.sticky_locks_for_noop}${COLORS.reset}`
     )
-
-    // conditionally handle how we want to apply locks on deployments
     var stickyLocks
     // if sticky_locks is true, then we will use the sticky_locks logic
     // if sticky_locks_for_noop is also true, then we will also use the sticky_locks logic for noop deployments
