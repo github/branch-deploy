@@ -50,9 +50,14 @@ export async function latestDeployment(octokit, context, environment) {
             createdAt
             environment
             updatedAt
+            id
+            payload
             state
             ref {
               name
+            }
+            creator {
+              login
             }
             commit {
               oid
@@ -77,13 +82,18 @@ export async function latestDeployment(octokit, context, environment) {
   //   {
   //       "createdAt": "2024-09-19T20:18:18Z",
   //       "environment": "production",
-  //       "updatedAt": "2024-09-19T20:18:21Z",
+  //       "updatedAt": "2024-09-19T20:18:23Z",
+  //       "id": "DE_kwDOID9x8N5sC6QZ",
+  //       "payload": "{\\\"type\\\":\\\"branch-deploy\\\"}",
   //       "state": "ACTIVE",
+  //       "creator": {
+  //           "login": "github-actions"
+  //       },
   //       "ref": {
   //           "name": "main"
   //       },
   //       "commit": {
-  //           "oid": "315cec138fc9d7dac8a47c6bba4217d3965ede3b"
+  //           "oid": "315cec138fc9d7dbc8a47c6bba4217d3965ede3b"
   //       }
   //   }
   // ]
@@ -96,4 +106,3 @@ export async function latestDeployment(octokit, context, environment) {
   // Otherwise, return the latest deployment
   return nodes[0]
 }
-
