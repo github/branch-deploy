@@ -595,6 +595,8 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('successfully runs the action in lock mode and finds no lock - details only', async () => {
@@ -624,6 +626,8 @@ test('successfully runs the action in lock mode and finds no lock - details only
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('successfully runs the action in lock mode and finds no GLOBAL lock - details only', async () => {
@@ -657,6 +661,8 @@ test('successfully runs the action in lock mode and finds no GLOBAL lock - detai
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('fails to aquire the lock on a deploy so it exits', async () => {
@@ -671,6 +677,8 @@ test('fails to aquire the lock on a deploy so it exits', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('runs with the unlock trigger', async () => {
@@ -685,6 +693,8 @@ test('runs with the unlock trigger', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('runs with the deprecated noop input', async () => {
@@ -696,6 +706,8 @@ test('runs with the deprecated noop input', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('runs with a naked command when naked commands are NOT allowed', async () => {
@@ -778,6 +790,8 @@ test('successfully runs the action with required contexts', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
   expect(saveStateMock).toHaveBeenCalledWith('noop', false)
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('detects an out of date branch and exits', async () => {
@@ -817,6 +831,8 @@ test('detects an out of date branch and exits', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
   expect(saveStateMock).toHaveBeenCalledWith('noop', false)
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('fails due to a bad context', async () => {
@@ -857,6 +873,8 @@ test('fails prechecks', async () => {
   expect(setFailedMock).toHaveBeenCalledWith(
     '### ⚠️ Cannot proceed with deployment... something went wrong'
   )
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('runs the .help command successfully', async () => {
@@ -866,6 +884,8 @@ test('runs the .help command successfully', async () => {
   })
   expect(await run()).toBe('safe-exit')
   expect(debugMock).toHaveBeenCalledWith('help command detected')
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('runs the .help command successfully', async () => {
@@ -932,6 +952,7 @@ test('successfully runs in unlockOnMergeMode', async () => {
   expect(await run()).toBe('success - unlock on merge mode')
   expect(infoMock).toHaveBeenCalledWith(`🏃 running in 'unlock on merge' mode`)
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('handles an input validation error and exits', async () => {
