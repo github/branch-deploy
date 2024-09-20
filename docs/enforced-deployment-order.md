@@ -21,6 +21,8 @@ Here is how that process takes place under the hood:
 1. A request to the GraphQL API is made to fetch the latest deployment for a given environment and sort it to the most recent one based on its `CREATED_AT` timestamp
 2. The `deployment.state` attribute is evaluated to determine if the deployment is currently `ACTIVE` or not. If it is not active, then the deployment has not yet been deployed to that environment. If the deployment is active then we do an extra check to see if the `deployment.commit.oid` matches the current commit SHA that is being requested for deployment. If it is an exact match, then the most recent deployment for that environment is indeed active for the commit we are trying to deploy and it satisfies the enforced deployment order. If it is not an exact match, then we know that the most recent deployment for that environment is not active for the commit we are trying to deploy and it does not satisfy the enforced deployment order.
 
+It should be noted that if a "rollback" style deployment is used (ex: `.deploy main to <environment>`), then all "enforced deployment order" checks are skipped so that a rollback deployment can be performed to any environment at any time.
+
 ## Why Use Enforced Deployment Order?
 
 Using enforced deployment order can help maintain the integrity and stability of your deployment pipeline. By ensuring that deployments occur in a specific sequence, you can:
