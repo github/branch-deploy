@@ -445,15 +445,15 @@ export async function run() {
 
       if (!deploymentOrderResults.valid) {
         // construct a colorized list of the previous environments that do not have active deployments
-        const combined_environments = deploymentOrderResults
+        const combined_environments = deploymentOrderResults.results
           .map(result => {
             const color = result.active ? COLORS.success : COLORS.error
-            return color + result.environment + COLORS.reset
+            return `${color}${result.environment}${COLORS.reset}`
           })
           .join(', ')
 
         // construct a markdown message with checks or x's for each environment in an ordered list
-        const combined_environments_markdown = deploymentOrderResults
+        const combined_environments_markdown = deploymentOrderResults.results
           .map(result => {
             const emoji = result.active ? '🟢' : '🔴'
             return `- ${emoji} **${result.environment}**`
