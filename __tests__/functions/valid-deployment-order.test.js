@@ -14,6 +14,7 @@ beforeEach(() => {
   jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'error').mockImplementation(() => {})
+  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
 
   context = {}
   octokit = {}
@@ -114,6 +115,11 @@ test('when the enforced deployment order fails because one out of two environmen
       /deployment order checks failed as not all previous environments have active deployments/
     )
   )
+
+  expect(core.setOutput).toHaveBeenCalledWith(
+    'needs_to_be_deployed',
+    'development'
+  )
 })
 
 test('when the enforced deployment order fails because one out of two environments (the previous one) is not active in the order', async () => {
@@ -161,6 +167,67 @@ test('when the enforced deployment order fails because one out of two environmen
     expect.stringMatching(
       /deployment order checks failed as not all previous environments have active deployments/
     )
+  )
+
+  expect(core.setOutput).toHaveBeenCalledWith('needs_to_be_deployed', 'staging')
+})
+
+test('when the enforced deployment order fails because both of the environments are not active in the enforced order', async () => {
+  jest
+    .spyOn(activeDeployment, 'activeDeployment')
+    .mockImplementationOnce(() => {
+      return false
+    })
+
+  jest
+    .spyOn(activeDeployment, 'activeDeployment')
+    .mockImplementationOnce(() => {
+      return false
+    })
+
+  expect(
+    await validDeploymentOrder(
+      octokit,
+      context,
+      ['development', 'staging', 'production'],
+      environment,
+      sha
+    )
+  ).toStrictEqual({
+    valid: false,
+    results: [
+      {
+        environment: 'development',
+        active: false
+      },
+      {
+        environment: 'staging',
+        active: false
+      }
+    ]
+  })
+
+  expect(core.error).toHaveBeenCalledWith(
+    expect.stringContaining(
+      `${COLORS.highlight}development${COLORS.reset} does not have an active deployment at sha: deadbeef`
+    )
+  )
+
+  expect(core.error).toHaveBeenCalledWith(
+    expect.stringContaining(
+      `${COLORS.highlight}staging${COLORS.reset} does not have an active deployment at sha: deadbeef`
+    )
+  )
+
+  expect(core.error).toHaveBeenCalledWith(
+    expect.stringMatching(
+      /deployment order checks failed as not all previous environments have active deployments/
+    )
+  )
+
+  expect(core.setOutput).toHaveBeenCalledWith(
+    'needs_to_be_deployed',
+    'development,staging'
   )
 })
 

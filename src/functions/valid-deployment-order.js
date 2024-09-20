@@ -77,6 +77,13 @@ export async function validDeploymentOrder(
     return {valid: true, results: results}
   }
 
+  // set an output that contains all the environments that do not have active deployments but need them for a deployment to proceed
+  const needs_to_be_deployed = results
+    .filter(result => !result.active)
+    .map(result => result.environment)
+    .join(',')
+  core.setOutput('needs_to_be_deployed', needs_to_be_deployed)
+
   // if we made it this far, it means that not all previous environments have active deployments and we cannot proceed
   core.error(
     `🚦 deployment order checks failed as not all previous environments have active deployments`
