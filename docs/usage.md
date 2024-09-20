@@ -71,6 +71,10 @@ In order to run any branch deployment commands, you need the following permissio
 - `write` or `admin` permissions to the repository
 - You must either be the owner of the current deployment lock, or there must be no deployment lock
 
+## Enforced Deployment Order 🚦
+
+If you have enabled the `enforced_deployment_order` feature, it is best to refer to the dedicated [documentation](./enforced-deployment-order.md) for more information.
+
 ## Example Workflow 📑
 
 An example workflow for using this Action might look like this:
