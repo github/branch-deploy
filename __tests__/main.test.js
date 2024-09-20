@@ -21,6 +21,10 @@ const saveStateMock = jest.spyOn(core, 'saveState')
 const setFailedMock = jest.spyOn(core, 'setFailed')
 const infoMock = jest.spyOn(core, 'info')
 const debugMock = jest.spyOn(core, 'debug')
+const validDeploymentOrderMock = jest.spyOn(
+  validDeploymentOrder,
+  'validDeploymentOrder'
+)
 
 const permissionsMsg =
   '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
@@ -261,6 +265,16 @@ test('runs the action and fails due to invalid environment deployment order', as
     return undefined
   })
 
+  jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
+    return {
+      ref: 'test-ref',
+      status: true,
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: false,
+      sha: 'deadbeef'
+    }
+  })
+
   expect(await run()).toBe('failure')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
   expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
@@ -272,6 +286,14 @@ test('runs the action and fails due to invalid environment deployment order', as
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
   expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+
+  expect(validDeploymentOrderMock).toHaveBeenCalledWith(
+    expect.any(Object),
+    expect.any(Object),
+    ['development', 'staging', 'production'],
+    'production',
+    'deadbeef'
+  )
 })
 
 test('runs the action and passes environment deployment order checks', async () => {
@@ -513,6 +535,7 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
       status: 'details-only'
     }
   })
+
   github.context.payload.comment.body = '.wcid'
   expect(await run()).toBe('safe-exit')
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.wcid')
@@ -526,6 +549,8 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
 test('successfully runs the action in lock mode - details only - lock alias wcid - and finds a global lock', async () => {
