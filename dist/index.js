@@ -43700,7 +43700,7 @@ async function run() {
             const color = result.active ? COLORS.success : COLORS.error
             return `${color}${result.environment}${COLORS.reset}`
           })
-          .join(', ')
+          .join(',')
 
         // construct a markdown message with checks or x's for each environment in an ordered list
         const combined_environments_markdown = deploymentOrderResults.results
