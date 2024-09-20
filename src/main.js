@@ -467,8 +467,6 @@ export async function run() {
             The deployment to \`${environment}\` cannot be proceed as the following environments need successful deployments first:
 
             ${combined_environments_markdown}
-
-            > The deployment order is configured by the \`enforced_deployment_order: ${inputs.enforced_deployment_order}\` input option
           `)
 
         await actionStatus(
