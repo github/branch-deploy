@@ -43640,6 +43640,9 @@ async function run() {
     // deconstruct the environment object to get the environment
     environment = environmentObj.environment
 
+    // deconstruct the environment object to get the stable_branch_used value
+    const stableBranchUsed = environmentObj.environmentObj.stable_branch_used
+
     // If the environment targets are not valid, then exit
     if (!environment) {
       core.debug('No valid environment targets found')
@@ -43679,8 +43682,11 @@ async function run() {
       return 'failure'
     }
 
-    // check for enforced deployment order
-    if (inputs.enforced_deployment_order.length > 0) {
+    // check for enforced deployment order if the input was provided and we are NOT deploying to the stable branch
+    if (
+      inputs.enforced_deployment_order.length > 0 &&
+      stableBranchUsed !== true
+    ) {
       const deploymentOrderResults = await validDeploymentOrder(
         octokit,
         github.context,
