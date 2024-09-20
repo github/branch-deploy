@@ -25,6 +25,7 @@ import {LOCK_METADATA} from './functions/lock-metadata'
 import {COLORS} from './functions/colors'
 import {getInputs} from './functions/inputs'
 import {constructValidBranchName} from './functions/valid-branch-name'
+import {validDeploymentOrder} from './functions/valid-deployment-order'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -393,6 +394,9 @@ export async function run() {
     // deconstruct the environment object to get the environment
     environment = environmentObj.environment
 
+    // deconstruct the environment object to get the stable_branch_used value
+    const stableBranchUsed = environmentObj.environmentObj.stable_branch_used
+
     // If the environment targets are not valid, then exit
     if (!environment) {
       core.debug('No valid environment targets found')
@@ -432,14 +436,68 @@ export async function run() {
       return 'failure'
     }
 
+    // check for enforced deployment order if the input was provided and we are NOT deploying to the stable branch
+    if (
+      inputs.enforced_deployment_order.length > 0 &&
+      stableBranchUsed !== true
+    ) {
+      const deploymentOrderResults = await validDeploymentOrder(
+        octokit,
+        context,
+        inputs.enforced_deployment_order,
+        environment,
+        precheckResults.sha
+      )
+
+      if (!deploymentOrderResults.valid) {
+        // construct a colorized list of the previous environments that do not have active deployments
+        const combined_environments = deploymentOrderResults.results
+          .map(result => {
+            const color = result.active ? COLORS.success : COLORS.error
+            return `${color}${result.environment}${COLORS.reset}`
+          })
+          .join(',')
+
+        // construct a markdown message with checks or x's for each environment in an ordered list
+        const combined_environments_markdown = deploymentOrderResults.results
+          .map(result => {
+            const emoji = result.active ? '🟢' : '🔴'
+            return `- ${emoji} **${result.environment}**`
+          })
+          .join('\n')
+
+        // format the error message
+        const enforced_deployment_order_failure_message = dedent(`
+            ### 🚦 Invalid Deployment Order
+
+            The deployment to \`${environment}\` cannot be proceed as the following environments need successful deployments first:
+
+            ${combined_environments_markdown}
+          `)
+
+        await actionStatus(
+          context,
+          octokit,
+          reactRes.data.id, // original reaction id
+          enforced_deployment_order_failure_message // message
+        )
+        // Set the bypass state to true so that the post run logic will not run
+        core.saveState('bypass', 'true')
+        core.setFailed(
+          `🚦 deployment order checks failed as not all previous environments have active deployments: ${combined_environments}`
+        )
+
+        return 'failure'
+      }
+    }
+
+    // conditionally handle how we want to apply locks on deployments
     core.info(
       `🍯 sticky_locks: ${COLORS.highlight}${inputs.sticky_locks}${COLORS.reset}`
     )
     core.info(
       `🍯 sticky_locks_for_noop: ${COLORS.highlight}${inputs.sticky_locks_for_noop}${COLORS.reset}`
     )
-
-    // conditionally handle how we want to apply locks on deployments
     var stickyLocks
     // if sticky_locks is true, then we will use the sticky_locks logic
     // if sticky_locks_for_noop is also true, then we will also use the sticky_locks logic for noop deployments
@@ -566,7 +624,8 @@ export async function run() {
       production_environment: isProductionEnvironment,
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
       payload: {
-        type: 'branch-deploy'
+        type: 'branch-deploy',
+        sha: precheckResults.sha
       }
     })
     core.setOutput('deployment_id', createDeploy.id)

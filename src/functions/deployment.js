@@ -32,3 +32,95 @@ export async function createDeploymentStatus(
 
   return result
 }
+
+// Helper function to check and see if a given sha is active and deployed to a given environment
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param environment: The environment to check for (ex: production)
+// :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+// :returns: true if the deployment is active for the given environment at the given commit sha, false otherwise
+export async function activeDeployment(octokit, context, environment, sha) {
+  const deployment = await latestDeployment(octokit, context, environment)
+
+  // If no deployment was found, return false
+  if (deployment === null) {
+    return false
+  }
+
+  // Otherwise, check to see if the deployment is active
+  return deployment.state === 'ACTIVE' && deployment.commit.oid === sha
+}
+
+// Helper function to get the latest deployment for a given environment
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param environment: The environment to get the latest deployment for (ex: production)
+// :returns: The result of the deployment (Object)
+export async function latestDeployment(octokit, context, environment) {
+  // Get the owner and the repo from the context
+  const {owner, repo} = context.repo
+
+  const query = `
+    query ($repo_owner: String!, $repo_name: String!, $environment: String!) {
+      repository(owner: $repo_owner, name: $repo_name) {
+        deployments(environments: [$environment], first: 1, orderBy: { field: CREATED_AT, direction: DESC }) {
+          nodes {
+            createdAt
+            environment
+            updatedAt
+            id
+            payload
+            state
+            ref {
+              name
+            }
+            creator {
+              login
+            }
+            commit {
+              oid
+            }
+          }
+        }
+      }
+    }`
+
+  const variables = {
+    repo_owner: owner,
+    repo_name: repo,
+    environment: environment
+  }
+
+  const data = await octokit.graphql(query, variables)
+  const nodes = data.repository.deployments.nodes
+
+  // nodes may be empty if no matching deployments were found - ex: []
+  // otherwise, nodes may look like this:
+  // [
+  //   {
+  //       "createdAt": "2024-09-19T20:18:18Z",
+  //       "environment": "production",
+  //       "updatedAt": "2024-09-19T20:18:23Z",
+  //       "id": "DE_kwDOID9x8N5sC6QZ",
+  //       "payload": "{\\\"type\\\":\\\"branch-deploy\\\", \\\"sha\\\": \\\"315cec138fc9d7dbc8a47c6bba4217d3965ede3b\\\"}",
+  //       "state": "ACTIVE",
+  //       "creator": {
+  //           "login": "github-actions"
+  //       },
+  //       "ref": {
+  //           "name": "main"
+  //       },
+  //       "commit": {
+  //           "oid": "315cec138fc9d7dbc8a47c6bba4217d3965ede3b"
+  //       }
+  //   }
+  // ]
+
+  // If no deployments were found, return null
+  if (nodes.length === 0) {
+    return null
+  }
+
+  // Otherwise, return the latest deployment
+  return nodes[0]
+}

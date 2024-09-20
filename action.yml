@@ -173,6 +173,10 @@ inputs:
     description: 'Whether or not the post run logic should skip adding successful deploy labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a .deploy completes but want to skip adding that label in situations where the pull request is already approved.'
     required: false
     default: "false"
+  enforced_deployment_order:
+    description: 'A comma separated list of environments that must be deployed in a specific order. Example: `"development,staging,production"`. If this is set then you cannot deploy to latter environments unless the former ones have a successful and active deployment on the latest commit first.'
+    required: false
+    default: ""
 outputs:
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
@@ -238,6 +242,8 @@ outputs:
     description: 'The status of the commit. Can be one of a few values - examples: "SUCCESS", null, "skip_ci", "PENDING", "FAILURE" etc'
   approved_reviews_count:
     description: 'The number of approved reviews on the pull request'
+  needs_to_be_deployed:
+    description: 'A comma separated list of environments that need successful and active deployments before the current environment (that was requested) can be deployed. This output is tied to the "enforced_deployment_order" input option.'
 runs:
   using: "node20"
   main: "dist/index.js"

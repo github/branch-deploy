@@ -450,6 +450,16 @@ inputs:
     default:
       type: string
       required: false
+  enforced_deployment_order:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
 
 # outputs section
 outputs:
@@ -578,6 +588,10 @@ outputs:
       type: string
       required: true
   approved_reviews_count:
+    description:
+      type: string
+      required: true
+  needs_to_be_deployed:
     description:
       type: string
       required: true

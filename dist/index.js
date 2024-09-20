@@ -40122,6 +40122,98 @@ async function createDeploymentStatus(
   return result
 }
 
+// Helper function to check and see if a given sha is active and deployed to a given environment
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param environment: The environment to check for (ex: production)
+// :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+// :returns: true if the deployment is active for the given environment at the given commit sha, false otherwise
+async function activeDeployment(octokit, context, environment, sha) {
+  const deployment = await latestDeployment(octokit, context, environment)
+
+  // If no deployment was found, return false
+  if (deployment === null) {
+    return false
+  }
+
+  // Otherwise, check to see if the deployment is active
+  return deployment.state === 'ACTIVE' && deployment.commit.oid === sha
+}
+
+// Helper function to get the latest deployment for a given environment
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param environment: The environment to get the latest deployment for (ex: production)
+// :returns: The result of the deployment (Object)
+async function latestDeployment(octokit, context, environment) {
+  // Get the owner and the repo from the context
+  const {owner, repo} = context.repo
+
+  const query = `
+    query ($repo_owner: String!, $repo_name: String!, $environment: String!) {
+      repository(owner: $repo_owner, name: $repo_name) {
+        deployments(environments: [$environment], first: 1, orderBy: { field: CREATED_AT, direction: DESC }) {
+          nodes {
+            createdAt
+            environment
+            updatedAt
+            id
+            payload
+            state
+            ref {
+              name
+            }
+            creator {
+              login
+            }
+            commit {
+              oid
+            }
+          }
+        }
+      }
+    }`
+
+  const variables = {
+    repo_owner: owner,
+    repo_name: repo,
+    environment: environment
+  }
+
+  const data = await octokit.graphql(query, variables)
+  const nodes = data.repository.deployments.nodes
+
+  // nodes may be empty if no matching deployments were found - ex: []
+  // otherwise, nodes may look like this:
+  // [
+  //   {
+  //       "createdAt": "2024-09-19T20:18:18Z",
+  //       "environment": "production",
+  //       "updatedAt": "2024-09-19T20:18:23Z",
+  //       "id": "DE_kwDOID9x8N5sC6QZ",
+  //       "payload": "{\\\"type\\\":\\\"branch-deploy\\\", \\\"sha\\\": \\\"315cec138fc9d7dbc8a47c6bba4217d3965ede3b\\\"}",
+  //       "state": "ACTIVE",
+  //       "creator": {
+  //           "login": "github-actions"
+  //       },
+  //       "ref": {
+  //           "name": "main"
+  //       },
+  //       "commit": {
+  //           "oid": "315cec138fc9d7dbc8a47c6bba4217d3965ede3b"
+  //       }
+  //   }
+  // ]
+
+  // If no deployments were found, return null
+  if (nodes.length === 0) {
+    return null
+  }
+
+  // Otherwise, return the latest deployment
+  return nodes[0]
+}
+
 ;// CONCATENATED MODULE: ./src/functions/deprecated-checks.js
 
 
@@ -42800,6 +42892,15 @@ async function help(octokit, context, reactionId, inputs) {
     sha_deployment_message = `This Action will not allow deployments to an exact SHA (recommended)`
   }
 
+  var enforced_deployment_order_message = defaultSpecificMessage
+  if (inputs.enforced_deployment_order.length > 0) {
+    enforced_deployment_order_message = `Deployments are required to follow a specific deployment order by environment before the next one can proceed: ${inputs.enforced_deployment_order.join(
+      ', '
+    )}`
+  } else {
+    enforced_deployment_order_message = `Deployments can be made to any environment in any order`
+  }
+
   // Construct the message to add to the issue comment
   const comment = lib_default()(`
   ## 📚 Branch Deployment Help
@@ -42869,6 +42970,7 @@ async function help(octokit, context, reactionId, inputs) {
   - \`${
     inputs.environment_targets
   }\` - The list of environments that can be targeted for deployment
+  - Deployment Order: ${enforced_deployment_order_message}
 
   ### 🔭 Example Commands
 
@@ -43001,6 +43103,9 @@ function getInputs() {
   const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
   const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
   const disable_naked_commands = core.getBooleanInput('disable_naked_commands')
+  const enforced_deployment_order = stringToArray(
+    core.getInput('enforced_deployment_order')
+  )
 
   // validate inputs
   validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -43042,11 +43147,104 @@ function getInputs() {
     environment_urls: environment_urls,
     param_separator: param_separator,
     sticky_locks: sticky_locks,
-    sticky_locks_for_noop: sticky_locks_for_noop
+    sticky_locks_for_noop: sticky_locks_for_noop,
+    enforced_deployment_order: enforced_deployment_order
   }
 }
 
+;// CONCATENATED MODULE: ./src/functions/valid-deployment-order.js
+
+
+
+
+// Helper function to ensure the deployment order is enforced (if any)
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param enforced_deployment_order: The enforced deployment order (ex: ['development', 'staging', 'production'])
+// :param environment: The environment to check for (ex: production)
+// :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+// :returns: an object with the valid: true if the deployment order is valid, false otherwise, and results: an array of the previous environments in the enforced deployment order that do not have active deployments
+async function validDeploymentOrder(
+  octokit,
+  context,
+  enforced_deployment_order,
+  environment,
+  sha
+) {
+  core.info(`🚦 deployment order is ${COLORS.highlight}enforced${COLORS.reset}`)
+
+  if (enforced_deployment_order.length === 1) {
+    core.warning(
+      `💡 Having only one environment in the enforced deployment order will always cause the deployment order checks to pass if the environment names match. This is likely not what you want. Please either unset the enforced deployment order or add more environments to it.`
+    )
+    return {valid: enforced_deployment_order[0] === environment, results: []}
+  }
+
+  // if the enforced deployment order is set, check to see if the current environment is the first in the list
+  // this indicates that we can proceed with the deployment right away as there are no previous environments to gate it
+  if (enforced_deployment_order[0] === environment) {
+    core.info(
+      `🚦 deployment order checks passed as ${COLORS.highlight}${environment}${COLORS.reset} is the first environment in the enforced deployment order`
+    )
+    return {valid: true, results: []}
+  }
+
+  // determine all the previous environments in the enforced deployment order prior to the current environment
+  const previous_environments = enforced_deployment_order.slice(
+    0,
+    enforced_deployment_order.indexOf(environment)
+  )
+
+  core.debug(
+    `environments that require active deployments: ${previous_environments}`
+  )
+
+  // iterate over the previous environments and check to see if they have an active deployment
+  let results = []
+  for (const previous_environment of previous_environments) {
+    core.debug(`checking if ${previous_environment} has an active deployment`)
+    const is_active = await activeDeployment(
+      octokit,
+      context,
+      previous_environment,
+      sha
+    )
+
+    if (!is_active) {
+      core.error(
+        `🚦 deployment order checks failed as ${COLORS.highlight}${previous_environment}${COLORS.reset} does not have an active deployment at sha: ${sha}`
+      )
+      results.push({environment: previous_environment, active: false})
+      continue
+    }
+
+    core.debug(
+      `deployment for ${previous_environment} is active at sha: ${sha}`
+    )
+    results.push({environment: previous_environment, active: true})
+  }
+
+  // if all previous environments have active deployments, we can proceed with the deployment
+  if (results.every(result => result.active === true)) {
+    core.info(
+      `🚦 deployment order checks passed as all previous environments have active deployments`
+    )
+    return {valid: true, results: results}
+  }
+
+  // set an output that contains all the environments that do not have active deployments but need them for a deployment to proceed
+  const needs_to_be_deployed = results
+    .filter(result => !result.active)
+    .map(result => result.environment)
+    .join(',')
+  core.setOutput('needs_to_be_deployed', needs_to_be_deployed)
+
+  // if we made it this far, it means that not all previous environments have active deployments and we cannot proceed
+  return {valid: false, results: results}
+}
+
 ;// CONCATENATED MODULE: ./src/main.js
+
 
 
 
@@ -43442,6 +43640,9 @@ async function run() {
     // deconstruct the environment object to get the environment
     environment = environmentObj.environment
 
+    // deconstruct the environment object to get the stable_branch_used value
+    const stableBranchUsed = environmentObj.environmentObj.stable_branch_used
+
     // If the environment targets are not valid, then exit
     if (!environment) {
       core.debug('No valid environment targets found')
@@ -43481,14 +43682,68 @@ async function run() {
       return 'failure'
     }
 
+    // check for enforced deployment order if the input was provided and we are NOT deploying to the stable branch
+    if (
+      inputs.enforced_deployment_order.length > 0 &&
+      stableBranchUsed !== true
+    ) {
+      const deploymentOrderResults = await validDeploymentOrder(
+        octokit,
+        github.context,
+        inputs.enforced_deployment_order,
+        environment,
+        precheckResults.sha
+      )
+
+      if (!deploymentOrderResults.valid) {
+        // construct a colorized list of the previous environments that do not have active deployments
+        const combined_environments = deploymentOrderResults.results
+          .map(result => {
+            const color = result.active ? COLORS.success : COLORS.error
+            return `${color}${result.environment}${COLORS.reset}`
+          })
+          .join(',')
+
+        // construct a markdown message with checks or x's for each environment in an ordered list
+        const combined_environments_markdown = deploymentOrderResults.results
+          .map(result => {
+            const emoji = result.active ? '🟢' : '🔴'
+            return `- ${emoji} **${result.environment}**`
+          })
+          .join('\n')
+
+        // format the error message
+        const enforced_deployment_order_failure_message = lib_default()(`
+            ### 🚦 Invalid Deployment Order
+
+            The deployment to \`${environment}\` cannot be proceed as the following environments need successful deployments first:
+
+            ${combined_environments_markdown}
+          `)
+
+        await actionStatus(
+          github.context,
+          octokit,
+          reactRes.data.id, // original reaction id
+          enforced_deployment_order_failure_message // message
+        )
+        // Set the bypass state to true so that the post run logic will not run
+        core.saveState('bypass', 'true')
+        core.setFailed(
+          `🚦 deployment order checks failed as not all previous environments have active deployments: ${combined_environments}`
+        )
+
+        return 'failure'
+      }
+    }
+
+    // conditionally handle how we want to apply locks on deployments
     core.info(
       `🍯 sticky_locks: ${COLORS.highlight}${inputs.sticky_locks}${COLORS.reset}`
     )
     core.info(
       `🍯 sticky_locks_for_noop: ${COLORS.highlight}${inputs.sticky_locks_for_noop}${COLORS.reset}`
     )
-
-    // conditionally handle how we want to apply locks on deployments
     var stickyLocks
     // if sticky_locks is true, then we will use the sticky_locks logic
     // if sticky_locks_for_noop is also true, then we will also use the sticky_locks logic for noop deployments
@@ -43615,7 +43870,8 @@ async function run() {
       production_environment: isProductionEnvironment,
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
       payload: {
-        type: 'branch-deploy'
+        type: 'branch-deploy',
+        sha: precheckResults.sha
       }
     })
     core.setOutput('deployment_id', createDeploy.id)

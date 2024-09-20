@@ -72,6 +72,15 @@ export async function help(octokit, context, reactionId, inputs) {
     sha_deployment_message = `This Action will not allow deployments to an exact SHA (recommended)`
   }
 
+  var enforced_deployment_order_message = defaultSpecificMessage
+  if (inputs.enforced_deployment_order.length > 0) {
+    enforced_deployment_order_message = `Deployments are required to follow a specific deployment order by environment before the next one can proceed: ${inputs.enforced_deployment_order.join(
+      ', '
+    )}`
+  } else {
+    enforced_deployment_order_message = `Deployments can be made to any environment in any order`
+  }
+
   // Construct the message to add to the issue comment
   const comment = dedent(`
   ## 📚 Branch Deployment Help
@@ -141,6 +150,7 @@ export async function help(octokit, context, reactionId, inputs) {
   - \`${
     inputs.environment_targets
   }\` - The list of environments that can be targeted for deployment
+  - Deployment Order: ${enforced_deployment_order_message}
 
   ### 🔭 Example Commands
 

@@ -46,7 +46,8 @@ const defaultInputs = {
   admins: 'false',
   permissions: ['write', 'admin', 'maintain'],
   allow_sha_deployments: false,
-  checks: 'all'
+  checks: 'all',
+  enforced_deployment_order: []
 }
 
 test('successfully calls help with defaults', async () => {
@@ -81,7 +82,8 @@ test('successfully calls help with non-defaults', async () => {
     admins: 'monalisa',
     permissions: ['write', 'admin', 'maintain'],
     allow_sha_deployments: true,
-    checks: 'all'
+    checks: 'all',
+    enforced_deployment_order: []
   }
 
   expect(await help(octokit, context, 123, inputs))
@@ -115,13 +117,18 @@ test('successfully calls help with non-defaults', async () => {
     admins: 'monalisa',
     permissions: ['write', 'admin', 'maintain'],
     allow_sha_deployments: false,
-    checks: 'required'
+    checks: 'required',
+    enforced_deployment_order: ['development', 'staging', 'production']
   }
 
   expect(await help(octokit, context, 123, inputs))
 
   expect(debugMock).toHaveBeenCalledWith(
     expect.stringMatching(/## 📚 Branch Deployment Help/)
+  )
+
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringMatching(/a specific deployment order by environment/)
   )
 
   var inputsSecond = inputs
@@ -157,13 +164,20 @@ test('successfully calls help with non-defaults and unknown update_branch settin
     admins: 'monalisa',
     permissions: ['write', 'admin', 'maintain'],
     allow_sha_deployments: false,
-    checks: 'required'
+    checks: 'required',
+    enforced_deployment_order: []
   }
 
   expect(await help(octokit, context, 123, inputs))
 
   expect(debugMock).toHaveBeenCalledWith(
     expect.stringMatching(/## 📚 Branch Deployment Help/)
+  )
+
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringMatching(
+      /Deployments can be made to any environment in any order/
+    )
   )
 
   expect(debugMock).toHaveBeenCalledWith(
