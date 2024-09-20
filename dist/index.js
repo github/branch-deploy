@@ -43240,10 +43240,6 @@ async function validDeploymentOrder(
   core.setOutput('needs_to_be_deployed', needs_to_be_deployed)
 
   // if we made it this far, it means that not all previous environments have active deployments and we cannot proceed
-  core.error(
-    `🚦 deployment order checks failed as not all previous environments have active deployments`
-  )
-
   return {valid: false, results: results}
 }
 

@@ -110,12 +110,6 @@ test('when the enforced deployment order fails because one out of two environmen
     )
   )
 
-  expect(core.error).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /deployment order checks failed as not all previous environments have active deployments/
-    )
-  )
-
   expect(core.setOutput).toHaveBeenCalledWith(
     'needs_to_be_deployed',
     'development'
@@ -160,12 +154,6 @@ test('when the enforced deployment order fails because one out of two environmen
   expect(core.error).toHaveBeenCalledWith(
     expect.stringContaining(
       `${COLORS.highlight}staging${COLORS.reset} does not have an active deployment at sha: deadbeef`
-    )
-  )
-
-  expect(core.error).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /deployment order checks failed as not all previous environments have active deployments/
     )
   )
 
@@ -216,12 +204,6 @@ test('when the enforced deployment order fails because both of the environments 
   expect(core.error).toHaveBeenCalledWith(
     expect.stringContaining(
       `${COLORS.highlight}staging${COLORS.reset} does not have an active deployment at sha: deadbeef`
-    )
-  )
-
-  expect(core.error).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /deployment order checks failed as not all previous environments have active deployments/
     )
   )
 
