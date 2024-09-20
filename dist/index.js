@@ -43175,7 +43175,7 @@ async function validDeploymentOrder(
 
   if (enforced_deployment_order.length === 1) {
     core.warning(
-      `💡 Having only one environment in the enforced deployment order will always cause the deployment order checks to pass if the environment names match. This is likely not what you want. Please wither unset the enforced deployment order or add more environments to it.`
+      `💡 Having only one environment in the enforced deployment order will always cause the deployment order checks to pass if the environment names match. This is likely not what you want. Please either unset the enforced deployment order or add more environments to it.`
     )
     return {valid: enforced_deployment_order[0] === environment, results: []}
   }
