@@ -591,3 +591,7 @@ outputs:
     description:
       type: string
       required: true
+  needs_to_be_deployed:
+    description:
+      type: string
+      required: true
