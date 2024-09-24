@@ -40129,14 +40129,14 @@ async function createDeploymentStatus(
 // :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
 // :returns: true if the deployment is active for the given environment at the given commit sha, false otherwise
 async function activeDeployment(octokit, context, environment, sha) {
-  const deployment = await latestDeployment(octokit, context, environment)
+  const deployment = await latestActiveDeployment(octokit, context, environment)
 
   // If no deployment was found, return false
   if (deployment === null) {
     return false
   }
 
-  // Otherwise, check to see if the deployment is active
+  // Otherwise, check to see if the deployment is active and the commit sha matches exactly
   return deployment.state === 'ACTIVE' && deployment.commit.oid === sha
 }
 
@@ -40166,7 +40166,7 @@ async function activeDeployment(octokit, context, environment, sha) {
 //       }
 //   }
 // ]
-async function latestDeployment(octokit, context, environment) {
+async function latestActiveDeployment(octokit, context, environment) {
   // Get the owner and the repo from the context
   const {owner, repo} = context.repo
 
