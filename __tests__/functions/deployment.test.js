@@ -1,6 +1,6 @@
 import {
   createDeploymentStatus,
-  latestDeployment,
+  latestActiveDeployment,
   activeDeployment
 } from '../../src/functions/deployment'
 
@@ -118,9 +118,9 @@ test('creates an in_progress deployment status', async () => {
 test('successfully fetches the latest deployment', async () => {
   octokit = createMockGraphQLOctokit(mockDeploymentData)
 
-  expect(await latestDeployment(octokit, context, environment)).toStrictEqual(
-    mockDeploymentResults
-  )
+  expect(
+    await latestActiveDeployment(octokit, context, environment)
+  ).toStrictEqual(mockDeploymentResults)
 
   expect(octokit.graphql).toHaveBeenCalled()
 })
@@ -134,7 +134,7 @@ test('returns null if no deployments are found', async () => {
     }
   })
 
-  expect(await latestDeployment(octokit, context, environment)).toBeNull()
+  expect(await latestActiveDeployment(octokit, context, environment)).toBeNull()
 
   expect(octokit.graphql).toHaveBeenCalled()
 })
