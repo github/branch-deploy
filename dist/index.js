@@ -40145,6 +40145,27 @@ async function activeDeployment(octokit, context, environment, sha) {
 // :param context: The GitHub Actions event context
 // :param environment: The environment to get the latest deployment for (ex: production)
 // :returns: The result of the deployment (Object)
+// 'nodes' may look like this:
+// otherwise, nodes may look like this:
+// [
+//   {
+//       "createdAt": "2024-09-19T20:18:18Z",
+//       "environment": "production",
+//       "updatedAt": "2024-09-19T20:18:23Z",
+//       "id": "DE_kwDOID9x8N5sC6QZ",
+//       "payload": "{\\\"type\\\":\\\"branch-deploy\\\", \\\"sha\\\": \\\"315cec138fc9d7dbc8a47c6bba4217d3965ede3b\\\"}",
+//       "state": "ACTIVE",
+//       "creator": {
+//           "login": "github-actions"
+//       },
+//       "ref": {
+//           "name": "main"
+//       },
+//       "commit": {
+//           "oid": "315cec138fc9d7dbc8a47c6bba4217d3965ede3b"
+//       }
+//   }
+// ]
 async function latestDeployment(octokit, context, environment) {
   // Get the owner and the repo from the context
   const {owner, repo} = context.repo
@@ -40181,29 +40202,8 @@ async function latestDeployment(octokit, context, environment) {
   }
 
   const data = await octokit.graphql(query, variables)
-  const nodes = data.repository.deployments.nodes
-
   // nodes may be empty if no matching deployments were found - ex: []
-  // otherwise, nodes may look like this:
-  // [
-  //   {
-  //       "createdAt": "2024-09-19T20:18:18Z",
-  //       "environment": "production",
-  //       "updatedAt": "2024-09-19T20:18:23Z",
-  //       "id": "DE_kwDOID9x8N5sC6QZ",
-  //       "payload": "{\\\"type\\\":\\\"branch-deploy\\\", \\\"sha\\\": \\\"315cec138fc9d7dbc8a47c6bba4217d3965ede3b\\\"}",
-  //       "state": "ACTIVE",
-  //       "creator": {
-  //           "login": "github-actions"
-  //       },
-  //       "ref": {
-  //           "name": "main"
-  //       },
-  //       "commit": {
-  //           "oid": "315cec138fc9d7dbc8a47c6bba4217d3965ede3b"
-  //       }
-  //   }
-  // ]
+  const nodes = data.repository.deployments.nodes
 
   // If no deployments were found, return null
   if (nodes.length === 0) {
