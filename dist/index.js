@@ -40087,6 +40087,8 @@ async function environmentTargets(
 }
 
 ;// CONCATENATED MODULE: ./src/functions/deployment.js
+
+
 // Helper function to add deployment statuses to a PR / ref
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
@@ -40129,14 +40131,14 @@ async function createDeploymentStatus(
 // :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
 // :returns: true if the deployment is active for the given environment at the given commit sha, false otherwise
 async function activeDeployment(octokit, context, environment, sha) {
-  const deployment = await latestDeployment(octokit, context, environment)
+  const deployment = await latestActiveDeployment(octokit, context, environment)
 
   // If no deployment was found, return false
   if (deployment === null) {
     return false
   }
 
-  // Otherwise, check to see if the deployment is active
+  // Otherwise, check to see if the deployment is active and the commit sha matches exactly
   return deployment.state === 'ACTIVE' && deployment.commit.oid === sha
 }
 
@@ -40145,14 +40147,95 @@ async function activeDeployment(octokit, context, environment, sha) {
 // :param context: The GitHub Actions event context
 // :param environment: The environment to get the latest deployment for (ex: production)
 // :returns: The result of the deployment (Object)
-async function latestDeployment(octokit, context, environment) {
-  // Get the owner and the repo from the context
+// 'nodes' may look like this:
+// otherwise, nodes may look like this:
+// [
+//   {
+//       "createdAt": "2024-09-19T20:18:18Z",
+//       "environment": "production",
+//       "updatedAt": "2024-09-19T20:18:23Z",
+//       "id": "DE_kwDOID9x8N5sC6QZ",
+//       "payload": "{\\\"type\\\":\\\"branch-deploy\\\", \\\"sha\\\": \\\"315cec138fc9d7dbc8a47c6bba4217d3965ede3b\\\"}",
+//       "state": "ACTIVE",
+//       "creator": {
+//           "login": "github-actions"
+//       },
+//       "ref": {
+//           "name": "main"
+//       },
+//       "commit": {
+//           "oid": "315cec138fc9d7dbc8a47c6bba4217d3965ede3b"
+//       }
+//   }
+// ]
+async function latestActiveDeployment(octokit, context, environment) {
   const {owner, repo} = context.repo
 
-  const query = `
+  const variables = {
+    repo_owner: owner,
+    repo_name: repo,
+    environment: environment
+  }
+
+  let queryNumber = 1
+  let data = await octokit.graphql(buildQuery(), variables)
+  // nodes may be empty if no matching deployments were found - ex: []
+  let nodes = data.repository.deployments.nodes
+
+  // If no deployments were found, return null
+  if (nodes.length === 0) {
+    core.debug(`no deployments found for ${environment}`)
+    return null
+  }
+
+  // Check for an active deployment in the first page of deployments
+  let activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
+  if (activeDeployment) {
+    core.debug(
+      `found active deployment for ${environment} in page ${queryNumber}`
+    )
+    return activeDeployment
+  }
+
+  // Paginate to find the active deployment if it exists
+  let hasNextPage = data.repository.deployments.pageInfo.hasNextPage
+  let endCursor = data.repository.deployments.pageInfo.endCursor
+
+  while (hasNextPage) {
+    queryNumber++
+    data = await octokit.graphql(buildQuery(endCursor), variables)
+
+    nodes = data.repository.deployments.nodes
+    activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
+
+    if (activeDeployment) {
+      core.debug(
+        `found active deployment for ${environment} in page ${queryNumber}`
+      )
+      return activeDeployment
+    } else {
+      core.debug(
+        `no active deployment found for ${environment} in page ${queryNumber}`
+      )
+    }
+
+    hasNextPage = data.repository.deployments.pageInfo.hasNextPage
+    endCursor = data.repository.deployments.pageInfo.endCursor
+  }
+
+  core.debug(
+    `no active deployment found for ${environment} after ${queryNumber} pages`
+  )
+
+  // If no active deployment was found, return null
+  return null
+}
+
+function buildQuery(page = null) {
+  return `
     query ($repo_owner: String!, $repo_name: String!, $environment: String!) {
       repository(owner: $repo_owner, name: $repo_name) {
-        deployments(environments: [$environment], first: 1, orderBy: { field: CREATED_AT, direction: DESC }) {
+        deployments(environments: [$environment], first: 100, after: ${page}, orderBy: { field: CREATED_AT, direction: DESC }) {
           nodes {
             createdAt
             environment
@@ -40170,48 +40253,13 @@ async function latestDeployment(octokit, context, environment) {
               oid
             }
           }
+          pageInfo {
+            endCursor
+            hasNextPage
+          }
         }
       }
     }`
-
-  const variables = {
-    repo_owner: owner,
-    repo_name: repo,
-    environment: environment
-  }
-
-  const data = await octokit.graphql(query, variables)
-  const nodes = data.repository.deployments.nodes
-
-  // nodes may be empty if no matching deployments were found - ex: []
-  // otherwise, nodes may look like this:
-  // [
-  //   {
-  //       "createdAt": "2024-09-19T20:18:18Z",
-  //       "environment": "production",
-  //       "updatedAt": "2024-09-19T20:18:23Z",
-  //       "id": "DE_kwDOID9x8N5sC6QZ",
-  //       "payload": "{\\\"type\\\":\\\"branch-deploy\\\", \\\"sha\\\": \\\"315cec138fc9d7dbc8a47c6bba4217d3965ede3b\\\"}",
-  //       "state": "ACTIVE",
-  //       "creator": {
-  //           "login": "github-actions"
-  //       },
-  //       "ref": {
-  //           "name": "main"
-  //       },
-  //       "commit": {
-  //           "oid": "315cec138fc9d7dbc8a47c6bba4217d3965ede3b"
-  //       }
-  //   }
-  // ]
-
-  // If no deployments were found, return null
-  if (nodes.length === 0) {
-    return null
-  }
-
-  // Otherwise, return the latest deployment
-  return nodes[0]
 }
 
 ;// CONCATENATED MODULE: ./src/functions/deprecated-checks.js
