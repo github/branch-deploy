@@ -47,7 +47,11 @@ beforeEach(() => {
               oid: '315cec138fc9d7dac8a47c6bba4217d3965ede3b'
             }
           }
-        ]
+        ],
+        pageInfo: {
+          endCursor: null,
+          hasNextPage: false
+        }
       }
     }
   }
@@ -137,6 +141,121 @@ test('returns null if no deployments are found', async () => {
   expect(await latestActiveDeployment(octokit, context, environment)).toBeNull()
 
   expect(octokit.graphql).toHaveBeenCalled()
+})
+
+test('returns null if no deployments are found in 3 pages of queries', async () => {
+  octokit.graphql = jest
+    .fn()
+    .mockReturnValueOnce({
+      repository: {
+        deployments: {
+          nodes: [
+            {
+              state: 'INACTIVE'
+            }
+          ],
+          pageInfo: {
+            endCursor: 'cursor',
+            hasNextPage: true
+          }
+        }
+      }
+    })
+    .mockReturnValueOnce({
+      repository: {
+        deployments: {
+          nodes: [
+            {
+              state: 'INACTIVE'
+            }
+          ],
+          pageInfo: {
+            endCursor: 'cursor',
+            hasNextPage: true
+          }
+        }
+      }
+    })
+    .mockReturnValueOnce({
+      repository: {
+        deployments: {
+          nodes: [
+            {
+              state: 'INACTIVE'
+            }
+          ],
+          pageInfo: {
+            endCursor: 'cursor',
+            hasNextPage: false
+          }
+        }
+      }
+    })
+
+  expect(await latestActiveDeployment(octokit, context, environment)).toBeNull()
+
+  expect(octokit.graphql).toHaveBeenCalledTimes(3)
+})
+
+test('returns the deployment when it is found in the second page of queries', async () => {
+  octokit.graphql = jest
+    .fn()
+    .mockReturnValueOnce({
+      repository: {
+        deployments: {
+          nodes: [
+            {
+              state: 'INACTIVE'
+            },
+            {
+              state: 'INACTIVE'
+            },
+            {
+              state: 'INACTIVE'
+            },
+            {
+              state: 'PENDING'
+            }
+          ],
+          pageInfo: {
+            endCursor: 'cursor',
+            hasNextPage: true
+          }
+        }
+      }
+    })
+    .mockReturnValueOnce({
+      repository: {
+        deployments: {
+          nodes: [
+            {
+              state: 'INACTIVE'
+            },
+            {
+              state: 'INACTIVE'
+            },
+            {
+              state: 'ACTIVE'
+            },
+            {
+              state: 'INACTIVE'
+            }
+          ],
+          pageInfo: {
+            endCursor: 'cursor',
+            hasNextPage: true
+          }
+        }
+      }
+    })
+
+  expect(
+    await latestActiveDeployment(octokit, context, environment)
+  ).toStrictEqual({
+    state: 'ACTIVE'
+  })
+
+  expect(octokit.graphql).toHaveBeenCalledTimes(2)
 })
 
 test('returns false if the deployment is not active', async () => {

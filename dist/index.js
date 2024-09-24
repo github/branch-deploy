@@ -40167,13 +40167,56 @@ async function activeDeployment(octokit, context, environment, sha) {
 //   }
 // ]
 async function latestActiveDeployment(octokit, context, environment) {
-  // Get the owner and the repo from the context
   const {owner, repo} = context.repo
 
-  const query = `
+  const variables = {
+    repo_owner: owner,
+    repo_name: repo,
+    environment: environment
+  }
+
+  let data = await octokit.graphql(buildQuery(), variables)
+  // nodes may be empty if no matching deployments were found - ex: []
+  let nodes = data.repository.deployments.nodes
+
+  // If no deployments were found, return null
+  if (nodes.length === 0) {
+    return null
+  }
+
+  // Check for an active deployment in the first page of deployments
+  let activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
+  if (activeDeployment) {
+    return activeDeployment
+  }
+
+  // Paginate to find the active deployment if it exists
+  let hasNextPage = data.repository.deployments.pageInfo.hasNextPage
+  let endCursor = data.repository.deployments.pageInfo.endCursor
+
+  while (hasNextPage) {
+    data = await octokit.graphql(buildQuery(endCursor), variables)
+
+    nodes = data.repository.deployments.nodes
+    activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
+
+    if (activeDeployment) {
+      return activeDeployment
+    }
+
+    hasNextPage = data.repository.deployments.pageInfo.hasNextPage
+    endCursor = data.repository.deployments.pageInfo.endCursor
+  }
+
+  // If no active deployment was found, return null
+  return null
+}
+
+function buildQuery(page = null) {
+  return `
     query ($repo_owner: String!, $repo_name: String!, $environment: String!) {
       repository(owner: $repo_owner, name: $repo_name) {
-        deployments(environments: [$environment], first: 1, orderBy: { field: CREATED_AT, direction: DESC }) {
+        deployments(environments: [$environment], first: 100, after: ${page}, orderBy: { field: CREATED_AT, direction: DESC }) {
           nodes {
             createdAt
             environment
@@ -40191,27 +40234,13 @@ async function latestActiveDeployment(octokit, context, environment) {
               oid
             }
           }
+          pageInfo {
+            endCursor
+            hasNextPage
+          }
         }
       }
     }`
-
-  const variables = {
-    repo_owner: owner,
-    repo_name: repo,
-    environment: environment
-  }
-
-  const data = await octokit.graphql(query, variables)
-  // nodes may be empty if no matching deployments were found - ex: []
-  const nodes = data.repository.deployments.nodes
-
-  // If no deployments were found, return null
-  if (nodes.length === 0) {
-    return null
-  }
-
-  // Otherwise, return the latest deployment
-  return nodes[0]
 }
 
 ;// CONCATENATED MODULE: ./src/functions/deprecated-checks.js
