@@ -3,6 +3,7 @@ import {
   latestActiveDeployment,
   activeDeployment
 } from '../../src/functions/deployment'
+import * as core from '@actions/core'
 
 var octokit
 var context
@@ -10,6 +11,7 @@ var mockDeploymentData
 var mockDeploymentResults
 beforeEach(() => {
   jest.clearAllMocks()
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
   process.env.GITHUB_SERVER_URL = 'https://github.com'
 
   context = {

@@ -1,3 +1,5 @@
+import * as core from '@actions/core'
+
 // Helper function to add deployment statuses to a PR / ref
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
@@ -86,18 +88,23 @@ export async function latestActiveDeployment(octokit, context, environment) {
     environment: environment
   }
 
+  let queryNumber = 1
   let data = await octokit.graphql(buildQuery(), variables)
   // nodes may be empty if no matching deployments were found - ex: []
   let nodes = data.repository.deployments.nodes
 
   // If no deployments were found, return null
   if (nodes.length === 0) {
+    core.debug(`no deployments found for ${environment}`)
     return null
   }
 
   // Check for an active deployment in the first page of deployments
   let activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
   if (activeDeployment) {
+    core.debug(
+      `found active deployment for ${environment} in page ${queryNumber}`
+    )
     return activeDeployment
   }
 
@@ -106,18 +113,30 @@ export async function latestActiveDeployment(octokit, context, environment) {
   let endCursor = data.repository.deployments.pageInfo.endCursor
 
   while (hasNextPage) {
+    queryNumber++
     data = await octokit.graphql(buildQuery(endCursor), variables)
 
     nodes = data.repository.deployments.nodes
     activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
 
     if (activeDeployment) {
+      core.debug(
+        `found active deployment for ${environment} in page ${queryNumber}`
+      )
       return activeDeployment
+    } else {
+      core.debug(
+        `no active deployment found for ${environment} in page ${queryNumber}`
+      )
     }
 
     hasNextPage = data.repository.deployments.pageInfo.hasNextPage
     endCursor = data.repository.deployments.pageInfo.endCursor
   }
+
+  core.debug(
+    `no active deployment found for ${environment} after ${queryNumber} pages`
+  )
 
   // If no active deployment was found, return null
   return null
