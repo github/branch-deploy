@@ -551,6 +551,10 @@ outputs:
     description:
       type: string
       required: true
+  initial_comment_id:
+    description:
+      type: string
+      required: true
   actor_handle:
     description:
       type: string
