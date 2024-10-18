@@ -569,6 +569,7 @@ export async function run() {
 
     // Set output for initial comment id
     core.setOutput('initial_comment_id', initialComment.data.id)
+    core.saveState('initial_comment_id', initialComment.data.id)
 
     // Set outputs for noopMode
     if (precheckResults.noopMode) {
