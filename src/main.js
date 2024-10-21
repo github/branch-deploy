@@ -26,10 +26,13 @@ import {COLORS} from './functions/colors'
 import {getInputs} from './functions/inputs'
 import {constructValidBranchName} from './functions/valid-branch-name'
 import {validDeploymentOrder} from './functions/valid-deployment-order'
+import {commitSafetyChecks} from './functions/commit-safety-checks'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
   try {
+    core.debug(`context: ${JSON.stringify(context)}`)
+
     // Get the inputs for the branch-deploy Action
     const token = core.getInput('github_token', {required: true})
 
@@ -433,6 +436,33 @@ export async function run() {
       // Set the bypass state to true so that the post run logic will not run
       core.saveState('bypass', 'true')
       core.setFailed(precheckResults.message)
+      return 'failure'
+    }
+
+    // fetch commit data from the API
+    const commitData = await octokit.rest.repos.getCommit({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      ref: precheckResults.sha // exact SHAs can be used here in the ref parameter (which is what we want)
+    })
+
+    // Run commit safety checks
+    const commitSafetyCheckResults = await commitSafetyChecks(context, {
+      commit: commitData.data.commit
+    })
+
+    // If the commitSafetyCheckResults failed, run the actionStatus function and return
+    // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
+    if (!commitSafetyCheckResults.status) {
+      await actionStatus(
+        context,
+        octokit,
+        reactRes.data.id, // original reaction id
+        commitSafetyCheckResults.message // message
+      )
+      // Set the bypass state to true so that the post run logic will not run
+      core.saveState('bypass', 'true')
+      core.setFailed(commitSafetyCheckResults.message)
       return 'failure'
     }
 

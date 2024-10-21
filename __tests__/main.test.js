@@ -14,6 +14,7 @@ import * as core from '@actions/core'
 import * as isDeprecated from '../src/functions/deprecated-checks'
 import * as nakedCommandCheck from '../src/functions/naked-command-check'
 import * as validDeploymentOrder from '../src/functions/valid-deployment-order'
+import * as commitSafetyChecks from '../src/functions/commit-safety-checks'
 import {COLORS} from '../src/functions/colors'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
@@ -76,7 +77,8 @@ beforeEach(() => {
       id: 123,
       user: {
         login: 'monalisa'
-      }
+      },
+      created_at: '2024-10-21T19:11:18Z'
     }
   }
 
@@ -96,6 +98,17 @@ beforeEach(() => {
           }),
           createDeploymentStatus: jest.fn().mockImplementation(() => {
             return {data: {}}
+          }),
+          getCommit: jest.fn().mockImplementation(() => {
+            return {
+              data: {
+                commit: {
+                  author: {
+                    date: '2024-10-15T12:00:00Z'
+                  }
+                }
+              }
+            }
           })
         },
         pulls: {
@@ -127,6 +140,14 @@ beforeEach(() => {
       sha: null
     }
   })
+  jest
+    .spyOn(commitSafetyChecks, 'commitSafetyChecks')
+    .mockImplementation(() => {
+      return {
+        status: true,
+        message: 'success'
+      }
+    })
   jest
     .spyOn(validDeploymentOrder, 'validDeploymentOrder')
     .mockImplementation(() => {
@@ -809,6 +830,17 @@ test('detects an out of date branch and exits', async () => {
           }),
           createDeploymentStatus: jest.fn().mockImplementation(() => {
             return {data: {}}
+          }),
+          getCommit: jest.fn().mockImplementation(() => {
+            return {
+              data: {
+                commit: {
+                  author: {
+                    date: '2024-10-15T12:00:00Z'
+                  }
+                }
+              }
+            }
           })
         }
       }
@@ -872,6 +904,28 @@ test('fails prechecks', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
   expect(setFailedMock).toHaveBeenCalledWith(
     '### ⚠️ Cannot proceed with deployment... something went wrong'
+  )
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+})
+
+test('fails commitSafetyChecks', async () => {
+  jest
+    .spyOn(commitSafetyChecks, 'commitSafetyChecks')
+    .mockImplementation(() => {
+      return {
+        status: false,
+        message:
+          '### ⚠️ Cannot proceed with deployment... a scary commit was found'
+      }
+    })
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  expect(await run()).toBe('failure')
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  expect(setFailedMock).toHaveBeenCalledWith(
+    '### ⚠️ Cannot proceed with deployment... a scary commit was found'
   )
 
   expect(validDeploymentOrderMock).not.toHaveBeenCalled()
