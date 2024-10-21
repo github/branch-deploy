@@ -26,10 +26,13 @@ import {COLORS} from './functions/colors'
 import {getInputs} from './functions/inputs'
 import {constructValidBranchName} from './functions/valid-branch-name'
 import {validDeploymentOrder} from './functions/valid-deployment-order'
+import {commitSafetyChecks} from './functions/commit-safety-checks'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
   try {
+    core.debug(`context: ${JSON.stringify(context)}`)
+
     // Get the inputs for the branch-deploy Action
     const token = core.getInput('github_token', {required: true})
 
@@ -67,8 +70,6 @@ export async function run() {
 
     // Get the body of the IssueOps command
     const body = context.payload.comment.body.trim()
-
-    core.debug(`context: ${JSON.stringify(context)}`)
 
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(context))) {
@@ -435,6 +436,30 @@ export async function run() {
       // Set the bypass state to true so that the post run logic will not run
       core.saveState('bypass', 'true')
       core.setFailed(precheckResults.message)
+      return 'failure'
+    }
+
+    // Run commit safety checks
+    const commitSafetyCheckResults = await commitSafetyChecks(
+      context,
+      octokit,
+      {
+        sha: precheckResults.sha
+      }
+    )
+
+    // If the commitSafetyCheckResults failed, run the actionStatus function and return
+    // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
+    if (!commitSafetyCheckResults.status) {
+      await actionStatus(
+        context,
+        octokit,
+        reactRes.data.id, // original reaction id
+        commitSafetyCheckResults.message // message
+      )
+      // Set the bypass state to true so that the post run logic will not run
+      core.saveState('bypass', 'true')
+      core.setFailed(commitSafetyCheckResults.message)
       return 'failure'
     }
 

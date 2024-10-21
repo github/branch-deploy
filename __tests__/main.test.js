@@ -14,6 +14,7 @@ import * as core from '@actions/core'
 import * as isDeprecated from '../src/functions/deprecated-checks'
 import * as nakedCommandCheck from '../src/functions/naked-command-check'
 import * as validDeploymentOrder from '../src/functions/valid-deployment-order'
+import * as commitSafetyChecks from '../src/functions/commit-safety-checks'
 import {COLORS} from '../src/functions/colors'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
@@ -76,7 +77,8 @@ beforeEach(() => {
       id: 123,
       user: {
         login: 'monalisa'
-      }
+      },
+      created_at: '2024-10-21T19:11:18Z'
     }
   }
 
@@ -127,6 +129,14 @@ beforeEach(() => {
       sha: null
     }
   })
+  jest
+    .spyOn(commitSafetyChecks, 'commitSafetyChecks')
+    .mockImplementation(() => {
+      return {
+        status: true,
+        message: 'success'
+      }
+    })
   jest
     .spyOn(validDeploymentOrder, 'validDeploymentOrder')
     .mockImplementation(() => {
