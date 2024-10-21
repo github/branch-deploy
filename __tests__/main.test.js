@@ -909,6 +909,25 @@ test('fails prechecks', async () => {
   expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
+test('fails commitSafetyChecks', async () => {
+  jest.spyOn(commitSafetyChecks, 'commitSafetyChecks').mockImplementation(() => {
+    return {
+      status: false,
+      message: '### ⚠️ Cannot proceed with deployment... a scary commit was found',
+    }
+  })
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  expect(await run()).toBe('failure')
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  expect(setFailedMock).toHaveBeenCalledWith(
+    '### ⚠️ Cannot proceed with deployment... a scary commit was found'
+  )
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+})
+
 test('runs the .help command successfully', async () => {
   github.context.payload.comment.body = '.help'
   jest.spyOn(help, 'help').mockImplementation(() => {
