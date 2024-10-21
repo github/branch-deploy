@@ -44084,6 +44084,8 @@ async function run() {
     // Get the body of the IssueOps command
     const body = github.context.payload.comment.body.trim()
 
+    core.debug(`context: ${JSON.stringify(github.context)}`)
+
     // Check the context of the event to ensure it is valid, return if it is not
     if (!(await contextCheck(github.context))) {
       core.saveState('bypass', 'true')
