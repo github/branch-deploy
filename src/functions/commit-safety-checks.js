@@ -3,21 +3,13 @@ import * as core from '@actions/core'
 // A helper method to ensure that the commit being used is safe for deployment
 // These safety checks are supplemental to the checks found in `src/functions/prechecks.js`
 // :param context: The context of the event
-// :param octokit: The octokit client
 // :param data: An object containing data such as the sha, the created_at time for the comment, and more
-export async function commitSafetyChecks(context, octokit, data) {
+export async function commitSafetyChecks(context, data) {
   const comment_created_at = context.payload.comment.created_at
   core.debug(`comment_created_at: ${comment_created_at}`)
 
-  // fetch commit data from the API
-  const commitData = await octokit.rest.repos.getCommit({
-    owner: context.repo.owner,
-    repo: context.repo.repo,
-    ref: data.sha // exact SHAs can be used here in the ref parameter (which is what we want)
-  })
-
   // fetch the timestamp that the commit was authored (format: "2024-10-21T19:10:24Z" - String)
-  const commit_created_at = commitData.data.commit.author.date
+  const commit_created_at = data.commit.author.date
   core.debug(`commit_created_at: ${commit_created_at}`)
 
   // check to ensure that the commit was authored before the comment was created

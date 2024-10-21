@@ -98,6 +98,17 @@ beforeEach(() => {
           }),
           createDeploymentStatus: jest.fn().mockImplementation(() => {
             return {data: {}}
+          }),
+          getCommit: jest.fn().mockImplementation(() => {
+            return {
+              data: {
+                commit: {
+                  author: {
+                    date: '2024-10-15T12:00:00Z'
+                  }
+                }
+              }
+            }
           })
         },
         pulls: {
@@ -819,6 +830,17 @@ test('detects an out of date branch and exits', async () => {
           }),
           createDeploymentStatus: jest.fn().mockImplementation(() => {
             return {data: {}}
+          }),
+          getCommit: jest.fn().mockImplementation(() => {
+            return {
+              data: {
+                commit: {
+                  author: {
+                    date: '2024-10-15T12:00:00Z'
+                  }
+                }
+              }
+            }
           })
         }
       }

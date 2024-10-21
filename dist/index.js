@@ -44019,21 +44019,13 @@ async function validDeploymentOrder(
 // A helper method to ensure that the commit being used is safe for deployment
 // These safety checks are supplemental to the checks found in `src/functions/prechecks.js`
 // :param context: The context of the event
-// :param octokit: The octokit client
 // :param data: An object containing data such as the sha, the created_at time for the comment, and more
-async function commitSafetyChecks(context, octokit, data) {
+async function commitSafetyChecks(context, data) {
   const comment_created_at = context.payload.comment.created_at
   core.debug(`comment_created_at: ${comment_created_at}`)
 
-  // fetch commit data from the API
-  const commitData = await octokit.rest.repos.getCommit({
-    owner: context.repo.owner,
-    repo: context.repo.repo,
-    ref: data.sha // exact SHAs can be used here in the ref parameter (which is what we want)
-  })
-
   // fetch the timestamp that the commit was authored (format: "2024-10-21T19:10:24Z" - String)
-  const commit_created_at = commitData.data.commit.author.date
+  const commit_created_at = data.commit.author.date
   core.debug(`commit_created_at: ${commit_created_at}`)
 
   // check to ensure that the commit was authored before the comment was created
@@ -44517,14 +44509,17 @@ async function run() {
       return 'failure'
     }
 
+    // fetch commit data from the API
+    const commitData = await octokit.rest.repos.getCommit({
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      ref: precheckResults.sha // exact SHAs can be used here in the ref parameter (which is what we want)
+    })
+
     // Run commit safety checks
-    const commitSafetyCheckResults = await commitSafetyChecks(
-      github.context,
-      octokit,
-      {
-        sha: precheckResults.sha
-      }
-    )
+    const commitSafetyCheckResults = await commitSafetyChecks(github.context, {
+      commit: commitData.data.commit
+    })
 
     // If the commitSafetyCheckResults failed, run the actionStatus function and return
     // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode

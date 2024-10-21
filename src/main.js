@@ -439,14 +439,17 @@ export async function run() {
       return 'failure'
     }
 
+    // fetch commit data from the API
+    const commitData = await octokit.rest.repos.getCommit({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      ref: precheckResults.sha // exact SHAs can be used here in the ref parameter (which is what we want)
+    })
+
     // Run commit safety checks
-    const commitSafetyCheckResults = await commitSafetyChecks(
-      context,
-      octokit,
-      {
-        sha: precheckResults.sha
-      }
-    )
+    const commitSafetyCheckResults = await commitSafetyChecks(context, {
+      commit: commitData.data.commit
+    })
 
     // If the commitSafetyCheckResults failed, run the actionStatus function and return
     // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
