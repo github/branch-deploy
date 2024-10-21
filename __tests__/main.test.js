@@ -910,12 +910,15 @@ test('fails prechecks', async () => {
 })
 
 test('fails commitSafetyChecks', async () => {
-  jest.spyOn(commitSafetyChecks, 'commitSafetyChecks').mockImplementation(() => {
-    return {
-      status: false,
-      message: '### ⚠️ Cannot proceed with deployment... a scary commit was found',
-    }
-  })
+  jest
+    .spyOn(commitSafetyChecks, 'commitSafetyChecks')
+    .mockImplementation(() => {
+      return {
+        status: false,
+        message:
+          '### ⚠️ Cannot proceed with deployment... a scary commit was found'
+      }
+    })
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return undefined
   })
