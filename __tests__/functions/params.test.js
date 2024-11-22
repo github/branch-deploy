@@ -40,12 +40,12 @@ test('it parses numeric values correctly', async () => {
 
 test('it parses plain values', async () => {
   const parsed = parseParams('count 42')
-  expect(parsed).toHaveProperty('_', ["count", 42])
+  expect(parsed).toHaveProperty('_', ['count', 42])
 })
 
 test('it parses string values with comma separation', async () => {
   const parsed = parseParams('LOG_LEVEL=debug,CPU_CORES=4')
-  expect(parsed).toHaveProperty('_', ["LOG_LEVEL=debug,CPU_CORES=4"])
+  expect(parsed).toHaveProperty('_', ['LOG_LEVEL=debug,CPU_CORES=4'])
 })
 
 test('it parses boolean values correctly', async () => {
@@ -62,7 +62,9 @@ test('it parses nested objects correctly', async () => {
 })
 
 test('it parses a real world example correctly', async () => {
-  const parsed = parseParams('--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue')
+  const parsed = parseParams(
+    '--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue'
+  )
   expect(parsed).toHaveProperty('cpu', 2)
   expect(parsed).toHaveProperty('memory', '4G')
   expect(parsed).toHaveProperty('env', 'development')

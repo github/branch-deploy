@@ -190,7 +190,8 @@ test('checks the comment body and finds an explicit environment target and an ex
       target: 'development',
       noop: true,
       stable_branch_used: false,
-      params: '--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue',
+      params:
+        '--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue',
       sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
     }
   })
