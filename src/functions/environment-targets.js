@@ -40,7 +40,7 @@ async function onDeploymentChecks(
     )
     core.setOutput('params', paramsTrim)
     // Also set the parsed parameters as an output
-    core.setOutput('parsedParams', JSON.stringify(parseParams(paramsTrim)))
+    core.setOutput('parsed_params', JSON.stringify(parseParams(paramsTrim)))
   } else {
     core.debug('no parameters detected in command')
     core.setOutput('params', '')

@@ -192,6 +192,8 @@ outputs:
     description: The environment that has been selected for a deployment
   params:
     description: The raw parameters that were passed into the deployment command (see param_separator)
+  parsed_params:
+    description: A stringified JSON object of the parsed parameters that were passed into the deployment command
   noop:
     description: 'The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not'
   sha:
@@ -216,7 +218,7 @@ outputs:
     description: 'The console command presented in the GitHub UI to checkout a given fork locally'
   fork_full_name:
     description: 'The full name of the fork in "org/repo" format'
-  deployment_id: 
+  deployment_id:
     description: The ID of the deployment created by running this action
   environment_url:
     description: The environment URL detected and used for the deployment (sourced from the environment_urls input)
