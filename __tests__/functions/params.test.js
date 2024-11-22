@@ -60,3 +60,14 @@ test('it parses nested objects correctly', async () => {
   expect(parsed).toHaveProperty('config', {db: {host: 'localhost', port: 5432}})
   expect(parsed).toHaveProperty('_', [])
 })
+
+test('it parses a real world example correctly', async () => {
+  const parsed = parseParams('--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue')
+  expect(parsed).toHaveProperty('cpu', 2)
+  expect(parsed).toHaveProperty('memory', '4G')
+  expect(parsed).toHaveProperty('env', 'development')
+  expect(parsed).toHaveProperty('port', 8080)
+  expect(parsed).toHaveProperty('name', 'my-app')
+  expect(parsed).toHaveProperty('q', 'my-queue')
+  expect(parsed).toHaveProperty('_', [])
+})
