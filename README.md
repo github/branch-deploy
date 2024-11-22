@@ -309,6 +309,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `actor` | The GitHub handle of the actor that invoked the IssueOps command |
 | `environment` | The environment that has been selected for a deployment |
 | `params` | The raw parameters that were passed into the deployment command (see param_separator) - Further [documentation](docs/parameters.md) |
+| `parsed_params` | A stringified JSON object of the parsed parameters that were passed into the deployment command - Further [documentation](docs/parameters.md) |
 | `noop` | The string "true" if the noop trigger was found, otherwise the string "false" - Use this to conditionally control whether your deployment runs as a noop or not |
 | `sha` | The sha of the branch to be deployed |
 | `default_branch_tree_sha` | The sha of the default branch tree (useful for subsequent workflow steps if they need to do commit comparisons) |
