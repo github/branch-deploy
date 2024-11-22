@@ -1,4 +1,10 @@
+import * as core from '@actions/core'
 import {parseParams} from '../../src/functions/params'
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  jest.spyOn(core, 'debug').mockImplementation(() => {})
+})
 
 test('it parses positional parameters', async () => {
   expect(parseParams('foo')).toHaveProperty('_', ['foo'])
