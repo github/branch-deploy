@@ -38,6 +38,16 @@ test('it parses numeric values correctly', async () => {
   expect(parsed).toHaveProperty('_', [])
 })
 
+test('it parses plain values', async () => {
+  const parsed = parseParams('count 42')
+  expect(parsed).toHaveProperty('_', ["count", 42])
+})
+
+test('it parses string values with comma separation', async () => {
+  const parsed = parseParams('LOG_LEVEL=debug,CPU_CORES=4')
+  expect(parsed).toHaveProperty('_', ["LOG_LEVEL=debug,CPU_CORES=4"])
+})
+
 test('it parses boolean values correctly', async () => {
   const parsed = parseParams('--enabled=true --disabled false')
   expect(parsed).toHaveProperty('enabled', 'true')
