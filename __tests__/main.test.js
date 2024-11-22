@@ -805,7 +805,10 @@ test('successfully runs the action on a deployment and parse the given parameter
   }
 
   expect(await run()).toBe('success')
-  expect(setOutputMock).toHaveBeenCalledWith('params', '--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue')
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'params',
+    '--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue'
+  )
   expect(setOutputMock).toHaveBeenCalledWith('parsed_params', expectedParams)
 })
 
