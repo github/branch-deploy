@@ -39,8 +39,8 @@ async function onDeploymentChecks(
       `🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`
     )
     core.setOutput('params', paramsTrim)
-    // Also set the parsed parameters as an output
-    core.setOutput('parsed_params', JSON.stringify(parseParams(paramsTrim)))
+    // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON
+    core.setOutput('parsed_params', parseParams(paramsTrim))
   } else {
     core.debug('no parameters detected in command')
     core.setOutput('params', '')
