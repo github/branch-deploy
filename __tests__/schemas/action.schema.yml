@@ -599,3 +599,7 @@ outputs:
     description:
       type: string
       required: true
+  parsed_params:
+    description:
+      type: string
+      required: true
