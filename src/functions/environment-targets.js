@@ -39,7 +39,8 @@ async function onDeploymentChecks(
       `🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`
     )
     core.setOutput('params', paramsTrim)
-    parseParams(paramsTrim);
+    // Also set the parsed parameters as an output
+    core.setOutput('parsedParams', JSON.stringify(parseParams(paramsTrim)))
   } else {
     core.debug('no parameters detected in command')
     core.setOutput('params', '')
