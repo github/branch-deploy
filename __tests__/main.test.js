@@ -780,6 +780,38 @@ test('successfully runs the action on a deployment to an exact sha in developmen
   expect(debugMock).toHaveBeenCalledWith('production_environment: false')
 })
 
+test('successfully runs the action on a deployment and parse the given parameters', async () => {
+  process.env.INPUT_ALLOW_SHA_DEPLOYMENTS = 'true'
+  jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
+    return {
+      ref: 'test-ref',
+      status: true,
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: false,
+      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+    }
+  })
+
+  github.context.payload.comment.body =
+    '.deploy | --cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue'
+  const expectedParams = {
+    _: [],
+    cpu: 2, // Parser automatically cast to number
+    memory: '4G',
+    env: 'development',
+    port: 8080, // Same here
+    name: 'my-app',
+    q: 'my-queue'
+  }
+
+  expect(await run()).toBe('success')
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'params',
+    '--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('parsed_params', expectedParams)
+})
+
 test('successfully runs the action after trimming the body', async () => {
   jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
     return {

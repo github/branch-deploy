@@ -4,6 +4,7 @@ import {checkInput} from './check-input'
 import {actionStatus} from './action-status'
 import {LOCK_METADATA} from './lock-metadata'
 import {COLORS} from './colors'
+import {parseParams} from './params'
 
 // Helper function to that does environment checks specific to branch deploys
 // :param environment_targets_sanitized: The list of environment targets
@@ -38,6 +39,8 @@ async function onDeploymentChecks(
       `🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`
     )
     core.setOutput('params', paramsTrim)
+    // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON
+    core.setOutput('parsed_params', parseParams(paramsTrim))
   } else {
     core.debug('no parameters detected in command')
     core.setOutput('params', '')
