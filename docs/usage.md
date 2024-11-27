@@ -21,6 +21,9 @@ Deployments respect your repository's branch protection settings. You can trigge
 - `.deploy <stable_branch>` - Trigger a rollback deploy to your stable branch (main, master, etc)
 - `.noop <stable_branch>` - Trigger a rollback noop to your stable branch (main, master, etc)
 
+> [!NOTE]
+> `.noop` does not require a PR approval or review in order to be executed. It is intended to be run before an approval or PR review is completed in most use cases.
+
 ## Deployment Locks 🔒
 
 If you need to lock deployments so that only you can trigger them, you can use the following set of commands:

@@ -18,7 +18,7 @@ This Action does the heavy lifting for you to enable branch deployments:
 ## Available Commands 💬
 
 - `.deploy` - Deploy a pull request
-- `.noop` - Deploy a pull request in noop mode
+- `.noop` - Deploy a pull request in noop mode. Noop deployments do not require a PR review or approval
 - `.deploy to <environment>` - Deploy a pull request to a specific environment
 - `.deploy <stable_branch>` - Trigger a rollback deploy to your stable branch (main, master, etc)
 - `.lock` - Create a deployment lock for the default environment
@@ -157,7 +157,7 @@ Branch deployments are a battle tested way of deploying your changes to a given 
 - The `main` branch is always considered to be a stable and deployable branch
 - All changes are deployed to production before they are merged to the `main` branch
 - To roll back a branch deployment, you deploy the `main` branch
-- `noop` deployments should not make changes but rather report what they "would" have done
+- `noop` deployments should not make changes but rather report what they "would" have done and do not require approval or review before starting
 
 #### Why use branch deployments?
 
