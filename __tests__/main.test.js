@@ -208,7 +208,8 @@ test('successfully runs the action in noop mode', async () => {
       ref: 'test-ref',
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
-      noopMode: true
+      noopMode: true,
+      sha: 'deadbeef'
     }
   })
 
@@ -819,7 +820,8 @@ test('successfully runs the action after trimming the body', async () => {
       ref: 'test-ref',
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
-      noopMode: true
+      noopMode: true,
+      sha: 'deadbeef'
     }
   })
   github.context.payload.comment.body = '.noop    \n\t\n   '
@@ -927,7 +929,8 @@ test('fails prechecks', async () => {
       ref: 'test-ref',
       status: false,
       message: '### ⚠️ Cannot proceed with deployment... something went wrong',
-      noopMode: false
+      noopMode: false,
+      sha: 'deadbeef'
     }
   })
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
@@ -1089,6 +1092,16 @@ test('stores params and parsed params into context', async () => {
 })
 
 test('stores params and parsed params into context with complex params', async () => {
+  jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
+    return {
+      ref: 'test-ref',
+      status: true,
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: false,
+      sha: 'deadbeef'
+    }
+  })
+
   github.context.payload.comment.body =
     '.deploy | something1 --foo=bar --env.development=false --env.production=true LOG_LEVEL=debug,CPU_CORES=4 --config.db.host=localhost --config.db.port=5432'
   const params =
@@ -1118,7 +1131,7 @@ test('stores params and parsed params into context with complex params', async (
     payload: expect.objectContaining({
       params,
       parsed_params,
-      sha: null,
+      sha: 'deadbeef',
       type: 'branch-deploy'
     })
   })
