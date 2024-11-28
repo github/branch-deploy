@@ -27,6 +27,7 @@ import {getInputs} from './functions/inputs'
 import {constructValidBranchName} from './functions/valid-branch-name'
 import {validDeploymentOrder} from './functions/valid-deployment-order'
 import {commitSafetyChecks} from './functions/commit-safety-checks'
+import {parseParams} from './functions/params'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -645,6 +646,8 @@ export async function run() {
           ? false
           : true
 
+    // Final params computed by environment
+    const params = environmentObj.environmentObj.params
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
@@ -659,7 +662,9 @@ export async function run() {
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
       payload: {
         type: 'branch-deploy',
-        sha: precheckResults.sha
+        sha: precheckResults.sha,
+        params,
+        parsed_params: parseParams(params) // Reparse them to avoid to pass them around
       }
     })
     core.setOutput('deployment_id', createDeploy.id)

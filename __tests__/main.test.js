@@ -26,6 +26,11 @@ const validDeploymentOrderMock = jest.spyOn(
   validDeploymentOrder,
   'validDeploymentOrder'
 )
+const createDeploymentMock = jest.fn().mockImplementation((data) => {
+  return {
+    data: {id: 123}
+  }
+})
 
 const permissionsMsg =
   '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
@@ -91,11 +96,7 @@ beforeEach(() => {
           })
         },
         repos: {
-          createDeployment: jest.fn().mockImplementation(() => {
-            return {
-              data: {id: 123}
-            }
-          }),
+          createDeployment: createDeploymentMock,
           createDeploymentStatus: jest.fn().mockImplementation(() => {
             return {data: {}}
           }),
@@ -1058,3 +1059,23 @@ test('handles and unexpected error and exits', async () => {
     expect(setFailedMock.toHaveBeenCalled())
   }
 })
+
+test('stores params and parsed params into context', async() => {
+  github.context.payload.comment.body = '.deploy | something1 --foo=bar'
+  const params = 'something1 --foo=bar'
+  const parsed_params = {
+    _: ['something1'],
+    foo: 'bar'
+  }
+  const data = expect.objectContaining({
+    auto_merge: true,
+    payload: expect.objectContaining({
+      params,
+      parsed_params
+    })
+  })
+  expect(await run()).toBe('success')
+  expect(createDeploymentMock).toHaveBeenCalledWith(data);
+  expect(setOutputMock).toHaveBeenCalledWith('params', params);
+  expect(setOutputMock).toHaveBeenCalledWith('parsed_params', parsed_params);
+});
