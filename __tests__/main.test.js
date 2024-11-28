@@ -1069,9 +1069,51 @@ test('stores params and parsed params into context', async () => {
   }
   const data = expect.objectContaining({
     auto_merge: true,
+    ref: 'test-ref',
+    environment: 'production',
+    owner: 'corp',
+    repo: 'test',
+    production_environment: true,
+    required_contexts: [],
     payload: expect.objectContaining({
       params,
-      parsed_params
+      parsed_params,
+      sha: null,
+      type: 'branch-deploy'
+    })
+  })
+  expect(await run()).toBe('success')
+  expect(createDeploymentMock).toHaveBeenCalledWith(data)
+  expect(setOutputMock).toHaveBeenCalledWith('params', params)
+  expect(setOutputMock).toHaveBeenCalledWith('parsed_params', parsed_params)
+})
+
+test('stores params and parsed params into context with complex params', async () => {
+  github.context.payload.comment.body =
+    '.deploy | something1 --foo=bar --env.development=false --env.production=true'
+  const params =
+    'something1 --foo=bar --env.development=false --env.production=true'
+  const parsed_params = {
+    _: ['something1'],
+    foo: 'bar',
+    env: {
+      development: 'false',
+      production: 'true'
+    }
+  }
+  const data = expect.objectContaining({
+    auto_merge: true,
+    ref: 'test-ref',
+    environment: 'production',
+    owner: 'corp',
+    repo: 'test',
+    production_environment: true,
+    required_contexts: [],
+    payload: expect.objectContaining({
+      params,
+      parsed_params,
+      sha: null,
+      type: 'branch-deploy'
     })
   })
   expect(await run()).toBe('success')
