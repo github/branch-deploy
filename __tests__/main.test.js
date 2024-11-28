@@ -26,7 +26,7 @@ const validDeploymentOrderMock = jest.spyOn(
   validDeploymentOrder,
   'validDeploymentOrder'
 )
-const createDeploymentMock = jest.fn().mockImplementation(data => {
+const createDeploymentMock = jest.fn().mockImplementation(() => {
   return {
     data: {id: 123}
   }

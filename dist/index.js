@@ -41598,6 +41598,7 @@ async function onDeploymentChecks(
   const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
   // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
   var paramsTrim = null
+  var parsed_params = null
   if (params !== '') {
     bodyFmt = body.split(`${param_separator}${params}`)[0].trim()
     paramsTrim = params.trim()
@@ -41606,10 +41607,12 @@ async function onDeploymentChecks(
     )
     core.setOutput('params', paramsTrim)
     // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON
-    core.setOutput('parsed_params', parseParams(paramsTrim))
+    parsed_params = parseParams(paramsTrim)
+    core.setOutput('parsed_params', parsed_params)
   } else {
     core.debug('no parameters detected in command')
     core.setOutput('params', '')
+    core.setOutput('parsed_params', '')
   }
 
   // check if the body contains an exact SHA targeted for deployment (SHA1 or SHA256)
@@ -41659,6 +41662,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41670,6 +41674,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41683,6 +41688,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41696,6 +41702,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41712,6 +41719,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41728,6 +41736,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41741,6 +41750,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41756,6 +41766,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41767,6 +41778,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41778,6 +41790,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41789,6 +41802,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41800,6 +41814,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -41811,6 +41826,7 @@ async function onDeploymentChecks(
     stable_branch_used: null,
     noop: null,
     params: null,
+    parsed_params: null,
     sha: null
   }
 }
@@ -45356,7 +45372,6 @@ function isTimestampOlder(timestampA, timestampB) {
 
 
 
-
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
@@ -45976,6 +45991,7 @@ async function run() {
 
     // Final params computed by environment
     const params = environmentObj.environmentObj.params
+    const parsed_params = environmentObj.environmentObj.parsed_params
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
@@ -45992,7 +46008,7 @@ async function run() {
         type: 'branch-deploy',
         sha: precheckResults.sha,
         params,
-        parsed_params: parseParams(params) // Reparse them to avoid to pass them around
+        parsed_params: parsed_params
       }
     })
     core.setOutput('deployment_id', createDeploy.id)
