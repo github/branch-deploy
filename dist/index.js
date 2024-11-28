@@ -46007,7 +46007,7 @@ async function run() {
       payload: {
         type: 'branch-deploy',
         sha: precheckResults.sha,
-        params,
+        params: params,
         parsed_params: parsed_params
       }
     })
