@@ -7,7 +7,7 @@ import parse from 'yargs-parser'
 // @see https://www.npmjs.com/package/yargs-parser
 export function parseParams(params) {
   // use the yarns-parser library to parse the parameters as JSON
-  const parsed = parse(params)
+  const parsed = parse(params ?? '')
   core.debug(
     `Parsing parameters string: ${params}, produced: ${JSON.stringify(parsed)}`
   )

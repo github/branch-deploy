@@ -32,6 +32,7 @@ async function onDeploymentChecks(
   const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
   // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
   var paramsTrim = null
+  var parsed_params = null
   if (params !== '') {
     bodyFmt = body.split(`${param_separator}${params}`)[0].trim()
     paramsTrim = params.trim()
@@ -40,10 +41,12 @@ async function onDeploymentChecks(
     )
     core.setOutput('params', paramsTrim)
     // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON
-    core.setOutput('parsed_params', parseParams(paramsTrim))
+    parsed_params = parseParams(paramsTrim)
+    core.setOutput('parsed_params', parsed_params)
   } else {
     core.debug('no parameters detected in command')
     core.setOutput('params', '')
+    core.setOutput('parsed_params', '')
   }
 
   // check if the body contains an exact SHA targeted for deployment (SHA1 or SHA256)
@@ -93,6 +96,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -104,6 +108,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -117,6 +122,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -130,6 +136,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -146,6 +153,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -162,6 +170,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -175,6 +184,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -190,6 +200,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -201,6 +212,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -212,6 +224,7 @@ async function onDeploymentChecks(
         stable_branch_used: false,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -223,6 +236,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: false,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -234,6 +248,7 @@ async function onDeploymentChecks(
         stable_branch_used: true,
         noop: true,
         params: paramsTrim,
+        parsed_params: parsed_params,
         sha: sha
       }
     }
@@ -245,6 +260,7 @@ async function onDeploymentChecks(
     stable_branch_used: null,
     noop: null,
     params: null,
+    parsed_params: null,
     sha: null
   }
 }

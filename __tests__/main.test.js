@@ -26,6 +26,11 @@ const validDeploymentOrderMock = jest.spyOn(
   validDeploymentOrder,
   'validDeploymentOrder'
 )
+const createDeploymentMock = jest.fn().mockImplementation(() => {
+  return {
+    data: {id: 123}
+  }
+})
 
 const permissionsMsg =
   '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
@@ -91,11 +96,7 @@ beforeEach(() => {
           })
         },
         repos: {
-          createDeployment: jest.fn().mockImplementation(() => {
-            return {
-              data: {id: 123}
-            }
-          }),
+          createDeployment: createDeploymentMock,
           createDeploymentStatus: jest.fn().mockImplementation(() => {
             return {data: {}}
           }),
@@ -207,7 +208,8 @@ test('successfully runs the action in noop mode', async () => {
       ref: 'test-ref',
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
-      noopMode: true
+      noopMode: true,
+      sha: 'deadbeef'
     }
   })
 
@@ -818,7 +820,8 @@ test('successfully runs the action after trimming the body', async () => {
       ref: 'test-ref',
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
-      noopMode: true
+      noopMode: true,
+      sha: 'deadbeef'
     }
   })
   github.context.payload.comment.body = '.noop    \n\t\n   '
@@ -926,7 +929,8 @@ test('fails prechecks', async () => {
       ref: 'test-ref',
       status: false,
       message: '### ⚠️ Cannot proceed with deployment... something went wrong',
-      noopMode: false
+      noopMode: false,
+      sha: 'deadbeef'
     }
   })
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
@@ -1057,4 +1061,82 @@ test('handles and unexpected error and exits', async () => {
   } catch (e) {
     expect(setFailedMock.toHaveBeenCalled())
   }
+})
+
+test('stores params and parsed params into context', async () => {
+  github.context.payload.comment.body = '.deploy | something1 --foo=bar'
+  const params = 'something1 --foo=bar'
+  const parsed_params = {
+    _: ['something1'],
+    foo: 'bar'
+  }
+  const data = expect.objectContaining({
+    auto_merge: true,
+    ref: 'test-ref',
+    environment: 'production',
+    owner: 'corp',
+    repo: 'test',
+    production_environment: true,
+    required_contexts: [],
+    payload: expect.objectContaining({
+      params,
+      parsed_params,
+      sha: null,
+      type: 'branch-deploy'
+    })
+  })
+  expect(await run()).toBe('success')
+  expect(createDeploymentMock).toHaveBeenCalledWith(data)
+  expect(setOutputMock).toHaveBeenCalledWith('params', params)
+  expect(setOutputMock).toHaveBeenCalledWith('parsed_params', parsed_params)
+})
+
+test('stores params and parsed params into context with complex params', async () => {
+  jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
+    return {
+      ref: 'test-ref',
+      status: true,
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: false,
+      sha: 'deadbeef'
+    }
+  })
+
+  github.context.payload.comment.body =
+    '.deploy | something1 --foo=bar --env.development=false --env.production=true LOG_LEVEL=debug,CPU_CORES=4 --config.db.host=localhost --config.db.port=5432'
+  const params =
+    'something1 --foo=bar --env.development=false --env.production=true LOG_LEVEL=debug,CPU_CORES=4 --config.db.host=localhost --config.db.port=5432'
+  const parsed_params = {
+    _: ['something1', 'LOG_LEVEL=debug,CPU_CORES=4'],
+    foo: 'bar',
+    env: {
+      development: 'false',
+      production: 'true'
+    },
+    config: {
+      db: {
+        host: 'localhost',
+        port: 5432
+      }
+    }
+  }
+  const data = expect.objectContaining({
+    auto_merge: true,
+    ref: 'test-ref',
+    environment: 'production',
+    owner: 'corp',
+    repo: 'test',
+    production_environment: true,
+    required_contexts: [],
+    payload: expect.objectContaining({
+      params,
+      parsed_params,
+      sha: 'deadbeef',
+      type: 'branch-deploy'
+    })
+  })
+  expect(await run()).toBe('success')
+  expect(createDeploymentMock).toHaveBeenCalledWith(data)
+  expect(setOutputMock).toHaveBeenCalledWith('params', params)
+  expect(setOutputMock).toHaveBeenCalledWith('parsed_params', parsed_params)
 })

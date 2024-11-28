@@ -6,15 +6,21 @@ beforeEach(() => {
   jest.spyOn(core, 'debug').mockImplementation(() => {})
 })
 
+test('with empty param object', async () => {
+  expect(parseParams('')).toStrictEqual({_: []})
+  expect(parseParams(null)).toStrictEqual({_: []})
+  expect(parseParams(undefined)).toStrictEqual({_: []})
+})
+
 test('it parses positional parameters', async () => {
-  expect(parseParams('foo')).toHaveProperty('_', ['foo'])
+  expect(parseParams('foo bar baz')).toHaveProperty('_', ['foo', 'bar', 'baz'])
 })
 
 test('it parses arguments using the default settings of library', async () => {
-  const parsed = parseParams('--foo bar --env.foo=bar')
+  const parsed = parseParams('--foo bar --env.foo=bar baz')
   expect(parsed).toHaveProperty('foo', 'bar')
   expect(parsed).toHaveProperty('env', {foo: 'bar'})
-  expect(parsed).toHaveProperty('_', [])
+  expect(parsed).toHaveProperty('_', ['baz'])
 })
 
 test('it works with empty string', async () => {

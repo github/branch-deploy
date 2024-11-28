@@ -645,6 +645,9 @@ export async function run() {
           ? false
           : true
 
+    // Final params computed by environment
+    const params = environmentObj.environmentObj.params
+    const parsed_params = environmentObj.environmentObj.parsed_params
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
@@ -659,7 +662,9 @@ export async function run() {
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
       payload: {
         type: 'branch-deploy',
-        sha: precheckResults.sha
+        sha: precheckResults.sha,
+        params: params,
+        parsed_params: parsed_params
       }
     })
     core.setOutput('deployment_id', createDeploy.id)
