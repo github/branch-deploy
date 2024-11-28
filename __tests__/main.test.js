@@ -1090,15 +1090,21 @@ test('stores params and parsed params into context', async () => {
 
 test('stores params and parsed params into context with complex params', async () => {
   github.context.payload.comment.body =
-    '.deploy | something1 --foo=bar --env.development=false --env.production=true'
+    '.deploy | something1 --foo=bar --env.development=false --env.production=true LOG_LEVEL=debug,CPU_CORES=4 --config.db.host=localhost --config.db.port=5432'
   const params =
-    'something1 --foo=bar --env.development=false --env.production=true'
+    'something1 --foo=bar --env.development=false --env.production=true LOG_LEVEL=debug,CPU_CORES=4 --config.db.host=localhost --config.db.port=5432'
   const parsed_params = {
-    _: ['something1'],
+    _: ['something1', 'LOG_LEVEL=debug,CPU_CORES=4'],
     foo: 'bar',
     env: {
       development: 'false',
       production: 'true'
+    },
+    config: {
+      db: {
+        host: 'localhost',
+        port: 5432
+      }
     }
   }
   const data = expect.objectContaining({
