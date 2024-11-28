@@ -75,3 +75,7 @@ The `params` and `parsed_params` outputs can be accessed just like any other out
     echo "params: ${{ steps.branch-deploy.outputs.params }}"
     echo "parsed_params: ${{ steps.branch-deploy.outputs.parsed_params }}"
 ```
+
+## Parameters and Deployment Payloads
+
+All parameters (both parsed and raw) can be found in the `payload` of the actual deployment that gets created and stored on GitHub. You can read more about the deployment payload and its structure [here](./deployment-payload.md).
