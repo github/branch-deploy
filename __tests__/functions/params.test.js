@@ -7,9 +7,9 @@ beforeEach(() => {
 })
 
 test('with empty param object', async () => {
-  expect(parseParams('')).toStrictEqual({_: []});
-  expect(parseParams(null)).toStrictEqual({_: []});
-  expect(parseParams(undefined)).toStrictEqual({_: []});
+  expect(parseParams('')).toStrictEqual({_: []})
+  expect(parseParams(null)).toStrictEqual({_: []})
+  expect(parseParams(undefined)).toStrictEqual({_: []})
 })
 
 test('it parses positional parameters', async () => {

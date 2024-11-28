@@ -26,7 +26,7 @@ const validDeploymentOrderMock = jest.spyOn(
   validDeploymentOrder,
   'validDeploymentOrder'
 )
-const createDeploymentMock = jest.fn().mockImplementation((data) => {
+const createDeploymentMock = jest.fn().mockImplementation(data => {
   return {
     data: {id: 123}
   }
@@ -1060,7 +1060,7 @@ test('handles and unexpected error and exits', async () => {
   }
 })
 
-test('stores params and parsed params into context', async() => {
+test('stores params and parsed params into context', async () => {
   github.context.payload.comment.body = '.deploy | something1 --foo=bar'
   const params = 'something1 --foo=bar'
   const parsed_params = {
@@ -1075,7 +1075,7 @@ test('stores params and parsed params into context', async() => {
     })
   })
   expect(await run()).toBe('success')
-  expect(createDeploymentMock).toHaveBeenCalledWith(data);
-  expect(setOutputMock).toHaveBeenCalledWith('params', params);
-  expect(setOutputMock).toHaveBeenCalledWith('parsed_params', parsed_params);
-});
+  expect(createDeploymentMock).toHaveBeenCalledWith(data)
+  expect(setOutputMock).toHaveBeenCalledWith('params', params)
+  expect(setOutputMock).toHaveBeenCalledWith('parsed_params', parsed_params)
+})

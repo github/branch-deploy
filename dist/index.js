@@ -41556,7 +41556,7 @@ yargsParser.looksLikeNumber = looksLikeNumber;
 // @see https://www.npmjs.com/package/yargs-parser
 function parseParams(params) {
   // use the yarns-parser library to parse the parameters as JSON
-  const parsed = build_lib(params)
+  const parsed = build_lib(params ?? '')
   core.debug(
     `Parsing parameters string: ${params}, produced: ${JSON.stringify(parsed)}`
   )
@@ -45356,6 +45356,7 @@ function isTimestampOlder(timestampA, timestampB) {
 
 
 
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
@@ -45973,6 +45974,8 @@ async function run() {
           ? false
           : true
 
+    // Final params computed by environment
+    const params = environmentObj.environmentObj.params
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
@@ -45987,7 +45990,9 @@ async function run() {
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
       payload: {
         type: 'branch-deploy',
-        sha: precheckResults.sha
+        sha: precheckResults.sha,
+        params,
+        parsed_params: parseParams(params) // Reparse them to avoid to pass them around
       }
     })
     core.setOutput('deployment_id', createDeploy.id)
