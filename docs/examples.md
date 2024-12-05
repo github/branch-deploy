@@ -81,7 +81,7 @@ This example shows how you could use this Action with [Terraform](https://www.te
 
 All deployment results get posted as a comment in the branch deploy output on your pull request
 
-> A live example can be found [here](https://github.com/the-hideout/cloudflare/blob/96c5cf77895642e7310c22adf1cece7419e24986/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/cloudflare/blob/3f3adedb729b9aba0cc324a161ad8ddd6f56141b/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
