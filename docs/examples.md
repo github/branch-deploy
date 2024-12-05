@@ -353,7 +353,7 @@ This example shows how you could use this Action with [Cloudflare Pages](https:/
 - `.deploy to development` deploys your branch to the development environment
 - `.deploy` deploys your branch to the production environment
 
-> A live example can be found [here](https://github.com/the-hideout/tarkov-dev/blob/649ea4b5ddec5546175098a9372464cef5f1b3f6/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/tarkov-dev/blob/b4417dfeb903985b83a24096b2e1ba2a22f39ddd/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
@@ -435,7 +435,7 @@ This example shows how you could use this Action with [Cloudflare Workers](https
 - `.deploy to development` deploys your branch to the development environment (if you have one with your Cloudflare workers)
 - `.deploy` deploys your branch to the production environment
 
-> A live example can be found [here](https://github.com/the-hideout/tarkov-api/blob/1424b9ab9ea0f84bc6ca28d020dd84ecee53899c/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/tarkov-api/blob/1677543951d5f2a848c2650eb3400178b8f9a55b/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
