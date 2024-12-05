@@ -56,6 +56,7 @@ export async function prechecks(context, octokit, data) {
   var ref = pr.data.head.ref
   var noopMode = data.environmentObj.noop
   var forkBypass = false
+  const isFork = pr?.data?.head?.repo?.fork == true
 
   // Make an API call to get the base branch
   // https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#get-a-branch
@@ -77,7 +78,7 @@ export async function prechecks(context, octokit, data) {
     sha = stableBaseBranch.data.commit.sha
 
     ref = data.inputs.stable_branch
-    forkBypass = true
+    forkBypass = true // even though this command is taking place on a fork, the stable branch is the one being used as the deployment target
     core.debug(
       `${data.inputs.trigger} command used with '${data.inputs.stable_branch}' branch - setting ref to ${ref}`
     )
@@ -85,7 +86,7 @@ export async function prechecks(context, octokit, data) {
 
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
   // Note: We should not export fork values if the stable_branch is being used here
-  if (pr.data.head.repo?.fork === true && forkBypass === false) {
+  if (isFork === true && forkBypass === false) {
     core.info(`🍴 the pull request is a ${COLORS.highlight}fork`)
     core.debug(`the pull request is from a fork, using sha instead of ref`)
     core.setOutput('fork', 'true')
@@ -168,8 +169,9 @@ export async function prechecks(context, octokit, data) {
 
   // Check the reviewDecision
   var reviewDecision
-  if (skipReviews) {
+  if (skipReviews && isFork === false) {
     // If skipReviews is true, we bypass the results the graphql
+    // This logic is not applied on forks as all PRs from forks must have the required reviews (if requested)
     reviewDecision = 'skip_reviews'
   } else {
     // Otherwise, grab the reviewDecision from the GraphQL result
@@ -332,7 +334,19 @@ export async function prechecks(context, octokit, data) {
     // In this case, we should not proceed with the deployment as we cannot guarantee the sha is safe for a variety of reasons
   } else if (sha !== commit_oid) {
     message = `### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: \`${sha}\`\n- commit_oid: \`${commit_oid}\`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.`
+    return {message: message, status: false}
 
+    // If the requested operation (deploy or noop) is taking place on a fork, that fork is NOT using the stable branch (i.e. `.deploy main`), the PR is...
+    // not approved -> do not allow bypassing the lack of reviews. Enforce that ALL PRs originating from forks must have the required reviews.
+    // Deploying forks without reviews is a security risk and will not be allowed
+    // This logic will even apply to noop deployments and ignore the value of skip_reviews if it is set out of an abundance of caution
+    // This logic will also apply even if the requested deployer is an admin
+  } else if (
+    isFork === true &&
+    forkBypass === false &&
+    reviewDecision === 'REVIEW_REQUIRED'
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.`
     return {message: message, status: false}
 
     // If allow_sha_deployments are not enabled and a sha was provided, exit
