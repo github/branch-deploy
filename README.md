@@ -636,13 +636,17 @@ Check out some of the links below to see how others are using this Action in the
 
 ## Suggestions 🌟
 
-This section will cover a few suggestions that will help you when using this Action
+This section will cover a few suggestions and best practices that will help you when using this Action.
 
 1. Suggest Updating Pull Request Branches - You should absolutely use this option when using the `branch-deploy` Action. This option can be found in your repository's `/settings` page
 
-    ![branch-setting](https://user-images.githubusercontent.com/23362539/172939811-a8816db8-8e7c-404a-b12a-11ec5bc6e93d.png)
+    ![update-pr-branches](./docs//assets/update-branch-setting.png)
 
 2. Enable Branch Protection Settings - It is always a good idea to enable branch protection settings for your repo, especially when using this Action
+    1. Require Pull Request Reviews - Enforce that pull requests have approvals, code owner approvals, and dismiss stale pull request approvals upon new commits
+      ![use-pr-reviews](./docs/assets/pr-reviews.png)
+    2. Add Required Status Checks - Enforce that certain CI checks must pass before a pull request can be merged
+      ![use-status-checks](./docs/assets/required-ci-checks.png)
 
 ## Alternate Command Syntax
 
