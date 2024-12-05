@@ -646,6 +646,7 @@ This section will cover a few suggestions and best practices that will help you 
     2. Add Required Status Checks - Enforce that certain CI checks must pass before a pull request can be merged
       ![use-status-checks](./docs/assets/required-ci-checks.png)
 3. If you don't need to deploy PR forks (perhaps your project is internal and not open source), you can set the `allow_forks` input to `"false"` to prevent deployments from running on forks.
+4. You should **always** (unless you have a certain restriction) use the `sha` output variable over the `ref` output variable when deploying. It is more reliable for deployments, and safer from a security perspective. More details about using commit SHAs for deployments can be found [here](./docs/deploying-commit-SHAs.md).
 
 ## Alternate Command Syntax
 
