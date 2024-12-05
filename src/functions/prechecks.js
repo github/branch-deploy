@@ -347,6 +347,9 @@ export async function prechecks(context, octokit, data) {
     reviewDecision === 'REVIEW_REQUIRED'
   ) {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.`
+    core.debug(
+      `rejecting deployment from fork without required reviews - noopMode: ${noopMode}`
+    )
     return {message: message, status: false}
 
     // If allow_sha_deployments are not enabled and a sha was provided, exit

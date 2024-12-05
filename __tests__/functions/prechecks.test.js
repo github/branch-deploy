@@ -543,6 +543,74 @@ test('runs prechecks and rejects a pull request from a forked repository because
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.',
     status: false
   })
+
+  expect(debugMock).toHaveBeenCalledWith(
+    'rejecting deployment from fork without required reviews - noopMode: false'
+  )
+})
+
+test('runs prechecks and rejects a pull request from a forked repository because it does not have completed reviews (noop)', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        reviews: {
+          totalCount: 0
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abcde12345',
+                checkSuites: {
+                  totalCount: 8
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        label: 'test-repo:test-ref',
+        repo: {
+          fork: true
+        }
+      },
+      base: {
+        ref: 'base-ref'
+      }
+    },
+    status: 200
+  })
+
+  // Even admins cannot deploy from a forked repository without reviews
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return true
+  })
+
+  // Even with skipReviews set, the PR is from a forked repository and must have reviews out of pure safety
+  data.environment = 'staging'
+  data.inputs.skipReviews = 'staging'
+  data.environmentObj.noop = true
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.',
+    status: false
+  })
+
+  expect(debugMock).toHaveBeenCalledWith(
+    'rejecting deployment from fork without required reviews - noopMode: true'
+  )
 })
 
 test('runs prechecks and finds that the IssueOps command is on a PR from a forked repo and is not allowed', async () => {
