@@ -163,7 +163,8 @@ export async function prechecks(context, octokit, data) {
   const result = await octokit.graphql(query, variables)
 
   // Fetch the commit oid which is the SHA1 hash of the commit
-  const commit_oid = result?.repository?.pullRequest?.commits?.nodes[0]?.commit?.oid
+  const commit_oid =
+    result?.repository?.pullRequest?.commits?.nodes[0]?.commit?.oid
 
   // Check the reviewDecision
   var reviewDecision
