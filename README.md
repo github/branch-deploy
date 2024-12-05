@@ -105,10 +105,11 @@ jobs:
 
       # Run your deployment logic for your project here - examples seen below
 
-      # Checkout your projects repository based on the ref provided by the branch-deploy step
+      # Checkout your project's repository based on the commit SHA provided by the branch-deploy step
+      # It is important to only ever operate on the commit SHA (where possible) as commit SHA's are immutable and you know exactly what you are deploying
       - uses: actions/checkout@v4
         with:
-          ref: ${{ steps.branch-deploy.outputs.ref }}
+          ref: ${{ steps.branch-deploy.outputs.sha }}
 
       # Do some fake "noop" deployment logic here
       # conditionally run a noop deployment
@@ -626,10 +627,10 @@ What to see live examples of this Action in use?
 Check out some of the links below to see how others are using this Action in their projects:
 
 - [github/entitlements-config](https://github.com/github/entitlements-config/blob/076a1f0f9e8cc1f5acb8a0b8e133b0a1300c8191/.github/workflows/branch-deploy.yml)
-- [the-hideout/cloudflare](https://github.com/the-hideout/cloudflare/blob/f3b189b54f278d7e7844e5cc2fcdbb6f5afd3467/.github/workflows/branch-deploy.yml)
-- [the-hideout/tarkov-api](https://github.com/the-hideout/tarkov-api/blob/be645d7750a0e440794229ce56aefeb4648b8892/.github/workflows/branch-deploy.yml)
-- [the-hideout/stash](https://github.com/the-hideout/stash/blob/4aabf7565fda933f8e40ae9c60cde9f03e549b3b/.github/workflows/branch-deploy.yml)
-- [GrantBirki/blog](https://github.com/GrantBirki/blog/blob/25a51aff28c066e378844992c20afc6c58131e26/.github/workflows/branch-deploy.yml)
+- [the-hideout/cloudflare](https://github.com/the-hideout/cloudflare/blob/3f3adedb729b9aba0cc324a161ad8ddd6f56141b/.github/workflows/branch-deploy.yml)
+- [the-hideout/tarkov-api](https://github.com/the-hideout/tarkov-api/blob/1677543951d5f2a848c2650eb3400178b8f9a55b/.github/workflows/branch-deploy.yml)
+- [the-hideout/stash](https://github.com/the-hideout/stash/blob/bbcf12425c63122bf1ddb5a0dff6e0eb9ad9939d/.github/workflows/branch-deploy.yml)
+- [GrantBirki/blog](https://github.com/GrantBirki/blog/blob/559b9be5cc3eac923be5d7923ec9a0b50429ced2/.github/workflows/branch-deploy.yml)
 
 > Are you using this Action in a cool new way? Open a pull request to this repo to have your workflow added to the list above!
 
