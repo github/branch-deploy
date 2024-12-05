@@ -126,6 +126,7 @@ export async function prechecks(context, octokit, data) {
                             commits(last: 1) {
                                 nodes {
                                     commit {
+                                        oid
                                         checkSuites {
                                           totalCount
                                         }
@@ -160,6 +161,9 @@ export async function prechecks(context, octokit, data) {
   }
   // Make the GraphQL query
   const result = await octokit.graphql(query, variables)
+
+  // Fetch the commit oid which is the SHA1 hash of the commit
+  const commit_oid = result?.repository?.pullRequest?.commits?.nodes[0]?.commit?.oid
 
   // Check the reviewDecision
   var reviewDecision
@@ -321,6 +325,14 @@ export async function prechecks(context, octokit, data) {
     sha = data.environmentObj.sha
     ref = data.environmentObj.sha
     core.setOutput('sha_deployment', sha)
+
+    // If the commit sha (from the PR head) does not exactly match the sha returned from the graphql query, something is wrong
+    // This could occur if the branch had a commit pushed to it in between the rest call and the graphql query
+    // In this case, we should not proceed with the deployment as we cannot guarantee the sha is safe for a variety of reasons
+  } else if (sha !== commit_oid) {
+    message = `### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: \`${sha}\`\n- commit_oid: \`${commit_oid}\`. This is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.`
+
+    return {message: message, status: false}
 
     // If allow_sha_deployments are not enabled and a sha was provided, exit
   } else if (
