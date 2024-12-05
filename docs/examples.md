@@ -668,7 +668,7 @@ jobs:
 
 A detailed example using multiple jobs, custom deployment status creation, non-sticky lock removal, and comments. This example showcases building a static site with [hugo](https://gohugo.io/) and deploying it to [GitHub Pages](https://pages.github.com/).
 
-> This live example can be found [here](https://github.com/GrantBirki/blog/blob/ddad949e360f553663500cf1052bbfe74630fe53/.github/workflows/branch-deploy.yml)
+> This live example can be found [here](https://github.com/GrantBirki/blog/blob/559b9be5cc3eac923be5d7923ec9a0b50429ced2/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch deploy
