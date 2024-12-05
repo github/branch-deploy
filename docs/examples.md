@@ -188,7 +188,7 @@ This example shows how you could use this Action with [Heroku](https://heroku.co
 - `.noop` has no effect here (but you could change that)
 - `.deploy` takes your current branch and deploys it to Heroku
 
-> A live example can be found [here](https://github.com/the-hideout/stash/blob/3d8cd979d124bd13878c4bc92f74f3830cf53c22/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/stash/blob/bbcf12425c63122bf1ddb5a0dff6e0eb9ad9939d/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
