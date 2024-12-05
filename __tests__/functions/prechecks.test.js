@@ -308,7 +308,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
     .mockReturnValueOnce({data: {permission: 'read'}, status: 200})
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '👋 __monalisa__, seems as if you have not admin/write/maintain permissions in this repo, permissions: read',
+      '👋 @monalisa, that command requires the following permission(s): `admin/write/maintain`\n\nYour current permissions: `read`',
     status: false
   })
 })

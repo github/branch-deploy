@@ -30,11 +30,11 @@ export async function validPermissions(
   // Check to ensure the user has at least write permission on the repo
   const actorPermission = permissionRes.data.permission
   if (!validPermissionsArray.includes(actorPermission)) {
-    return `👋 __${
+    return `👋 @${
       context.actor
-    }__, seems as if you have not ${validPermissionsArray.join(
+    }, that command requires the following permission(s): \`${validPermissionsArray.join(
       '/'
-    )} permissions in this repo, permissions: ${actorPermission}`
+    )}\`\n\nYour current permissions: \`${actorPermission}\``
   }
 
   // Return true if the user has permissions
