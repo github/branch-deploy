@@ -43597,7 +43597,7 @@ async function createBranch(octokit, context, branchName) {
     ...context.repo
   })
 
-  // Fetch the base branch's to use its SHA as the parent
+  // Fetch the base branch to use its SHA as the parent
   const baseBranch = await octokit.rest.repos.getBranch({
     ...context.repo,
     branch: repoData.data.default_branch
