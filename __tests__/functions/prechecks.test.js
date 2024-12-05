@@ -16,6 +16,7 @@ var getPullsOK
 var graphQLOK
 var octokit
 var data
+var baseCommitWithOid
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -25,6 +26,16 @@ beforeEach(() => {
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   jest.spyOn(core, 'saveState').mockImplementation(() => {})
   process.env.INPUT_PERMISSIONS = 'admin,write,maintain'
+
+  baseCommitWithOid = {
+    nodes: [
+      {
+        commit: {
+          oid: 'abc123'
+        }
+      }
+    ]
+  }
 
   data = {
     environment: 'production',
@@ -89,6 +100,7 @@ beforeEach(() => {
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 3
                 },
@@ -168,6 +180,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 3
                 },
@@ -237,11 +250,37 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
   })
 })
 
+test('runs prechecks and finds the commit fetched via the rest call does not match the commit returned from the graphql call', async () => {
+  octokit.graphql = jest.fn().mockReturnValueOnce({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'evilcommit123'
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: `abc123`\n- commit_oid: `evilcommit123`. This is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.',
+    status: false
+  })
+})
+
 test('runs prechecks and finds that the IssueOps command is valid without defined CI checks', async () => {
   octokit.graphql = jest.fn().mockReturnValueOnce({
     repository: {
       pullRequest: {
-        reviewDecision: 'APPROVED'
+        reviewDecision: 'APPROVED',
+        commits: baseCommitWithOid
       }
     }
   })
@@ -253,7 +292,7 @@ test('runs prechecks and finds that the IssueOps command is valid without define
     sha: 'abc123'
   })
   expect(debugMock).toHaveBeenCalledWith(
-    `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: ${COLORS.success}OK`
+    `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'totalCount') - Handled: ${COLORS.success}OK`
   )
   expect(debugMock).toHaveBeenCalledWith(
     'this repo may not have any CI checks defined'
@@ -288,7 +327,8 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
   octokit.graphql = jest.fn().mockReturnValueOnce({
     repository: {
       pullRequest: {
-        reviewDecision: null
+        reviewDecision: null,
+        commits: baseCommitWithOid
       }
     }
   })
@@ -301,7 +341,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
     sha: 'abc123'
   })
   expect(debugMock).toHaveBeenCalledWith(
-    `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: ${COLORS.success}OK`
+    `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'totalCount') - Handled: ${COLORS.success}OK`
   )
   expect(debugMock).toHaveBeenCalledWith(
     'this repo may not have any CI checks defined'
@@ -326,6 +366,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -364,6 +405,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -401,6 +443,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
           nodes: [
             {
               commit: {
+                oid: 'abcde12345',
                 checkSuites: {
                   totalCount: 8
                 },
@@ -451,6 +494,7 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -500,6 +544,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 2
                 },
@@ -535,6 +580,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -567,6 +613,7 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 3
                 },
@@ -594,7 +641,8 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
         reviewDecision: 'REVIEW_REQUIRED',
         reviews: {
           totalCount: 0
-        }
+        },
+        commits: baseCommitWithOid
       }
     }
   })
@@ -649,6 +697,7 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 14
                 },
@@ -678,6 +727,7 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -710,6 +760,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -742,6 +793,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 3
                 },
@@ -790,6 +842,7 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -814,7 +867,8 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
-        reviewDecision: 'REVIEW_REQUIRED'
+        reviewDecision: 'REVIEW_REQUIRED',
+        commits: baseCommitWithOid
       }
     }
   })
@@ -832,7 +886,8 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
         reviewDecision: 'APPROVED',
         reviews: {
           totalCount: 1
-        }
+        },
+        commits: baseCommitWithOid
       }
     }
   })
@@ -858,6 +913,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -906,6 +962,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -943,6 +1000,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -991,6 +1049,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1034,6 +1093,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1075,6 +1135,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1135,6 +1196,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1188,6 +1250,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1225,6 +1288,7 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1265,6 +1329,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1320,6 +1385,7 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1356,6 +1422,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1394,6 +1461,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1432,6 +1500,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1473,6 +1542,7 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 0
                 },
@@ -1510,6 +1580,7 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 0
                 },
@@ -1544,6 +1615,7 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 0
                 },
@@ -1581,6 +1653,7 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 0
                 },
@@ -1618,6 +1691,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1662,6 +1736,7 @@ test('runs prechecks and finds that no ci checks are defined and skip_reviews is
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 0
                 },
@@ -1779,6 +1854,7 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1823,6 +1899,7 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1867,6 +1944,7 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1911,6 +1989,7 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1954,6 +2033,7 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -1992,6 +2072,7 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -2033,6 +2114,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -2091,6 +2173,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },
@@ -2151,6 +2234,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
           nodes: [
             {
               commit: {
+                oid: 'abc123',
                 checkSuites: {
                   totalCount: 1
                 },

@@ -35,6 +35,8 @@ const createDeploymentMock = jest.fn().mockImplementation(() => {
 const permissionsMsg =
   '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
 
+const mock_sha = 'abc123'
+
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
@@ -138,7 +140,7 @@ beforeEach(() => {
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
       noopMode: false,
-      sha: null
+      sha: mock_sha
     }
   })
   jest
@@ -173,7 +175,14 @@ test('successfully runs the action', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('noop', false)
   expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
   expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
   expect(debugMock).toHaveBeenCalledWith('production_environment: true')
+  expect(infoMock).toHaveBeenCalledWith(
+    `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
+  )
 })
 
 test('successfully runs the action on a deployment to development and with branch updates disabled', async () => {
@@ -1081,7 +1090,7 @@ test('stores params and parsed params into context', async () => {
     payload: expect.objectContaining({
       params,
       parsed_params,
-      sha: null,
+      sha: 'abc123',
       type: 'branch-deploy'
     })
   })

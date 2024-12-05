@@ -422,6 +422,7 @@ export async function run() {
     core.setOutput('ref', precheckResults.ref)
     core.saveState('ref', precheckResults.ref)
     core.setOutput('sha', precheckResults.sha)
+    core.saveState('sha', precheckResults.sha)
     core.debug(`precheckResults.sha: ${precheckResults.sha}`)
 
     // If the prechecks failed, run the actionStatus function and return
@@ -606,6 +607,10 @@ export async function run() {
       core.setOutput('noop', precheckResults.noopMode)
       core.setOutput('continue', 'true')
       core.saveState('noop', precheckResults.noopMode)
+
+      core.info(
+        `🧑‍🚀 commit sha to noop: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`
+      )
       core.info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`)
 
       // If noop mode is enabled, return here
@@ -701,7 +706,10 @@ export async function run() {
       environmentObj.environmentUrl // environment_url (can be null)
     )
 
-    core.info(`🚀 ${COLORS.success}deployment started!`)
+    core.info(
+      `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`
+    )
+    core.info(`🚀 ${COLORS.success}deployment started!${COLORS.reset}`)
     core.setOutput('continue', 'true')
     return 'success'
   } catch (error) {
