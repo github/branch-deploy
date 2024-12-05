@@ -608,7 +608,9 @@ export async function run() {
       core.setOutput('continue', 'true')
       core.saveState('noop', precheckResults.noopMode)
 
-      core.info(`🧑‍🚀 commit sha to noop: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`)
+      core.info(
+        `🧑‍🚀 commit sha to noop: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`
+      )
       core.info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`)
 
       // If noop mode is enabled, return here
@@ -704,7 +706,9 @@ export async function run() {
       environmentObj.environmentUrl // environment_url (can be null)
     )
 
-    core.info(`🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`)
+    core.info(
+      `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`
+    )
     core.info(`🚀 ${COLORS.success}deployment started!${COLORS.reset}`)
     core.setOutput('continue', 'true')
     return 'success'

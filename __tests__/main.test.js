@@ -177,8 +177,12 @@ test('successfully runs the action', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
   expect(debugMock).toHaveBeenCalledWith('production_environment: true')
-  expect(infoMock).toHaveBeenCalledWith(`🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`)
-  expect(infoMock).toHaveBeenCalledWith(`🚀 ${COLORS.success}deployment started!${COLORS.reset}`)
+  expect(infoMock).toHaveBeenCalledWith(
+    `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
+  )
 })
 
 test('successfully runs the action on a deployment to development and with branch updates disabled', async () => {
