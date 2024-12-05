@@ -238,6 +238,12 @@ test('successfully runs the action in noop mode', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
   expect(saveStateMock).toHaveBeenCalledWith('noop', true)
+  expect(infoMock).toHaveBeenCalledWith(
+    `🧑‍🚀 commit sha to noop: ${COLORS.highlight}deadbeef${COLORS.reset}`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`
+  )
 })
 
 test('successfully runs the action in noop mode when using sticky_locks_for_noop set to true', async () => {

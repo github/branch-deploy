@@ -270,7 +270,7 @@ test('runs prechecks and finds the commit fetched via the rest call does not mat
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: `abc123`\n- commit_oid: `evilcommit123`. This is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.',
+      '### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: `abc123`\n- commit_oid: `evilcommit123`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.',
     status: false
   })
 })
@@ -308,7 +308,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
     .mockReturnValueOnce({data: {permission: 'read'}, status: 200})
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '👋 __monalisa__, seems as if you have not admin/write/maintain permissions in this repo, permissions: read',
+      '👋 @monalisa, that command requires the following permission(s): `admin/write/maintain`\n\nYour current permissions: `read`',
     status: false
   })
 })

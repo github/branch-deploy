@@ -46,7 +46,7 @@ test('determines that a user has does not valid permissions to invoke the Action
     })
 
   expect(await validPermissions(octokit, context, permissions)).toEqual(
-    '👋 __monalisa__, seems as if you have not write/maintain/admin permissions in this repo, permissions: read'
+    '👋 @monalisa, that command requires the following permission(s): `write/maintain/admin`\n\nYour current permissions: `read`'
   )
   expect(setOutputMock).toHaveBeenCalledWith('actor', 'monalisa')
 })
