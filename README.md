@@ -105,10 +105,11 @@ jobs:
 
       # Run your deployment logic for your project here - examples seen below
 
-      # Checkout your projects repository based on the ref provided by the branch-deploy step
+      # Checkout your project's repository based on the commit SHA provided by the branch-deploy step
+      # It is important to only ever operate on the commit SHA (where possible) as commit SHA's are immutable and you know exactly what you are deploying
       - uses: actions/checkout@v4
         with:
-          ref: ${{ steps.branch-deploy.outputs.ref }}
+          ref: ${{ steps.branch-deploy.outputs.sha }}
 
       # Do some fake "noop" deployment logic here
       # conditionally run a noop deployment

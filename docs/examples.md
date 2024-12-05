@@ -59,7 +59,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - uses: actions/checkout@v4
         with:
-          ref: ${{ steps.branch-deploy.outputs.ref }}
+          ref: ${{ steps.branch-deploy.outputs.sha }}
 
         # If the branch-deploy Action was triggered, run the noop deployment (i.e. '.noop')
       - name: noop deploy
@@ -123,7 +123,7 @@ jobs:
         if: steps.branch-deploy.outputs.continue == 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.branch-deploy.outputs.ref }}
+          ref: ${{ steps.branch-deploy.outputs.sha }}
 
         # Setup Terraform on our Actions runner
       - uses: hashicorp/setup-terraform@ed3a0531877aca392eb870f440d9ae7aba83a6bd # pin@v1
@@ -222,7 +222,7 @@ jobs:
         if: steps.branch-deploy.outputs.continue == 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.branch-deploy.outputs.ref }}
+          ref: ${{ steps.branch-deploy.outputs.sha }}
 
         # Deploy our branch to Heroku
       - name: Deploy to Heroku
@@ -275,7 +275,7 @@ jobs:
         if: steps.branch-deploy.outputs.continue == 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.branch-deploy.outputs.ref }}
+          ref: ${{ steps.branch-deploy.outputs.sha }}
 
         # Install the Railway CLI through npm
       - name: Install Railway
@@ -331,7 +331,7 @@ jobs:
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.branch-deploy.outputs.ref }}
+          ref: ${{ steps.branch-deploy.outputs.sha }}
 
         # Deploy our branch via SSH remote commands
       - name: SSH Remote Deploy
@@ -386,7 +386,7 @@ jobs:
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.branch-deploy.outputs.ref }}
+          ref: ${{ steps.branch-deploy.outputs.sha }}
 
         # setup node
       - uses: actions/setup-node@v4
@@ -468,7 +468,7 @@ jobs:
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.branch-deploy.outputs.ref }}
+          ref: ${{ steps.branch-deploy.outputs.sha }}
 
         # Install the npm dependencies for your cloudflare workers project
         # Most importantly, we need to install @cloudflare/wrangler
@@ -527,7 +527,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
-      ref: ${{ steps.branch-deploy.outputs.ref }}
+      sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
       actor_handle: ${{ steps.branch-deploy.outputs.actor_handle }}
@@ -545,11 +545,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # checkout the project's repository based on the ref provided by the branch-deploy step
+      # checkout the project's repository based on the commit SHA provided by the branch-deploy step
       - name: checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.trigger.outputs.ref }}
+          ref: ${{ needs.trigger.outputs.sha }}
 
       # You will do your own deployment here
       - name: fake regular deploy
@@ -650,7 +650,7 @@ jobs:
           body: |
             ### Deployment Results ✅
 
-            **${{ needs.trigger.outputs.actor_handle }}** successfully deployed branch `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
+            **${{ needs.trigger.outputs.actor_handle }}** successfully deployed `${{ needs.trigger.outputs.sha }}` to **${{ needs.trigger.outputs.environment }}**
 
       # if the deployment was not successful, add a 'failure' comment
       - name: failure comment
@@ -661,7 +661,7 @@ jobs:
           body: |
             ### Deployment Results ❌
 
-            **${{ needs.trigger.outputs.actor_handle }}** had a failure when deploying `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
+            **${{ needs.trigger.outputs.actor_handle }}** had a failure when deploying `${{ needs.trigger.outputs.sha }}` to **${{ needs.trigger.outputs.environment }}**
 ```
 
 ## Multiple Jobs with GitHub Pages and Hugo
@@ -707,7 +707,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
-      ref: ${{ steps.branch-deploy.outputs.ref }}
+      sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
       actor_handle: ${{ steps.branch-deploy.outputs.actor_handle }}
@@ -730,11 +730,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # checkout the project's repository based on the ref provided by the branch-deploy step
+      # checkout the project's repository based on the commit SHA provided by the branch-deploy step
       - name: checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.trigger.outputs.ref }}
+          ref: ${{ needs.trigger.outputs.sha }}
 
       # read the hugo version from the .hugo-version file in this repository
       - name: set hugo version
@@ -884,7 +884,7 @@ jobs:
           body: |
             ### Deployment Results ✅
 
-            **${{ needs.trigger.outputs.actor_handle }}** successfully deployed branch `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
+            **${{ needs.trigger.outputs.actor_handle }}** successfully deployed `${{ needs.trigger.outputs.sha }}` to **${{ needs.trigger.outputs.environment }}**
 
             > [View Live Deployment](${{ env.blog_url }}) :link:
 
@@ -897,7 +897,7 @@ jobs:
           body: |
             ### Deployment Results ❌
 
-            **${{ needs.trigger.outputs.actor_handle }}** had a failure when deploying `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
+            **${{ needs.trigger.outputs.actor_handle }}** had a failure when deploying `${{ needs.trigger.outputs.sha }}` to **${{ needs.trigger.outputs.environment }}**
 ```
 
 ## Multiple Jobs with GitHub Pages and Astro
@@ -945,7 +945,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
-      ref: ${{ steps.branch-deploy.outputs.ref }}
+      sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
       actor_handle: ${{ steps.branch-deploy.outputs.actor_handle }}
@@ -972,7 +972,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.trigger.outputs.ref }}
+          ref: ${{ needs.trigger.outputs.sha }}
 
       - name: build with astro
         uses: withastro/action@e3193ac80e18917ceaeb9f2d47019ad3b2c0416a # pin@v0.3.0
@@ -1089,7 +1089,7 @@ jobs:
           body: |
             ### Deployment Results ✅
 
-            **${{ needs.trigger.outputs.actor_handle }}** successfully deployed branch `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
+            **${{ needs.trigger.outputs.actor_handle }}** successfully deployed `${{ needs.trigger.outputs.sha }}` to **${{ needs.trigger.outputs.environment }}**
 
             > [View Live Deployment](${{ env.site_url }}) :link:
 
@@ -1102,7 +1102,7 @@ jobs:
           body: |
             ### Deployment Results ❌
 
-            **${{ needs.trigger.outputs.actor_handle }}** had a failure when deploying `${{ needs.trigger.outputs.ref }}` to **${{ needs.trigger.outputs.environment }}**
+            **${{ needs.trigger.outputs.actor_handle }}** had a failure when deploying `${{ needs.trigger.outputs.sha }}` to **${{ needs.trigger.outputs.environment }}**
 ```
 
 ## Multiple Jobs with GitHub Environments
@@ -1146,7 +1146,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
-      ref: ${{ steps.branch-deploy.outputs.ref }}
+      sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
       actor_handle: ${{ steps.branch-deploy.outputs.actor_handle }}
@@ -1197,7 +1197,7 @@ jobs:
         id: checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.start.outputs.ref }}
+          ref: ${{ needs.start.outputs.sha }}
 
       # Authenticate to Azure using OpenID Connect.
       - name: Authenticate to Azure (OIDC)
@@ -1285,7 +1285,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       INITIAL_REACTION_ID: ${{ needs.start.outputs.initial_reaction_id }}
       NOOP: ${{ needs.start.outputs.noop }}
-      REF: ${{ needs.start.outputs.ref }}
+      SHA: ${{ needs.start.outputs.sha }}
       REPOSITORY: ${{ github.repository }}
 
     steps:
@@ -1352,7 +1352,7 @@ jobs:
               repo: context.repo.repo,
               body: `### Deployment Results :white_check_mark:
 
-            **${{ env.ACTOR }}** successfully ${ process.env.NOOP === 'true' ? '**noop** deployed' : 'deployed' } branch \`${{ env.REF }}\` to **${{ env.ENVIRONMENT }}**
+            **${{ env.ACTOR }}** successfully ${ process.env.NOOP === 'true' ? '**noop** deployed' : 'deployed' } sha \`${{ env.SHA }}\` to **${{ env.ENVIRONMENT }}**
 
             <details><summary>Show Results</summary>
 
@@ -1380,7 +1380,7 @@ jobs:
               repo: context.repo.repo,
               body: `### Deployment Results :x:
 
-            **${{ env.ACTOR }}** had a failure when ${ process.env.NOOP === 'true' ? '**noop** deploying' : 'deploying' } branch \`${{ env.REF }}\` to **${{ env.ENVIRONMENT }}**
+            **${{ env.ACTOR }}** had a failure when ${ process.env.NOOP === 'true' ? '**noop** deploying' : 'deploying' } sha \`${{ env.SHA }}\` to **${{ env.ENVIRONMENT }}**
 
             <details><summary>Show Results</summary>
 
