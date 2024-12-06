@@ -44604,7 +44604,13 @@ function validateInput(input, name) {
 }
 
 function validateInputs(data) {
-  const requiredInputs = ['comment_id', 'status', 'ref']
+  const requiredInputs = [
+    'comment_id',
+    'status',
+    'ref',
+    'environment',
+    'reaction_id'
+  ]
   requiredInputs.forEach(input => validateInput(data[input], input))
 
   if (data.noop === null || data.noop === undefined) {
@@ -44612,7 +44618,8 @@ function validateInputs(data) {
   }
 
   if (data.noop !== true) {
-    const additionalInputs = ['deployment_id', 'environment']
+    // if the deployment is not a noop (e.g. a `.deploy`) then we need to validate a few extra inputs
+    const additionalInputs = ['deployment_id']
     additionalInputs.forEach(input => validateInput(data[input], input))
   }
 }
