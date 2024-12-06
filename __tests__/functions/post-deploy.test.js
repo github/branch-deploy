@@ -521,6 +521,17 @@ test('fails due to no environment', async () => {
   }
 })
 
+test('fails due to no environment (noop)', async () => {
+  jest.resetAllMocks()
+  data.environment = ''
+  data.noop = true
+  try {
+    await postDeploy(context, octokit, data)
+  } catch (e) {
+    expect(e.message).toBe('no environment provided')
+  }
+})
+
 test('fails due to no noop', async () => {
   jest.resetAllMocks()
   data.noop = null
