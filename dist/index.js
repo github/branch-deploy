@@ -42792,6 +42792,13 @@ async function prechecks(context, octokit, data) {
     reviewDecision = result.repository.pullRequest.reviewDecision
   }
 
+  // If pull request reviews are not required and the PR is from a fork and the request isn't a deploy to the stable branch, we need to alert the user that this is potentially dangerous
+  if (reviewDecision === null && isFork === true && forkBypass === false) {
+    core.warning(
+      '🚨 pull request reviews are not enforced by this repository and this operation is being performed on a fork - this operation is dangerous! You should require reviews via branch protection settings (or rulesets) to ensure that the changes being deployed are the changes that you reviewed.'
+    )
+  }
+
   // Grab the mergeStateStatus from the GraphQL result
   const mergeStateStatus = result.repository.pullRequest.mergeStateStatus
 

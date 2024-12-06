@@ -538,6 +538,63 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   })
 })
 
+test('runs prechecks and finds that the IssueOps command is a fork and does not require reviews so it proceeds but with a warning', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: null,
+        reviews: {
+          totalCount: 0
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abcde12345',
+                checkSuites: {
+                  totalCount: 8
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        label: 'test-repo:test-ref',
+        repo: {
+          fork: true
+        }
+      },
+      base: {
+        ref: 'base-ref'
+      }
+    },
+    status: 200
+  })
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '🎛️ CI checks have been defined but required reviewers have not been defined',
+    status: true,
+    noopMode: false,
+    ref: 'abcde12345',
+    sha: 'abcde12345'
+  })
+
+  expect(warningMock).toHaveBeenCalledWith(
+    '🚨 pull request reviews are not enforced by this repository and this operation is being performed on a fork - this operation is dangerous! You should require reviews via branch protection settings (or rulesets) to ensure that the changes being deployed are the changes that you reviewed.'
+  )
+})
+
 test('runs prechecks and rejects a pull request from a forked repository because it does not have completed reviews', async () => {
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
