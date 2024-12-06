@@ -39,14 +39,18 @@ async function onDeploymentChecks(
     core.info(
       `🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`
     )
-    core.setOutput('params', paramsTrim)
-    // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON
+
     parsed_params = parseParams(paramsTrim)
-    core.setOutput('parsed_params', parsed_params)
+    core.setOutput('params', paramsTrim)
+    core.setOutput('parsed_params', parsed_params) // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON
+    core.saveState('params', paramsTrim)
+    core.saveState('parsed_params', parsed_params)
   } else {
     core.debug('no parameters detected in command')
     core.setOutput('params', '')
     core.setOutput('parsed_params', '')
+    core.saveState('params', '')
+    core.saveState('parsed_params', '')
   }
 
   // check if the body contains an exact SHA targeted for deployment (SHA1 or SHA256)

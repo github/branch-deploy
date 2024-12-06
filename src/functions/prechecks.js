@@ -91,6 +91,7 @@ export async function prechecks(context, octokit, data) {
     core.info(`🍴 the pull request is a ${COLORS.highlight}fork`)
     core.debug(`the pull request is from a fork, using sha instead of ref`)
     core.setOutput('fork', 'true')
+    core.saveState('fork', 'true')
 
     // If this Action's inputs have been configured to explicitly prevent forks, exit
     if (data.inputs.allowForks === false) {
@@ -117,6 +118,7 @@ export async function prechecks(context, octokit, data) {
   } else {
     // If this PR is NOT a fork, we can safely use the branch name
     core.setOutput('fork', 'false')
+    core.saveState('fork', 'false')
   }
 
   // Check to ensure PR CI checks are passing and the PR has been reviewed
