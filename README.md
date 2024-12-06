@@ -629,7 +629,7 @@ Check out some of the links below to see how others are using this Action in the
 - [github/entitlements-config](https://github.com/github/entitlements-config/blob/a0ae9820dceaf4542335e4668316d049e466841a/.github/workflows/branch-deploy.yml)
 - [the-hideout/cloudflare](https://github.com/the-hideout/cloudflare/blob/3f3adedb729b9aba0cc324a161ad8ddd6f56141b/.github/workflows/branch-deploy.yml)
 - [the-hideout/tarkov-api](https://github.com/the-hideout/tarkov-api/blob/1677543951d5f2a848c2650eb3400178b8f9a55b/.github/workflows/branch-deploy.yml)
-- [the-hideout/stash](https://github.com/the-hideout/stash/blob/bbcf12425c63122bf1ddb5a0dff6e0eb9ad9939d/.github/workflows/branch-deploy.yml)
+- [the-hideout/stash](https://github.com/the-hideout/stash/blob/aef5a5f16b4fa6946d2eba107e7b92c5f6583c0d/.github/workflows/branch-deploy.yml)
 - [GrantBirki/blog](https://github.com/GrantBirki/blog/blob/559b9be5cc3eac923be5d7923ec9a0b50429ced2/.github/workflows/branch-deploy.yml)
 
 > Are you using this Action in a cool new way? Open a pull request to this repo to have your workflow added to the list above!
