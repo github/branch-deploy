@@ -153,6 +153,9 @@ export async function postDeploy(context, octokit, data) {
       await label(context, octokit, labelsToAdd, labelsToRemove)
     }
 
+    core.info(
+      `✅ ${COLORS.success}post deploy completed! (noop)${COLORS.reset}`
+    )
     return 'success - noop'
   }
 
@@ -215,6 +218,7 @@ export async function postDeploy(context, octokit, data) {
   }
 
   // if the post deploy comment logic completes successfully, return
+  core.info(`✅ ${COLORS.success}post deploy completed!${COLORS.reset}`)
   return 'success'
 }
 
