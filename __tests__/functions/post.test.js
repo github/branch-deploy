@@ -20,6 +20,7 @@ const validInputs = {
 }
 
 const validStates = {
+  sha: 'abc123',
   ref: 'test-ref',
   comment_id: '123',
   noop: 'false',
@@ -61,6 +62,9 @@ beforeEach(() => {
 
 test('successfully runs post() Action logic', async () => {
   expect(await post()).toBeUndefined()
+  expect(infoMock).toHaveBeenCalledWith(
+    `🧑‍🚀 commit SHA: ${COLORS.highlight}${validStates.sha}${COLORS.reset}`
+  )
 })
 
 test('successfully runs post() Action logic when environment_url is not defined', async () => {

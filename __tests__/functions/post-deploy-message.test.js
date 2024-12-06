@@ -12,6 +12,8 @@ var status
 var noop
 var ref
 var approved_reviews_count
+var sha
+var data
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -28,6 +30,7 @@ beforeEach(() => {
   status = 'success'
   noop = false
   ref = 'test-ref'
+  sha = 'abc123'
   approved_reviews_count = '4'
 
   context = {
@@ -44,18 +47,23 @@ beforeEach(() => {
       }
     }
   }
+
+  data = {
+    environment: environment,
+    environment_url: environment_url,
+    status: status,
+    noop: noop,
+    ref: ref,
+    sha: sha,
+    approved_reviews_count: approved_reviews_count
+  }
 })
 
 test('successfully constructs a post deploy message with the defaults', async () => {
   expect(
     await postDeployMessage(
       context, // context
-      environment, // environment
-      environment_url, // environment_url
-      status, // status
-      noop, // noop
-      ref, // ref
-      approved_reviews_count // approved_reviews_count
+      data
     )
   ).toStrictEqual(
     dedent(`
@@ -68,15 +76,11 @@ test('successfully constructs a post deploy message with the defaults', async ()
 })
 
 test('successfully constructs a post deploy message with the defaults during a "noop" deploy', async () => {
+  data.noop = true
   expect(
     await postDeployMessage(
       context, // context
-      environment, // environment
-      environment_url, // environment_url
-      status, // status
-      true, // noop
-      ref, // ref
-      approved_reviews_count // approved_reviews_count
+      data
     )
   ).toStrictEqual(
     dedent(`
@@ -87,15 +91,11 @@ test('successfully constructs a post deploy message with the defaults during a "
 })
 
 test('successfully constructs a post deploy message with the defaults during a deployment failure', async () => {
+  data.status = 'failure'
   expect(
     await postDeployMessage(
       context, // context
-      environment, // environment
-      environment_url, // environment_url
-      'failure', // status
-      noop, // noop
-      ref, // ref
-      approved_reviews_count // approved_reviews_count
+      data
     )
   ).toStrictEqual(
     dedent(`
@@ -106,15 +106,11 @@ test('successfully constructs a post deploy message with the defaults during a d
 })
 
 test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status', async () => {
+  data.status = 'unknown'
   expect(
     await postDeployMessage(
       context, // context
-      environment, // environment
-      environment_url, // environment_url
-      'unknown', // status
-      noop, // noop
-      ref, // ref
-      approved_reviews_count // approved_reviews_count
+      data
     )
   ).toStrictEqual(
     dedent(`
@@ -126,15 +122,11 @@ test('successfully constructs a post deploy message with the defaults during a d
 
 test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status and the DEPLOY_MESSAGE_PATH is unset', async () => {
   process.env.INPUT_DEPLOY_MESSAGE_PATH = ''
+  data.status = 'unknown'
   expect(
     await postDeployMessage(
       context, // context
-      environment, // environment
-      environment_url, // environment_url
-      'unknown', // status
-      noop, // noop
-      ref, // ref
-      approved_reviews_count // approved_reviews_count
+      data
     )
   ).toStrictEqual(
     dedent(`
@@ -152,12 +144,7 @@ test('successfully constructs a post deploy message with a custom env var', asyn
   expect(
     await postDeployMessage(
       context, // context
-      environment, // environment
-      environment_url, // environment_url
-      status, // status
-      noop, // noop
-      ref, // ref
-      approved_reviews_count // approved_reviews_count
+      data
     )
   ).toStrictEqual(
     dedent(`
@@ -181,12 +168,7 @@ test('successfully constructs a post deploy message with a custom markdown file'
   expect(
     await postDeployMessage(
       context, // context
-      environment, // environment
-      environment_url, // environment_url
-      status, // status
-      noop, // noop
-      ref, // ref
-      approved_reviews_count // approved_reviews_count
+      data
     )
   ).toStrictEqual(
     dedent(`### Deployment Results :rocket:
@@ -198,12 +180,15 @@ test('successfully constructs a post deploy message with a custom markdown file'
     - \`status\` - The status of the deployment (String) - \`success\`, \`failure\`, or \`unknown\`
     - \`noop\` - Whether or not the deployment is a noop (Boolean)
     - \`ref\` - The ref of the deployment (String)
+    - \`sha\` - The exact commit SHA of the deployment (String)
     - \`actor\` - The GitHub username of the actor who triggered the deployment (String)
     - \`approved_reviews_count\` - The number of approved reviews on the pull request at the time of deployment (String of a number)
 
     Here is an example:
 
     monalisa deployed branch \`test-ref\` to the **production** environment. This deployment was a success :rocket:.
+
+    The exact commit sha that was used for the deployment was \`${sha}\`.
 
     You can view the deployment [here](https://example.com).
 

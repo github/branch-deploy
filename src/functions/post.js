@@ -16,6 +16,7 @@ export async function post() {
     const skip_completing = core.getBooleanInput('skip_completing')
 
     const data = {
+      sha: core.getState('sha'),
       ref: core.getState('ref'),
       comment_id: core.getState('comment_id'),
       reaction_id: core.getState('reaction_id'),
@@ -41,6 +42,8 @@ export async function post() {
         )
       }
     }
+
+    core.info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`)
 
     // If bypass is set, exit the workflow
     if (bypass) {

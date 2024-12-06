@@ -15,6 +15,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
 // :param data: The data object containing the deployment details:
+//   - attribute: sha: The exact commit SHA of the deployment (String)
 //   - attribute: comment_id: The comment_id which initially triggered the deployment Action
 //   - attribute: reaction_id: The reaction_id which was initially added to the comment that triggered the Action
 //   - attribute: status: The status of the deployment (String)
@@ -39,15 +40,15 @@ export async function postDeploy(context, octokit, data) {
     success = false
   }
 
-  const message = await postDeployMessage(
-    context,
-    data.environment,
-    data.environment_url,
-    data.status,
-    data.noop,
-    data.ref,
-    data.approved_reviews_count
-  )
+  const message = await postDeployMessage(context, {
+    environment: data.environment,
+    environment_url: data.environment_url,
+    status: data.status,
+    noop: data.noop,
+    ref: data.ref,
+    sha: data.sha,
+    approved_reviews_count: data.approved_reviews_count
+  })
 
   // update the action status to indicate the result of the deployment as a comment
   await actionStatus(
@@ -215,7 +216,8 @@ function validateInputs(data) {
     'status',
     'ref',
     'environment',
-    'reaction_id'
+    'reaction_id',
+    'sha'
   ]
   requiredInputs.forEach(input => validateInput(data[input], input))
 

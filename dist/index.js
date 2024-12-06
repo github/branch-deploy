@@ -44283,22 +44283,16 @@ var nunjucks_default = /*#__PURE__*/__nccwpck_require__.n(nunjucks);
 
 // Helper function construct a post deployment message
 // :param context: The GitHub Actions event context
-// :param environment: The environment of the deployment (String)
-// :param environment_url: The environment url of the deployment (String)
-// :param status: The status of the deployment (String)
-// :param noop: Indicates whether the deployment is a noop or not (Boolean)
-// :param ref: The ref (branch) which is being used for deployment (String)
-// :param approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
+// :param data: A data object containing attributes of the message
+//   - attribute: environment: The environment of the deployment (String)
+//   - attribute: environment_url: The environment url of the deployment (String)
+//   - attribute: status: The status of the deployment (String)
+//   - attribute: noop: Indicates whether the deployment is a noop or not (Boolean)
+//   - attribute: ref: The ref (branch) which is being used for deployment (String)
+//   - attribute: sha: The exact commit SHA of the deployment (String)
+//   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
 // :returns: The formatted message (String)
-async function postDeployMessage(
-  context,
-  environment,
-  environment_url,
-  status,
-  noop,
-  ref,
-  approved_reviews_count
-) {
+async function postDeployMessage(context, data) {
   // fetch the inputs
   const environment_url_in_comment = core.getBooleanInput(
     'environment_url_in_comment'
@@ -44312,13 +44306,14 @@ async function postDeployMessage(
       core.debug('using deployMessagePath')
       nunjucks_default().configure({autoescape: true})
       const vars = {
-        environment,
-        environment_url,
-        status,
-        noop,
-        ref,
-        actor: context.actor,
-        approved_reviews_count
+        environment: data.environment,
+        environment_url: data.environment_url,
+        status: data.status,
+        noop: data.noop,
+        ref: data.ref,
+        sha: data.sha,
+        approved_reviews_count: data.approved_reviews_count,
+        actor: context.actor
       }
       return nunjucks_default().render(deployMessagePath, vars)
     }
@@ -44332,18 +44327,18 @@ async function postDeployMessage(
   var deployTypeString = ' ' // a single space as a default
 
   // Set the mode and deploy type based on the deployment mode
-  if (noop === true) {
+  if (data.noop === true) {
     deployTypeString = ' **noop** '
   }
 
   // Dynamically set the message text depending if the deployment succeeded or failed
   var message
   var deployStatus
-  if (status === 'success') {
-    message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${ref}\` to **${environment}**`
+  if (data.status === 'success') {
+    message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${data.ref}\` to **${data.environment}**`
     deployStatus = '✅'
-  } else if (status === 'failure') {
-    message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${ref}\` to **${environment}**`
+  } else if (data.status === 'failure') {
+    message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${data.ref}\` to **${data.environment}**`
     deployStatus = '❌'
   } else {
     message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
@@ -44377,15 +44372,15 @@ async function postDeployMessage(
   // Conditionally add the environment url to the message body
   // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
   if (
-    environment_url &&
-    status === 'success' &&
-    noop !== true &&
+    data.environment_url &&
+    data.status === 'success' &&
+    data.noop !== true &&
     environment_url_in_comment === true
   ) {
-    const environment_url_short = environment_url
+    const environment_url_short = data.environment_url
       .replace('https://', '')
       .replace('http://', '')
-    message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${environment_url})`
+    message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${data.environment_url})`
   }
 
   return message_fmt
@@ -44409,6 +44404,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
 // :param data: The data object containing the deployment details:
+//   - attribute: sha: The exact commit SHA of the deployment (String)
 //   - attribute: comment_id: The comment_id which initially triggered the deployment Action
 //   - attribute: reaction_id: The reaction_id which was initially added to the comment that triggered the Action
 //   - attribute: status: The status of the deployment (String)
@@ -44433,15 +44429,15 @@ async function postDeploy(context, octokit, data) {
     success = false
   }
 
-  const message = await postDeployMessage(
-    context,
-    data.environment,
-    data.environment_url,
-    data.status,
-    data.noop,
-    data.ref,
-    data.approved_reviews_count
-  )
+  const message = await postDeployMessage(context, {
+    environment: data.environment,
+    environment_url: data.environment_url,
+    status: data.status,
+    noop: data.noop,
+    ref: data.ref,
+    sha: data.sha,
+    approved_reviews_count: data.approved_reviews_count
+  })
 
   // update the action status to indicate the result of the deployment as a comment
   await actionStatus(
@@ -44609,7 +44605,8 @@ function validateInputs(data) {
     'status',
     'ref',
     'environment',
-    'reaction_id'
+    'reaction_id',
+    'sha'
   ]
   requiredInputs.forEach(input => validateInput(data[input], input))
 
@@ -44643,6 +44640,7 @@ async function post() {
     const skip_completing = core.getBooleanInput('skip_completing')
 
     const data = {
+      sha: core.getState('sha'),
       ref: core.getState('ref'),
       comment_id: core.getState('comment_id'),
       reaction_id: core.getState('reaction_id'),
@@ -44668,6 +44666,8 @@ async function post() {
         )
       }
     }
+
+    core.info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`)
 
     // If bypass is set, exit the workflow
     if (bypass) {

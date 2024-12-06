@@ -77,11 +77,12 @@ beforeEach(() => {
   }
 
   data = {
+    sha: 'abc123',
+    ref: 'test-ref',
     comment_id: 123,
     reaction_id: 12345,
     status: 'success',
     message: 'test-message',
-    ref: 'test-ref',
     noop: false,
     deployment_id: 456,
     environment: 'production',
