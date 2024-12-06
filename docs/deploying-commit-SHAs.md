@@ -32,6 +32,8 @@ Do this:
 
 This ensures you are deploying the __exact__ commit SHA that branch-deploy has determined is safe to deploy. This is a best practice for security, reliability, and safety during deployments.
 
+Don't worry, this is still a _branch deployment_, you are just telling your deployment process to use the __exact commit SHA__ that the branch points to rather than the branch name itself which is mutable.
+
 ## Introduction
 
 Deploying commit SHAs (Secure Hash Algorithms) is a best practice in software development and deployment processes. This document explains the importance of deploying commit SHAs, focusing on aspects of security, reliability, and safety. It also provides an overview of how commit SHAs work under the hood in Git and how this contributes to the overall safety of the deployment process.

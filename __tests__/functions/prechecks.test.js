@@ -155,6 +155,10 @@ beforeEach(() => {
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
     return {outdated: false, branch: 'test-branch'}
   })
+
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return false
+  })
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment', async () => {
@@ -480,6 +484,242 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     ref: 'abcde12345',
     sha: 'abcde12345'
   })
+})
+
+test('runs prechecks and finds that the IssueOps command is valid for a branch deployment and is from a forked repository and the PR is approved but CI is failing and it is a noop', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        reviews: {
+          totalCount: 4
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abcde12345',
+                checkSuites: {
+                  totalCount: 8
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        label: 'test-repo:test-ref',
+        repo: {
+          fork: true
+        }
+      },
+      base: {
+        ref: 'base-ref'
+      }
+    },
+    status: 200
+  })
+
+  data.environmentObj.noop = true
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
+    status: false
+  })
+})
+
+test('runs prechecks and finds that the IssueOps command is a fork and does not require reviews so it proceeds but with a warning', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: null,
+        reviews: {
+          totalCount: 0
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abcde12345',
+                checkSuites: {
+                  totalCount: 8
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        label: 'test-repo:test-ref',
+        repo: {
+          fork: true
+        }
+      },
+      base: {
+        ref: 'base-ref'
+      }
+    },
+    status: 200
+  })
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '🎛️ CI checks have been defined but required reviewers have not been defined',
+    status: true,
+    noopMode: false,
+    ref: 'abcde12345',
+    sha: 'abcde12345'
+  })
+
+  expect(warningMock).toHaveBeenCalledWith(
+    '🚨 pull request reviews are not enforced by this repository and this operation is being performed on a fork - this operation is dangerous! You should require reviews via branch protection settings (or rulesets) to ensure that the changes being deployed are the changes that you reviewed.'
+  )
+})
+
+test('runs prechecks and rejects a pull request from a forked repository because it does not have completed reviews', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        reviews: {
+          totalCount: 0
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abcde12345',
+                checkSuites: {
+                  totalCount: 8
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        label: 'test-repo:test-ref',
+        repo: {
+          fork: true
+        }
+      },
+      base: {
+        ref: 'base-ref'
+      }
+    },
+    status: 200
+  })
+
+  // Even admins cannot deploy from a forked repository without reviews
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return true
+  })
+
+  // Even with skipReviews set, the PR is from a forked repository and must have reviews out of pure safety
+  data.environment = 'staging'
+  data.inputs.skipReviews = 'staging'
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.',
+    status: false
+  })
+
+  expect(debugMock).toHaveBeenCalledWith(
+    'rejecting deployment from fork without required reviews - noopMode: false'
+  )
+})
+
+test('runs prechecks and rejects a pull request from a forked repository because it does not have completed reviews (noop)', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        reviews: {
+          totalCount: 0
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abcde12345',
+                checkSuites: {
+                  totalCount: 8
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        label: 'test-repo:test-ref',
+        repo: {
+          fork: true
+        }
+      },
+      base: {
+        ref: 'base-ref'
+      }
+    },
+    status: 200
+  })
+
+  // Even admins cannot deploy from a forked repository without reviews
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return true
+  })
+
+  // Even with skipReviews set, the PR is from a forked repository and must have reviews out of pure safety
+  data.environment = 'staging'
+  data.inputs.skipReviews = 'staging'
+  data.environmentObj.noop = true
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.',
+    status: false
+  })
+
+  expect(debugMock).toHaveBeenCalledWith(
+    'rejecting deployment from fork without required reviews - noopMode: true'
+  )
 })
 
 test('runs prechecks and finds that the IssueOps command is on a PR from a forked repo and is not allowed', async () => {
@@ -1593,6 +1833,10 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
     }
   })
 
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return true
+  })
+
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '✅ CI checks have not been defined and approval is bypassed due to admin rights',
@@ -1626,6 +1870,10 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
         }
       }
     }
+  })
+
+  jest.spyOn(isAdmin, 'isAdmin').mockImplementation(() => {
+    return true
   })
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({

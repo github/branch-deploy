@@ -626,23 +626,27 @@ What to see live examples of this Action in use?
 
 Check out some of the links below to see how others are using this Action in their projects:
 
-- [github/entitlements-config](https://github.com/github/entitlements-config/blob/076a1f0f9e8cc1f5acb8a0b8e133b0a1300c8191/.github/workflows/branch-deploy.yml)
+- [github/entitlements-config](https://github.com/github/entitlements-config/blob/a0ae9820dceaf4542335e4668316d049e466841a/.github/workflows/branch-deploy.yml)
 - [the-hideout/cloudflare](https://github.com/the-hideout/cloudflare/blob/3f3adedb729b9aba0cc324a161ad8ddd6f56141b/.github/workflows/branch-deploy.yml)
 - [the-hideout/tarkov-api](https://github.com/the-hideout/tarkov-api/blob/1677543951d5f2a848c2650eb3400178b8f9a55b/.github/workflows/branch-deploy.yml)
-- [the-hideout/stash](https://github.com/the-hideout/stash/blob/bbcf12425c63122bf1ddb5a0dff6e0eb9ad9939d/.github/workflows/branch-deploy.yml)
+- [the-hideout/stash](https://github.com/the-hideout/stash/blob/aef5a5f16b4fa6946d2eba107e7b92c5f6583c0d/.github/workflows/branch-deploy.yml)
 - [GrantBirki/blog](https://github.com/GrantBirki/blog/blob/559b9be5cc3eac923be5d7923ec9a0b50429ced2/.github/workflows/branch-deploy.yml)
 
 > Are you using this Action in a cool new way? Open a pull request to this repo to have your workflow added to the list above!
 
 ## Suggestions 🌟
 
-This section will cover a few suggestions that will help you when using this Action
+This section will cover a few suggestions and best practices that will help you when using this Action.
 
 1. Suggest Updating Pull Request Branches - You should absolutely use this option when using the `branch-deploy` Action. This option can be found in your repository's `/settings` page
-
-    ![branch-setting](https://user-images.githubusercontent.com/23362539/172939811-a8816db8-8e7c-404a-b12a-11ec5bc6e93d.png)
-
+    ![update-pr-branches](./docs//assets/update-branch-setting.png)
 2. Enable Branch Protection Settings - It is always a good idea to enable branch protection settings for your repo, especially when using this Action
+    1. Require Pull Request Reviews - Enforce that pull requests have approvals, code owner approvals, and dismiss stale pull request approvals upon new commits
+      ![use-pr-reviews](./docs/assets/pr-reviews.png)
+    2. Add Required Status Checks - Enforce that certain CI checks must pass before a pull request can be merged
+      ![use-status-checks](./docs/assets/required-ci-checks.png)
+3. If you don't need to deploy PR forks (perhaps your project is internal and not open source), you can set the `allow_forks` input to `"false"` to prevent deployments from running on forks.
+4. You should **always** (unless you have a certain restriction) use the `sha` output variable over the `ref` output variable when deploying. It is more reliable for deployments, and safer from a security perspective. More details about using commit SHAs for deployments can be found [here](./docs/deploying-commit-SHAs.md).
 
 ## Alternate Command Syntax
 
