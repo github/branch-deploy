@@ -76,9 +76,10 @@ export async function prechecks(context, octokit, data) {
   if (data.environmentObj.stable_branch_used === true) {
     // the sha now becomes the sha of the base branch for "stable branch" deployments
     sha = stableBaseBranch.data.commit.sha
-
     ref = data.inputs.stable_branch
-    forkBypass = true // even though this command is taking place on a fork, the stable branch is the one being used as the deployment target
+
+    // setting forkBypass to true because the stable branch is being used as the deployment target, even though the command is executed on a fork.
+    forkBypass = true
     core.debug(
       `${data.inputs.trigger} command used with '${data.inputs.stable_branch}' branch - setting ref to ${ref}`
     )
