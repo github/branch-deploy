@@ -98,13 +98,7 @@ test('successfully completes a production branch deployment', async () => {
     createDeploymentStatus,
     'createDeploymentStatus'
   )
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success')
+  expect(await postDeploy(context, octokit, data)).toBe('success')
 
   expect(actionStatusSpy).toHaveBeenCalled()
   expect(actionStatusSpy).toHaveBeenCalledWith(
@@ -159,13 +153,7 @@ test('successfully completes a production branch deployment that fails', async (
 
   data.status = 'failure'
 
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success')
+  expect(await postDeploy(context, octokit, data)).toBe('success')
 
   expect(actionStatusSpy).toHaveBeenCalled()
   expect(actionStatusSpy).toHaveBeenCalledWith(
@@ -220,13 +208,7 @@ test('successfully completes a production branch deployment with an environment 
 
   data.environment_url = 'https://example.com'
 
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success')
+  expect(await postDeploy(context, octokit, data)).toBe('success')
 
   expect(actionStatusSpy).toHaveBeenCalled()
   expect(actionStatusSpy).toHaveBeenCalledWith(
@@ -284,13 +266,7 @@ test('successfully completes a production branch deployment and removes a non-st
     createDeploymentStatus,
     'createDeploymentStatus'
   )
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success')
+  expect(await postDeploy(context, octokit, data)).toBe('success')
 
   expect(lockSpy).toHaveBeenCalled()
   expect(actionStatusSpy).toHaveBeenCalled()
@@ -351,13 +327,7 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
 
   data.noop = true
 
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success - noop')
+  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
 
   expect(lockSpy).toHaveBeenCalled()
   expect(actionStatusSpy).toHaveBeenCalled()
@@ -393,13 +363,7 @@ test('successfully completes a noop branch deployment but does not get any lock 
 
   data.noop = true
 
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success - noop')
+  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
 
   expect(lockSpy).toHaveBeenCalled()
   expect(actionStatusSpy).toHaveBeenCalled()
@@ -429,13 +393,7 @@ test('successfully completes a noop branch deployment but does not get any lock 
 
 test('successfully completes a production branch deployment with no custom message', async () => {
   const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success')
+  expect(await postDeploy(context, octokit, data)).toBe('success')
   expect(actionStatusSpy).toHaveBeenCalled()
   expect(actionStatusSpy).toHaveBeenCalledWith(
     {
@@ -460,25 +418,13 @@ test('successfully completes a production branch deployment with no custom messa
 
 test('successfully completes a noop branch deployment', async () => {
   data.noop = true
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success - noop')
+  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
 })
 
 test('successfully completes a noop branch deployment and applies success labels', async () => {
   data.labels.successful_noop = ['ready-for-review', 'noop-success']
   data.noop = true
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success - noop')
+  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
 })
 
 test('successfully completes a noop branch deployment and does not apply labels due to skip config', async () => {
@@ -486,13 +432,7 @@ test('successfully completes a noop branch deployment and does not apply labels 
   data.labels.skip_successful_noop_labels_if_approved = true
   data.noop = true
 
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success - noop')
+  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
 
   expect(infoMock).toHaveBeenCalledWith(
     `⏩ skipping noop labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
@@ -503,13 +443,7 @@ test('successfully completes a branch deployment and does not apply labels due t
   data.labels.successful_deploy = ['ready-to-merge', 'deploy-success']
   data.labels.skip_successful_deploy_labels_if_approved = true
 
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success')
+  expect(await postDeploy(context, octokit, data)).toBe('success')
 
   expect(infoMock).toHaveBeenCalledWith(
     `⏩ skipping deploy labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
@@ -521,13 +455,7 @@ test('successfully completes a noop branch deployment that fails and applies fai
   data.noop = true
   data.status = 'failure'
 
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success - noop')
+  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
 
   expect(debugMock).toHaveBeenCalledWith('deploymentStatus: failure')
   expect(debugMock).toHaveBeenCalledWith('deployment mode: noop')
@@ -536,25 +464,13 @@ test('successfully completes a noop branch deployment that fails and applies fai
 test('updates with a failure for a production branch deployment', async () => {
   data.status = 'failure'
 
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success')
+  expect(await postDeploy(context, octokit, data)).toBe('success')
 })
 
 test('updates with an unknown for a production branch deployment', async () => {
   data.status = 'unknown'
 
-  expect(
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
-  ).toBe('success')
+  expect(await postDeploy(context, octokit, data)).toBe('success')
 })
 
 test('fails due to no comment_id', async () => {
@@ -579,11 +495,7 @@ test('fails due to no status', async () => {
 test('fails due to no ref', async () => {
   data.ref = ''
   try {
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
+    await postDeploy(context, octokit, data)
   } catch (e) {
     expect(e.message).toBe('no ref provided')
   }
@@ -593,11 +505,7 @@ test('fails due to no deployment_id', async () => {
   jest.resetAllMocks()
   data.deployment_id = ''
   try {
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
+    await postDeploy(context, octokit, data)
   } catch (e) {
     expect(e.message).toBe('no deployment_id provided')
   }
@@ -607,11 +515,7 @@ test('fails due to no environment', async () => {
   jest.resetAllMocks()
   data.environment = ''
   try {
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
+    await postDeploy(context, octokit, data)
   } catch (e) {
     expect(e.message).toBe('no environment provided')
   }

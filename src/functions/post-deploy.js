@@ -27,13 +27,9 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 //   - attribute: labels: A dictionary of labels to apply to the issue (Object)
 //   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
-export async function postDeploy(
-  context,
-  octokit,
-  data
-) {
+export async function postDeploy(context, octokit, data) {
   // check the inputs to ensure they are valid
-  validateInputs(data);
+  validateInputs(data)
 
   // check the deployment status
   var success
@@ -54,7 +50,13 @@ export async function postDeploy(
   )
 
   // update the action status to indicate the result of the deployment as a comment
-  await actionStatus(context, octokit, parseInt(data.reaction_id), message, success)
+  await actionStatus(
+    context,
+    octokit,
+    parseInt(data.reaction_id),
+    message,
+    success
+  )
 
   // Update the deployment status of the branch-deploy
   var deploymentStatus
@@ -203,20 +205,20 @@ export async function postDeploy(
 
 function validateInput(input, name) {
   if (input === null || input === undefined || input.length === 0) {
-    throw new Error(`no ${name} provided`);
+    throw new Error(`no ${name} provided`)
   }
 }
 
 function validateInputs(data) {
-  const requiredInputs = ['comment_id', 'status', 'ref'];
-  requiredInputs.forEach(input => validateInput(data[input], input));
+  const requiredInputs = ['comment_id', 'status', 'ref']
+  requiredInputs.forEach(input => validateInput(data[input], input))
 
   if (data.noop === null || data.noop === undefined) {
-    throw new Error('no noop value provided');
+    throw new Error('no noop value provided')
   }
 
   if (data.noop !== true) {
-    const additionalInputs = ['deployment_id', 'environment'];
-    additionalInputs.forEach(input => validateInput(data[input], input));
+    const additionalInputs = ['deployment_id', 'environment']
+    additionalInputs.forEach(input => validateInput(data[input], input))
   }
 }

@@ -71,11 +71,7 @@ export async function post() {
       core.debug('environment_url not set, its value is null')
     }
 
-    await postDeploy(
-      context,
-      octokit,
-      data
-    )
+    await postDeploy(context, octokit, data)
 
     return
   } catch (error) {
