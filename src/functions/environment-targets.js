@@ -42,7 +42,7 @@ async function onDeploymentChecks(
 
     parsed_params = parseParams(paramsTrim)
     core.setOutput('params', paramsTrim)
-    core.setOutput('parsed_params', parsed_params) // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON
+    core.setOutput('parsed_params', parsed_params) // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON -> https://github.com/actions/runner/blob/078eb3b381939ee6665f545234e1dca5ed07da84/src/Misc/layoutbin/hashFiles/index.js#L525
     core.saveState('params', paramsTrim)
     core.saveState('parsed_params', parsed_params)
   } else {
