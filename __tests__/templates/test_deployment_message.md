@@ -10,12 +10,18 @@ The following variables are available to use in this template:
 - `sha` - The exact commit SHA of the deployment (String)
 - `actor` - The GitHub username of the actor who triggered the deployment (String)
 - `approved_reviews_count` - The number of approved reviews on the pull request at the time of deployment (String of a number)
+- `deployment_id` - The ID of the deployment (String)
+- `review_decision` - The decision of the review (String or null) - `"APPROVED"`, `"REVIEW_REQUIRED"`, `null`, etc.
 
 Here is an example:
 
 {{ actor }} deployed branch `{{ ref }}` to the **{{ environment }}** environment. This deployment was a {{ status }} {{ ":rocket:" if status === "success" else ":cry:" }}.
 
 The exact commit sha that was used for the deployment was `{{ sha }}`.
+
+The exact deployment ID for this deployment was `{{ deployment_id }}`.
+
+The review decision for this deployment was `{{ review_decision }}`.
 
 {% if environment_url %}You can view the deployment [here]({{ environment_url }}).{% endif %}
 

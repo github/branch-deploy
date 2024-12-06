@@ -36,6 +36,8 @@ export async function postDeployMessage(context, data) {
         ref: data.ref,
         sha: data.sha,
         approved_reviews_count: data.approved_reviews_count,
+        review_decision: data.review_decision,
+        deployment_id: data.deployment_id,
         actor: context.actor
       }
       return nunjucks.render(deployMessagePath, vars)

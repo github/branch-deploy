@@ -44313,6 +44313,8 @@ async function postDeployMessage(context, data) {
         ref: data.ref,
         sha: data.sha,
         approved_reviews_count: data.approved_reviews_count,
+        review_decision: data.review_decision,
+        deployment_id: data.deployment_id,
         actor: context.actor
       }
       return nunjucks_default().render(deployMessagePath, vars)
@@ -44436,7 +44438,9 @@ async function postDeploy(context, octokit, data) {
     noop: data.noop,
     ref: data.ref,
     sha: data.sha,
-    approved_reviews_count: data.approved_reviews_count
+    approved_reviews_count: data.approved_reviews_count,
+    deployment_id: data.deployment_id,
+    review_decision: data.review_decision
   })
 
   // update the action status to indicate the result of the deployment as a comment

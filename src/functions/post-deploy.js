@@ -47,7 +47,9 @@ export async function postDeploy(context, octokit, data) {
     noop: data.noop,
     ref: data.ref,
     sha: data.sha,
-    approved_reviews_count: data.approved_reviews_count
+    approved_reviews_count: data.approved_reviews_count,
+    deployment_id: data.deployment_id,
+    review_decision: data.review_decision
   })
 
   // update the action status to indicate the result of the deployment as a comment

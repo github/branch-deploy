@@ -13,7 +13,9 @@ var noop
 var ref
 var approved_reviews_count
 var sha
+var deployment_id
 var data
+var review_decision
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -32,6 +34,8 @@ beforeEach(() => {
   ref = 'test-ref'
   sha = 'abc123'
   approved_reviews_count = '4'
+  deployment_id = 456
+  review_decision = 'APPROVED'
 
   context = {
     actor: 'monalisa',
@@ -55,7 +59,9 @@ beforeEach(() => {
     noop: noop,
     ref: ref,
     sha: sha,
-    approved_reviews_count: approved_reviews_count
+    approved_reviews_count: approved_reviews_count,
+    deployment_id: deployment_id,
+    review_decision: review_decision
   }
 })
 
@@ -183,12 +189,18 @@ test('successfully constructs a post deploy message with a custom markdown file'
     - \`sha\` - The exact commit SHA of the deployment (String)
     - \`actor\` - The GitHub username of the actor who triggered the deployment (String)
     - \`approved_reviews_count\` - The number of approved reviews on the pull request at the time of deployment (String of a number)
+    - \`deployment_id\` - The ID of the deployment (String)
+    - \`review_decision\` - The decision of the review (String or null) - \`"APPROVED"\`, \`"REVIEW_REQUIRED"\`, \`null\`, etc.
 
     Here is an example:
 
     monalisa deployed branch \`test-ref\` to the **production** environment. This deployment was a success :rocket:.
 
     The exact commit sha that was used for the deployment was \`${sha}\`.
+
+    The exact deployment ID for this deployment was \`${deployment_id}\`.
+
+    The review decision for this deployment was \`${review_decision}\`.
 
     You can view the deployment [here](https://example.com).
 
