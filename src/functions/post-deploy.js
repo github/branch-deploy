@@ -14,55 +14,30 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 // Helper function to help facilitate the process of completing a deployment
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
-// :param comment_id: The comment_id which initially triggered the deployment Action
-// :param reaction_id: The reaction_id which was initially added to the comment that triggered the Action
-// :param status: The status of the deployment (String)
-// :param message: A custom string to add as the deployment status message (String)
-// :param ref: The ref (branch) which is being used for deployment (String)
-// :param noop: Indicates whether the deployment is a noop or not (Boolean)
-// :param deployment_id: The id of the deployment (String)
-// :param environment: The environment of the deployment (String)
-// :param environment_url: The environment url of the deployment (String)
-// :param approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
-// :param labels: A dictionary of labels to apply to the issue (Object)
-// :param review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
+// :param data: The data object containing the deployment details:
+//   - attribute: comment_id: The comment_id which initially triggered the deployment Action
+//   - attribute: reaction_id: The reaction_id which was initially added to the comment that triggered the Action
+//   - attribute: status: The status of the deployment (String)
+//   - attribute: ref: The ref (branch) which is being used for deployment (String)
+//   - attribute: noop: Indicates whether the deployment is a noop or not (Boolean)
+//   - attribute: deployment_id: The id of the deployment (String)
+//   - attribute: environment: The environment of the deployment (String)
+//   - attribute: environment_url: The environment url of the deployment (String)
+//   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
+//   - attribute: labels: A dictionary of labels to apply to the issue (Object)
+//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(
   context,
   octokit,
-  comment_id,
-  reaction_id,
-  status,
-  ref,
-  noop,
-  deployment_id,
-  environment,
-  environment_url,
-  approved_reviews_count,
-  labels,
-  review_decision
+  data
 ) {
   // check the inputs to ensure they are valid
-  if (!comment_id || comment_id.length === 0) {
-    throw new Error('no comment_id provided')
-  } else if (!status || status.length === 0) {
-    throw new Error('no status provided')
-  } else if (!ref || ref.length === 0) {
-    throw new Error('no ref provided')
-  } else if (noop === null || noop === undefined) {
-    throw new Error('no noop value provided')
-  } else if (noop !== true) {
-    if (!deployment_id || deployment_id.length === 0) {
-      throw new Error('no deployment_id provided')
-    }
-    if (!environment || environment.length === 0) {
-      throw new Error('no environment provided')
-    }
-  }
+  validateInputs(data);
 
   // check the deployment status
   var success
-  if (status === 'success') {
+  if (data.status === 'success') {
     success = true
   } else {
     success = false
@@ -70,16 +45,16 @@ export async function postDeploy(
 
   const message = await postDeployMessage(
     context,
-    environment,
-    environment_url,
-    status,
-    noop,
-    ref,
-    approved_reviews_count
+    data.environment,
+    data.environment_url,
+    data.status,
+    data.noop,
+    data.ref,
+    data.approved_reviews_count
   )
 
   // update the action status to indicate the result of the deployment as a comment
-  await actionStatus(context, octokit, parseInt(reaction_id), message, success)
+  await actionStatus(context, octokit, parseInt(data.reaction_id), message, success)
 
   // Update the deployment status of the branch-deploy
   var deploymentStatus
@@ -88,29 +63,29 @@ export async function postDeploy(
   if (success) {
     deploymentStatus = 'success'
 
-    if (noop === true) {
-      labelsToAdd = labels.successful_noop
-      labelsToRemove = labels.failed_noop
+    if (data.noop === true) {
+      labelsToAdd = data.labels.successful_noop
+      labelsToRemove = data.labels.failed_noop
     } else {
-      labelsToAdd = labels.successful_deploy
-      labelsToRemove = labels.failed_deploy
+      labelsToAdd = data.labels.successful_deploy
+      labelsToRemove = data.labels.failed_deploy
     }
   } else {
     deploymentStatus = 'failure'
 
-    if (noop === true) {
-      labelsToAdd = labels.failed_noop
-      labelsToRemove = labels.successful_noop
+    if (data.noop === true) {
+      labelsToAdd = data.labels.failed_noop
+      labelsToRemove = data.labels.successful_noop
     } else {
-      labelsToAdd = labels.failed_deploy
-      labelsToRemove = labels.successful_deploy
+      labelsToAdd = data.labels.failed_deploy
+      labelsToRemove = data.labels.successful_deploy
     }
   }
 
   core.debug(`deploymentStatus: ${deploymentStatus}`)
 
   // if the deployment mode is noop, return here
-  if (noop === true) {
+  if (data.noop === true) {
     core.debug('deployment mode: noop')
     // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
     const lockResponse = await lock(
@@ -119,7 +94,7 @@ export async function postDeploy(
       null, // ref
       null, // reaction_id
       false, // sticky
-      environment, // environment
+      data.environment, // environment
       true // detailsOnly set to true
     )
 
@@ -143,15 +118,15 @@ export async function postDeploy(
         octokit,
         context,
         null, // reaction_id
-        environment, // environment
+        data.environment, // environment
         true // silent mode
       )
     }
 
     // check to see if the pull request labels should be applied or not
     if (
-      labels.skip_successful_noop_labels_if_approved === true &&
-      review_decision === 'APPROVED'
+      data.labels.skip_successful_noop_labels_if_approved === true &&
+      data.review_decision === 'APPROVED'
     ) {
       core.info(
         `⏩ skipping noop labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
@@ -168,11 +143,11 @@ export async function postDeploy(
   await createDeploymentStatus(
     octokit,
     context,
-    ref,
+    data.ref,
     deploymentStatus,
-    deployment_id,
-    environment,
-    environment_url // can be null
+    data.deployment_id,
+    data.environment,
+    data.environment_url // can be null
   )
 
   // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
@@ -182,7 +157,7 @@ export async function postDeploy(
     null, // ref
     null, // reaction_id
     false, // sticky
-    environment, // environment
+    data.environment, // environment
     true, // detailsOnly set to true
     true, // postDeployStep set to true - this means we will not exit early if a global lock exists
     false // leaveComment
@@ -204,15 +179,15 @@ export async function postDeploy(
       octokit,
       context,
       null, // reaction_id
-      environment, // environment
+      data.environment, // environment
       true // silent mode
     )
   }
 
   // check to see if the pull request labels should be applied or not
   if (
-    labels.skip_successful_deploy_labels_if_approved === true &&
-    review_decision === 'APPROVED'
+    data.labels.skip_successful_deploy_labels_if_approved === true &&
+    data.review_decision === 'APPROVED'
   ) {
     core.info(
       `⏩ skipping deploy labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
@@ -224,4 +199,24 @@ export async function postDeploy(
 
   // if the post deploy comment logic completes successfully, return
   return 'success'
+}
+
+function validateInput(input, name) {
+  if (input === null || input === undefined || input.length === 0) {
+    throw new Error(`no ${name} provided`);
+  }
+}
+
+function validateInputs(data) {
+  const requiredInputs = ['comment_id', 'status', 'ref'];
+  requiredInputs.forEach(input => validateInput(data[input], input));
+
+  if (data.noop === null || data.noop === undefined) {
+    throw new Error('no noop value provided');
+  }
+
+  if (data.noop !== true) {
+    const additionalInputs = ['deployment_id', 'environment'];
+    additionalInputs.forEach(input => validateInput(data[input], input));
+  }
 }

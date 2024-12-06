@@ -11,32 +11,35 @@ import {COLORS} from './colors'
 
 export async function post() {
   try {
-    const ref = core.getState('ref')
-    const comment_id = core.getState('comment_id')
-    const reaction_id = core.getState('reaction_id')
-    const noop = core.getState('noop') === 'true'
-    const deployment_id = core.getState('deployment_id')
-    const environment = core.getState('environment')
-    const environment_url = checkInput(core.getState('environment_url'))
-    const approved_reviews_count = core.getState('approved_reviews_count')
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
-    const review_decision = core.getState('review_decision')
-    const status = core.getInput('status')
     const skip_completing = core.getBooleanInput('skip_completing')
-    const labels = {
-      successful_deploy: stringToArray(
-        core.getInput('successful_deploy_labels')
-      ),
-      successful_noop: stringToArray(core.getInput('successful_noop_labels')),
-      failed_deploy: stringToArray(core.getInput('failed_deploy_labels')),
-      failed_noop: stringToArray(core.getInput('failed_noop_labels')),
-      skip_successful_noop_labels_if_approved: core.getBooleanInput(
-        'skip_successful_noop_labels_if_approved'
-      ),
-      skip_successful_deploy_labels_if_approved: core.getBooleanInput(
-        'skip_successful_deploy_labels_if_approved'
-      )
+
+    const data = {
+      ref: core.getState('ref'),
+      comment_id: core.getState('comment_id'),
+      reaction_id: core.getState('reaction_id'),
+      noop: core.getState('noop') === 'true',
+      deployment_id: core.getState('deployment_id'),
+      environment: core.getState('environment'),
+      environment_url: checkInput(core.getState('environment_url')),
+      approved_reviews_count: core.getState('approved_reviews_count'),
+      review_decision: core.getState('review_decision'),
+      status: core.getInput('status'),
+      labels: {
+        successful_deploy: stringToArray(
+          core.getInput('successful_deploy_labels')
+        ),
+        successful_noop: stringToArray(core.getInput('successful_noop_labels')),
+        failed_deploy: stringToArray(core.getInput('failed_deploy_labels')),
+        failed_noop: stringToArray(core.getInput('failed_noop_labels')),
+        skip_successful_noop_labels_if_approved: core.getBooleanInput(
+          'skip_successful_noop_labels_if_approved'
+        ),
+        skip_successful_deploy_labels_if_approved: core.getBooleanInput(
+          'skip_successful_deploy_labels_if_approved'
+        )
+      }
     }
 
     // If bypass is set, exit the workflow
@@ -64,24 +67,14 @@ export async function post() {
     })
 
     // Set the environment_url
-    if (environment_url === null) {
+    if (data.environment_url === null) {
       core.debug('environment_url not set, its value is null')
     }
 
     await postDeploy(
       context,
       octokit,
-      comment_id,
-      reaction_id,
-      status,
-      ref,
-      noop,
-      deployment_id,
-      environment,
-      environment_url,
-      approved_reviews_count,
-      labels,
-      review_decision
+      data
     )
 
     return
