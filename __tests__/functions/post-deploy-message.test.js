@@ -19,6 +19,7 @@ var review_decision
 var fork
 var params
 var parsed_params
+var deployment_end_time
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -41,24 +42,26 @@ beforeEach(() => {
   review_decision = 'APPROVED'
   fork = false
   params = 'LOG_LEVEL=debug --config.db.host=localhost --config.db.port=5432'
-  ;(parsed_params = JSON.stringify({
+  parsed_params = JSON.stringify({
     config: {db: {host: 'localhost', port: 5432}},
     _: ['LOG_LEVEL=debug']
-  })),
-    (context = {
-      actor: 'monalisa',
-      eventName: 'issue_comment',
-      workflow: 'test-workflow',
-      repo: {
-        owner: 'corp',
-        repo: 'test'
-      },
-      payload: {
-        comment: {
-          id: '1'
-        }
+  })
+  deployment_end_time = '2024-01-01T00:00:00Z'
+
+  context = {
+    actor: 'monalisa',
+    eventName: 'issue_comment',
+    workflow: 'test-workflow',
+    repo: {
+      owner: 'corp',
+      repo: 'test'
+    },
+    payload: {
+      comment: {
+        id: '1'
       }
-    })
+    }
+  }
 
   data = {
     environment: environment,
@@ -72,7 +75,8 @@ beforeEach(() => {
     review_decision: review_decision,
     fork: fork,
     params: params,
-    parsed_params: parsed_params
+    parsed_params: parsed_params,
+    deployment_end_time: deployment_end_time
   }
 })
 
@@ -204,6 +208,7 @@ test('successfully constructs a post deploy message with a custom markdown file'
     - \`review_decision\` - The decision of the review (String or null) - \`"APPROVED"\`, \`"REVIEW_REQUIRED"\`, \`null\`, etc.
     - \`params\` - The raw parameters provided in the deploy command (String)
     - \`parsed_params\` - The parsed parameters provided in the deploy command (String)
+    - \`deployment_end_time\` - The end time of the deployment - this value is not _exact_ but it is very close (String)
 
     Here is an example:
 
@@ -218,6 +223,8 @@ test('successfully constructs a post deploy message with a custom markdown file'
     The deployment had the following parameters provided in the deploy command: \`LOG_LEVEL=debug --config.db.host=localhost --config.db.port=5432\`
 
     The deployment had the following "parsed" parameters provided in the deploy command: \`{"config":{"db":{"host":"localhost","port":5432}},"_":["LOG_LEVEL=debug"]}\`
+
+    The deployment process ended at \`2024-01-01T00:00:00Z\`.
 
     You can view the deployment [here](https://example.com).
 

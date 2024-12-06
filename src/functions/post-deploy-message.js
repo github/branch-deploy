@@ -19,6 +19,7 @@ import nunjucks from 'nunjucks'
 //   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
 //   - attribute: params: The raw string of deployment parameters (String)
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
+//   - attribute: deployment_end_time: The time the deployment ended - this value is not _exact_ but it is very close (String)
 // :returns: The formatted message (String)
 export async function postDeployMessage(context, data) {
   // fetch the inputs
@@ -46,6 +47,7 @@ export async function postDeployMessage(context, data) {
         fork: data.fork,
         params: data.params,
         parsed_params: data.parsed_params,
+        deployment_end_time: data.deployment_end_time,
         actor: context.actor
       }
       return nunjucks.render(deployMessagePath, vars)

@@ -43,6 +43,11 @@ export async function postDeploy(context, octokit, data) {
     success = false
   }
 
+  // this is the timestamp that we consider the deployment to have ended at for logging and auditing purposes
+  const now = new Date()
+  const deployment_end_time = now.toISOString()
+  core.debug(`deployment_end_time: ${deployment_end_time}`)
+
   const message = await postDeployMessage(context, {
     environment: data.environment,
     environment_url: data.environment_url,
@@ -55,7 +60,8 @@ export async function postDeploy(context, octokit, data) {
     review_decision: data.review_decision,
     fork: data.fork,
     params: data.params,
-    parsed_params: data.parsed_params
+    parsed_params: data.parsed_params,
+    deployment_end_time: deployment_end_time
   })
 
   // update the action status to indicate the result of the deployment as a comment
