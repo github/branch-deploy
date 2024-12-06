@@ -41608,7 +41608,7 @@ async function onDeploymentChecks(
 
     parsed_params = parseParams(paramsTrim)
     core.setOutput('params', paramsTrim)
-    core.setOutput('parsed_params', parsed_params) // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON
+    core.setOutput('parsed_params', parsed_params) // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON -> https://github.com/actions/runner/blob/078eb3b381939ee6665f545234e1dca5ed07da84/src/Misc/layoutbin/hashFiles/index.js#L525
     core.saveState('params', paramsTrim)
     core.saveState('parsed_params', parsed_params)
   } else {
@@ -44297,6 +44297,11 @@ var nunjucks_default = /*#__PURE__*/__nccwpck_require__.n(nunjucks);
 //   - attribute: ref: The ref (branch) which is being used for deployment (String)
 //   - attribute: sha: The exact commit SHA of the deployment (String)
 //   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
+//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
+//   - attribute: deployment_id: The id of the deployment (String)
+//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
+//   - attribute: params: The raw string of deployment parameters (String)
+//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 // :returns: The formatted message (String)
 async function postDeployMessage(context, data) {
   // fetch the inputs
@@ -44321,6 +44326,9 @@ async function postDeployMessage(context, data) {
         approved_reviews_count: data.approved_reviews_count,
         review_decision: data.review_decision,
         deployment_id: data.deployment_id,
+        fork: data.fork,
+        params: data.params,
+        parsed_params: data.parsed_params,
         actor: context.actor
       }
       return nunjucks_default().render(deployMessagePath, vars)
@@ -44424,6 +44432,9 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 //   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
 //   - attribute: labels: A dictionary of labels to apply to the issue (Object)
 //   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
+//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
+//   - attribute: params: The raw string of deployment parameters (String)
+//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 async function postDeploy(context, octokit, data) {
   // check the inputs to ensure they are valid
@@ -44446,7 +44457,10 @@ async function postDeploy(context, octokit, data) {
     sha: data.sha,
     approved_reviews_count: data.approved_reviews_count,
     deployment_id: data.deployment_id,
-    review_decision: data.review_decision
+    review_decision: data.review_decision,
+    fork: data.fork,
+    params: data.params,
+    parsed_params: data.parsed_params
   })
 
   // update the action status to indicate the result of the deployment as a comment
@@ -44661,6 +44675,9 @@ async function post() {
       approved_reviews_count: core.getState('approved_reviews_count'),
       review_decision: core.getState('review_decision'),
       status: core.getInput('status'),
+      fork: core.getState('fork') === 'true',
+      params: core.getState('params'),
+      parsed_params: core.getState('parsed_params'),
       labels: {
         successful_deploy: stringToArray(
           core.getInput('successful_deploy_labels')

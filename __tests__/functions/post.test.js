@@ -32,7 +32,10 @@ const validStates = {
   review_decision: 'APPROVED',
   fork: 'false',
   params: 'LOG_LEVEL=debug --config.db.host=localhost --config.db.port=5432',
-  parsed_params: JSON.stringify({config: {db: {host: 'localhost', port: 5432}}, _: ["LOG_LEVEL=debug"]}),
+  parsed_params: JSON.stringify({
+    config: {db: {host: 'localhost', port: 5432}},
+    _: ['LOG_LEVEL=debug']
+  })
 }
 
 const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation(() => {})

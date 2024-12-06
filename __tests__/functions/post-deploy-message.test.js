@@ -41,22 +41,24 @@ beforeEach(() => {
   review_decision = 'APPROVED'
   fork = false
   params = 'LOG_LEVEL=debug --config.db.host=localhost --config.db.port=5432'
-  parsed_params = JSON.stringify({config: {db: {host: 'localhost', port: 5432}}, _: ["LOG_LEVEL=debug"]}),
-
-  context = {
-    actor: 'monalisa',
-    eventName: 'issue_comment',
-    workflow: 'test-workflow',
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    payload: {
-      comment: {
-        id: '1'
+  ;(parsed_params = JSON.stringify({
+    config: {db: {host: 'localhost', port: 5432}},
+    _: ['LOG_LEVEL=debug']
+  })),
+    (context = {
+      actor: 'monalisa',
+      eventName: 'issue_comment',
+      workflow: 'test-workflow',
+      repo: {
+        owner: 'corp',
+        repo: 'test'
+      },
+      payload: {
+        comment: {
+          id: '1'
+        }
       }
-    }
-  }
+    })
 
   data = {
     environment: environment,
