@@ -27,6 +27,9 @@ export async function post() {
       approved_reviews_count: core.getState('approved_reviews_count'),
       review_decision: core.getState('review_decision'),
       status: core.getInput('status'),
+      fork: core.getState('fork') === 'true',
+      params: core.getState('params'),
+      parsed_params: core.getState('parsed_params'),
       labels: {
         successful_deploy: stringToArray(
           core.getInput('successful_deploy_labels')

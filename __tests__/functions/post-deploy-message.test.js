@@ -16,6 +16,9 @@ var sha
 var deployment_id
 var data
 var review_decision
+var fork
+var params
+var parsed_params
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -36,6 +39,9 @@ beforeEach(() => {
   approved_reviews_count = '4'
   deployment_id = 456
   review_decision = 'APPROVED'
+  fork = false
+  params = 'LOG_LEVEL=debug --config.db.host=localhost --config.db.port=5432'
+  parsed_params = JSON.stringify({config: {db: {host: 'localhost', port: 5432}}, _: ["LOG_LEVEL=debug"]}),
 
   context = {
     actor: 'monalisa',
@@ -61,7 +67,10 @@ beforeEach(() => {
     sha: sha,
     approved_reviews_count: approved_reviews_count,
     deployment_id: deployment_id,
-    review_decision: review_decision
+    review_decision: review_decision,
+    fork: fork,
+    params: params,
+    parsed_params: parsed_params
   }
 })
 
@@ -191,6 +200,8 @@ test('successfully constructs a post deploy message with a custom markdown file'
     - \`approved_reviews_count\` - The number of approved reviews on the pull request at the time of deployment (String of a number)
     - \`deployment_id\` - The ID of the deployment (String)
     - \`review_decision\` - The decision of the review (String or null) - \`"APPROVED"\`, \`"REVIEW_REQUIRED"\`, \`null\`, etc.
+    - \`params\` - The raw parameters provided in the deploy command (String)
+    - \`parsed_params\` - The parsed parameters provided in the deploy command (String)
 
     Here is an example:
 
@@ -201,6 +212,10 @@ test('successfully constructs a post deploy message with a custom markdown file'
     The exact deployment ID for this deployment was \`${deployment_id}\`.
 
     The review decision for this deployment was \`${review_decision}\`.
+
+    The deployment had the following parameters provided in the deploy command: \`LOG_LEVEL=debug --config.db.host=localhost --config.db.port=5432\`
+
+    The deployment had the following "parsed" parameters provided in the deploy command: \`{"config":{"db":{"host":"localhost","port":5432}},"_":["LOG_LEVEL=debug"]}\`
 
     You can view the deployment [here](https://example.com).
 

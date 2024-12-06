@@ -62,9 +62,10 @@ test('it parses boolean values correctly', async () => {
 })
 
 test('it parses nested objects correctly', async () => {
-  const parsed = parseParams('--config.db.host=localhost --config.db.port=5432')
+  const parsed = parseParams('LOG_LEVEL=debug --config.db.host=localhost --config.db.port=5432')
   expect(parsed).toHaveProperty('config', {db: {host: 'localhost', port: 5432}})
-  expect(parsed).toHaveProperty('_', [])
+  expect(parsed).toHaveProperty('_', ["LOG_LEVEL=debug"])
+  expect(parsed).toStrictEqual({config: {db: {host: 'localhost', port: 5432}}, _: ["LOG_LEVEL=debug"]})
 })
 
 test('it parses a real world example correctly', async () => {

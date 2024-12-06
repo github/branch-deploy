@@ -14,6 +14,11 @@ import nunjucks from 'nunjucks'
 //   - attribute: ref: The ref (branch) which is being used for deployment (String)
 //   - attribute: sha: The exact commit SHA of the deployment (String)
 //   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
+//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
+//   - attribute: deployment_id: The id of the deployment (String)
+//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
+//   - attribute: params: The raw string of deployment parameters (String)
+//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 // :returns: The formatted message (String)
 export async function postDeployMessage(context, data) {
   // fetch the inputs
@@ -38,6 +43,9 @@ export async function postDeployMessage(context, data) {
         approved_reviews_count: data.approved_reviews_count,
         review_decision: data.review_decision,
         deployment_id: data.deployment_id,
+        fork: data.fork,
+        params: data.params,
+        parsed_params: data.parsed_params,
         actor: context.actor
       }
       return nunjucks.render(deployMessagePath, vars)

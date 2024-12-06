@@ -12,6 +12,8 @@ The following variables are available to use in this template:
 - `approved_reviews_count` - The number of approved reviews on the pull request at the time of deployment (String of a number)
 - `deployment_id` - The ID of the deployment (String)
 - `review_decision` - The decision of the review (String or null) - `"APPROVED"`, `"REVIEW_REQUIRED"`, `null`, etc.
+- `params` - The raw parameters provided in the deploy command (String)
+- `parsed_params` - The parsed parameters provided in the deploy command (String)
 
 Here is an example:
 
@@ -22,6 +24,10 @@ The exact commit sha that was used for the deployment was `{{ sha }}`.
 The exact deployment ID for this deployment was `{{ deployment_id }}`.
 
 The review decision for this deployment was `{{ review_decision }}`.
+
+The deployment had the following parameters provided in the deploy command: `{{ params }}`
+
+The deployment had the following "parsed" parameters provided in the deploy command: `{{ parsed_params | safe }}`
 
 {% if environment_url %}You can view the deployment [here]({{ environment_url }}).{% endif %}
 

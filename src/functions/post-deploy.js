@@ -27,6 +27,9 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 //   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
 //   - attribute: labels: A dictionary of labels to apply to the issue (Object)
 //   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
+//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
+//   - attribute: params: The raw string of deployment parameters (String)
+//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(context, octokit, data) {
   // check the inputs to ensure they are valid
@@ -49,7 +52,10 @@ export async function postDeploy(context, octokit, data) {
     sha: data.sha,
     approved_reviews_count: data.approved_reviews_count,
     deployment_id: data.deployment_id,
-    review_decision: data.review_decision
+    review_decision: data.review_decision,
+    fork: data.fork,
+    params: data.params,
+    parsed_params: data.parsed_params
   })
 
   // update the action status to indicate the result of the deployment as a comment
