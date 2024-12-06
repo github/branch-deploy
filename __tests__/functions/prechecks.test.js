@@ -486,6 +486,58 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   })
 })
 
+test('runs prechecks and finds that the IssueOps command is valid for a branch deployment and is from a forked repository and the PR is approved but CI is failing and it is a noop', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        reviews: {
+          totalCount: 4
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abcde12345',
+                checkSuites: {
+                  totalCount: 8
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        label: 'test-repo:test-ref',
+        repo: {
+          fork: true
+        }
+      },
+      base: {
+        ref: 'base-ref'
+      }
+    },
+    status: 200
+  })
+
+  data.environmentObj.noop = true
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
+    status: false
+  })
+})
+
 test('runs prechecks and rejects a pull request from a forked repository because it does not have completed reviews', async () => {
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
