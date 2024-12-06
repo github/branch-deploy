@@ -626,7 +626,7 @@ What to see live examples of this Action in use?
 
 Check out some of the links below to see how others are using this Action in their projects:
 
-- [github/entitlements-config](https://github.com/github/entitlements-config/blob/076a1f0f9e8cc1f5acb8a0b8e133b0a1300c8191/.github/workflows/branch-deploy.yml)
+- [github/entitlements-config](https://github.com/github/entitlements-config/blob/a0ae9820dceaf4542335e4668316d049e466841a/.github/workflows/branch-deploy.yml)
 - [the-hideout/cloudflare](https://github.com/the-hideout/cloudflare/blob/3f3adedb729b9aba0cc324a161ad8ddd6f56141b/.github/workflows/branch-deploy.yml)
 - [the-hideout/tarkov-api](https://github.com/the-hideout/tarkov-api/blob/1677543951d5f2a848c2650eb3400178b8f9a55b/.github/workflows/branch-deploy.yml)
 - [the-hideout/stash](https://github.com/the-hideout/stash/blob/bbcf12425c63122bf1ddb5a0dff6e0eb9ad9939d/.github/workflows/branch-deploy.yml)
