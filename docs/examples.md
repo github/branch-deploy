@@ -298,7 +298,7 @@ You can define any commands you want to be run in your SSH Action and they would
 - `.noop` has no effect here (but you could change that)
 - `.deploy` runs the SSH action with your branch
 
-> A live example can be found [here](https://github.com/the-hideout/cache/blob/3abfa0499e5e83e567980df035efd6a88713496a/.github/workflows/branch-deploy.yml)
+> A live example can be found [here](https://github.com/the-hideout/cache/blob/6ee6ee2a69104f165c9f20df6e4e5cbb337b7c54/.github/workflows/branch-deploy.yml)
 
 ```yaml
 name: branch-deploy
