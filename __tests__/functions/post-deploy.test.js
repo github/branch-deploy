@@ -521,6 +521,16 @@ test('fails due to no environment', async () => {
   }
 })
 
+test('fails due to no reaction_id', async () => {
+  jest.resetAllMocks()
+  data.reaction_id = ''
+  try {
+    await postDeploy(context, octokit, data)
+  } catch (e) {
+    expect(e.message).toBe('no reaction_id provided')
+  }
+})
+
 test('fails due to no environment (noop)', async () => {
   jest.resetAllMocks()
   data.environment = ''

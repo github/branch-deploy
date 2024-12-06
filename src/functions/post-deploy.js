@@ -210,7 +210,7 @@ function validateInput(input, name) {
 }
 
 function validateInputs(data) {
-  const requiredInputs = ['comment_id', 'status', 'ref', 'environment']
+  const requiredInputs = ['comment_id', 'status', 'ref', 'environment', 'reaction_id']
   requiredInputs.forEach(input => validateInput(data[input], input))
 
   if (data.noop === null || data.noop === undefined) {
