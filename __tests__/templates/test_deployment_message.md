@@ -15,6 +15,7 @@ The following variables are available to use in this template:
 - `params` - The raw parameters provided in the deploy command (String)
 - `parsed_params` - The parsed parameters provided in the deploy command (String)
 - `deployment_end_time` - The end time of the deployment - this value is not _exact_ but it is very close (String)
+- `logs` - The url to the logs of the deployment (String)
 
 Here is an example:
 
@@ -31,6 +32,8 @@ The deployment had the following parameters provided in the deploy command: `{{ 
 The deployment had the following "parsed" parameters provided in the deploy command: `{{ parsed_params | safe }}`
 
 The deployment process ended at `{{ deployment_end_time }}`.
+
+Here are the deployment logs: {{ logs }}
 
 {% if environment_url %}You can view the deployment [here]({{ environment_url }}).{% endif %}
 

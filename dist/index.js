@@ -44330,7 +44330,8 @@ async function postDeployMessage(context, data) {
     params: data.params || null,
     parsed_params: data.parsed_params || null,
     deployment_end_time: data.deployment_end_time,
-    actor: context.actor
+    actor: context.actor,
+    logs: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
   }
 
   // this is kinda gross but wrangling dedent() and nunjucks is a pain
@@ -44346,7 +44347,8 @@ async function postDeployMessage(context, data) {
     \t\t\t\t  },
     \t\t\t\t  "deployment": {
     \t\t\t\t    "id": ${vars.deployment_id},
-    \t\t\t\t    "timestamp": "${vars.deployment_end_time}"
+    \t\t\t\t    "timestamp": "${vars.deployment_end_time}",
+    \t\t\t\t    "logs": "${vars.logs}"
     \t\t\t\t  },
     \t\t\t\t  "git": {
     \t\t\t\t    "branch": "${vars.ref}",

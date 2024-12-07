@@ -20,6 +20,7 @@ var fork
 var params
 var parsed_params
 var deployment_end_time
+var logs
 var deployment_metadata
 
 function renderDeploymentMetadata(data) {
@@ -35,7 +36,8 @@ function renderDeploymentMetadata(data) {
     \t\t\t\t  },
     \t\t\t\t  "deployment": {
     \t\t\t\t    "id": ${data.deployment_id ? parseInt(data.deployment_id) : null},
-    \t\t\t\t    "timestamp": "${data.deployment_end_time}"
+    \t\t\t\t    "timestamp": "${data.deployment_end_time}",
+    \t\t\t\t    "logs": "${data.logs}"
     \t\t\t\t  },
     \t\t\t\t  "git": {
     \t\t\t\t    "branch": "${data.ref}",
@@ -63,6 +65,10 @@ function renderDeploymentMetadata(data) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+
+  process.env.GITHUB_SERVER_URL = 'https://github.com'
+  process.env.GITHUB_RUN_ID = '12345'
+
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
 
@@ -103,6 +109,8 @@ beforeEach(() => {
     }
   }
 
+  logs = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+
   data = {
     environment: environment,
     environment_url: environment_url,
@@ -117,7 +125,8 @@ beforeEach(() => {
     params: params,
     parsed_params: parsed_params,
     deployment_end_time: deployment_end_time,
-    actor: context.actor
+    actor: context.actor,
+    logs: logs
   }
 
   deployment_metadata = renderDeploymentMetadata(data)
@@ -306,6 +315,7 @@ test('successfully constructs a post deploy message with a custom markdown file'
     - \`params\` - The raw parameters provided in the deploy command (String)
     - \`parsed_params\` - The parsed parameters provided in the deploy command (String)
     - \`deployment_end_time\` - The end time of the deployment - this value is not _exact_ but it is very close (String)
+    - \`logs\` - The url to the logs of the deployment (String)
 
     Here is an example:
 
@@ -322,6 +332,8 @@ test('successfully constructs a post deploy message with a custom markdown file'
     The deployment had the following "parsed" parameters provided in the deploy command: \`{"config":{"db":{"host":"localhost","port":5432}},"_":["LOG_LEVEL=debug"]}\`
 
     The deployment process ended at \`2024-01-01T00:00:00Z\`.
+
+    Here are the deployment logs: https://github.com/corp/test/actions/runs/12345
 
     You can view the deployment [here](https://example.com).
 
