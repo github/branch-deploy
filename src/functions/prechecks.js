@@ -631,6 +631,7 @@ export async function prechecks(context, octokit, data) {
     status: true,
     ref: ref,
     noopMode: noopMode,
-    sha: sha
+    sha: sha,
+    isFork: isFork
   }
 }
