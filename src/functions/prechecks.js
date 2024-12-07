@@ -88,7 +88,10 @@ export async function prechecks(context, octokit, data) {
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
   // Note: We should not export fork values if the stable_branch is being used here
   if (isFork === true && forkBypass === false) {
-    core.info(`🍴 the pull request is a ${COLORS.highlight}fork`)
+    core.info(`🍴 the pull request is a ${COLORS.highlight}fork${COLORS.reset}`)
+    core.info(
+      `🍴 fork: the ref (${COLORS.highlight}${ref}${COLORS.reset}) output will be replaced with the commit sha (${COLORS.highlight}${pr.data.head.sha}${COLORS.reset})`
+    )
     core.debug(`the pull request is from a fork, using sha instead of ref`)
     core.setOutput('fork', 'true')
     core.saveState('fork', 'true')
@@ -387,7 +390,7 @@ export async function prechecks(context, octokit, data) {
     // Execute the logic below only if update_branch is set to "force"
     // This logic will attempt to update the pull request's branch so that it is no longer 'behind'
     core.debug(
-      `update_branch is set to ${COLORS.highlight}${data.inputs.update_branch}`
+      `update_branch is set to ${COLORS.highlight}${data.inputs.update_branch}${COLORS.reset}`
     )
 
     // Make an API call to update the PR branch
