@@ -52,7 +52,7 @@ function renderDeploymentMetadata(data) {
     \t\t\t\t  },
     \t\t\t\t  "parameters": {
     \t\t\t\t    "raw": ${data.params ? `"${data.params}"` : null},
-    \t\t\t\t    "parsed": ${data.parsed_params}
+    \t\t\t\t    "parsed": ${data.parsed_params || null}
     \t\t\t\t  }
     \t\t\t\t}
     \`\`\`

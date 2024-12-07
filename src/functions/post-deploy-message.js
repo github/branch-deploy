@@ -53,23 +53,23 @@ export async function postDeployMessage(context, data) {
 
     \t\t\t\t\`\`\`json
     \t\t\t\t{
-    \t\t\t\t  "status": "${data.status}",
+    \t\t\t\t  "status": "${vars.status}",
     \t\t\t\t  "environment": {
-    \t\t\t\t    "name": "${data.environment}",
+    \t\t\t\t    "name": "${vars.environment}",
     \t\t\t\t    "url": ${vars.environment_url ? `"${vars.environment_url}"` : null}
     \t\t\t\t  },
     \t\t\t\t  "deployment": {
     \t\t\t\t    "id": ${vars.deployment_id},
-    \t\t\t\t    "timestamp": "${data.deployment_end_time}"
+    \t\t\t\t    "timestamp": "${vars.deployment_end_time}"
     \t\t\t\t  },
     \t\t\t\t  "git": {
-    \t\t\t\t    "branch": "${data.ref}",
-    \t\t\t\t    "commit": "${data.sha}"
+    \t\t\t\t    "branch": "${vars.ref}",
+    \t\t\t\t    "commit": "${vars.sha}"
     \t\t\t\t  },
     \t\t\t\t  "context": {
-    \t\t\t\t    "actor": "${data.actor}",
-    \t\t\t\t    "noop": ${data.noop},
-    \t\t\t\t    "fork": ${data.fork}
+    \t\t\t\t    "actor": "${vars.actor}",
+    \t\t\t\t    "noop": ${vars.noop},
+    \t\t\t\t    "fork": ${vars.fork}
     \t\t\t\t  },
     \t\t\t\t  "reviews": {
     \t\t\t\t    "count": ${vars.approved_reviews_count},
@@ -77,7 +77,7 @@ export async function postDeployMessage(context, data) {
     \t\t\t\t  },
     \t\t\t\t  "parameters": {
     \t\t\t\t    "raw": ${vars.params ? `"${vars.params}"` : null},
-    \t\t\t\t    "parsed": ${data.parsed_params}
+    \t\t\t\t    "parsed": ${vars.parsed_params}
     \t\t\t\t  }
     \t\t\t\t}
     \`\`\`
