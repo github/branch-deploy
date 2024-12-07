@@ -28,28 +28,54 @@ export async function postDeployMessage(context, data) {
   )
   const deployMessagePath = checkInput(core.getInput('deploy_message_path'))
 
+  const vars = {
+    environment: data.environment,
+    environment_url: data.environment_url || null,
+    status: data.status,
+    noop: data.noop,
+    ref: data.ref,
+    sha: data.sha,
+    approved_reviews_count: data.approved_reviews_count
+      ? parseInt(data.approved_reviews_count)
+      : null,
+    review_decision: data.review_decision || null,
+    deployment_id: data.deployment_id ? parseInt(data.deployment_id) : null,
+    fork: data.fork,
+    params: data.params || null,
+    parsed_params: data.parsed_params || null,
+    deployment_end_time: data.deployment_end_time,
+    actor: context.actor
+  }
+
+  // this is kinda gross but wrangling dedent() and nunjucks is a pain
+  const deployment_metadata = dedent(`
+    <details><summary>Deployment Metadata</summary>
+    \t\t\t\t\`\`\`json
+    \t\t\t\t{
+    \t\t\t\t\t"environment": "${vars.environment}",
+    \t\t\t\t\t"environment_url": ${vars.environment_url ? `"${vars.environment_url}"` : null},
+    \t\t\t\t\t"status": "${vars.status}",
+    \t\t\t\t\t"noop": ${vars.noop},
+    \t\t\t\t\t"ref": "${vars.ref}",
+    \t\t\t\t\t"sha": "${vars.sha}",
+    \t\t\t\t\t"approved_reviews_count": ${vars.approved_reviews_count},
+    \t\t\t\t\t"review_decision": ${vars.review_decision ? `"${vars.review_decision}"` : null},
+    \t\t\t\t\t"deployment_id": ${vars.deployment_id},
+    \t\t\t\t\t"fork": ${vars.fork},
+    \t\t\t\t\t"params": ${vars.params ? `"${vars.params}"` : null},
+    \t\t\t\t\t"parsed_params": ${vars.parsed_params},
+    \t\t\t\t\t"deployment_end_time": "${data.deployment_end_time}"
+    \t\t\t\t}
+    \`\`\`
+    </details>
+  `)
+
   // if the 'deployMessagePath' exists, use that instead of the env var option
   // the env var option can often fail if the message is too long so this is the preferred option
   if (deployMessagePath) {
     if (existsSync(deployMessagePath)) {
       core.debug('using deployMessagePath')
       nunjucks.configure({autoescape: true})
-      const vars = {
-        environment: data.environment,
-        environment_url: data.environment_url,
-        status: data.status,
-        noop: data.noop,
-        ref: data.ref,
-        sha: data.sha,
-        approved_reviews_count: data.approved_reviews_count,
-        review_decision: data.review_decision,
-        deployment_id: data.deployment_id,
-        fork: data.fork,
-        params: data.params,
-        parsed_params: data.parsed_params,
-        deployment_end_time: data.deployment_end_time,
-        actor: context.actor
-      }
       return nunjucks.render(deployMessagePath, vars)
     }
   } else {
@@ -96,12 +122,16 @@ export async function postDeployMessage(context, data) {
     ${customMessageFmt}
 
     </details>
+
+    ${deployment_metadata}
     `)
   } else {
     message_fmt = dedent(`
     ### Deployment Results ${deployStatus}
 
-    ${message}`)
+    ${message}
+    
+    ${deployment_metadata}`)
   }
 
   // Conditionally add the environment url to the message body

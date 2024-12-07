@@ -20,6 +20,31 @@ var fork
 var params
 var parsed_params
 var deployment_end_time
+var deployment_metadata
+
+function renderDeploymentMetadata(data) {
+  return dedent(`
+    <details><summary>Deployment Metadata</summary>
+    \t\t\t\t\`\`\`json
+    \t\t\t\t{
+    \t\t\t\t\t"environment": "${data.environment}",
+    \t\t\t\t\t"environment_url": "${data.environment_url}",
+    \t\t\t\t\t"status": "${data.status}",
+    \t\t\t\t\t"noop": ${data.noop},
+    \t\t\t\t\t"ref": "${data.ref}",
+    \t\t\t\t\t"sha": "${data.sha}",
+    \t\t\t\t\t"approved_reviews_count": ${data.approved_reviews_count ? parseInt(data.approved_reviews_count) : null},
+    \t\t\t\t\t"review_decision": "${data.review_decision}",
+    \t\t\t\t\t"deployment_id": ${data.deployment_id ? parseInt(data.deployment_id) : null},
+    \t\t\t\t\t"fork": ${data.fork},
+    \t\t\t\t\t"params": "${data.params}",
+    \t\t\t\t\t"parsed_params": ${data.parsed_params},
+    \t\t\t\t\t"deployment_end_time": "${data.deployment_end_time}"
+    \t\t\t\t}
+    \`\`\`
+    </details>
+  `)
+}
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -71,13 +96,16 @@ beforeEach(() => {
     ref: ref,
     sha: sha,
     approved_reviews_count: approved_reviews_count,
-    deployment_id: deployment_id,
     review_decision: review_decision,
+    deployment_id: deployment_id,
     fork: fork,
     params: params,
     parsed_params: parsed_params,
-    deployment_end_time: deployment_end_time
+    deployment_end_time: deployment_end_time,
+    actor: context.actor
   }
+
+  deployment_metadata = renderDeploymentMetadata(data)
 })
 
 test('successfully constructs a post deploy message with the defaults', async () => {
@@ -88,16 +116,20 @@ test('successfully constructs a post deploy message with the defaults', async ()
     )
   ).toStrictEqual(
     dedent(`
-      ### Deployment Results ✅
+    ### Deployment Results ✅
 
-      **${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**
+    **${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**
 
-      > **Environment URL:** [${environment_url_simple}](${environment_url})`)
+    ${deployment_metadata}
+
+    > **Environment URL:** [${environment_url_simple}](${environment_url})
+    `)
   )
 })
 
 test('successfully constructs a post deploy message with the defaults during a "noop" deploy', async () => {
   data.noop = true
+  deployment_metadata = renderDeploymentMetadata(data)
   expect(
     await postDeployMessage(
       context, // context
@@ -105,14 +137,17 @@ test('successfully constructs a post deploy message with the defaults during a "
     )
   ).toStrictEqual(
     dedent(`
-      ### Deployment Results ✅
+    ### Deployment Results ✅
 
-      **${context.actor}** successfully **noop** deployed branch \`${ref}\` to **${environment}**`)
+    **${context.actor}** successfully **noop** deployed branch \`${ref}\` to **${environment}**
+
+    ${deployment_metadata}`)
   )
 })
 
 test('successfully constructs a post deploy message with the defaults during a deployment failure', async () => {
   data.status = 'failure'
+  deployment_metadata = renderDeploymentMetadata(data)
   expect(
     await postDeployMessage(
       context, // context
@@ -120,14 +155,19 @@ test('successfully constructs a post deploy message with the defaults during a d
     )
   ).toStrictEqual(
     dedent(`
-      ### Deployment Results ❌
+    ### Deployment Results ❌
 
-      **${context.actor}** had a failure when deploying branch \`${ref}\` to **${environment}**`)
+    **${context.actor}** had a failure when deploying branch \`${ref}\` to **${environment}**
+
+    ${deployment_metadata}
+    `)
   )
 })
 
 test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status', async () => {
   data.status = 'unknown'
+  deployment_metadata = renderDeploymentMetadata(data)
+
   expect(
     await postDeployMessage(
       context, // context
@@ -135,15 +175,19 @@ test('successfully constructs a post deploy message with the defaults during a d
     )
   ).toStrictEqual(
     dedent(`
-      ### Deployment Results ⚠️
+    ### Deployment Results ⚠️
 
-      Warning: deployment status is unknown, please use caution`)
+    Warning: deployment status is unknown, please use caution
+
+    ${deployment_metadata}`)
   )
 })
 
 test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status and the DEPLOY_MESSAGE_PATH is unset', async () => {
   process.env.INPUT_DEPLOY_MESSAGE_PATH = ''
   data.status = 'unknown'
+  deployment_metadata = renderDeploymentMetadata(data)
+
   expect(
     await postDeployMessage(
       context, // context
@@ -151,9 +195,12 @@ test('successfully constructs a post deploy message with the defaults during a d
     )
   ).toStrictEqual(
     dedent(`
-      ### Deployment Results ⚠️
+    ### Deployment Results ⚠️
 
-      Warning: deployment status is unknown, please use caution`)
+    Warning: deployment status is unknown, please use caution
+
+    ${deployment_metadata}
+    `)
   )
 
   expect(debugMock).toHaveBeenCalledWith('deployMessagePath is not set - null')
@@ -169,17 +216,72 @@ test('successfully constructs a post deploy message with a custom env var', asyn
     )
   ).toStrictEqual(
     dedent(`
-      ### Deployment Results ✅
+    ### Deployment Results ✅
 
-      **${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**
+    **${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**
 
-      <details><summary>Show Results</summary>
+    <details><summary>Show Results</summary>
 
-      Deployed 1 shiny new server
+    Deployed 1 shiny new server
 
-      </details>
+    </details>
 
-      > **Environment URL:** [${environment_url_simple}](${environment_url})`)
+    ${deployment_metadata}
+
+    > **Environment URL:** [${environment_url_simple}](${environment_url})`)
+  )
+})
+
+test('successfully constructs a post deploy message with a custom env var when certain values are undefined', async () => {
+  process.env.DEPLOY_MESSAGE = 'Deployed 1 shiny new server'
+
+  data.deployment_id = undefined
+  data.approved_reviews_count = null
+  data.parsed_params = ''
+  data.environment_url = ''
+  data.params = ''
+  data.review_decision = null
+
+  deployment_metadata = dedent(`
+    <details><summary>Deployment Metadata</summary>
+    \t\t\t\t\`\`\`json
+    \t\t\t\t{
+    \t\t\t\t\t"environment": "${data.environment}",
+    \t\t\t\t\t"environment_url": null,
+    \t\t\t\t\t"status": "${data.status}",
+    \t\t\t\t\t"noop": ${data.noop},
+    \t\t\t\t\t"ref": "${data.ref}",
+    \t\t\t\t\t"sha": "${data.sha}",
+    \t\t\t\t\t"approved_reviews_count": null,
+    \t\t\t\t\t"review_decision": null,
+    \t\t\t\t\t"deployment_id": null,
+    \t\t\t\t\t"fork": ${data.fork},
+    \t\t\t\t\t"params": null,
+    \t\t\t\t\t"parsed_params": null,
+    \t\t\t\t\t"deployment_end_time": "${data.deployment_end_time}"
+    \t\t\t\t}
+    \`\`\`
+    </details>
+  `)
+
+  expect(
+    await postDeployMessage(
+      context, // context
+      data
+    )
+  ).toStrictEqual(
+    dedent(`
+    ### Deployment Results ✅
+
+    **${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**
+
+    <details><summary>Show Results</summary>
+
+    Deployed 1 shiny new server
+
+    </details>
+
+    ${deployment_metadata}`)
   )
 })
 
