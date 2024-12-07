@@ -53,19 +53,19 @@ export async function postDeployMessage(context, data) {
 
     \t\t\t\t\`\`\`json
     \t\t\t\t{
-    \t\t\t\t"environment": "${vars.environment}",
-    \t\t\t\t"environment_url": ${vars.environment_url ? `"${vars.environment_url}"` : null},
-    \t\t\t\t"status": "${vars.status}",
-    \t\t\t\t"noop": ${vars.noop},
-    \t\t\t\t"ref": "${vars.ref}",
-    \t\t\t\t"sha": "${vars.sha}",
-    \t\t\t\t"approved_reviews_count": ${vars.approved_reviews_count},
-    \t\t\t\t"review_decision": ${vars.review_decision ? `"${vars.review_decision}"` : null},
-    \t\t\t\t"deployment_id": ${vars.deployment_id},
-    \t\t\t\t"fork": ${vars.fork},
-    \t\t\t\t"params": ${vars.params ? `"${vars.params}"` : null},
-    \t\t\t\t"parsed_params": ${vars.parsed_params},
-    \t\t\t\t"deployment_end_time": "${data.deployment_end_time}"
+    \t\t\t\t  "environment": "${vars.environment}",
+    \t\t\t\t  "environment_url": ${vars.environment_url ? `"${vars.environment_url}"` : null},
+    \t\t\t\t  "status": "${vars.status}",
+    \t\t\t\t  "noop": ${vars.noop},
+    \t\t\t\t  "ref": "${vars.ref}",
+    \t\t\t\t  "sha": "${vars.sha}",
+    \t\t\t\t  "approved_reviews_count": ${vars.approved_reviews_count},
+    \t\t\t\t  "review_decision": ${vars.review_decision ? `"${vars.review_decision}"` : null},
+    \t\t\t\t  "deployment_id": ${vars.deployment_id},
+    \t\t\t\t  "fork": ${vars.fork},
+    \t\t\t\t  "params": ${vars.params ? `"${vars.params}"` : null},
+    \t\t\t\t  "parsed_params": ${vars.parsed_params},
+    \t\t\t\t  "deployment_end_time": "${data.deployment_end_time}"
     \t\t\t\t}
     \`\`\`
 

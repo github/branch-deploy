@@ -28,19 +28,19 @@ function renderDeploymentMetadata(data) {
 
     \t\t\t\t\`\`\`json
     \t\t\t\t{
-    \t\t\t\t"environment": "${data.environment}",
-    \t\t\t\t"environment_url": "${data.environment_url}",
-    \t\t\t\t"status": "${data.status}",
-    \t\t\t\t"noop": ${data.noop},
-    \t\t\t\t"ref": "${data.ref}",
-    \t\t\t\t"sha": "${data.sha}",
-    \t\t\t\t"approved_reviews_count": ${data.approved_reviews_count ? parseInt(data.approved_reviews_count) : null},
-    \t\t\t\t"review_decision": "${data.review_decision}",
-    \t\t\t\t"deployment_id": ${data.deployment_id ? parseInt(data.deployment_id) : null},
-    \t\t\t\t"fork": ${data.fork},
-    \t\t\t\t"params": "${data.params}",
-    \t\t\t\t"parsed_params": ${data.parsed_params},
-    \t\t\t\t"deployment_end_time": "${data.deployment_end_time}"
+    \t\t\t\t  "environment": "${data.environment}",
+    \t\t\t\t  "environment_url": "${data.environment_url}",
+    \t\t\t\t  "status": "${data.status}",
+    \t\t\t\t  "noop": ${data.noop},
+    \t\t\t\t  "ref": "${data.ref}",
+    \t\t\t\t  "sha": "${data.sha}",
+    \t\t\t\t  "approved_reviews_count": ${data.approved_reviews_count ? parseInt(data.approved_reviews_count) : null},
+    \t\t\t\t  "review_decision": "${data.review_decision}",
+    \t\t\t\t  "deployment_id": ${data.deployment_id ? parseInt(data.deployment_id) : null},
+    \t\t\t\t  "fork": ${data.fork},
+    \t\t\t\t  "params": "${data.params}",
+    \t\t\t\t  "parsed_params": ${data.parsed_params},
+    \t\t\t\t  "deployment_end_time": "${data.deployment_end_time}"
     \t\t\t\t}
     \`\`\`
 
@@ -249,19 +249,19 @@ test('successfully constructs a post deploy message with a custom env var when c
 
     \t\t\t\t\`\`\`json
     \t\t\t\t{
-    \t\t\t\t"environment": "${data.environment}",
-    \t\t\t\t"environment_url": null,
-    \t\t\t\t"status": "${data.status}",
-    \t\t\t\t"noop": ${data.noop},
-    \t\t\t\t"ref": "${data.ref}",
-    \t\t\t\t"sha": "${data.sha}",
-    \t\t\t\t"approved_reviews_count": null,
-    \t\t\t\t"review_decision": null,
-    \t\t\t\t"deployment_id": null,
-    \t\t\t\t"fork": ${data.fork},
-    \t\t\t\t"params": null,
-    \t\t\t\t"parsed_params": null,
-    \t\t\t\t"deployment_end_time": "${data.deployment_end_time}"
+    \t\t\t\t  "environment": "${data.environment}",
+    \t\t\t\t  "environment_url": null,
+    \t\t\t\t  "status": "${data.status}",
+    \t\t\t\t  "noop": ${data.noop},
+    \t\t\t\t  "ref": "${data.ref}",
+    \t\t\t\t  "sha": "${data.sha}",
+    \t\t\t\t  "approved_reviews_count": null,
+    \t\t\t\t  "review_decision": null,
+    \t\t\t\t  "deployment_id": null,
+    \t\t\t\t  "fork": ${data.fork},
+    \t\t\t\t  "params": null,
+    \t\t\t\t  "parsed_params": null,
+    \t\t\t\t  "deployment_end_time": "${data.deployment_end_time}"
     \t\t\t\t}
     \`\`\`
 
