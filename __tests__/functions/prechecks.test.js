@@ -167,7 +167,8 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 })
 
@@ -222,7 +223,8 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 })
 
@@ -239,7 +241,8 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
     noopMode: false,
     ref: 'main',
     status: true,
-    sha: 'deadbeef'
+    sha: 'deadbeef',
+    isFork: false
   })
 })
 
@@ -250,7 +253,8 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
     noopMode: true,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 })
 
@@ -293,7 +297,8 @@ test('runs prechecks and finds that the IssueOps command is valid without define
     status: true,
     noopMode: false,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
   expect(debugMock).toHaveBeenCalledWith(
     `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'totalCount') - Handled: ${COLORS.success}OK`
@@ -342,7 +347,8 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
     status: true,
     noopMode: false,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
   expect(debugMock).toHaveBeenCalledWith(
     `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'totalCount') - Handled: ${COLORS.success}OK`
@@ -390,7 +396,8 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
     status: true,
     noopMode: false,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
   expect(infoMock).toHaveBeenLastCalledWith(
     '🎛️ CI checks have been defined but required reviewers have not been defined'
@@ -431,7 +438,8 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
     status: true,
     noopMode: true,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 })
 
@@ -482,7 +490,8 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     status: true,
     noopMode: false,
     ref: 'abcde12345',
-    sha: 'abcde12345'
+    sha: 'abcde12345',
+    isFork: true
   })
 })
 
@@ -587,7 +596,8 @@ test('runs prechecks and finds that the IssueOps command is a fork and does not 
     status: true,
     noopMode: false,
     ref: 'abcde12345',
-    sha: 'abcde12345'
+    sha: 'abcde12345',
+    isFork: true
   })
 
   expect(warningMock).toHaveBeenCalledWith(
@@ -894,7 +904,8 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
     status: true,
     noopMode: true,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 })
 
@@ -921,7 +932,8 @@ test('runs prechecks and deploys to the stable branch', async () => {
     status: true,
     noopMode: false,
     ref: 'main',
-    sha: 'deadbeef'
+    sha: 'deadbeef',
+    isFork: false
   })
 })
 
@@ -1136,7 +1148,8 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
     status: true,
     noopMode: false,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 })
 
@@ -1473,7 +1486,8 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 })
 
@@ -1649,7 +1663,8 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 })
 
@@ -1688,7 +1703,8 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 })
 
@@ -1727,7 +1743,8 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     noopMode: true,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 })
 
@@ -1765,7 +1782,8 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 
   expect(infoMock).toHaveBeenLastCalledWith(
@@ -1801,7 +1819,8 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
     status: true,
     noopMode: false,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
   expect(infoMock).toHaveBeenLastCalledWith(
     '🎛️ CI checks have not been defined and required reviewers have not been defined'
@@ -1843,7 +1862,8 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
     status: true,
     noopMode: false,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
   expect(infoMock).toHaveBeenLastCalledWith(
     '✅ CI checks have not been defined and approval is bypassed due to admin rights'
@@ -1882,7 +1902,8 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
     status: true,
     noopMode: false,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
   expect(infoMock).toHaveBeenLastCalledWith(
     '✅ CI checks have not been defined and approval is bypassed due to admin rights'
@@ -1923,7 +1944,8 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
     status: true,
     noopMode: false,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
   expect(infoMock).toHaveBeenCalledWith(
     '✅ CI requirements have been disabled for this environment and the PR has been approved'
@@ -1967,7 +1989,8 @@ test('runs prechecks and finds that the commit status is success and skip_review
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 
   expect(infoMock).toHaveBeenCalledWith(
@@ -2011,7 +2034,8 @@ test('runs prechecks and finds that no ci checks are defined and skip_reviews is
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 
   expect(infoMock).toHaveBeenCalledWith(
@@ -2037,7 +2061,8 @@ test('runs prechecks on a custom deploy comment with a custom variable at the en
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 
   expect(infoMock).toHaveBeenCalledWith(
@@ -2076,7 +2101,8 @@ test('runs prechecks when an exact sha is set, and the sha deployment feature is
     noopMode: false,
     ref: data.environmentObj.sha,
     status: true,
-    sha: data.environmentObj.sha
+    sha: data.environmentObj.sha,
+    isFork: false
   })
 
   expect(infoMock).toHaveBeenCalledWith(
@@ -2130,7 +2156,8 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 
   expect(infoMock).toHaveBeenCalledWith(
@@ -2175,7 +2202,8 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
     noopMode: true,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 
   expect(infoMock).toHaveBeenCalledWith(
@@ -2220,7 +2248,8 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 
   expect(infoMock).toHaveBeenCalledWith(
@@ -2264,7 +2293,8 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
     noopMode: false,
     ref: 'test-ref',
     status: true,
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 
   expect(infoMock).toHaveBeenCalledWith(
@@ -2468,7 +2498,8 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
     status: true,
     noopMode: true,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 })
 
@@ -2527,7 +2558,8 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
     status: true,
     noopMode: true,
     ref: 'test-ref',
-    sha: 'abc123'
+    sha: 'abc123',
+    isFork: false
   })
 
   expect(setOutputMock).toHaveBeenCalledWith(
