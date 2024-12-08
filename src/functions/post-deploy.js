@@ -44,6 +44,7 @@ export async function postDeploy(context, octokit, data) {
   }
 
   // this is the timestamp that we consider the deployment to have ended at for logging and auditing purposes
+  // it is not the exact time the deployment ended, but it is very close
   const now = new Date()
   const deployment_end_time = now.toISOString()
   core.debug(`deployment_end_time: ${deployment_end_time}`)
