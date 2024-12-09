@@ -128,6 +128,31 @@ test('checks a commit and finds that it is not safe (verification)', async () =>
   expect(setOutputMock).toHaveBeenCalledWith('commit_verified', false)
 })
 
+test('checks a commit and finds that it is not safe (verification time) even though it is verified - rejected due to timestamp', async () => {
+  data.inputs.commit_verification = true
+  data.commit.verification = {
+    verified: true,
+    reason: 'valid',
+    signature: 'SOME_SIGNATURE',
+    payload: 'SOME_PAYLOAD',
+    verified_at: '2024-10-15T12:00:01Z' // occured after the trigger comment was created
+  }
+
+  expect(await commitSafetyChecks(context, data)).toStrictEqual({
+    message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. The commit signature was verified after the trigger comment was created.`,
+    status: false
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    '2024-10-15T12:00:00Z is not older than 2024-10-15T11:00:00Z'
+  )
+  expect(debugMock).toHaveBeenCalledWith('isVerified: true')
+  expect(infoMock).toHaveBeenCalledWith(
+    `🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('commit_verified', true)
+  expect(setOutputMock).toHaveBeenCalledWith('commit_verified', true)
+})
+
 test('raises an error if the date format is invalid', async () => {
   data.commit.author.date = '2024-10-15T12:00:uhoh'
   await expect(commitSafetyChecks(context, data)).rejects.toThrow(

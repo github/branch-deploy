@@ -51,6 +51,18 @@ export async function commitSafetyChecks(context, data) {
     }
   }
 
+  // check to ensure that the commit signature was authored before the comment was created
+  // even if the commit signature is valid, we still want to reject it if it was authored after the comment was created
+  if (
+    inputs.commit_verification === true &&
+    isTimestampOlder(comment_created_at, commit?.verification?.verified_at)
+  ) {
+    return {
+      message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. The commit signature was verified after the trigger comment was created.`,
+      status: false
+    }
+  }
+
   // if we make it through all the checks, we can return a success object
   return {message: 'success', status: true}
 }
