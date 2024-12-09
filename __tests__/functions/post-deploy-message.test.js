@@ -25,7 +25,7 @@ var deployment_metadata
 
 function renderDeploymentMetadata(data) {
   return dedent(`
-    <details><summary>Deployment Metadata</summary>
+    <details><summary>Details</summary>
 
     \t\t\t\t\`\`\`json
     \t\t\t\t{

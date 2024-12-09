@@ -50,7 +50,7 @@ export async function postDeployMessage(context, data) {
 
   // this is kinda gross but wrangling dedent() and nunjucks is a pain
   const deployment_metadata = dedent(`
-    <details><summary>Deployment Metadata</summary>
+    <details><summary>Details</summary>
 
     \t\t\t\t\`\`\`json
     \t\t\t\t{

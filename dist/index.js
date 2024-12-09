@@ -44337,7 +44337,7 @@ async function postDeployMessage(context, data) {
 
   // this is kinda gross but wrangling dedent() and nunjucks is a pain
   const deployment_metadata = lib_default()(`
-    <details><summary>Deployment Metadata</summary>
+    <details><summary>Details</summary>
 
     \t\t\t\t\`\`\`json
     \t\t\t\t{
