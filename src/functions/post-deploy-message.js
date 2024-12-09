@@ -52,6 +52,8 @@ export async function postDeployMessage(context, data) {
   const deployment_metadata = dedent(`
     <details><summary>Details</summary>
 
+    <!--- post-deploy-metadata-start -->
+
     \t\t\t\t\`\`\`json
     \t\t\t\t{
     \t\t\t\t  "status": "${vars.status}",
@@ -83,6 +85,8 @@ export async function postDeployMessage(context, data) {
     \t\t\t\t  }
     \t\t\t\t}
     \`\`\`
+
+    <!--- post-deploy-metadata-end -->
 
     </details>
   `)

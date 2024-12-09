@@ -27,6 +27,8 @@ function renderDeploymentMetadata(data) {
   return dedent(`
     <details><summary>Details</summary>
 
+    <!--- post-deploy-metadata-start -->
+
     \t\t\t\t\`\`\`json
     \t\t\t\t{
     \t\t\t\t  "status": "${data.status}",
@@ -58,6 +60,8 @@ function renderDeploymentMetadata(data) {
     \t\t\t\t  }
     \t\t\t\t}
     \`\`\`
+
+    <!--- post-deploy-metadata-end -->
 
     </details>
   `)

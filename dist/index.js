@@ -44339,6 +44339,8 @@ async function postDeployMessage(context, data) {
   const deployment_metadata = lib_default()(`
     <details><summary>Details</summary>
 
+    <!--- post-deploy-metadata-start -->
+
     \t\t\t\t\`\`\`json
     \t\t\t\t{
     \t\t\t\t  "status": "${vars.status}",
@@ -44370,6 +44372,8 @@ async function postDeployMessage(context, data) {
     \t\t\t\t  }
     \t\t\t\t}
     \`\`\`
+
+    <!--- post-deploy-metadata-end -->
 
     </details>
   `)
@@ -46067,6 +46071,8 @@ async function run() {
 
       <details><summary>Details</summary>
 
+      <!--- pre-deploy-metadata-start -->
+
       \`\`\`json
       {
         "type": "${deploymentType.toLowerCase()}",
@@ -46099,6 +46105,8 @@ async function run() {
         }
       }
       \`\`\`
+
+      <!--- pre-deploy-metadata-end -->
 
       </details>
     `)

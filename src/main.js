@@ -601,6 +601,8 @@ export async function run() {
 
       <details><summary>Details</summary>
 
+      <!--- pre-deploy-metadata-start -->
+
       \`\`\`json
       {
         "type": "${deploymentType.toLowerCase()}",
@@ -633,6 +635,8 @@ export async function run() {
         }
       }
       \`\`\`
+
+      <!--- pre-deploy-metadata-end -->
 
       </details>
     `)
