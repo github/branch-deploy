@@ -134,6 +134,11 @@ export async function prechecks(context, octokit, data) {
                                 nodes {
                                     commit {
                                         oid
+                                        signature {
+                                          isValid
+                                          state
+                                          verifiedAt
+                                        }
                                         checkSuites {
                                           totalCount
                                         }
@@ -286,6 +291,9 @@ export async function prechecks(context, octokit, data) {
   const approvedReviewsCount =
     result?.repository?.pullRequest?.reviews?.totalCount
 
+  const signature =
+    result?.repository?.pullRequest?.commits?.nodes[0]?.commit?.signature
+
   // log values for debugging
   core.debug('precheck values for debugging:')
   core.debug(`reviewDecision: ${reviewDecision}`)
@@ -347,6 +355,14 @@ export async function prechecks(context, octokit, data) {
     // In this case, we should not proceed with the deployment as we cannot guarantee the sha is safe for a variety of reasons
   } else if (sha !== commit_oid) {
     message = `### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: \`${sha}\`\n- commit_oid: \`${commit_oid}\`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.`
+    return {message: message, status: false}
+
+    // If commit verification is enabled and the commit signature is not valid (or it is missing / undefined), exit
+  } else if (
+    data.inputs.commit_verification === true &&
+    (!signature || signature?.isValid !== true)
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- commit signature: \`${signature?.state}\`\n\n> The commit signature is not valid. Please ensure the commit has been signed and try again.`
     return {message: message, status: false}
 
     // If the requested operation (deploy or noop) is taking place on a fork, that fork is NOT using the stable branch (i.e. `.deploy main`), the PR is...

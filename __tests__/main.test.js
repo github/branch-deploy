@@ -76,6 +76,7 @@ beforeEach(() => {
   process.env.INPUT_OUTDATED_MODE = 'default_branch'
   process.env.INPUT_CHECKS = 'all'
   process.env.INPUT_ENFORCED_DEPLOYMENT_ORDER = ''
+  process.env.INPUT_COMMIT_VERIFICATION = 'false'
 
   github.context.payload = {
     issue: {

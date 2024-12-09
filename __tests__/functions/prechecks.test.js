@@ -57,7 +57,8 @@ beforeEach(() => {
       skipReviews: '',
       draft_permitted_targets: '',
       checks: 'all',
-      permissions: ['admin', 'write', 'maintain']
+      permissions: ['admin', 'write', 'maintain'],
+      commit_verification: false
     }
   }
 
@@ -101,6 +102,7 @@ beforeEach(() => {
             {
               commit: {
                 oid: 'abc123',
+                signature: null,
                 checkSuites: {
                   totalCount: 3
                 },
@@ -2566,4 +2568,82 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
     'default_branch_tree_sha',
     'beefdead'
   )
+})
+
+test('runs prechecks and finds that the IssueOps command is valid with commit signature verification required', async () => {
+  data.inputs.commit_verification = true
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        reviews: {
+          totalCount: 4
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abc123',
+                signature: {
+                  isValid: true,
+                  state: 'VALID',
+                  verifiedAt: '2024-12-09T05:31:20Z'
+                },
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message: '✅ PR is approved and all CI checks passed',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true,
+    sha: 'abc123',
+    isFork: false
+  })
+})
+
+test('runs prechecks and finds that the IssueOps command is not valid with due to a missing commit signature', async () => {
+  data.inputs.commit_verification = true
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        reviews: {
+          totalCount: 4
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abc123',
+                signature: null,
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`abc123\`\n- commit signature: \`undefined\`\n\n> The commit signature is not valid. Please ensure the commit has been signed and try again.`,
+    status: false
+  })
 })
