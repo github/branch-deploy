@@ -16,6 +16,7 @@ The following variables are available to use in this template:
 - `parsed_params` - The parsed parameters provided in the deploy command (String)
 - `deployment_end_time` - The end time of the deployment - this value is not _exact_ but it is very close (String)
 - `logs` - The url to the logs of the deployment (String)
+- `commit_verified` - Whether or not the commit was verified (Boolean)
 
 Here is an example:
 
@@ -34,6 +35,8 @@ The deployment had the following "parsed" parameters provided in the deploy comm
 The deployment process ended at `{{ deployment_end_time }}`.
 
 Here are the deployment logs: {{ logs }}
+
+{% if commit_verified %}The commit was verified.{% else %}The commit was not verified.{% endif %}
 
 {% if environment_url %}You can view the deployment [here]({{ environment_url }}).{% endif %}
 

@@ -22,6 +22,7 @@ const saveStateMock = jest.spyOn(core, 'saveState')
 const setFailedMock = jest.spyOn(core, 'setFailed')
 const infoMock = jest.spyOn(core, 'info')
 const debugMock = jest.spyOn(core, 'debug')
+const warningMock = jest.spyOn(core, 'warning')
 const validDeploymentOrderMock = jest.spyOn(
   validDeploymentOrder,
   'validDeploymentOrder'
@@ -36,6 +37,14 @@ const permissionsMsg =
   '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
 
 const mock_sha = 'abc123'
+
+const no_verification = {
+  verified: false,
+  reason: 'unsigned',
+  signature: null,
+  payload: null,
+  verified_at: null
+}
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -76,6 +85,7 @@ beforeEach(() => {
   process.env.INPUT_OUTDATED_MODE = 'default_branch'
   process.env.INPUT_CHECKS = 'all'
   process.env.INPUT_ENFORCED_DEPLOYMENT_ORDER = ''
+  process.env.INPUT_COMMIT_VERIFICATION = 'false'
 
   github.context.payload = {
     issue: {
@@ -111,10 +121,12 @@ beforeEach(() => {
           getCommit: jest.fn().mockImplementation(() => {
             return {
               data: {
+                sha: mock_sha,
                 commit: {
                   author: {
                     date: '2024-10-15T12:00:00Z'
-                  }
+                  },
+                  verification: no_verification
                 }
               }
             }
@@ -934,10 +946,12 @@ test('detects an out of date branch and exits', async () => {
           getCommit: jest.fn().mockImplementation(() => {
             return {
               data: {
+                sha: mock_sha,
                 commit: {
                   author: {
                     date: '2024-10-15T12:00:00Z'
-                  }
+                  },
+                  verification: no_verification
                 }
               }
             }
@@ -1031,6 +1045,26 @@ test('fails commitSafetyChecks', async () => {
   )
 
   expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+})
+
+test('fails commitSafetyChecks but proceeds because the operation is on the stable branch', async () => {
+  github.context.payload.comment.body = '.deploy main'
+  jest
+    .spyOn(commitSafetyChecks, 'commitSafetyChecks')
+    .mockImplementation(() => {
+      return {
+        status: false,
+        message:
+          '### ⚠️ Cannot proceed with deployment... a scary commit was found'
+      }
+    })
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return undefined
+  })
+  expect(await run()).toBe('success')
+  expect(warningMock).toHaveBeenCalledWith(
+    'commit safety checks failed but the stable branch is being used so the workflow will continue - you should inspect recent commits on this branch as a precaution'
+  )
 })
 
 test('runs the .help command successfully', async () => {

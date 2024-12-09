@@ -44307,6 +44307,7 @@ var nunjucks_default = /*#__PURE__*/__nccwpck_require__.n(nunjucks);
 //   - attribute: params: The raw string of deployment parameters (String)
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 //   - attribute: deployment_end_time: The time the deployment ended - this value is not _exact_ but it is very close (String)
+//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
 // :returns: The formatted message (String)
 async function postDeployMessage(context, data) {
   // fetch the inputs
@@ -44332,7 +44333,8 @@ async function postDeployMessage(context, data) {
     parsed_params: data.parsed_params || null,
     deployment_end_time: data.deployment_end_time,
     actor: context.actor,
-    logs: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+    logs: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+    commit_verified: data.commit_verified
   }
 
   // this is kinda gross but wrangling dedent() and nunjucks is a pain
@@ -44355,7 +44357,8 @@ async function postDeployMessage(context, data) {
     \t\t\t\t  },
     \t\t\t\t  "git": {
     \t\t\t\t    "branch": "${vars.ref}",
-    \t\t\t\t    "commit": "${vars.sha}"
+    \t\t\t\t    "commit": "${vars.sha}",
+    \t\t\t\t    "verified": ${vars.commit_verified}
     \t\t\t\t  },
     \t\t\t\t  "context": {
     \t\t\t\t    "actor": "${vars.actor}",
@@ -44492,6 +44495,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 //   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
 //   - attribute: params: The raw string of deployment parameters (String)
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
+//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 async function postDeploy(context, octokit, data) {
   // check the inputs to ensure they are valid
@@ -44524,7 +44528,8 @@ async function postDeploy(context, octokit, data) {
     fork: data.fork,
     params: data.params,
     parsed_params: data.parsed_params,
-    deployment_end_time: deployment_end_time
+    deployment_end_time: deployment_end_time,
+    commit_verified: data.commit_verified
   })
 
   // update the action status to indicate the result of the deployment as a comment
@@ -44698,7 +44703,8 @@ function validateInputs(data) {
     'ref',
     'environment',
     'reaction_id',
-    'sha'
+    'sha',
+    'commit_verified'
   ]
   requiredInputs.forEach(input => validateInput(data[input], input))
 
@@ -44759,7 +44765,8 @@ async function post() {
         skip_successful_deploy_labels_if_approved: core.getBooleanInput(
           'skip_successful_deploy_labels_if_approved'
         )
-      }
+      },
+      commit_verified: core.getState('commit_verified') === 'true'
     }
 
     core.info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`)
@@ -45276,6 +45283,7 @@ function getInputs() {
   const enforced_deployment_order = stringToArray(
     core.getInput('enforced_deployment_order')
   )
+  const commit_verification = core.getBooleanInput('commit_verification')
 
   // validate inputs
   inputs_validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -45318,7 +45326,8 @@ function getInputs() {
     param_separator: param_separator,
     sticky_locks: sticky_locks,
     sticky_locks_for_noop: sticky_locks_for_noop,
-    enforced_deployment_order: enforced_deployment_order
+    enforced_deployment_order: enforced_deployment_order,
+    commit_verification: commit_verification
   }
 }
 
@@ -45416,28 +45425,77 @@ async function validDeploymentOrder(
 ;// CONCATENATED MODULE: ./src/functions/commit-safety-checks.js
 
 
+
 // A helper method to ensure that the commit being used is safe for deployment
 // These safety checks are supplemental to the checks found in `src/functions/prechecks.js`
 // :param context: The context of the event
 // :param data: An object containing data such as the sha, the created_at time for the comment, and more
 async function commitSafetyChecks(context, data) {
+  const commit = data.commit
+  const inputs = data.inputs
+  const sha = data.sha
+
+  const isVerified = commit?.verification?.verified === true ? true : false
+  core.debug(`isVerified: ${isVerified}`)
+  core.setOutput('commit_verified', isVerified)
+  core.saveState('commit_verified', isVerified)
+
   const comment_created_at = context.payload.comment.created_at
   core.debug(`comment_created_at: ${comment_created_at}`)
 
   // fetch the timestamp that the commit was authored (format: "2024-10-21T19:10:24Z" - String)
-  const commit_created_at = data.commit.author.date
+  const commit_created_at = commit.author.date
   core.debug(`commit_created_at: ${commit_created_at}`)
 
   // check to ensure that the commit was authored before the comment was created
   if (isTimestampOlder(comment_created_at, commit_created_at)) {
     return {
       message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. It was authored after the trigger comment was created.`,
-      status: false
+      status: false,
+      isVerified: isVerified
+    }
+  }
+
+  // begin the commit verification checks
+  if (isVerified) {
+    core.info(`🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`)
+  } else if (inputs.commit_verification === true && isVerified === false) {
+    core.warning(`🔑 commit signature is ${COLORS.error}invalid${COLORS.reset}`)
+  } else {
+    // if we make it here, the commit is not valid but that is okay because commit verification is not enabled
+    core.debug(
+      `🔑 commit does not contain a verified signature but ${COLORS.highlight}commit signing is not required${COLORS.reset} - ${COLORS.success}OK${COLORS.reset}`
+    )
+  }
+
+  // If commit verification is enabled and the commit signature is not valid (or it is missing / undefined), exit
+  if (inputs.commit_verification === true && isVerified === false) {
+    return {
+      message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`${commit?.verification?.reason}\`\n\n> The commit signature is not valid. Please ensure the commit has been properly signed and try again.`,
+      status: false,
+      isVerified: isVerified
+    }
+  }
+
+  // check to ensure that the commit signature was authored before the comment was created
+  // even if the commit signature is valid, we still want to reject it if it was authored after the comment was created
+  if (
+    inputs.commit_verification === true &&
+    isTimestampOlder(comment_created_at, commit?.verification?.verified_at)
+  ) {
+    return {
+      message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. The commit signature was verified after the trigger comment was created.`,
+      status: false,
+      isVerified: isVerified
     }
   }
 
   // if we make it through all the checks, we can return a success object
-  return {message: 'success', status: true}
+  return {
+    message: 'success',
+    status: true,
+    isVerified: isVerified
+  }
 }
 
 // A helper method that checks if timestamp A is older than timestamp B
@@ -45923,12 +45981,14 @@ async function run() {
 
     // Run commit safety checks
     const commitSafetyCheckResults = await commitSafetyChecks(github.context, {
-      commit: commitData.data.commit
+      commit: commitData.data.commit,
+      sha: commitData.data.sha,
+      inputs: inputs
     })
 
     // If the commitSafetyCheckResults failed, run the actionStatus function and return
     // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
-    if (!commitSafetyCheckResults.status) {
+    if (!commitSafetyCheckResults.status && stableBranchUsed !== true) {
       await actionStatus(
         github.context,
         octokit,
@@ -45939,6 +45999,10 @@ async function run() {
       core.saveState('bypass', 'true')
       core.setFailed(commitSafetyCheckResults.message)
       return 'failure'
+    } else if (!commitSafetyCheckResults.status && stableBranchUsed === true) {
+      core.warning(
+        'commit safety checks failed but the stable branch is being used so the workflow will continue - you should inspect recent commits on this branch as a precaution'
+      )
     }
 
     // check for enforced deployment order if the input was provided and we are NOT deploying to the stable branch
@@ -46086,7 +46150,8 @@ async function run() {
         },
         "git": {
           "branch": "${precheckResults.ref}",
-          "commit": "${precheckResults.sha}"
+          "commit": "${precheckResults.sha}",
+          "verified": ${commitSafetyCheckResults.isVerified}
         },
         "context": {
           "actor": "${github.context.actor}",

@@ -57,7 +57,8 @@ beforeEach(() => {
       skipReviews: '',
       draft_permitted_targets: '',
       checks: 'all',
-      permissions: ['admin', 'write', 'maintain']
+      permissions: ['admin', 'write', 'maintain'],
+      commit_verification: false
     }
   }
 
@@ -101,6 +102,7 @@ beforeEach(() => {
             {
               commit: {
                 oid: 'abc123',
+                signature: null,
                 checkSuites: {
                   totalCount: 3
                 },

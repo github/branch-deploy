@@ -95,7 +95,8 @@ beforeEach(() => {
     parsed_params: JSON.stringify({
       config: {db: {host: 'localhost', port: 5432}},
       _: ['LOG_LEVEL=debug']
-    })
+    }),
+    commit_verified: false
   }
 })
 

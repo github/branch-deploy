@@ -264,6 +264,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `help_trigger` | `false` | `.help` | The string to look for in comments as an IssueOps help trigger. Example: ".help" |
 | `lock_info_alias` | `false` | `.wcid` | An alias or shortcut to get details about the current lock (if it exists) Example: ".info" - Hubbers will find the ".wcid" default helpful ("where can I deploy") |
 | `permissions` | `true` | `write,maintain,admin` | The allowed GitHub permissions an actor can have to invoke IssueOps commands - Example: "write,maintain,admin" |
+| `commit_verification` | `false` | `"false"` | Whether or not to enforce commit verification before a deployment can continue. Default is `"false"`. This input option is excellent to enforce tighter security controls on your deployments. |
 | `param_separator` | `false` | `\|` | The separator to use for parsing parameters in comments in deployment requests. Parameters will are saved as outputs and can be used in subsequent steps - See [Parameters](docs/parameters.md) for additional details |
 | `global_lock_flag` | `false` | `--global` | The flag to pass into the lock command to lock all environments. Example: "--global" |
 | `environment` | `false` | `production` | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
@@ -337,6 +338,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `commit_status` | The status of the commit. Can be one of a few values - examples: `"SUCCESS"`, `null`, `"skip_ci"`, `"PENDING"`, `"FAILURE"` etc |
 | `approved_reviews_count` | The number of approved reviews on the pull request |
 | `needs_to_be_deployed` | A comma separated list of environments that need successful and active deployments before the current environment (that was requested) can be deployed. This output is tied to the `enforced_deployment_order` input option - See the [enforced deployment order docs](./docs/enforced-deployment-order.md) for more details |
+| `commit_verified` | The string `"true"` if the commit is verified, otherwise `"false"` |
 
 ## Custom Deployment Messages ✏️
 

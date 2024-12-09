@@ -53,6 +53,7 @@ export function getInputs() {
   const enforced_deployment_order = stringToArray(
     core.getInput('enforced_deployment_order')
   )
+  const commit_verification = core.getBooleanInput('commit_verification')
 
   // validate inputs
   validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -95,6 +96,7 @@ export function getInputs() {
     param_separator: param_separator,
     sticky_locks: sticky_locks,
     sticky_locks_for_noop: sticky_locks_for_noop,
-    enforced_deployment_order: enforced_deployment_order
+    enforced_deployment_order: enforced_deployment_order,
+    commit_verification: commit_verification
   }
 }

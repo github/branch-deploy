@@ -30,6 +30,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 //   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
 //   - attribute: params: The raw string of deployment parameters (String)
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
+//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(context, octokit, data) {
   // check the inputs to ensure they are valid
@@ -62,7 +63,8 @@ export async function postDeploy(context, octokit, data) {
     fork: data.fork,
     params: data.params,
     parsed_params: data.parsed_params,
-    deployment_end_time: deployment_end_time
+    deployment_end_time: deployment_end_time,
+    commit_verified: data.commit_verified
   })
 
   // update the action status to indicate the result of the deployment as a comment
@@ -236,7 +238,8 @@ function validateInputs(data) {
     'ref',
     'environment',
     'reaction_id',
-    'sha'
+    'sha',
+    'commit_verified'
   ]
   requiredInputs.forEach(input => validateInput(data[input], input))
 

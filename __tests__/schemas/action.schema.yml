@@ -190,6 +190,16 @@ inputs:
     required:
       type: boolean
       required: true
+  commit_verification:
+    description:
+      type: string
+      required: true
+    default:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
   param_separator:
     description:
       type: string
@@ -600,6 +610,10 @@ outputs:
       type: string
       required: true
   parsed_params:
+    description:
+      type: string
+      required: true
+  commit_verified:
     description:
       type: string
       required: true

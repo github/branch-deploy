@@ -69,6 +69,10 @@ inputs:
     description: 'The allowed GitHub permissions an actor can have to invoke IssueOps commands - Example: "write,maintain,admin"'
     required: true
     default: "write,maintain,admin"
+  commit_verification:
+    description: 'Whether or not to enforce commit verification before a deployment can continue. Default is "false"'
+    required: false
+    default: "false"
   param_separator:
     description: 'The separator to use for parsing parameters in comments in deployment requests. Parameters will are saved as outputs and can be used in subsequent steps'
     required: false
@@ -248,6 +252,8 @@ outputs:
     description: 'The number of approved reviews on the pull request'
   needs_to_be_deployed:
     description: 'A comma separated list of environments that need successful and active deployments before the current environment (that was requested) can be deployed. This output is tied to the "enforced_deployment_order" input option.'
+  commit_verified:
+    description: 'The string "true" if the commit has a verified signature, otherwise "false"'
 runs:
   using: "node20"
   main: "dist/index.js"
