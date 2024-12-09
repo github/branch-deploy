@@ -43,7 +43,8 @@ export async function post() {
         skip_successful_deploy_labels_if_approved: core.getBooleanInput(
           'skip_successful_deploy_labels_if_approved'
         )
-      }
+      },
+      commit_verified: core.getState('commit_verified') === 'true'
     }
 
     core.info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`)

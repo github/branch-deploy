@@ -44307,6 +44307,7 @@ var nunjucks_default = /*#__PURE__*/__nccwpck_require__.n(nunjucks);
 //   - attribute: params: The raw string of deployment parameters (String)
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 //   - attribute: deployment_end_time: The time the deployment ended - this value is not _exact_ but it is very close (String)
+//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
 // :returns: The formatted message (String)
 async function postDeployMessage(context, data) {
   // fetch the inputs
@@ -44332,7 +44333,8 @@ async function postDeployMessage(context, data) {
     parsed_params: data.parsed_params || null,
     deployment_end_time: data.deployment_end_time,
     actor: context.actor,
-    logs: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+    logs: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+    commit_verified: data.commit_verified
   }
 
   // this is kinda gross but wrangling dedent() and nunjucks is a pain
@@ -44355,7 +44357,8 @@ async function postDeployMessage(context, data) {
     \t\t\t\t  },
     \t\t\t\t  "git": {
     \t\t\t\t    "branch": "${vars.ref}",
-    \t\t\t\t    "commit": "${vars.sha}"
+    \t\t\t\t    "commit": "${vars.sha}",
+    \t\t\t\t    "verified": ${vars.commit_verified}
     \t\t\t\t  },
     \t\t\t\t  "context": {
     \t\t\t\t    "actor": "${vars.actor}",
@@ -44492,6 +44495,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 //   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
 //   - attribute: params: The raw string of deployment parameters (String)
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
+//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 async function postDeploy(context, octokit, data) {
   // check the inputs to ensure they are valid
@@ -44524,7 +44528,8 @@ async function postDeploy(context, octokit, data) {
     fork: data.fork,
     params: data.params,
     parsed_params: data.parsed_params,
-    deployment_end_time: deployment_end_time
+    deployment_end_time: deployment_end_time,
+    commit_verified: data.commit_verified
   })
 
   // update the action status to indicate the result of the deployment as a comment
@@ -44698,7 +44703,8 @@ function validateInputs(data) {
     'ref',
     'environment',
     'reaction_id',
-    'sha'
+    'sha',
+    'commit_verified'
   ]
   requiredInputs.forEach(input => validateInput(data[input], input))
 
@@ -44759,7 +44765,8 @@ async function post() {
         skip_successful_deploy_labels_if_approved: core.getBooleanInput(
           'skip_successful_deploy_labels_if_approved'
         )
-      }
+      },
+      commit_verified: core.getState('commit_verified') === 'true'
     }
 
     core.info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`)

@@ -43,7 +43,8 @@ function renderDeploymentMetadata(data) {
     \t\t\t\t  },
     \t\t\t\t  "git": {
     \t\t\t\t    "branch": "${data.ref}",
-    \t\t\t\t    "commit": "${data.sha}"
+    \t\t\t\t    "commit": "${data.sha}",
+    \t\t\t\t    "verified": ${data.commit_verified}
     \t\t\t\t  },
     \t\t\t\t  "context": {
     \t\t\t\t    "actor": "${data.actor}",
@@ -130,7 +131,8 @@ beforeEach(() => {
     parsed_params: parsed_params,
     deployment_end_time: deployment_end_time,
     actor: context.actor,
-    logs: logs
+    logs: logs,
+    commit_verified: false
   }
 
   deployment_metadata = renderDeploymentMetadata(data)
@@ -320,6 +322,7 @@ test('successfully constructs a post deploy message with a custom markdown file'
     - \`parsed_params\` - The parsed parameters provided in the deploy command (String)
     - \`deployment_end_time\` - The end time of the deployment - this value is not _exact_ but it is very close (String)
     - \`logs\` - The url to the logs of the deployment (String)
+    - \`commit_verified\` - Whether or not the commit was verified (Boolean)
 
     Here is an example:
 
@@ -338,6 +341,8 @@ test('successfully constructs a post deploy message with a custom markdown file'
     The deployment process ended at \`2024-01-01T00:00:00Z\`.
 
     Here are the deployment logs: https://github.com/corp/test/actions/runs/12345
+
+    The commit was not verified.
 
     You can view the deployment [here](https://example.com).
 

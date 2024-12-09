@@ -20,6 +20,7 @@ import nunjucks from 'nunjucks'
 //   - attribute: params: The raw string of deployment parameters (String)
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 //   - attribute: deployment_end_time: The time the deployment ended - this value is not _exact_ but it is very close (String)
+//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
 // :returns: The formatted message (String)
 export async function postDeployMessage(context, data) {
   // fetch the inputs
@@ -45,7 +46,8 @@ export async function postDeployMessage(context, data) {
     parsed_params: data.parsed_params || null,
     deployment_end_time: data.deployment_end_time,
     actor: context.actor,
-    logs: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+    logs: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+    commit_verified: data.commit_verified
   }
 
   // this is kinda gross but wrangling dedent() and nunjucks is a pain
@@ -68,7 +70,8 @@ export async function postDeployMessage(context, data) {
     \t\t\t\t  },
     \t\t\t\t  "git": {
     \t\t\t\t    "branch": "${vars.ref}",
-    \t\t\t\t    "commit": "${vars.sha}"
+    \t\t\t\t    "commit": "${vars.sha}",
+    \t\t\t\t    "verified": ${vars.commit_verified}
     \t\t\t\t  },
     \t\t\t\t  "context": {
     \t\t\t\t    "actor": "${vars.actor}",
