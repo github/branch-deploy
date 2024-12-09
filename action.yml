@@ -69,6 +69,10 @@ inputs:
     description: 'The allowed GitHub permissions an actor can have to invoke IssueOps commands - Example: "write,maintain,admin"'
     required: true
     default: "write,maintain,admin"
+  commit_verification:
+    description: 'Whether or not to enforce commit verification before a deployment can continue. Default is "false"'
+    required: false
+    default: "false"
   param_separator:
     description: 'The separator to use for parsing parameters in comments in deployment requests. Parameters will are saved as outputs and can be used in subsequent steps'
     required: false
