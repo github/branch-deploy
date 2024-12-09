@@ -46046,7 +46046,7 @@ async function run() {
       deploymentType = 'noop'
     } else {
       deploymentType =
-        environmentObj.environmentObj.sha !== null ? 'sha' : 'Branch'
+        environmentObj.environmentObj.sha !== null ? 'sha' : 'branch'
     }
     const log_url = `${process.env.GITHUB_SERVER_URL}/${github.context.repo.owner}/${github.context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
 
@@ -46061,11 +46061,9 @@ async function run() {
 
       __${
         github.context.actor
-      }__, started a __${deploymentType.toLowerCase()}__ deployment to __${environment}__
+      }__, started a __${deploymentType}__ deployment to __${environment}__ (${deploymentType}: \`${precheckResults.ref}\`)
 
       You can watch the progress [here](${log_url}) 🔗
-
-      > __${deploymentType}__: \`${precheckResults.ref}\`
 
       <details><summary>Details</summary>
 
