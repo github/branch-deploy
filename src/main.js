@@ -625,7 +625,7 @@ export async function run() {
           "comment": {
             "created_at": "${context.payload.comment.created_at}",
             "updated_at": "${context.payload.comment.updated_at}",
-            "body": "${context.payload.comment.body}",
+            "body": "${body}",
             "html_url": "${context.payload.comment.html_url}"
           }
         },

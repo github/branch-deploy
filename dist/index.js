@@ -46091,7 +46091,7 @@ async function run() {
           "comment": {
             "created_at": "${github.context.payload.comment.created_at}",
             "updated_at": "${github.context.payload.comment.updated_at}",
-            "body": "${github.context.payload.comment.body}",
+            "body": "${body}",
             "html_url": "${github.context.payload.comment.html_url}"
           }
         },
