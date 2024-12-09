@@ -613,3 +613,7 @@ outputs:
     description:
       type: string
       required: true
+  commit_verified:
+    description:
+      type: string
+      required: true
