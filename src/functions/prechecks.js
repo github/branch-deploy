@@ -134,11 +134,6 @@ export async function prechecks(context, octokit, data) {
                                 nodes {
                                     commit {
                                         oid
-                                        signature {
-                                          isValid
-                                          state
-                                          verifiedAt
-                                        }
                                         checkSuites {
                                           totalCount
                                         }
@@ -291,21 +286,6 @@ export async function prechecks(context, octokit, data) {
   const approvedReviewsCount =
     result?.repository?.pullRequest?.reviews?.totalCount
 
-  const signature =
-    result?.repository?.pullRequest?.commits?.nodes[0]?.commit?.signature
-
-  const isVerified = signature?.isValid === true ? true : false
-  if (isVerified) {
-    core.info(`🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`)
-  } else if (data.inputs.commit_verification === true && isVerified === false) {
-    core.warning(`🔑 commit signature is ${COLORS.error}invalid${COLORS.reset}`)
-  } else {
-    // if we make it here, the commit is not valid but that is okay because commit verification is not enabled
-    core.debug(
-      `🔑 commit does not contain a verified signature but ${COLORS.highlight}commit signing is not required${COLORS.reset} - ${COLORS.success}OK${COLORS.reset}`
-    )
-  }
-
   // log values for debugging
   core.debug('precheck values for debugging:')
   core.debug(`reviewDecision: ${reviewDecision}`)
@@ -320,7 +300,6 @@ export async function prechecks(context, octokit, data) {
   core.debug(`environment: ${data.environment}`)
   core.debug(`outdated: ${outdated.outdated}`)
   core.debug(`approvedReviewsCount: ${approvedReviewsCount}`)
-  core.debug(`isVerified: ${isVerified}`)
 
   // output values
   core.setOutput('commit_status', commitStatus)
@@ -328,12 +307,10 @@ export async function prechecks(context, octokit, data) {
   core.setOutput('is_outdated', outdated.outdated)
   core.setOutput('merge_state_status', mergeStateStatus)
   core.setOutput('approved_reviews_count', approvedReviewsCount)
-  core.setOutput('commit_verified', isVerified)
 
   // save state values
   core.saveState('review_decision', reviewDecision)
   core.saveState('approved_reviews_count', approvedReviewsCount)
-  core.saveState('commit_verified', isVerified)
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (data.environmentObj.stable_branch_used === true) {
@@ -370,11 +347,6 @@ export async function prechecks(context, octokit, data) {
     // In this case, we should not proceed with the deployment as we cannot guarantee the sha is safe for a variety of reasons
   } else if (sha !== commit_oid) {
     message = `### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: \`${sha}\`\n- commit_oid: \`${commit_oid}\`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.`
-    return {message: message, status: false}
-
-    // If commit verification is enabled and the commit signature is not valid (or it is missing / undefined), exit
-  } else if (data.inputs.commit_verification === true && isVerified === false) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- commit signature: \`${signature?.state}\`\n\n> The commit signature is not valid. Please ensure the commit has been signed and try again.`
     return {message: message, status: false}
 
     // If the requested operation (deploy or noop) is taking place on a fork, that fork is NOT using the stable branch (i.e. `.deploy main`), the PR is...

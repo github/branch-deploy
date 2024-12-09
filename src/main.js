@@ -453,12 +453,14 @@ export async function run() {
 
     // Run commit safety checks
     const commitSafetyCheckResults = await commitSafetyChecks(context, {
-      commit: commitData.data.commit
+      commit: commitData.data.commit,
+      sha: commitData.data.sha,
+      inputs: inputs
     })
 
     // If the commitSafetyCheckResults failed, run the actionStatus function and return
     // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
-    if (!commitSafetyCheckResults.status) {
+    if (!commitSafetyCheckResults.status && stableBranchUsed !== true) {
       await actionStatus(
         context,
         octokit,
@@ -469,6 +471,10 @@ export async function run() {
       core.saveState('bypass', 'true')
       core.setFailed(commitSafetyCheckResults.message)
       return 'failure'
+    } else if (!commitSafetyCheckResults.status && stableBranchUsed === true) {
+      core.warning(
+        'commit safety checks failed but the stable branch is being used so the workflow will continue - you should inspect recent commits on this branch as a precaution'
+      )
     }
 
     // check for enforced deployment order if the input was provided and we are NOT deploying to the stable branch

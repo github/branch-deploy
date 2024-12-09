@@ -9,7 +9,6 @@ const infoMock = jest.spyOn(core, 'info')
 const warningMock = jest.spyOn(core, 'warning')
 const debugMock = jest.spyOn(core, 'debug')
 const setOutputMock = jest.spyOn(core, 'setOutput')
-const saveStateMock = jest.spyOn(core, 'saveState')
 
 var context
 var getCollabOK
@@ -229,12 +228,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     sha: 'abc123',
     isFork: false
   })
-
-  expect(debugMock).toHaveBeenCalledWith(
-    `🔑 commit does not contain a verified signature but ${COLORS.highlight}commit signing is not required${COLORS.reset} - ${COLORS.success}OK${COLORS.reset}`
-  )
-  expect(setOutputMock).toHaveBeenCalledWith('commit_verified', false)
-  expect(saveStateMock).toHaveBeenCalledWith('commit_verified', false)
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a rollback deployment', async () => {
@@ -2575,94 +2568,4 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
     'default_branch_tree_sha',
     'beefdead'
   )
-})
-
-test('runs prechecks and finds that the IssueOps command is valid with commit signature verification required', async () => {
-  data.inputs.commit_verification = true
-  octokit.graphql = jest.fn().mockReturnValue({
-    repository: {
-      pullRequest: {
-        reviewDecision: 'APPROVED',
-        reviews: {
-          totalCount: 4
-        },
-        commits: {
-          nodes: [
-            {
-              commit: {
-                oid: 'abc123',
-                signature: {
-                  isValid: true,
-                  state: 'VALID',
-                  verifiedAt: '2024-12-09T05:31:20Z'
-                },
-                checkSuites: {
-                  totalCount: 1
-                },
-                statusCheckRollup: {
-                  state: 'SUCCESS'
-                }
-              }
-            }
-          ]
-        }
-      }
-    }
-  })
-
-  expect(await prechecks(context, octokit, data)).toStrictEqual({
-    message: '✅ PR is approved and all CI checks passed',
-    noopMode: false,
-    ref: 'test-ref',
-    status: true,
-    sha: 'abc123',
-    isFork: false
-  })
-
-  expect(infoMock).toHaveBeenCalledWith(
-    `🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`
-  )
-  expect(setOutputMock).toHaveBeenCalledWith('commit_verified', true)
-  expect(saveStateMock).toHaveBeenCalledWith('commit_verified', true)
-})
-
-test('runs prechecks and finds that the IssueOps command is not valid due to a missing commit signature', async () => {
-  data.inputs.commit_verification = true
-  octokit.graphql = jest.fn().mockReturnValue({
-    repository: {
-      pullRequest: {
-        reviewDecision: 'APPROVED',
-        reviews: {
-          totalCount: 4
-        },
-        commits: {
-          nodes: [
-            {
-              commit: {
-                oid: 'abc123',
-                signature: null,
-                checkSuites: {
-                  totalCount: 1
-                },
-                statusCheckRollup: {
-                  state: 'SUCCESS'
-                }
-              }
-            }
-          ]
-        }
-      }
-    }
-  })
-
-  expect(await prechecks(context, octokit, data)).toStrictEqual({
-    message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`abc123\`\n- commit signature: \`undefined\`\n\n> The commit signature is not valid. Please ensure the commit has been signed and try again.`,
-    status: false
-  })
-
-  expect(warningMock).toHaveBeenCalledWith(
-    `🔑 commit signature is ${COLORS.error}invalid${COLORS.reset}`
-  )
-  expect(setOutputMock).toHaveBeenCalledWith('commit_verified', false)
-  expect(saveStateMock).toHaveBeenCalledWith('commit_verified', false)
 })
