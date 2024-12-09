@@ -9,6 +9,7 @@ const infoMock = jest.spyOn(core, 'info')
 const warningMock = jest.spyOn(core, 'warning')
 const debugMock = jest.spyOn(core, 'debug')
 const setOutputMock = jest.spyOn(core, 'setOutput')
+const saveStateMock = jest.spyOn(core, 'saveState')
 
 var context
 var getCollabOK
@@ -228,6 +229,12 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     sha: 'abc123',
     isFork: false
   })
+
+  expect(debugMock).toHaveBeenCalledWith(
+    `🔑 commit does not contain a verified signature but ${COLORS.highlight}commit signing is not required${COLORS.reset} - ${COLORS.success}OK${COLORS.reset}`
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('commit_verified', false)
+  expect(saveStateMock).toHaveBeenCalledWith('commit_verified', false)
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a rollback deployment', async () => {
@@ -2611,9 +2618,15 @@ test('runs prechecks and finds that the IssueOps command is valid with commit si
     sha: 'abc123',
     isFork: false
   })
+
+  expect(infoMock).toHaveBeenCalledWith(
+    `🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('commit_verified', true)
+  expect(saveStateMock).toHaveBeenCalledWith('commit_verified', true)
 })
 
-test('runs prechecks and finds that the IssueOps command is not valid with due to a missing commit signature', async () => {
+test('runs prechecks and finds that the IssueOps command is not valid due to a missing commit signature', async () => {
   data.inputs.commit_verification = true
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
@@ -2646,4 +2659,10 @@ test('runs prechecks and finds that the IssueOps command is not valid with due t
     message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`abc123\`\n- commit signature: \`undefined\`\n\n> The commit signature is not valid. Please ensure the commit has been signed and try again.`,
     status: false
   })
+
+  expect(warningMock).toHaveBeenCalledWith(
+    `🔑 commit signature is ${COLORS.error}invalid${COLORS.reset}`
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('commit_verified', false)
+  expect(saveStateMock).toHaveBeenCalledWith('commit_verified', false)
 })
