@@ -28,7 +28,7 @@ If a markdown file exists at the designated path, it will be used and rendered w
 - `deployment_end_time` - The time the deployment ended - this value is not _exact_ but it is very close (String) [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) UTC format
 - `logs` - The URL to the logs of the deployment (String)
 
-If you wish to see a live example of how this works, and how to use the variables, you can check out this [example](https://github.com/github/branch-deploy/blob/37b50ea86202af7b5505b62bf3eb326da0614b60/__tests__/templates/test_deployment_message.md) which is used in this repo's unit tests and is self-documenting.
+If you wish to see a live example of how this works, and how to use the variables, you can check out this [example](https://github.com/github/branch-deploy/blob/691e5df06b952d1f22c2fee49f97e33a8a8c64db/__tests__/templates/test_deployment_message.md) which is used in this repo's unit tests and is self-documenting.
 
 Here is an example of what the final product could look like:
 
