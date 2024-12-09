@@ -409,6 +409,8 @@ test('checks the comment body and finds an explicit environment target for stagi
     'environment_url',
     'http://staging.example.com'
   )
+  expect(saveStateMock).toHaveBeenCalledWith('params', '')
+  expect(saveStateMock).toHaveBeenCalledWith('parsed_params', '')
   expect(setOutputMock).toHaveBeenCalledWith(
     'environment_url',
     'http://staging.example.com'
@@ -451,6 +453,13 @@ test('checks the comment body and finds an explicit environment target for stagi
     'environment_url',
     'http://staging.example.com'
   )
+  expect(saveStateMock).toHaveBeenCalledWith(
+    'params',
+    'something1 something2 something3'
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('parsed_params', {
+    _: ['something1', 'something2', 'something3']
+  })
   expect(setOutputMock).toHaveBeenCalledWith(
     'environment_url',
     'http://staging.example.com'

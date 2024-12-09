@@ -400,6 +400,10 @@ export async function run() {
     // deconstruct the environment object to get the stable_branch_used value
     const stableBranchUsed = environmentObj.environmentObj.stable_branch_used
 
+    // Final params computed by environment
+    const params = environmentObj.environmentObj.params
+    const parsed_params = environmentObj.environmentObj.parsed_params
+
     // If the environment targets are not valid, then exit
     if (!environment) {
       core.debug('No valid environment targets found')
@@ -576,19 +580,65 @@ export async function run() {
       deploymentType = 'noop'
     } else {
       deploymentType =
-        environmentObj.environmentObj.sha !== null ? 'sha' : 'Branch'
+        environmentObj.environmentObj.sha !== null ? 'sha' : 'branch'
     }
     const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+
+    // this is the timestamp that we consider the deployment to have "started" at for logging and auditing purposes
+    // it is not the exact time the deployment started, but it is very close
+    const now = new Date()
+    const deployment_start_time = now.toISOString()
+    core.debug(`deployment_start_time: ${deployment_start_time}`)
+
     const commentBody = dedent(`
       ### Deployment Triggered 🚀
 
       __${
         context.actor
-      }__, started a __${deploymentType.toLowerCase()}__ deployment to __${environment}__
+      }__, started a __${deploymentType}__ deployment to __${environment}__ (${deploymentType}: \`${precheckResults.ref}\`)
 
       You can watch the progress [here](${log_url}) 🔗
 
-      > __${deploymentType}__: \`${precheckResults.ref}\`
+      <details><summary>Details</summary>
+
+      <!--- pre-deploy-metadata-start -->
+
+      \`\`\`json
+      {
+        "type": "${deploymentType.toLowerCase()}",
+        "environment": {
+          "name": "${environment}",
+          "url": ${environmentObj.environmentUrl ? `"${environmentObj.environmentUrl}"` : null}
+        },
+        "deployment": {
+          "timestamp": "${deployment_start_time}",
+          "logs": "${log_url}"
+        },
+        "git": {
+          "branch": "${precheckResults.ref}",
+          "commit": "${precheckResults.sha}"
+        },
+        "context": {
+          "actor": "${context.actor}",
+          "noop": ${precheckResults.noopMode},
+          "fork": ${precheckResults.isFork},
+          "comment": {
+            "created_at": "${context.payload.comment.created_at}",
+            "updated_at": "${context.payload.comment.updated_at}",
+            "body": "${body}",
+            "html_url": "${context.payload.comment.html_url}"
+          }
+        },
+        "parameters": {
+          "raw": ${params ? `"${params}"` : null},
+          "parsed": ${parsed_params ? `${JSON.stringify(parsed_params)}` : null}
+        }
+      }
+      \`\`\`
+
+      <!--- pre-deploy-metadata-end -->
+
+      </details>
     `)
 
     // Make a comment on the PR
@@ -650,9 +700,6 @@ export async function run() {
           ? false
           : true
 
-    // Final params computed by environment
-    const params = environmentObj.environmentObj.params
-    const parsed_params = environmentObj.environmentObj.parsed_params
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,

@@ -17,8 +17,16 @@ If a markdown file exists at the designated path, it will be used and rendered w
 - `status` - The status of the deployment (String) - `success`, `failure`, or `unknown`
 - `noop` - Whether or not the deployment is a noop (Boolean)
 - `ref` - The ref of the deployment (String)
+- `sha` - The sha of the deployment (String)
 - `actor` - The GitHub username of the actor who triggered the deployment (String)
 - `approved_reviews_count` - The number of approved reviews on the pull request at the time of deployment (String of a number)
+- `review_decision` - The review status of the pull request (String or null) - Ex: `APPROVED`, `REVIEW_REQUIRED`, `CHANGES_REQUESTED`, `null` etc.
+- `deployment_id` - The ID of the deployment (Int or null in the case of `.noop` deployments)
+- `fork` - Whether or not the repository is a fork (Boolean)
+- `params` - The raw string of deployment parameters (String)
+- `parsed_params` - A string representation of the parsed deployment parameters (String)
+- `deployment_end_time` - The time the deployment ended - this value is not _exact_ but it is very close (String) [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) UTC format
+- `logs` - The URL to the logs of the deployment (String)
 
 If you wish to see a live example of how this works, and how to use the variables, you can check out this [example](https://github.com/github/branch-deploy/blob/37b50ea86202af7b5505b62bf3eb326da0614b60/__tests__/templates/test_deployment_message.md) which is used in this repo's unit tests and is self-documenting.
 

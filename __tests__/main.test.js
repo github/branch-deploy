@@ -46,6 +46,8 @@ beforeEach(() => {
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(core, 'error').mockImplementation(() => {})
+  process.env.GITHUB_SERVER_URL = 'https://github.com'
+  process.env.GITHUB_RUN_ID = '12345'
   process.env.INPUT_GITHUB_TOKEN = 'faketoken'
   process.env.INPUT_TRIGGER = '.deploy'
   process.env.INPUT_REACTION = 'eyes'
@@ -85,9 +87,13 @@ beforeEach(() => {
       user: {
         login: 'monalisa'
       },
-      created_at: '2024-10-21T19:11:18Z'
+      created_at: '2024-10-21T19:11:18Z',
+      updated_at: '2024-10-21T19:11:18Z',
+      html_url: 'https://github.com/corp/test/pull/123#issuecomment-1231231231'
     }
   }
+
+  github.context.actor = 'monalisa'
 
   jest.spyOn(github, 'getOctokit').mockImplementation(() => {
     return {
@@ -140,7 +146,8 @@ beforeEach(() => {
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
       noopMode: false,
-      sha: mock_sha
+      sha: mock_sha,
+      isFork: false
     }
   })
   jest
@@ -177,6 +184,8 @@ test('successfully runs the action', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
   expect(debugMock).toHaveBeenCalledWith('production_environment: true')
+  expect(saveStateMock).not.toHaveBeenCalledWith('environment_url', String)
+  expect(setOutputMock).not.toHaveBeenCalledWith('environment_url', String)
   expect(infoMock).toHaveBeenCalledWith(
     `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
   )
@@ -218,7 +227,8 @@ test('successfully runs the action in noop mode', async () => {
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
       noopMode: true,
-      sha: 'deadbeef'
+      sha: 'deadbeef',
+      isFork: false
     }
   })
 
@@ -278,6 +288,42 @@ test('successfully runs the action in noop mode when using sticky_locks_for_noop
   expect(saveStateMock).toHaveBeenCalledWith('noop', true)
 })
 
+test('successfully runs the action with an environment url used', async () => {
+  process.env.INPUT_ENVIRONMENT_URLS = 'production|https://example.com'
+  expect(await run()).toBe('success')
+  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
+  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+  expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
+  expect(saveStateMock).toHaveBeenCalledWith(
+    'environment_url',
+    'https://example.com'
+  )
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'environment_url',
+    'https://example.com'
+  )
+  expect(debugMock).toHaveBeenCalledWith('production_environment: true')
+  expect(infoMock).toHaveBeenCalledWith(
+    `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
+  )
+})
+
 test('runs the action and fails due to invalid environment deployment order', async () => {
   process.env.INPUT_ENFORCED_DEPLOYMENT_ORDER = 'development,staging,production'
 
@@ -309,7 +355,8 @@ test('runs the action and fails due to invalid environment deployment order', as
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
       noopMode: false,
-      sha: 'deadbeef'
+      sha: 'deadbeef',
+      isFork: false
     }
   })
 
@@ -768,7 +815,8 @@ test('successfully runs the action on a deployment to an exact sha in developmen
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
       noopMode: false,
-      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc',
+      isFork: false
     }
   })
 
@@ -805,7 +853,8 @@ test('successfully runs the action on a deployment and parse the given parameter
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
       noopMode: false,
-      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc',
+      isFork: false
     }
   })
 
@@ -836,7 +885,8 @@ test('successfully runs the action after trimming the body', async () => {
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
       noopMode: true,
-      sha: 'deadbeef'
+      sha: 'deadbeef',
+      isFork: false
     }
   })
   github.context.payload.comment.body = '.noop    \n\t\n   '
@@ -945,7 +995,8 @@ test('fails prechecks', async () => {
       status: false,
       message: '### ⚠️ Cannot proceed with deployment... something went wrong',
       noopMode: false,
-      sha: 'deadbeef'
+      sha: 'deadbeef',
+      isFork: false
     }
   })
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
@@ -1113,7 +1164,8 @@ test('stores params and parsed params into context with complex params', async (
       status: true,
       message: '✔️ PR is approved and all CI checks passed - OK',
       noopMode: false,
-      sha: 'deadbeef'
+      sha: 'deadbeef',
+      isFork: false
     }
   })
 
