@@ -10,6 +10,11 @@ export async function commitSafetyChecks(context, data) {
   const inputs = data.inputs
   const sha = data.sha
 
+  const isVerified = commit?.verification?.verified === true ? true : false
+  core.debug(`isVerified: ${isVerified}`)
+  core.setOutput('commit_verified', isVerified)
+  core.saveState('commit_verified', isVerified)
+
   const comment_created_at = context.payload.comment.created_at
   core.debug(`comment_created_at: ${comment_created_at}`)
 
@@ -21,14 +26,12 @@ export async function commitSafetyChecks(context, data) {
   if (isTimestampOlder(comment_created_at, commit_created_at)) {
     return {
       message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. It was authored after the trigger comment was created.`,
-      status: false
+      status: false,
+      isVerified: isVerified
     }
   }
 
   // begin the commit verification checks
-  const isVerified = commit?.verification?.verified === true ? true : false
-  core.debug(`isVerified: ${isVerified}`)
-
   if (isVerified) {
     core.info(`🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`)
   } else if (inputs.commit_verification === true && isVerified === false) {
@@ -40,14 +43,12 @@ export async function commitSafetyChecks(context, data) {
     )
   }
 
-  core.setOutput('commit_verified', isVerified)
-  core.saveState('commit_verified', isVerified)
-
   // If commit verification is enabled and the commit signature is not valid (or it is missing / undefined), exit
   if (inputs.commit_verification === true && isVerified === false) {
     return {
       message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`${commit?.verification?.reason}\`\n\n> The commit signature is not valid. Please ensure the commit has been properly signed and try again.`,
-      status: false
+      status: false,
+      isVerified: isVerified
     }
   }
 
@@ -59,12 +60,17 @@ export async function commitSafetyChecks(context, data) {
   ) {
     return {
       message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. The commit signature was verified after the trigger comment was created.`,
-      status: false
+      status: false,
+      isVerified: isVerified
     }
   }
 
   // if we make it through all the checks, we can return a success object
-  return {message: 'success', status: true}
+  return {
+    message: 'success',
+    status: true,
+    isVerified: isVerified
+  }
 }
 
 // A helper method that checks if timestamp A is older than timestamp B

@@ -622,7 +622,8 @@ export async function run() {
         },
         "git": {
           "branch": "${precheckResults.ref}",
-          "commit": "${precheckResults.sha}"
+          "commit": "${precheckResults.sha}",
+          "verified": ${commitSafetyCheckResults.isVerified}
         },
         "context": {
           "actor": "${context.actor}",

@@ -54,7 +54,8 @@ beforeEach(() => {
 test('checks a commit and finds that it is safe (date)', async () => {
   expect(await commitSafetyChecks(context, data)).toStrictEqual({
     message: 'success',
-    status: true
+    status: true,
+    isVerified: false
   })
   expect(debugMock).toHaveBeenCalledWith(
     '2024-10-15T12:00:00Z is not older than 2024-10-15T11:00:00Z'
@@ -78,7 +79,8 @@ test('checks a commit and finds that it is safe (date + verification)', async ()
   }
   expect(await commitSafetyChecks(context, data)).toStrictEqual({
     message: 'success',
-    status: true
+    status: true,
+    isVerified: true
   })
   expect(debugMock).toHaveBeenCalledWith(
     '2024-10-15T12:00:00Z is not older than 2024-10-15T11:00:00Z'
@@ -95,12 +97,13 @@ test('checks a commit and finds that it is not safe (date)', async () => {
   expect(await commitSafetyChecks(context, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. It was authored after the trigger comment was created.',
-    status: false
+    status: false,
+    isVerified: false
   })
   expect(debugMock).toHaveBeenCalledWith(
     '2024-10-15T12:00:00Z is older than 2024-10-15T12:00:01Z'
   )
-  expect(debugMock).not.toHaveBeenCalledWith('isVerified: false')
+  expect(debugMock).toHaveBeenCalledWith('isVerified: false')
 })
 
 test('checks a commit and finds that it is not safe (verification)', async () => {
@@ -115,7 +118,8 @@ test('checks a commit and finds that it is not safe (verification)', async () =>
 
   expect(await commitSafetyChecks(context, data)).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`${data.commit.verification.reason}\`\n\n> The commit signature is not valid. Please ensure the commit has been properly signed and try again.`,
-    status: false
+    status: false,
+    isVerified: false
   })
   expect(debugMock).toHaveBeenCalledWith(
     '2024-10-15T12:00:00Z is not older than 2024-10-15T11:00:00Z'
@@ -140,7 +144,8 @@ test('checks a commit and finds that it is not safe (verification time) even tho
 
   expect(await commitSafetyChecks(context, data)).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. The commit signature was verified after the trigger comment was created.`,
-    status: false
+    status: false,
+    isVerified: true
   })
   expect(debugMock).toHaveBeenCalledWith(
     '2024-10-15T12:00:00Z is not older than 2024-10-15T11:00:00Z'
