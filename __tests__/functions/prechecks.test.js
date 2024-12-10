@@ -58,7 +58,8 @@ beforeEach(() => {
       draft_permitted_targets: '',
       checks: 'all',
       permissions: ['admin', 'write', 'maintain'],
-      commit_verification: false
+      commit_verification: false,
+      ignored_checks: []
     }
   }
 
