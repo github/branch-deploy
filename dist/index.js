@@ -44838,6 +44838,7 @@ async function post() {
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
+      userAgent: 'github/branch-deploy',
       additionalPlugins: [dist_node.octokitRetry]
     })
 
@@ -45621,6 +45622,7 @@ async function run() {
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
+      userAgent: 'github/branch-deploy',
       additionalPlugins: [dist_node.octokitRetry]
     })
 
