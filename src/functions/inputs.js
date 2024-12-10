@@ -99,6 +99,6 @@ export function getInputs() {
     sticky_locks_for_noop: sticky_locks_for_noop,
     enforced_deployment_order: enforced_deployment_order,
     commit_verification: commit_verification,
-    ignored_checks: ignored_checks,
+    ignored_checks: ignored_checks
   }
 }

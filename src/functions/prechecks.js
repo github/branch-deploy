@@ -147,6 +147,7 @@ export async function prechecks(context, octokit, data) {
                                                     ... on CheckRun {
                                                         isRequired(pullRequestNumber:$number)
                                                         conclusion
+                                                        name
                                                     }
                                                 }
                                             }
