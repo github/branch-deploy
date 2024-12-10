@@ -304,6 +304,184 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   expect(debugMock).toHaveBeenCalledWith('ignoring ci check: markdown-lint')
 })
 
+test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with a few explictly requested checks and a few ignored checks', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'CLEAN',
+        reviews: {
+          totalCount: 1
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abc123',
+                checkSuites: {
+                  totalCount: 5
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE',
+                  contexts: {
+                    nodes: [
+                      {
+                        isRequired: true,
+                        conclusion: 'SUCCESS',
+                        name: 'test'
+                      },
+                      {
+                        isRequired: false,
+                        conclusion: 'SUCCESS',
+                        name: 'acceptance-test'
+                      },
+                      {
+                        isRequired: true,
+                        conclusion: 'SKIPPED',
+                        name: 'lint'
+                      },
+                      {
+                        isRequired: false,
+                        conclusion: 'FAILURE',
+                        name: 'build'
+                      },
+                      {
+                        isRequired: true,
+                        conclusion: 'FAILURE',
+                        name: 'markdown-lint'
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+
+  data.inputs.checks = ['test', 'acceptance-test', 'lint']
+  data.inputs.ignored_checks = ['lint']
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message: '✅ PR is approved and all CI checks passed',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true,
+    sha: 'abc123',
+    isFork: false
+  })
+
+  expect(debugMock).toHaveBeenCalledWith('explicitly including ci check: test')
+  expect(debugMock).toHaveBeenCalledWith(
+    'explicitly including ci check: acceptance-test'
+  )
+  expect(debugMock).toHaveBeenCalledWith('explicitly including ci check: lint')
+  expect(debugMock).not.toHaveBeenCalledWith('ignoring ci check: markdown-lint')
+  expect(debugMock).toHaveBeenCalledWith('ignoring ci check: lint')
+})
+
+test('runs prechecks and finds that the IssueOps command is valid for a branch deployment but checks and ignore checks cancel eachother out', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'CLEAN',
+        reviews: {
+          totalCount: 1
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abc123',
+                checkSuites: {
+                  totalCount: 5
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE',
+                  contexts: {
+                    nodes: [
+                      {
+                        isRequired: true,
+                        conclusion: 'SUCCESS',
+                        name: 'test'
+                      },
+                      {
+                        isRequired: false,
+                        conclusion: 'SUCCESS',
+                        name: 'acceptance-test'
+                      },
+                      {
+                        isRequired: true,
+                        conclusion: 'SKIPPED',
+                        name: 'lint'
+                      },
+                      {
+                        isRequired: false,
+                        conclusion: 'FAILURE',
+                        name: 'build'
+                      },
+                      {
+                        isRequired: true,
+                        conclusion: 'FAILURE',
+                        name: 'markdown-lint'
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+
+  data.inputs.checks = [
+    'test',
+    'acceptance-test',
+    'lint',
+    'markdown-lint',
+    'build'
+  ]
+  data.inputs.ignored_checks = [
+    'markdown-lint',
+    'lint',
+    'build',
+    'test',
+    'acceptance-test'
+  ]
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message: '✅ PR is approved and all CI checks passed',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true,
+    sha: 'abc123',
+    isFork: false
+  })
+
+  expect(debugMock).toHaveBeenCalledWith('explicitly including ci check: test')
+  expect(debugMock).toHaveBeenCalledWith(
+    'explicitly including ci check: acceptance-test'
+  )
+  expect(debugMock).toHaveBeenCalledWith('explicitly including ci check: lint')
+  expect(debugMock).toHaveBeenCalledWith(
+    'explicitly including ci check: markdown-lint'
+  )
+  expect(debugMock).toHaveBeenCalledWith('explicitly including ci check: build')
+  expect(debugMock).toHaveBeenCalledWith('ignoring ci check: markdown-lint')
+  expect(debugMock).toHaveBeenCalledWith('ignoring ci check: lint')
+  expect(debugMock).toHaveBeenCalledWith('ignoring ci check: build')
+  expect(debugMock).toHaveBeenCalledWith('ignoring ci check: test')
+  expect(debugMock).toHaveBeenCalledWith('ignoring ci check: acceptance-test')
+  expect(debugMock).toHaveBeenCalledWith(
+    'after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined'
+  )
+})
+
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with ALL checks being required but the user has provided some checks to ignore', async () => {
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
@@ -375,6 +553,79 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 
   expect(debugMock).toHaveBeenCalledWith('ignoring ci check: build')
   expect(debugMock).toHaveBeenCalledWith('ignoring ci check: markdown-lint')
+})
+
+test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with ALL checks being required but the user has provided some checks to ignore', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'CLEAN',
+        reviews: {
+          totalCount: 1
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abc123',
+                checkSuites: {
+                  totalCount: 5
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE',
+                  contexts: {
+                    nodes: [
+                      {
+                        isRequired: true,
+                        conclusion: 'SUCCESS',
+                        name: 'test'
+                      },
+                      {
+                        isRequired: true,
+                        conclusion: 'SKIPPED',
+                        name: 'lint'
+                      },
+                      {
+                        isRequired: false,
+                        conclusion: 'NEUTRAL',
+                        name: 'acceptance-test'
+                      },
+                      {
+                        isRequired: false,
+                        conclusion: 'FAILURE',
+                        name: 'build'
+                      },
+                      {
+                        isRequired: true,
+                        conclusion: 'FAILURE',
+                        name: 'markdown-lint'
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+
+  data.inputs.checks = [] // if the array is empty, this essentially says "include all checks"
+  data.inputs.ignored_checks = [] // if the array is empty, this essentially says "don't ignore any checks"
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
+    status: false
+  })
+
+  expect(debugMock).not.toHaveBeenCalledWith(
+    'explicitly including ci check: test'
+  )
+  expect(debugMock).not.toHaveBeenCalledWith('ignoring ci check: build')
+  expect(debugMock).not.toHaveBeenCalledWith('ignoring ci check: markdown-lint')
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with ALL checks being required but the user has provided some checks to ignore but none match', async () => {

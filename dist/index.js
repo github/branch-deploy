@@ -42904,8 +42904,17 @@ async function prechecks(context, octokit, data) {
           false
         )
       }
+
+      // if we make it here, checks is not a string (e.g. 'all' or 'required') but it is actually an array of the exact checks...
+      // that a user wants to pass in order for the deployment to proceed
     } else {
-      // TODO
+      commitStatus = filterChecks(
+        checks,
+        result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup
+          .contexts.nodes,
+        ignoredChecks,
+        false
+      )
     }
   } catch (e) {
     core.debug(
@@ -43312,7 +43321,21 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
   core.debug(`filterChecks() - ignoredChecks: ${ignoredChecks}`)
   core.debug(`filterChecks() - required: ${required}`)
 
-  return checkResults
+  const result = checkResults
+    .filter(check => {
+      // If checks is an array and it contains items, filter checks based on it
+      if (Array.isArray(checks) && checks.length > 0) {
+        const isIncluded = checks.includes(check.name)
+        if (isIncluded) {
+          core.debug(`explicitly including ci check: ${check.name}`)
+        }
+
+        return checks.includes(check.name)
+      }
+      return true
+    })
+
+    // Filter out ignored checks
     .filter(check => {
       const isIgnored = ignoredChecks.includes(check.name)
       if (isIgnored) {
@@ -43320,12 +43343,23 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
       }
       return !isIgnored && (required ? check.isRequired : true)
     })
+
+  const resultReduced = result
+    // Return the combined status of the remaining checks
     .reduce(
       (acc, check) => acc && healthyCheckStatuses.includes(check.conclusion),
       true
     )
     ? 'SUCCESS'
     : 'FAILURE'
+
+  if (result.length === 0) {
+    core.debug(
+      'after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined'
+    )
+  }
+
+  return resultReduced
 }
 
 ;// CONCATENATED MODULE: ./src/functions/valid-branch-name.js
