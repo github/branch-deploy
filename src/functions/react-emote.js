@@ -1,3 +1,5 @@
+import {API_HEADERS} from './api-headers'
+
 // Fixed presets of allowed emote types as defined by GitHub
 const presets = [
   '+1',
@@ -35,7 +37,8 @@ export async function reactEmote(reaction, context, octokit) {
     owner,
     repo,
     comment_id: context.payload.comment.id,
-    content: preset
+    content: preset,
+    headers: API_HEADERS
   })
 
   // Return the reactRes which contains the id for reference later

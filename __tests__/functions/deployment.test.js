@@ -4,6 +4,7 @@ import {
   activeDeployment
 } from '../../src/functions/deployment'
 import * as core from '@actions/core'
+import {API_HEADERS} from '../../src/functions/api-headers'
 
 var octokit
 var context
@@ -117,7 +118,8 @@ test('creates an in_progress deployment status', async () => {
     state: 'in_progress',
     environment: environment,
     environment_url: null,
-    log_url: logUrl
+    log_url: logUrl,
+    headers: API_HEADERS
   })
 })
 

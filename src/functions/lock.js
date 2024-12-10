@@ -6,6 +6,7 @@ import {constructValidBranchName} from './valid-branch-name'
 import {timeDiff} from './time-diff'
 import {LOCK_METADATA} from './lock-metadata'
 import {COLORS} from './colors'
+import {API_HEADERS} from './api-headers'
 
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
@@ -78,7 +79,8 @@ async function createLock(
     message: LOCK_COMMIT_MSG,
     content: Buffer.from(JSON.stringify(lockData)).toString('base64'),
     branch: await constructBranchName(environment, global),
-    request: {retries: 10, retryAfter: 1} // retry up to 10 times with a 1s delay
+    request: {retries: 10, retryAfter: 1}, // retry up to 10 times with a 1s delay
+    headers: API_HEADERS
   })
 
   if (global === true) {
@@ -249,7 +251,8 @@ async function checkBranch(octokit, context, branchName) {
   try {
     await octokit.rest.repos.getBranch({
       ...context.repo,
-      branch: branchName
+      branch: branchName,
+      headers: API_HEADERS
     })
 
     core.debug(`branch '${branchName}' exists`)
@@ -278,20 +281,23 @@ async function createBranch(octokit, context, branchName) {
 
   // Determine the default branch for the repo
   const repoData = await octokit.rest.repos.get({
-    ...context.repo
+    ...context.repo,
+    headers: API_HEADERS
   })
 
   // Fetch the base branch to use its SHA as the parent
   const baseBranch = await octokit.rest.repos.getBranch({
     ...context.repo,
-    branch: repoData.data.default_branch
+    branch: repoData.data.default_branch,
+    headers: API_HEADERS
   })
 
   // Create the lock branch
   await octokit.rest.git.createRef({
     ...context.repo,
     ref: `refs/heads/${branchName}`,
-    sha: baseBranch.data.commit.sha
+    sha: baseBranch.data.commit.sha,
+    headers: API_HEADERS
   })
 
   core.info(`🔒 created lock branch: ${COLORS.highlight}${branchName}`)

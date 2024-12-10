@@ -27,6 +27,7 @@ import {getInputs} from './functions/inputs'
 import {constructValidBranchName} from './functions/valid-branch-name'
 import {validDeploymentOrder} from './functions/valid-deployment-order'
 import {commitSafetyChecks} from './functions/commit-safety-checks'
+import {API_HEADERS} from './functions/api-headers'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -350,7 +351,8 @@ export async function run() {
         // Get the ref to use with the lock request
         const pr = await octokit.rest.pulls.get({
           ...context.repo,
-          pull_number: context.issue.number
+          pull_number: context.issue.number,
+          headers: API_HEADERS
         })
 
         // Send the lock request
@@ -448,7 +450,8 @@ export async function run() {
     const commitData = await octokit.rest.repos.getCommit({
       owner: context.repo.owner,
       repo: context.repo.repo,
-      ref: precheckResults.sha // exact SHAs can be used here in the ref parameter (which is what we want)
+      ref: precheckResults.sha, // exact SHAs can be used here in the ref parameter (which is what we want)
+      headers: API_HEADERS
     })
 
     // Run commit safety checks
@@ -652,7 +655,8 @@ export async function run() {
     const initialComment = await octokit.rest.issues.createComment({
       ...context.repo,
       issue_number: context.issue.number,
-      body: commentBody
+      body: commentBody,
+      headers: API_HEADERS
     })
 
     // Set output for initial comment id
@@ -724,7 +728,8 @@ export async function run() {
         sha: precheckResults.sha,
         params: params,
         parsed_params: parsed_params
-      }
+      },
+      headers: API_HEADERS
     })
     core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)

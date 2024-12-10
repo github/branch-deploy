@@ -1,4 +1,5 @@
 import * as core from '@actions/core'
+import {API_HEADERS} from './api-headers'
 
 // Helper function to check if an actor has permissions to use this Action in a given repository
 // :param octokit: The octokit client
@@ -18,7 +19,8 @@ export async function validPermissions(
   const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(
     {
       ...context.repo,
-      username: context.actor
+      username: context.actor,
+      headers: API_HEADERS
     }
   )
 

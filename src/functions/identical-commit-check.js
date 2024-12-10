@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import {COLORS} from './colors'
+import {API_HEADERS} from './api-headers'
 
 // Helper function to check if the current deployment's ref is identical to the merge commit
 // :param octokit: the authenticated octokit instance
@@ -13,7 +14,8 @@ export async function identicalCommitCheck(octokit, context, environment) {
   // find the default branch
   const {data: repoData} = await octokit.rest.repos.get({
     owner,
-    repo
+    repo,
+    headers: API_HEADERS
   })
   const defaultBranchName = repoData.default_branch
   core.debug(`default branch name: ${defaultBranchName}`)
@@ -22,7 +24,8 @@ export async function identicalCommitCheck(octokit, context, environment) {
   const {data: defaultBranchData} = await octokit.rest.repos.getBranch({
     owner,
     repo,
-    branch: defaultBranchName
+    branch: defaultBranchName,
+    headers: API_HEADERS
   })
   const defaultBranchTreeSha = defaultBranchData.commit.commit.tree.sha
   core.debug(`default branch tree sha: ${defaultBranchTreeSha}`)
@@ -34,7 +37,8 @@ export async function identicalCommitCheck(octokit, context, environment) {
     environment,
     sort: 'created_at',
     direction: 'desc',
-    per_page: 100
+    per_page: 100,
+    headers: API_HEADERS
   })
   // loop through all deployments and look for the latest deployment with the payload type of branch-deploy
   var latestDeploymentTreeSha
@@ -50,7 +54,8 @@ export async function identicalCommitCheck(octokit, context, environment) {
       const commitData = await octokit.rest.repos.getCommit({
         owner,
         repo,
-        ref: latestDeploymentTreeSha
+        ref: latestDeploymentTreeSha,
+        headers: API_HEADERS
       })
       latestDeploymentTreeSha = commitData.data.commit.tree.sha
       break

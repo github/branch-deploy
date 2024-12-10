@@ -40024,7 +40024,13 @@ const LOCK_METADATA = {
   lockFile: 'lock.json'
 }
 
+;// CONCATENATED MODULE: ./src/functions/api-headers.js
+const API_HEADERS = {
+  'X-GitHub-Api-Version': '2022-11-28'
+}
+
 ;// CONCATENATED MODULE: ./src/functions/naked-command-check.js
+
 
 
 
@@ -40119,14 +40125,16 @@ async function nakedCommandCheck(
       await octokit.rest.issues.createComment({
         ...context.repo,
         issue_number: context.issue.number,
-        body: message
+        body: message,
+        headers: API_HEADERS
       })
 
       // add a reaction to the issue_comment to indicate failure
       await octokit.rest.reactions.createForIssueComment({
         ...context.repo,
         comment_id: context.payload.comment.id,
-        content: thumbsDown
+        content: thumbsDown,
+        headers: API_HEADERS
       })
 
       break
@@ -40137,6 +40145,8 @@ async function nakedCommandCheck(
 }
 
 ;// CONCATENATED MODULE: ./src/functions/react-emote.js
+
+
 // Fixed presets of allowed emote types as defined by GitHub
 const presets = [
   '+1',
@@ -40174,7 +40184,8 @@ async function reactEmote(reaction, context, octokit) {
     owner,
     repo,
     comment_id: context.payload.comment.id,
-    content: preset
+    content: preset,
+    headers: API_HEADERS
   })
 
   // Return the reactRes which contains the id for reference later
@@ -40243,6 +40254,7 @@ function truncateCommentBody(message) {
 ;// CONCATENATED MODULE: ./src/functions/action-status.js
 
 
+
 // Default failure reaction
 const action_status_thumbsDown = '-1'
 // Default success reaction
@@ -40276,7 +40288,8 @@ async function actionStatus(
   await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: context.issue.number,
-    body: truncateCommentBody(message)
+    body: truncateCommentBody(message),
+    headers: API_HEADERS
   })
 
   // Select the reaction to add to the issue_comment
@@ -40295,14 +40308,16 @@ async function actionStatus(
   await octokit.rest.reactions.createForIssueComment({
     ...context.repo,
     comment_id: context.payload.comment.id,
-    content: reaction
+    content: reaction,
+    headers: API_HEADERS
   })
 
   // remove the initial reaction on the IssueOp comment that triggered this action
   await octokit.rest.reactions.deleteForIssueComment({
     ...context.repo,
     comment_id: context.payload.comment.id,
-    reaction_id: reactionId
+    reaction_id: reactionId,
+    headers: API_HEADERS
   })
 }
 
@@ -42091,6 +42106,7 @@ async function environmentTargets(
 ;// CONCATENATED MODULE: ./src/functions/deployment.js
 
 
+
 // Helper function to add deployment statuses to a PR / ref
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
@@ -42120,7 +42136,8 @@ async function createDeploymentStatus(
     state: state,
     log_url: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${context.runId}`,
     environment: environment,
-    environment_url: environment_url
+    environment_url: environment_url,
+    headers: API_HEADERS
   })
 
   return result
@@ -42268,6 +42285,7 @@ function buildQuery(page = null) {
 
 
 
+
 // The old and common trigger for noop style deployments
 const oldNoopInput = '.deploy noop'
 const docsLink =
@@ -42298,14 +42316,16 @@ async function isDeprecated(body, octokit, context) {
     await octokit.rest.issues.createComment({
       ...context.repo,
       issue_number: context.issue.number,
-      body: message
+      body: message,
+      headers: API_HEADERS
     })
 
     // add a reaction to the issue_comment to indicate failure
     await octokit.rest.reactions.createForIssueComment({
       ...context.repo,
       comment_id: context.payload.comment.id,
-      content: deprecated_checks_thumbsDown
+      content: deprecated_checks_thumbsDown,
+      headers: API_HEADERS
     })
 
     return true
@@ -42316,6 +42336,7 @@ async function isDeprecated(body, octokit, context) {
 }
 
 ;// CONCATENATED MODULE: ./src/functions/valid-permissions.js
+
 
 
 // Helper function to check if an actor has permissions to use this Action in a given repository
@@ -42336,7 +42357,8 @@ async function validPermissions(
   const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(
     {
       ...context.repo,
-      username: context.actor
+      username: context.actor,
+      headers: API_HEADERS
     }
   )
 
@@ -42363,6 +42385,7 @@ async function validPermissions(
 var github_username_regex_js = __nccwpck_require__(3016);
 var github_username_regex_js_default = /*#__PURE__*/__nccwpck_require__.n(github_username_regex_js);
 ;// CONCATENATED MODULE: ./src/functions/admin.js
+
 
 
 
@@ -42398,14 +42421,16 @@ async function orgTeamCheck(actor, orgTeams) {
     try {
       // Make an API call to get the org id
       const orgData = await octokit.rest.orgs.get({
-        org: org
+        org: org,
+        headers: API_HEADERS
       })
       const orgId = orgData.data.id
 
       // Make an API call to get the team id
       const teamData = await octokit.rest.teams.getByName({
         org: org,
-        team_slug: team
+        team_slug: team,
+        headers: API_HEADERS
       })
       const teamId = teamData.data.id
 
@@ -42502,6 +42527,7 @@ async function isAdmin(context) {
 
 
 
+
 // Helper function to check to see if the PR branch is outdated in anyway based on the Action's configuration
 //
 // outdated_mode can be: pr_base, default_branch, or strict (default)
@@ -42528,7 +42554,8 @@ async function isOutdated(context, octokit, data) {
     const compare = await octokit.rest.repos.compareCommits({
       ...context.repo,
       base: baseBranch.data.commit.sha,
-      head: prBranch.data.head.sha
+      head: prBranch.data.head.sha,
+      headers: API_HEADERS
     })
 
     if (compare.data.behind_by > 0) {
@@ -42623,6 +42650,7 @@ function stringToArray(string) {
 
 
 
+
 // Runs precheck logic before the branch deployment can proceed
 // :param context: The context of the event
 // :param octokit: The octokit client
@@ -42645,7 +42673,8 @@ async function prechecks(context, octokit, data) {
   // Get the PR data
   const pr = await octokit.rest.pulls.get({
     ...context.repo,
-    pull_number: context.issue.number
+    pull_number: context.issue.number,
+    headers: API_HEADERS
   })
   if (pr.status !== 200) {
     message = `Could not retrieve PR info: ${pr.status}`
@@ -42680,7 +42709,8 @@ async function prechecks(context, octokit, data) {
   // https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#get-a-branch
   const stableBaseBranch = await octokit.rest.repos.getBranch({
     ...context.repo,
-    branch: data.inputs.stable_branch
+    branch: data.inputs.stable_branch,
+    headers: API_HEADERS
   })
 
   // we also want to output the default branch tree sha of the base branch (e.g. the default branch)
@@ -42889,7 +42919,8 @@ async function prechecks(context, octokit, data) {
   // Make an API call to get the base branch that the pull request is targeting
   const baseBranch = await octokit.rest.repos.getBranch({
     ...context.repo,
-    branch: pr.data.base.ref
+    branch: pr.data.base.ref,
+    headers: API_HEADERS
   })
 
   // Check to see if the branch is outdated or not based on the Action's configuration
@@ -43015,7 +43046,8 @@ async function prechecks(context, octokit, data) {
     try {
       const result = await octokit.rest.pulls.updateBranch({
         ...context.repo,
-        pull_number: context.issue.number
+        pull_number: context.issue.number,
+        headers: API_HEADERS
       })
 
       // If the result is not a 202, return an error message and exit
@@ -43282,6 +43314,7 @@ function constructValidBranchName(branch) {
 
 
 
+
 const LOCK_FILE = LOCK_METADATA.lockFile
 
 // Helper function to check if a lock file exists and decodes it if it does
@@ -43299,7 +43332,8 @@ async function checkLockFile(octokit, context, branchName) {
     const response = await octokit.rest.repos.getContent({
       ...context.repo,
       path: LOCK_FILE,
-      ref: branchName
+      ref: branchName,
+      headers: API_HEADERS
     })
 
     // decode the file contents to json
@@ -43349,6 +43383,7 @@ async function timeDiff(firstDate, secondDate) {
 }
 
 ;// CONCATENATED MODULE: ./src/functions/lock.js
+
 
 
 
@@ -43429,7 +43464,8 @@ async function createLock(
     message: LOCK_COMMIT_MSG,
     content: Buffer.from(JSON.stringify(lockData)).toString('base64'),
     branch: await constructBranchName(environment, global),
-    request: {retries: 10, retryAfter: 1} // retry up to 10 times with a 1s delay
+    request: {retries: 10, retryAfter: 1}, // retry up to 10 times with a 1s delay
+    headers: API_HEADERS
   })
 
   if (global === true) {
@@ -43600,7 +43636,8 @@ async function checkBranch(octokit, context, branchName) {
   try {
     await octokit.rest.repos.getBranch({
       ...context.repo,
-      branch: branchName
+      branch: branchName,
+      headers: API_HEADERS
     })
 
     core.debug(`branch '${branchName}' exists`)
@@ -43629,20 +43666,23 @@ async function createBranch(octokit, context, branchName) {
 
   // Determine the default branch for the repo
   const repoData = await octokit.rest.repos.get({
-    ...context.repo
+    ...context.repo,
+    headers: API_HEADERS
   })
 
   // Fetch the base branch to use its SHA as the parent
   const baseBranch = await octokit.rest.repos.getBranch({
     ...context.repo,
-    branch: repoData.data.default_branch
+    branch: repoData.data.default_branch,
+    headers: API_HEADERS
   })
 
   // Create the lock branch
   await octokit.rest.git.createRef({
     ...context.repo,
     ref: `refs/heads/${branchName}`,
-    sha: baseBranch.data.commit.sha
+    sha: baseBranch.data.commit.sha,
+    headers: API_HEADERS
   })
 
   core.info(`🔒 created lock branch: ${COLORS.highlight}${branchName}`)
@@ -44016,6 +44056,7 @@ async function lock(
 
 
 
+
 // Constants for the lock file
 const unlock_LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
 const unlock_GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
@@ -44109,7 +44150,8 @@ async function unlock(
     // Delete the lock branch
     const result = await octokit.rest.git.deleteRef({
       ...context.repo,
-      ref: `heads/${branchName}`
+      ref: `heads/${branchName}`,
+      headers: API_HEADERS
     })
 
     // If the lock was successfully released, return true
@@ -44208,6 +44250,7 @@ async function unlock(
 ;// CONCATENATED MODULE: ./src/functions/label.js
 
 
+
 // Helper function to add labels to a pull request
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
@@ -44237,7 +44280,8 @@ async function label(context, octokit, labelsToAdd, labelsToRemove) {
     const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
       owner: owner,
       repo: repo,
-      issue_number: issueNumber
+      issue_number: issueNumber,
+      headers: API_HEADERS
     })
     const currentLabels = currentLabelsResult.data.map(label => label.name)
 
@@ -44251,7 +44295,8 @@ async function label(context, octokit, labelsToAdd, labelsToRemove) {
           owner: owner,
           repo: repo,
           issue_number: issueNumber,
-          name: label
+          name: label,
+          headers: API_HEADERS
         })
         core.info(`🏷️ label removed: ${label}`)
         removedLabels.push(label)
@@ -44268,7 +44313,8 @@ async function label(context, octokit, labelsToAdd, labelsToRemove) {
       owner: owner,
       repo: repo,
       issue_number: issueNumber,
-      labels: labelsToAdd
+      labels: labelsToAdd,
+      headers: API_HEADERS
     })
     core.info(`🏷️ labels added: ${labelsToAdd}`)
 
@@ -44813,6 +44859,7 @@ async function post() {
 
 
 
+
 // Helper function to check if the current deployment's ref is identical to the merge commit
 // :param octokit: the authenticated octokit instance
 // :param context: the context object
@@ -44825,7 +44872,8 @@ async function identicalCommitCheck(octokit, context, environment) {
   // find the default branch
   const {data: repoData} = await octokit.rest.repos.get({
     owner,
-    repo
+    repo,
+    headers: API_HEADERS
   })
   const defaultBranchName = repoData.default_branch
   core.debug(`default branch name: ${defaultBranchName}`)
@@ -44834,7 +44882,8 @@ async function identicalCommitCheck(octokit, context, environment) {
   const {data: defaultBranchData} = await octokit.rest.repos.getBranch({
     owner,
     repo,
-    branch: defaultBranchName
+    branch: defaultBranchName,
+    headers: API_HEADERS
   })
   const defaultBranchTreeSha = defaultBranchData.commit.commit.tree.sha
   core.debug(`default branch tree sha: ${defaultBranchTreeSha}`)
@@ -44846,7 +44895,8 @@ async function identicalCommitCheck(octokit, context, environment) {
     environment,
     sort: 'created_at',
     direction: 'desc',
-    per_page: 100
+    per_page: 100,
+    headers: API_HEADERS
   })
   // loop through all deployments and look for the latest deployment with the payload type of branch-deploy
   var latestDeploymentTreeSha
@@ -44862,7 +44912,8 @@ async function identicalCommitCheck(octokit, context, environment) {
       const commitData = await octokit.rest.repos.getCommit({
         owner,
         repo,
-        ref: latestDeploymentTreeSha
+        ref: latestDeploymentTreeSha,
+        headers: API_HEADERS
       })
       latestDeploymentTreeSha = commitData.data.commit.tree.sha
       break
@@ -45556,6 +45607,7 @@ function isTimestampOlder(timestampA, timestampB) {
 
 
 
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
@@ -45878,7 +45930,8 @@ async function run() {
         // Get the ref to use with the lock request
         const pr = await octokit.rest.pulls.get({
           ...github.context.repo,
-          pull_number: github.context.issue.number
+          pull_number: github.context.issue.number,
+          headers: API_HEADERS
         })
 
         // Send the lock request
@@ -45976,7 +46029,8 @@ async function run() {
     const commitData = await octokit.rest.repos.getCommit({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      ref: precheckResults.sha // exact SHAs can be used here in the ref parameter (which is what we want)
+      ref: precheckResults.sha, // exact SHAs can be used here in the ref parameter (which is what we want)
+      headers: API_HEADERS
     })
 
     // Run commit safety checks
@@ -46180,7 +46234,8 @@ async function run() {
     const initialComment = await octokit.rest.issues.createComment({
       ...github.context.repo,
       issue_number: github.context.issue.number,
-      body: commentBody
+      body: commentBody,
+      headers: API_HEADERS
     })
 
     // Set output for initial comment id
@@ -46252,7 +46307,8 @@ async function run() {
         sha: precheckResults.sha,
         params: params,
         parsed_params: parsed_params
-      }
+      },
+      headers: API_HEADERS
     })
     core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)

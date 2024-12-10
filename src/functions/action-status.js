@@ -1,4 +1,5 @@
 import {truncateCommentBody} from './truncate-comment-body'
+import {API_HEADERS} from './api-headers'
 
 // Default failure reaction
 const thumbsDown = '-1'
@@ -33,7 +34,8 @@ export async function actionStatus(
   await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: context.issue.number,
-    body: truncateCommentBody(message)
+    body: truncateCommentBody(message),
+    headers: API_HEADERS
   })
 
   // Select the reaction to add to the issue_comment
@@ -52,13 +54,15 @@ export async function actionStatus(
   await octokit.rest.reactions.createForIssueComment({
     ...context.repo,
     comment_id: context.payload.comment.id,
-    content: reaction
+    content: reaction,
+    headers: API_HEADERS
   })
 
   // remove the initial reaction on the IssueOp comment that triggered this action
   await octokit.rest.reactions.deleteForIssueComment({
     ...context.repo,
     comment_id: context.payload.comment.id,
-    reaction_id: reactionId
+    reaction_id: reactionId,
+    headers: API_HEADERS
   })
 }

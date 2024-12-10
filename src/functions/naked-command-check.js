@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import {COLORS} from './colors'
 import dedent from 'dedent-js'
 import {LOCK_METADATA} from './lock-metadata'
+import {API_HEADERS} from './api-headers'
 
 const thumbsDown = '-1'
 const docs =
@@ -92,14 +93,16 @@ export async function nakedCommandCheck(
       await octokit.rest.issues.createComment({
         ...context.repo,
         issue_number: context.issue.number,
-        body: message
+        body: message,
+        headers: API_HEADERS
       })
 
       // add a reaction to the issue_comment to indicate failure
       await octokit.rest.reactions.createForIssueComment({
         ...context.repo,
         comment_id: context.payload.comment.id,
-        content: thumbsDown
+        content: thumbsDown,
+        headers: API_HEADERS
       })
 
       break

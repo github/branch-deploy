@@ -1,4 +1,5 @@
 import * as core from '@actions/core'
+import {API_HEADERS} from './api-headers'
 
 // Helper function to add labels to a pull request
 // :param context: The GitHub Actions event context
@@ -29,7 +30,8 @@ export async function label(context, octokit, labelsToAdd, labelsToRemove) {
     const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
       owner: owner,
       repo: repo,
-      issue_number: issueNumber
+      issue_number: issueNumber,
+      headers: API_HEADERS
     })
     const currentLabels = currentLabelsResult.data.map(label => label.name)
 
@@ -43,7 +45,8 @@ export async function label(context, octokit, labelsToAdd, labelsToRemove) {
           owner: owner,
           repo: repo,
           issue_number: issueNumber,
-          name: label
+          name: label,
+          headers: API_HEADERS
         })
         core.info(`🏷️ label removed: ${label}`)
         removedLabels.push(label)
@@ -60,7 +63,8 @@ export async function label(context, octokit, labelsToAdd, labelsToRemove) {
       owner: owner,
       repo: repo,
       issue_number: issueNumber,
-      labels: labelsToAdd
+      labels: labelsToAdd,
+      headers: API_HEADERS
     })
     core.info(`🏷️ labels added: ${labelsToAdd}`)
 
