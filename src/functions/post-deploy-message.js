@@ -21,6 +21,7 @@ import nunjucks from 'nunjucks'
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 //   - attribute: deployment_end_time: The time the deployment ended - this value is not _exact_ but it is very close (String)
 //   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
+//   - attribute: total_seconds: The total amount of seconds that the deployment took (Int)
 // :returns: The formatted message (String)
 export async function postDeployMessage(context, data) {
   // fetch the inputs
@@ -47,7 +48,8 @@ export async function postDeployMessage(context, data) {
     deployment_end_time: data.deployment_end_time,
     actor: context.actor,
     logs: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`,
-    commit_verified: data.commit_verified
+    commit_verified: data.commit_verified,
+    total_seconds: data.total_seconds
   }
 
   // this is kinda gross but wrangling dedent() and nunjucks is a pain
@@ -66,7 +68,8 @@ export async function postDeployMessage(context, data) {
     \t\t\t\t  "deployment": {
     \t\t\t\t    "id": ${vars.deployment_id},
     \t\t\t\t    "timestamp": "${vars.deployment_end_time}",
-    \t\t\t\t    "logs": "${vars.logs}"
+    \t\t\t\t    "logs": "${vars.logs}",
+    \t\t\t\t    "duration": ${vars.total_seconds}
     \t\t\t\t  },
     \t\t\t\t  "git": {
     \t\t\t\t    "branch": "${vars.ref}",

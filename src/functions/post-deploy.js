@@ -31,6 +31,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 //   - attribute: params: The raw string of deployment parameters (String)
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 //   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
+//   - attribute: deployment_start_time: The timestamp of when the deployment started (String)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(context, octokit, data) {
   // check the inputs to ensure they are valid
@@ -50,6 +51,16 @@ export async function postDeploy(context, octokit, data) {
   const deployment_end_time = now.toISOString()
   core.debug(`deployment_end_time: ${deployment_end_time}`)
 
+  // calculate the total amount of seconds that the deployment took
+  const total_seconds = calculateDeploymentTime(
+    data.deployment_start_time,
+    deployment_end_time
+  )
+  core.info(
+    `🕒 deployment completed in ${COLORS.highlight}${total_seconds}${COLORS.reset} seconds`
+  )
+  core.setOutput('total_seconds', total_seconds)
+
   const message = await postDeployMessage(context, {
     environment: data.environment,
     environment_url: data.environment_url,
@@ -64,7 +75,8 @@ export async function postDeploy(context, octokit, data) {
     params: data.params,
     parsed_params: data.parsed_params,
     deployment_end_time: deployment_end_time,
-    commit_verified: data.commit_verified
+    commit_verified: data.commit_verified,
+    total_seconds: total_seconds
   })
 
   // update the action status to indicate the result of the deployment as a comment
@@ -252,4 +264,14 @@ function validateInputs(data) {
     const additionalInputs = ['deployment_id']
     additionalInputs.forEach(input => validateInput(data[input], input))
   }
+}
+
+// Helper function to calculate the deployment time in seconds
+// :param start_time: The timestamp of when the deployment started (String)
+// :param end_time: The timestamp of when the deployment ended (String)
+// :returns: The total amount of seconds that the deployment took (Integer) - rounded to the nearest second
+function calculateDeploymentTime(start_time, end_time) {
+  const start = new Date(start_time)
+  const end = new Date(end_time)
+  return Math.round((end - start) / 1000)
 }

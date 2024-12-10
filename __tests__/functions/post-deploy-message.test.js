@@ -22,6 +22,7 @@ var parsed_params
 var deployment_end_time
 var logs
 var deployment_metadata
+var total_seconds
 
 function renderDeploymentMetadata(data) {
   return dedent(`
@@ -39,7 +40,8 @@ function renderDeploymentMetadata(data) {
     \t\t\t\t  "deployment": {
     \t\t\t\t    "id": ${data.deployment_id ? parseInt(data.deployment_id) : null},
     \t\t\t\t    "timestamp": "${data.deployment_end_time}",
-    \t\t\t\t    "logs": "${data.logs}"
+    \t\t\t\t    "logs": "${data.logs}",
+    \t\t\t\t    "duration": ${data.total_seconds}
     \t\t\t\t  },
     \t\t\t\t  "git": {
     \t\t\t\t    "branch": "${data.ref}",
@@ -98,6 +100,7 @@ beforeEach(() => {
     _: ['LOG_LEVEL=debug']
   })
   deployment_end_time = '2024-01-01T00:00:00Z'
+  total_seconds = 27
 
   context = {
     actor: 'monalisa',
@@ -132,7 +135,8 @@ beforeEach(() => {
     deployment_end_time: deployment_end_time,
     actor: context.actor,
     logs: logs,
-    commit_verified: false
+    commit_verified: false,
+    total_seconds: total_seconds
   }
 
   deployment_metadata = renderDeploymentMetadata(data)
@@ -323,6 +327,7 @@ test('successfully constructs a post deploy message with a custom markdown file'
     - \`deployment_end_time\` - The end time of the deployment - this value is not _exact_ but it is very close (String)
     - \`logs\` - The url to the logs of the deployment (String)
     - \`commit_verified\` - Whether or not the commit was verified (Boolean)
+    - \`total_seconds\` - The total number of seconds the deployment took (String of a number)
 
     Here is an example:
 
@@ -338,7 +343,7 @@ test('successfully constructs a post deploy message with a custom markdown file'
 
     The deployment had the following "parsed" parameters provided in the deploy command: \`{"config":{"db":{"host":"localhost","port":5432}},"_":["LOG_LEVEL=debug"]}\`
 
-    The deployment process ended at \`2024-01-01T00:00:00Z\`.
+    The deployment process ended at \`2024-01-01T00:00:00Z\` and it took \`27\` seconds to complete.
 
     Here are the deployment logs: https://github.com/corp/test/actions/runs/12345
 

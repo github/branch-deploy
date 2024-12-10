@@ -35,7 +35,8 @@ const validStates = {
   parsed_params: JSON.stringify({
     config: {db: {host: 'localhost', port: 5432}},
     _: ['LOG_LEVEL=debug']
-  })
+  }),
+  deployment_start_time: '2024-01-01T00:00:00Z'
 }
 
 const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation(() => {})
