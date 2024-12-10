@@ -47,6 +47,7 @@ const defaultInputs = {
   permissions: ['write', 'admin', 'maintain'],
   allow_sha_deployments: false,
   checks: 'all',
+  commit_verification: true,
   ignored_checks: [],
   enforced_deployment_order: []
 }
@@ -85,6 +86,7 @@ test('successfully calls help with non-defaults', async () => {
     allow_sha_deployments: true,
     checks: ['test,build,security'],
     ignored_checks: ['lint', 'format'],
+    commit_verification: false,
     enforced_deployment_order: []
   }
 
@@ -95,7 +97,7 @@ test('successfully calls help with non-defaults', async () => {
   )
 })
 
-test('successfully calls help with non-defaults', async () => {
+test('successfully calls help with non-defaults again', async () => {
   const inputs = {
     trigger: '.deploy',
     reaction: 'eyes',
@@ -121,6 +123,7 @@ test('successfully calls help with non-defaults', async () => {
     allow_sha_deployments: false,
     checks: 'required',
     ignored_checks: ['lint'],
+    commit_verification: false,
     enforced_deployment_order: ['development', 'staging', 'production']
   }
 

@@ -45178,6 +45178,13 @@ async function help(octokit, context, reactionId, inputs) {
     required_contexts_message = `There are required contexts designated for this Action`
   }
 
+  var commit_verification_message = defaultSpecificMessage
+  if (inputs.commit_verification === true) {
+    commit_verification_message = `This Action will require that commits have a verified signature before they can be deployed`
+  } else {
+    commit_verification_message = `This Action will not require commits to have a verified signature before they can be deployed`
+  }
+
   var checks_message = defaultSpecificMessage
   if (
     typeof inputs.checks === 'string' &&
@@ -45358,6 +45365,7 @@ async function help(octokit, context, reactionId, inputs) {
   }\` - The GitHub reaction icon to add to the deployment comment when a deployment is triggered
   - \`update_branch: ${inputs.update_branch}\` - ${update_branch_message}
   - \`outdated_mode: ${inputs.outdated_mode}\`
+  - \`commit_verification: ${inputs.commit_verification}\` - ${commit_verification_message}
   - \`required_contexts: ${
     inputs.required_contexts
   }\` - ${required_contexts_message}
