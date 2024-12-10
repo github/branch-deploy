@@ -617,3 +617,7 @@ outputs:
     description:
       type: string
       required: true
+  total_seconds:
+    description:
+      type: string
+      required: true

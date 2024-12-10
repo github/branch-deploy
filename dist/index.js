@@ -44354,6 +44354,7 @@ var nunjucks_default = /*#__PURE__*/__nccwpck_require__.n(nunjucks);
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 //   - attribute: deployment_end_time: The time the deployment ended - this value is not _exact_ but it is very close (String)
 //   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
+//   - attribute: total_seconds: The total amount of seconds that the deployment took (Int)
 // :returns: The formatted message (String)
 async function postDeployMessage(context, data) {
   // fetch the inputs
@@ -44380,7 +44381,8 @@ async function postDeployMessage(context, data) {
     deployment_end_time: data.deployment_end_time,
     actor: context.actor,
     logs: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`,
-    commit_verified: data.commit_verified
+    commit_verified: data.commit_verified,
+    total_seconds: data.total_seconds
   }
 
   // this is kinda gross but wrangling dedent() and nunjucks is a pain
@@ -44399,7 +44401,8 @@ async function postDeployMessage(context, data) {
     \t\t\t\t  "deployment": {
     \t\t\t\t    "id": ${vars.deployment_id},
     \t\t\t\t    "timestamp": "${vars.deployment_end_time}",
-    \t\t\t\t    "logs": "${vars.logs}"
+    \t\t\t\t    "logs": "${vars.logs}",
+    \t\t\t\t    "duration": ${vars.total_seconds}
     \t\t\t\t  },
     \t\t\t\t  "git": {
     \t\t\t\t    "branch": "${vars.ref}",
@@ -44542,6 +44545,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 //   - attribute: params: The raw string of deployment parameters (String)
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 //   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
+//   - attribute: deployment_start_time: The timestamp of when the deployment started (String)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 async function postDeploy(context, octokit, data) {
   // check the inputs to ensure they are valid
@@ -44561,6 +44565,16 @@ async function postDeploy(context, octokit, data) {
   const deployment_end_time = now.toISOString()
   core.debug(`deployment_end_time: ${deployment_end_time}`)
 
+  // calculate the total amount of seconds that the deployment took
+  const total_seconds = calculateDeploymentTime(
+    data.deployment_start_time,
+    deployment_end_time
+  )
+  core.info(
+    `🕒 deployment completed in ${COLORS.highlight}${total_seconds}${COLORS.reset} seconds`
+  )
+  core.setOutput('total_seconds', total_seconds)
+
   const message = await postDeployMessage(context, {
     environment: data.environment,
     environment_url: data.environment_url,
@@ -44575,7 +44589,8 @@ async function postDeploy(context, octokit, data) {
     params: data.params,
     parsed_params: data.parsed_params,
     deployment_end_time: deployment_end_time,
-    commit_verified: data.commit_verified
+    commit_verified: data.commit_verified,
+    total_seconds: total_seconds
   })
 
   // update the action status to indicate the result of the deployment as a comment
@@ -44765,6 +44780,16 @@ function validateInputs(data) {
   }
 }
 
+// Helper function to calculate the deployment time in seconds
+// :param start_time: The timestamp of when the deployment started (String)
+// :param end_time: The timestamp of when the deployment ended (String)
+// :returns: The total amount of seconds that the deployment took (Integer) - rounded to the nearest second
+function calculateDeploymentTime(start_time, end_time) {
+  const start = new Date(start_time)
+  const end = new Date(end_time)
+  return Math.round((end - start) / 1000)
+}
+
 ;// CONCATENATED MODULE: ./src/functions/post.js
 
 
@@ -44812,7 +44837,8 @@ async function post() {
           'skip_successful_deploy_labels_if_approved'
         )
       },
-      commit_verified: core.getState('commit_verified') === 'true'
+      commit_verified: core.getState('commit_verified') === 'true',
+      deployment_start_time: core.getState('deployment_start_time')
     }
 
     core.info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`)
@@ -46179,6 +46205,7 @@ async function run() {
     const now = new Date()
     const deployment_start_time = now.toISOString()
     core.debug(`deployment_start_time: ${deployment_start_time}`)
+    core.saveState('deployment_start_time', deployment_start_time)
 
     const commentBody = lib_default()(`
       ### Deployment Triggered 🚀

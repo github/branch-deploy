@@ -17,6 +17,7 @@ The following variables are available to use in this template:
 - `deployment_end_time` - The end time of the deployment - this value is not _exact_ but it is very close (String)
 - `logs` - The url to the logs of the deployment (String)
 - `commit_verified` - Whether or not the commit was verified (Boolean)
+- `total_seconds` - The total number of seconds the deployment took (String of a number)
 
 Here is an example:
 
@@ -32,7 +33,7 @@ The deployment had the following parameters provided in the deploy command: `{{ 
 
 The deployment had the following "parsed" parameters provided in the deploy command: `{{ parsed_params | safe }}`
 
-The deployment process ended at `{{ deployment_end_time }}`.
+The deployment process ended at `{{ deployment_end_time }}` and it took `{{ total_seconds }}` seconds to complete.
 
 Here are the deployment logs: {{ logs }}
 

@@ -96,7 +96,8 @@ beforeEach(() => {
       config: {db: {host: 'localhost', port: 5432}},
       _: ['LOG_LEVEL=debug']
     }),
-    commit_verified: false
+    commit_verified: false,
+    deployment_start_time: '2024-01-01T00:00:00Z'
   }
 })
 

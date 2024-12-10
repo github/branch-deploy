@@ -44,7 +44,8 @@ export async function post() {
           'skip_successful_deploy_labels_if_approved'
         )
       },
-      commit_verified: core.getState('commit_verified') === 'true'
+      commit_verified: core.getState('commit_verified') === 'true',
+      deployment_start_time: core.getState('deployment_start_time')
     }
 
     core.info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`)

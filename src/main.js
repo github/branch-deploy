@@ -599,6 +599,7 @@ export async function run() {
     const now = new Date()
     const deployment_start_time = now.toISOString()
     core.debug(`deployment_start_time: ${deployment_start_time}`)
+    core.saveState('deployment_start_time', deployment_start_time)
 
     const commentBody = dedent(`
       ### Deployment Triggered 🚀
