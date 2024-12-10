@@ -28,10 +28,25 @@ export async function help(octokit, context, reactionId, inputs) {
   }
 
   var checks_message = defaultSpecificMessage
-  if (inputs.checks.trim() === 'required') {
+  if (
+    typeof inputs.checks === 'string' &&
+    inputs.checks.trim() === 'required'
+  ) {
     checks_message = `Only required CI checks must pass before a deployment can be requested`
-  } else {
+  } else if (
+    typeof inputs.checks === 'string' &&
+    inputs.checks.trim() === 'all'
+  ) {
     checks_message = `All CI checks must pass before a deployment can be requested`
+  } else {
+    checks_message = `The following CI checks must pass before a deployment can be requested: \`${inputs.checks.join(`,`)}\``
+  }
+
+  var ignored_checks_message = defaultSpecificMessage
+  if (inputs.ignored_checks.length > 0) {
+    ignored_checks_message = `The following CI checks will be ignored when determining if a deployment can be requested: \`${inputs.ignored_checks.join(`,`)}\``
+  } else {
+    ignored_checks_message = `No CI checks will be ignored when determining if a deployment can be requested`
   }
 
   var skip_ci_message = defaultSpecificMessage
@@ -200,6 +215,7 @@ export async function help(octokit, context, reactionId, inputs) {
   } on forked repositories
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`checks: ${inputs.checks}\` - ${checks_message}
+  - \`ignored_checks: ${inputs.ignored_checks}\` - ${ignored_checks_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`draft_permitted_targets: ${
     inputs.draft_permitted_targets

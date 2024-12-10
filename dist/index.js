@@ -45179,10 +45179,25 @@ async function help(octokit, context, reactionId, inputs) {
   }
 
   var checks_message = defaultSpecificMessage
-  if (inputs.checks.trim() === 'required') {
+  if (
+    typeof inputs.checks === 'string' &&
+    inputs.checks.trim() === 'required'
+  ) {
     checks_message = `Only required CI checks must pass before a deployment can be requested`
-  } else {
+  } else if (
+    typeof inputs.checks === 'string' &&
+    inputs.checks.trim() === 'all'
+  ) {
     checks_message = `All CI checks must pass before a deployment can be requested`
+  } else {
+    checks_message = `The following CI checks must pass before a deployment can be requested: \`${inputs.checks.join(`,`)}\``
+  }
+
+  var ignored_checks_message = defaultSpecificMessage
+  if (inputs.ignored_checks.length > 0) {
+    ignored_checks_message = `The following CI checks will be ignored when determining if a deployment can be requested: \`${inputs.ignored_checks.join(`,`)}\``
+  } else {
+    ignored_checks_message = `No CI checks will be ignored when determining if a deployment can be requested`
   }
 
   var skip_ci_message = defaultSpecificMessage
@@ -45351,6 +45366,7 @@ async function help(octokit, context, reactionId, inputs) {
   } on forked repositories
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`checks: ${inputs.checks}\` - ${checks_message}
+  - \`ignored_checks: ${inputs.ignored_checks}\` - ${ignored_checks_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`draft_permitted_targets: ${
     inputs.draft_permitted_targets
@@ -45422,7 +45438,7 @@ function getInputs() {
   const required_contexts = core.getInput('required_contexts')
   const allowForks = core.getBooleanInput('allow_forks')
   const skipCi = core.getInput('skip_ci')
-  const checks = core.getInput('checks')
+  var checks = core.getInput('checks')
   const skipReviews = core.getInput('skip_reviews')
   const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
   const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
@@ -45447,7 +45463,12 @@ function getInputs() {
     'default_branch',
     'strict'
   ])
-  inputs_validateInput('checks', checks, ['all', 'required'])
+
+  if (checks === 'all' || checks === 'required') {
+    inputs_validateInput('checks', checks, ['all', 'required'])
+  } else {
+    checks = stringToArray(checks)
+  }
 
   // rollup all the inputs into a single object
   return {

@@ -102,7 +102,7 @@ inputs:
     required: false
     default: ""
   checks:
-    description: 'This input defines how the branch-deploy Action will handle the status of CI checks on your PR/branch before deployments can continue. `"all"` requires that all CI checks must pass in order for a deployment to be triggered. `"required"` only waits for required CI checks to be passing. View the documentation (docs/checks.md) for more details.'
+    description: 'This input defines how the branch-deploy Action will handle the status of CI checks on your PR/branch before deployments can continue. `"all"` requires that all CI checks must pass in order for a deployment to be triggered. `"required"` only waits for required CI checks to be passing. You can also pass in the names of your CI jobs in a comma separated list. View the documentation (docs/checks.md) for more details.'
     required: false
     default: "all"
   ignored_checks:
