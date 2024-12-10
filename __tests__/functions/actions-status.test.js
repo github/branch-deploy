@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import {actionStatus} from '../../src/functions/action-status'
 import {truncateCommentBody} from '../../src/functions/truncate-comment-body'
+import {API_HEADERS} from '../../src/functions/api-headers'
 
 var context
 var octokit
@@ -55,19 +56,22 @@ test('adds a successful status message for a deployment', async () => {
     body: 'Everything worked!',
     issue_number: 1,
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     content: 'rocket',
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     owner: 'corp',
     reaction_id: 123,
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
 })
 
@@ -79,19 +83,22 @@ test('adds a successful status message for a deployment (with alt message)', asy
     body: 'Everything worked!',
     issue_number: 1,
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     content: '+1',
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     owner: 'corp',
     reaction_id: 123,
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
 })
 
@@ -103,19 +110,22 @@ test('adds a failure status message for a deployment', async () => {
     body: 'Everything failed!',
     issue_number: 1,
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     content: '-1',
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     owner: 'corp',
     reaction_id: 123,
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
 })
 
@@ -125,19 +135,22 @@ test('uses default log url when the "message" variable is empty for failures', a
     body: 'Unknown error, [check logs](https://github.com/corp/test/actions/runs/12345) for more details.',
     issue_number: 1,
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     content: '-1',
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     owner: 'corp',
     reaction_id: 123,
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
 })
 
@@ -147,19 +160,22 @@ test('uses default log url when the "message" variable is empty for a success', 
     body: 'Unknown error, [check logs](https://github.com/corp/test/actions/runs/12345) for more details.',
     issue_number: 1,
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     content: 'rocket',
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     owner: 'corp',
     reaction_id: 123,
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
 })
 
@@ -172,18 +188,21 @@ test('truncates the message when it is too large for an issue comment', async ()
     body: truncateCommentBody(message),
     issue_number: 1,
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     content: 'rocket',
     owner: 'corp',
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
     comment_id: '1',
     owner: 'corp',
     reaction_id: 123,
-    repo: 'test'
+    repo: 'test',
+    headers: API_HEADERS
   })
 })

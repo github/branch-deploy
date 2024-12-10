@@ -3,6 +3,7 @@ import * as github from '@actions/github'
 import githubUsernameRegex from 'github-username-regex-js'
 import {octokitRetry} from '@octokit/plugin-retry'
 import {COLORS} from './colors'
+import {API_HEADERS} from './api-headers'
 
 // Helper function to check if a user exists in an org team
 // :param actor: The user to check
@@ -33,14 +34,16 @@ async function orgTeamCheck(actor, orgTeams) {
     try {
       // Make an API call to get the org id
       const orgData = await octokit.rest.orgs.get({
-        org: org
+        org: org,
+        headers: API_HEADERS
       })
       const orgId = orgData.data.id
 
       // Make an API call to get the team id
       const teamData = await octokit.rest.teams.getByName({
         org: org,
-        team_slug: team
+        team_slug: team,
+        headers: API_HEADERS
       })
       const teamId = teamData.data.id
 

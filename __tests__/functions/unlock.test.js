@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import {unlock} from '../../src/functions/unlock'
 import * as actionStatus from '../../src/functions/action-status'
+import {API_HEADERS} from '../../src/functions/api-headers'
 
 class NotFoundError extends Error {
   constructor(message) {
@@ -54,7 +55,8 @@ test('successfully releases a deployment lock with the unlock function', async (
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',
-    ref: 'heads/production-branch-deploy-lock'
+    ref: 'heads/production-branch-deploy-lock',
+    headers: API_HEADERS
   })
 })
 
@@ -63,7 +65,8 @@ test('successfully releases a deployment lock with the unlock function and a pas
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',
-    ref: 'heads/staging-branch-deploy-lock'
+    ref: 'heads/staging-branch-deploy-lock',
+    headers: API_HEADERS
   })
 })
 
@@ -73,7 +76,8 @@ test('successfully releases a GLOBAL deployment lock with the unlock function', 
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',
-    ref: 'heads/global-branch-deploy-lock'
+    ref: 'heads/global-branch-deploy-lock',
+    headers: API_HEADERS
   })
 })
 
@@ -83,7 +87,8 @@ test('successfully releases a development environment deployment lock with the u
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',
-    ref: 'heads/development-branch-deploy-lock'
+    ref: 'heads/development-branch-deploy-lock',
+    headers: API_HEADERS
   })
 })
 
@@ -94,7 +99,8 @@ test('successfully releases a development environment deployment lock with the u
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',
-    ref: 'heads/development-branch-deploy-lock'
+    ref: 'heads/development-branch-deploy-lock',
+    headers: API_HEADERS
   })
 })
 
@@ -105,7 +111,8 @@ test('successfully releases a deployment lock with the unlock function - silent 
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',
-    ref: 'heads/production-branch-deploy-lock'
+    ref: 'heads/production-branch-deploy-lock',
+    headers: API_HEADERS
   })
 })
 

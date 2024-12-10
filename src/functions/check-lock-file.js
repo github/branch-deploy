@@ -2,6 +2,7 @@ import {LOCK_METADATA} from './lock-metadata'
 import {COLORS} from './colors'
 import {constructValidBranchName} from './valid-branch-name'
 import * as core from '@actions/core'
+import {API_HEADERS} from './api-headers'
 
 const LOCK_FILE = LOCK_METADATA.lockFile
 
@@ -20,7 +21,8 @@ export async function checkLockFile(octokit, context, branchName) {
     const response = await octokit.rest.repos.getContent({
       ...context.repo,
       path: LOCK_FILE,
-      ref: branchName
+      ref: branchName,
+      headers: API_HEADERS
     })
 
     // decode the file contents to json

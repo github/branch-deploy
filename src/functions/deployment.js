@@ -1,4 +1,5 @@
 import * as core from '@actions/core'
+import {API_HEADERS} from './api-headers'
 
 // Helper function to add deployment statuses to a PR / ref
 // :param octokit: The octokit client
@@ -29,7 +30,8 @@ export async function createDeploymentStatus(
     state: state,
     log_url: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${context.runId}`,
     environment: environment,
-    environment_url: environment_url
+    environment_url: environment_url,
+    headers: API_HEADERS
   })
 
   return result

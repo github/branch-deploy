@@ -70,6 +70,7 @@ export async function post() {
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
+      userAgent: 'github/branch-deploy',
       additionalPlugins: [octokitRetry]
     })
 

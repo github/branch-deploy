@@ -4,6 +4,7 @@ import dedent from 'dedent-js'
 import {LOCK_METADATA} from './lock-metadata'
 import {constructValidBranchName} from './valid-branch-name'
 import {COLORS} from './colors'
+import {API_HEADERS} from './api-headers'
 
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
@@ -98,7 +99,8 @@ export async function unlock(
     // Delete the lock branch
     const result = await octokit.rest.git.deleteRef({
       ...context.repo,
-      ref: `heads/${branchName}`
+      ref: `heads/${branchName}`,
+      headers: API_HEADERS
     })
 
     // If the lock was successfully released, return true

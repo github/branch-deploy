@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
+import {API_HEADERS} from './api-headers'
 
 // The old and common trigger for noop style deployments
 const oldNoopInput = '.deploy noop'
@@ -31,14 +32,16 @@ export async function isDeprecated(body, octokit, context) {
     await octokit.rest.issues.createComment({
       ...context.repo,
       issue_number: context.issue.number,
-      body: message
+      body: message,
+      headers: API_HEADERS
     })
 
     // add a reaction to the issue_comment to indicate failure
     await octokit.rest.reactions.createForIssueComment({
       ...context.repo,
       comment_id: context.payload.comment.id,
-      content: thumbsDown
+      content: thumbsDown,
+      headers: API_HEADERS
     })
 
     return true

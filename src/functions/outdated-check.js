@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import {COLORS} from './colors'
+import {API_HEADERS} from './api-headers'
 
 // Helper function to check to see if the PR branch is outdated in anyway based on the Action's configuration
 //
@@ -27,7 +28,8 @@ export async function isOutdated(context, octokit, data) {
     const compare = await octokit.rest.repos.compareCommits({
       ...context.repo,
       base: baseBranch.data.commit.sha,
-      head: prBranch.data.head.sha
+      head: prBranch.data.head.sha,
+      headers: API_HEADERS
     })
 
     if (compare.data.behind_by > 0) {

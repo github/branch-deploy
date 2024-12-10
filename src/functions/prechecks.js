@@ -4,6 +4,7 @@ import {isAdmin} from './admin'
 import {isOutdated} from './outdated-check'
 import {stringToArray} from './string-to-array'
 import {COLORS} from './colors'
+import {API_HEADERS} from './api-headers'
 
 // Runs precheck logic before the branch deployment can proceed
 // :param context: The context of the event
@@ -27,7 +28,8 @@ export async function prechecks(context, octokit, data) {
   // Get the PR data
   const pr = await octokit.rest.pulls.get({
     ...context.repo,
-    pull_number: context.issue.number
+    pull_number: context.issue.number,
+    headers: API_HEADERS
   })
   if (pr.status !== 200) {
     message = `Could not retrieve PR info: ${pr.status}`
@@ -62,7 +64,8 @@ export async function prechecks(context, octokit, data) {
   // https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#get-a-branch
   const stableBaseBranch = await octokit.rest.repos.getBranch({
     ...context.repo,
-    branch: data.inputs.stable_branch
+    branch: data.inputs.stable_branch,
+    headers: API_HEADERS
   })
 
   // we also want to output the default branch tree sha of the base branch (e.g. the default branch)
@@ -271,7 +274,8 @@ export async function prechecks(context, octokit, data) {
   // Make an API call to get the base branch that the pull request is targeting
   const baseBranch = await octokit.rest.repos.getBranch({
     ...context.repo,
-    branch: pr.data.base.ref
+    branch: pr.data.base.ref,
+    headers: API_HEADERS
   })
 
   // Check to see if the branch is outdated or not based on the Action's configuration
@@ -397,7 +401,8 @@ export async function prechecks(context, octokit, data) {
     try {
       const result = await octokit.rest.pulls.updateBranch({
         ...context.repo,
-        pull_number: context.issue.number
+        pull_number: context.issue.number,
+        headers: API_HEADERS
       })
 
       // If the result is not a 202, return an error message and exit
