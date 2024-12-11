@@ -43046,7 +43046,8 @@ async function prechecks(context, octokit, data) {
   } else if (
     isFork === true &&
     forkBypass === false &&
-    reviewDecision === 'REVIEW_REQUIRED'
+    (reviewDecision === 'REVIEW_REQUIRED' ||
+      reviewDecision === 'CHANGES_REQUESTED')
   ) {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.`
     core.debug(
@@ -43158,13 +43159,16 @@ async function prechecks(context, octokit, data) {
     // CI checks are set to be bypassed and the PR has not been reviewed BUT it is a noop deploy
   } else if (
     commitStatus === 'skip_ci' &&
-    reviewDecision === 'REVIEW_REQUIRED' &&
+    (reviewDecision === 'REVIEW_REQUIRED' ||
+      reviewDecision === 'CHANGES_REQUESTED') &&
     noopMode
   ) {
     message =
       '✅ CI requirements have been disabled for this environment and **noop** requested'
     core.info(message)
-    core.info('note: noop deployments do not require pr review')
+    core.info(
+      'note: noop deployments do not require pr review and ignore "changes requested" reviews'
+    )
 
     // If CI checks are set to be bypassed and the deployer is an admin
   } else if (commitStatus === 'skip_ci' && userIsAdmin === true) {
@@ -43180,13 +43184,16 @@ async function prechecks(context, octokit, data) {
 
     // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
   } else if (
-    reviewDecision === 'REVIEW_REQUIRED' &&
+    (reviewDecision === 'REVIEW_REQUIRED' ||
+      reviewDecision === 'CHANGES_REQUESTED') &&
     commitStatus === 'SUCCESS' &&
     noopMode
   ) {
     message = `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`
     core.info(message)
-    core.debug('note: noop deployments do not require pr review')
+    core.debug(
+      'note: noop deployments do not require pr review and ignore "changes requested" reviews'
+    )
 
     // If CI is passing and the deployer is an admin
   } else if (commitStatus === 'SUCCESS' && userIsAdmin === true) {
@@ -43206,7 +43213,8 @@ async function prechecks(context, octokit, data) {
 
     // If CI is pending and the PR has not been reviewed BUT it is a noop deploy
   } else if (
-    reviewDecision === 'REVIEW_REQUIRED' &&
+    (reviewDecision === 'REVIEW_REQUIRED' ||
+      reviewDecision === 'CHANGES_REQUESTED') &&
     commitStatus === 'PENDING' &&
     noopMode
   ) {
@@ -43236,21 +43244,25 @@ async function prechecks(context, octokit, data) {
 
     // If CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy
   } else if (
-    reviewDecision === 'REVIEW_REQUIRED' &&
+    (reviewDecision === 'REVIEW_REQUIRED' ||
+      reviewDecision === 'CHANGES_REQUESTED') &&
     commitStatus === null &&
     noopMode
   ) {
     message = `✅ CI checks have not been defined and ${COLORS.highlight}noop${COLORS.reset} requested`
     core.info(message)
-    core.info('note: noop deployments do not require pr review')
+    core.info(
+      'note: noop deployments do not require pr review and ignore "changes requested" reviews'
+    )
 
     // If CI checks are pending, the PR has not been reviewed, and it is not a noop deploy
   } else if (
-    reviewDecision === 'REVIEW_REQUIRED' &&
+    (reviewDecision === 'REVIEW_REQUIRED' ||
+      reviewDecision === 'CHANGES_REQUESTED') &&
     commitStatus === 'PENDING' &&
     !noopMode
   ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing and the PR must be reviewed in order to continue`
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing and the PR must be approved in order to continue`
     return {message: message, status: false}
 
     // If the PR is considered 'approved' but CI checks are pending and it is not a noop deploy
@@ -43266,7 +43278,8 @@ async function prechecks(context, octokit, data) {
 
     // If CI is passing but the PR is missing an approval, let the user know
   } else if (
-    reviewDecision === 'REVIEW_REQUIRED' &&
+    (reviewDecision === 'REVIEW_REQUIRED' ||
+      reviewDecision === 'CHANGES_REQUESTED') &&
     commitStatus === 'SUCCESS'
   ) {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks are passing but an approval is required before you can proceed with deployment`
@@ -43287,7 +43300,8 @@ async function prechecks(context, octokit, data) {
 
     // If the PR is NOT reviewed and CI checks have NOT been defined and NOT a noop deploy
   } else if (
-    reviewDecision === 'REVIEW_REQUIRED' &&
+    (reviewDecision === 'REVIEW_REQUIRED' ||
+      reviewDecision === 'CHANGES_REQUESTED') &&
     commitStatus === null &&
     !noopMode
   ) {
@@ -43299,7 +43313,8 @@ async function prechecks(context, octokit, data) {
 
     // If the PR is NOT reviewed and CI checks have been disabled and NOT a noop deploy
   } else if (
-    reviewDecision === 'REVIEW_REQUIRED' &&
+    (reviewDecision === 'REVIEW_REQUIRED' ||
+      reviewDecision === 'CHANGES_REQUESTED') &&
     commitStatus === 'skip_ci' &&
     !noopMode
   ) {
@@ -43307,6 +43322,24 @@ async function prechecks(context, octokit, data) {
     core.info(
       'note: CI checks are disabled for this environment so they will not be evaluated'
     )
+    return {message: message, status: false}
+
+    // If it is not a noop deploy and the PR has requested changes with failing CI checks
+  } else if (
+    !noopMode &&
+    reviewDecision === 'CHANGES_REQUESTED' &&
+    commitStatus === 'FAILURE'
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request needs to address the requested changes, get approvals, and have passing CI checks before you can proceed with deployment`
+    return {message: message, status: false}
+
+    // If it is not a noop deploy and the PR is missing required reviews with failing CI checks
+  } else if (
+    !noopMode &&
+    reviewDecision === 'REVIEW_REQUIRED' &&
+    commitStatus === 'FAILURE'
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request needs to get approvals and have passing CI checks before you can proceed with deployment`
     return {message: message, status: false}
 
     // If there are any other errors blocking deployment, let the user know

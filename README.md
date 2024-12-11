@@ -333,7 +333,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `global_lock_released` | The string "true" if the global lock was released |
 | `unlocked_environments` | Only exposed when using the "unlock on merge" mode - This output variable will contain a comma separated list of the environments that were unlocked - See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
 | `sha_deployment` | If `allow_sha_deployments` is enabled, and a sha deployment is performed instead of a branch deployment, this output variable will contain the sha that was deployed. Otherwise, this output variable will be empty |
-| `review_decision` | The pull request review status. Can be one of a few values - examples: `APPROVED`, `skip_reviews`, `REVIEW_REQUIRED`, `null` |
+| `review_decision` | The pull request review status. Can be one of a few values - examples: `APPROVED`, `REVIEW_REQUIRED`, `CHANGES_REQUESTED`, `skip_reviews`, `null` |
 | `is_outdated` | The string `"true"` if the branch is out-of-date, otherwise `"false"` |
 | `merge_state_status` | The status of the merge state. Can be one of a few values - examples: `"DIRTY"`, `"DRAFT"`, `"CLEAN"`, etc |
 | `commit_status` | The status of the commit. Can be one of a few values - examples: `"SUCCESS"`, `null`, `"skip_ci"`, `"PENDING"`, `"FAILURE"` etc |

@@ -11,7 +11,7 @@ The following variables are available to use in this template:
 - `actor` - The GitHub username of the actor who triggered the deployment (String)
 - `approved_reviews_count` - The number of approved reviews on the pull request at the time of deployment (String of a number)
 - `deployment_id` - The ID of the deployment (String)
-- `review_decision` - The decision of the review (String or null) - `"APPROVED"`, `"REVIEW_REQUIRED"`, `null`, etc.
+- `review_decision` - The decision of the review (String or null) - `"APPROVED"`, `"REVIEW_REQUIRED"`, `"CHANGES_REQUESTED"`, `null`, etc.
 - `params` - The raw parameters provided in the deploy command (String)
 - `parsed_params` - The parsed parameters provided in the deploy command (String)
 - `deployment_end_time` - The end time of the deployment - this value is not _exact_ but it is very close (String)
