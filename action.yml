@@ -245,7 +245,7 @@ outputs:
   sha_deployment:
     description: 'If "allow_sha_deployments" is enabled, and a sha deployment is performed instead of a branch deployment, this output variable will contain the sha that was deployed. Otherwise, this output variable will be empty'
   review_decision:
-    description: 'The pull request review status. Can be one of a few values - examples: APPROVED, skip_reviews, REVIEW_REQUIRED, null'
+    description: 'The pull request review status. Can be one of a few values - examples: APPROVED, REVIEW_REQUIRED, CHANGES_REQUESTED, skip_reviews,, null'
   is_outdated:
     description: 'The string "true" if the branch is outdated, otherwise "false"'
   merge_state_status:
