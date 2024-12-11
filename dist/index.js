@@ -39954,6 +39954,9 @@ var dist_node = __nccwpck_require__(3450);
 // EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
 var lib = __nccwpck_require__(958);
 var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
+;// CONCATENATED MODULE: ./src/version.js
+const VERSION = 'v10.0.0-rc.1'
+
 ;// CONCATENATED MODULE: ./src/functions/colors.js
 const COLORS = {
   highlight: '\u001b[35m', // magenta
@@ -44878,6 +44881,7 @@ function calculateDeploymentTime(start_time, end_time) {
 
 
 
+
 async function post() {
   try {
     const token = core.getState('actionsToken')
@@ -44940,7 +44944,7 @@ async function post() {
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
-      userAgent: 'github/branch-deploy',
+      userAgent: `github/branch-deploy@${VERSION}`,
       additionalPlugins: [dist_node.octokitRetry]
     })
 
@@ -45742,9 +45746,11 @@ function isTimestampOlder(timestampA, timestampB) {
 
 
 
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
+    core.info(`🛸 github/branch-deploy ${COLORS.info}${VERSION}${COLORS.reset}`)
     core.debug(`context: ${JSON.stringify(github.context)}`)
 
     // Get the inputs for the branch-deploy Action
@@ -45755,7 +45761,7 @@ async function run() {
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
-      userAgent: 'github/branch-deploy',
+      userAgent: `github/branch-deploy@${VERSION}`,
       additionalPlugins: [dist_node.octokitRetry]
     })
 

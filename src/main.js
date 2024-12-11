@@ -4,6 +4,7 @@ import {context} from '@actions/github'
 import {octokitRetry} from '@octokit/plugin-retry'
 import dedent from 'dedent-js'
 
+import {VERSION} from './version'
 import {triggerCheck} from './functions/trigger-check'
 import {contextCheck} from './functions/context-check'
 import {nakedCommandCheck} from './functions/naked-command-check'
@@ -32,6 +33,7 @@ import {API_HEADERS} from './functions/api-headers'
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
   try {
+    core.info(`🛸 github/branch-deploy ${COLORS.info}${VERSION}${COLORS.reset}`)
     core.debug(`context: ${JSON.stringify(context)}`)
 
     // Get the inputs for the branch-deploy Action
@@ -42,7 +44,7 @@ export async function run() {
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
-      userAgent: 'github/branch-deploy',
+      userAgent: `github/branch-deploy@${VERSION}`,
       additionalPlugins: [octokitRetry]
     })
 

@@ -8,6 +8,7 @@ import {contextCheck} from './context-check'
 import {checkInput} from './check-input'
 import {postDeploy} from './post-deploy'
 import {COLORS} from './colors'
+import {VERSION} from '../version'
 
 export async function post() {
   try {
@@ -71,7 +72,7 @@ export async function post() {
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
-      userAgent: 'github/branch-deploy',
+      userAgent: `github/branch-deploy@${VERSION}`,
       additionalPlugins: [octokitRetry]
     })
 
