@@ -102,9 +102,13 @@ inputs:
     required: false
     default: ""
   checks:
-    description: 'This input defines how the branch-deploy Action will handle the status of CI checks on your PR/branch before deployments can continue. `"all"` requires that all CI checks must pass in order for a deployment to be triggered. `"required"` only waits for required CI checks to be passing. View the documentation (docs/checks.md) for more details.'
+    description: 'This input defines how the branch-deploy Action will handle the status of CI checks on your PR/branch before deployments can continue. `"all"` requires that all CI checks must pass in order for a deployment to be triggered. `"required"` only waits for required CI checks to be passing. You can also pass in the names of your CI jobs in a comma separated list. View the documentation (docs/checks.md) for more details.'
     required: false
     default: "all"
+  ignored_checks:
+    description: 'A comma separated list of checks that will be ignored when determining if a deployment can continue. This setting allows you to skip failing, pending, or incomplete checks regardless of the `checks` setting above. Example: "lint,markdown-formatting,update-pr-label". View the documentation (docs/checks.md) for more details.'
+    required: false
+    default: ""
   skip_reviews:
     description: 'A comma separated list of environment that will not use reviews/approvals as a requirement for deployment. Use this options to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string "" - Example: "development,staging"'
     required: false

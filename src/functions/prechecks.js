@@ -54,6 +54,7 @@ export async function prechecks(context, octokit, data) {
   const skipReviews = skipReviewsArray.includes(data.environment)
   const allowDraftDeploy = draftPermittedTargetsArray.includes(data.environment)
   const checks = data.inputs.checks
+  const ignoredChecks = data.inputs.ignored_checks || []
 
   var ref = pr.data.head.ref
   var noopMode = data.environmentObj.noop
@@ -147,6 +148,7 @@ export async function prechecks(context, octokit, data) {
                                                     ... on CheckRun {
                                                         isRequired(pullRequestNumber:$number)
                                                         conclusion
+                                                        name
                                                     }
                                                 }
                                             }
@@ -220,10 +222,9 @@ export async function prechecks(context, octokit, data) {
         `⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${data.environment}${COLORS.reset} environment`
       )
       commitStatus = 'skip_ci'
-    }
 
-    // If there are no CI checks defined at all, we can set the commitStatus to null
-    else if (
+      // If there are no CI checks defined at all, we can set the commitStatus to null
+    } else if (
       result.repository.pullRequest.commits.nodes[0].commit.checkSuites
         .totalCount === 0
     ) {
@@ -232,21 +233,43 @@ export async function prechecks(context, octokit, data) {
 
       // If only the required checks need to pass
     } else if (checks === 'required') {
-      commitStatus =
-        result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.nodes
-          .filter(x => x.isRequired)
-          .reduce(
-            (acc, x) => acc && ['SUCCESS', 'SKIPPED'].includes(x.conclusion),
-            true
-          )
-          ? 'SUCCESS'
-          : 'FAILURE'
+      commitStatus = filterChecks(
+        checks,
+        result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup
+          .contexts.nodes,
+        ignoredChecks,
+        true
+      )
 
       // If there are CI checked defined, we need to check for the 'state' of the latest commit
+    } else if (checks === 'all') {
+      // if there are no ignored checks, we can just check the state of the latest commit
+      if (ignoredChecks.length === 0) {
+        commitStatus =
+          result.repository.pullRequest.commits.nodes[0].commit
+            .statusCheckRollup.state
+
+        // if there are ignored checks, we need to filter out the ignored checks from the graphql result
+      } else {
+        commitStatus = filterChecks(
+          checks,
+          result.repository.pullRequest.commits.nodes[0].commit
+            .statusCheckRollup.contexts.nodes,
+          ignoredChecks,
+          false
+        )
+      }
+
+      // if we make it here, checks is not a string (e.g. 'all' or 'required') but it is actually an array of the exact checks...
+      // that a user wants to pass in order for the deployment to proceed
     } else {
-      commitStatus =
+      commitStatus = filterChecks(
+        checks,
         result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup
-          .state
+          .contexts.nodes,
+        ignoredChecks,
+        false
+      )
     }
   } catch (e) {
     core.debug(
@@ -639,4 +662,57 @@ export async function prechecks(context, octokit, data) {
     sha: sha,
     isFork: isFork
   }
+}
+
+// A helper function to filter out ignored checks and return the combined status of the remaining checks
+// :param checks: the checks input option
+// :param checkResults: An array of check results (objects) from the graphql query
+// :param ignoredChecks: An array of check names to ignore
+// :param required: A boolean to determine if a check being a required check should be considered
+function filterChecks(checks, checkResults, ignoredChecks, required) {
+  const healthyCheckStatuses = ['SUCCESS', 'SKIPPED', 'NEUTRAL']
+
+  core.debug(`filterChecks() - checks: ${checks}`)
+  core.debug(`filterChecks() - ignoredChecks: ${ignoredChecks}`)
+  core.debug(`filterChecks() - required: ${required}`)
+
+  const result = checkResults
+    .filter(check => {
+      // If checks is an array and it contains items, filter checks based on it
+      if (Array.isArray(checks) && checks.length > 0) {
+        const isIncluded = checks.includes(check.name)
+        if (isIncluded) {
+          core.debug(`explicitly including ci check: ${check.name}`)
+        }
+
+        return checks.includes(check.name)
+      }
+      return true
+    })
+
+    // Filter out ignored checks
+    .filter(check => {
+      const isIgnored = ignoredChecks.includes(check.name)
+      if (isIgnored) {
+        core.debug(`ignoring ci check: ${check.name}`)
+      }
+      return !isIgnored && (required ? check.isRequired : true)
+    })
+
+  const resultReduced = result
+    // Return the combined status of the remaining checks
+    .reduce(
+      (acc, check) => acc && healthyCheckStatuses.includes(check.conclusion),
+      true
+    )
+    ? 'SUCCESS'
+    : 'FAILURE'
+
+  if (result.length === 0) {
+    core.debug(
+      'after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined'
+    )
+  }
+
+  return resultReduced
 }

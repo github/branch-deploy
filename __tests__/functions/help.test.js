@@ -47,6 +47,8 @@ const defaultInputs = {
   permissions: ['write', 'admin', 'maintain'],
   allow_sha_deployments: false,
   checks: 'all',
+  commit_verification: true,
+  ignored_checks: [],
   enforced_deployment_order: []
 }
 
@@ -82,7 +84,9 @@ test('successfully calls help with non-defaults', async () => {
     admins: 'monalisa',
     permissions: ['write', 'admin', 'maintain'],
     allow_sha_deployments: true,
-    checks: 'all',
+    checks: ['test,build,security'],
+    ignored_checks: ['lint', 'format'],
+    commit_verification: false,
     enforced_deployment_order: []
   }
 
@@ -93,7 +97,7 @@ test('successfully calls help with non-defaults', async () => {
   )
 })
 
-test('successfully calls help with non-defaults', async () => {
+test('successfully calls help with non-defaults again', async () => {
   const inputs = {
     trigger: '.deploy',
     reaction: 'eyes',
@@ -118,6 +122,8 @@ test('successfully calls help with non-defaults', async () => {
     permissions: ['write', 'admin', 'maintain'],
     allow_sha_deployments: false,
     checks: 'required',
+    ignored_checks: ['lint'],
+    commit_verification: false,
     enforced_deployment_order: ['development', 'staging', 'production']
   }
 
@@ -165,6 +171,7 @@ test('successfully calls help with non-defaults and unknown update_branch settin
     permissions: ['write', 'admin', 'maintain'],
     allow_sha_deployments: false,
     checks: 'required',
+    ignored_checks: ['lint'],
     enforced_deployment_order: []
   }
 
