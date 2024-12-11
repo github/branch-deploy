@@ -43046,7 +43046,8 @@ async function prechecks(context, octokit, data) {
   } else if (
     isFork === true &&
     forkBypass === false &&
-    reviewDecision === 'REVIEW_REQUIRED'
+    (reviewDecision === 'REVIEW_REQUIRED' ||
+      reviewDecision === 'CHANGES_REQUESTED')
   ) {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.`
     core.debug(
