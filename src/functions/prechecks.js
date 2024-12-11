@@ -130,37 +130,37 @@ export async function prechecks(context, octokit, data) {
 
   // Check to ensure PR CI checks are passing and the PR has been reviewed
   const query = `query($owner:String!, $name:String!, $number:Int!) {
-                    repository(owner:$owner, name:$name) {
-                        pullRequest(number:$number) {
-                            reviewDecision
-                            mergeStateStatus
-                            commits(last: 1) {
+                  repository(owner:$owner, name:$name) {
+                    pullRequest(number:$number) {
+                      reviewDecision
+                      mergeStateStatus
+                      reviews(states: APPROVED) {
+                        totalCount
+                      }
+                      commits(last: 1) {
+                        nodes {
+                          commit {
+                            oid
+                            checkSuites {
+                              totalCount
+                            }
+                            statusCheckRollup {
+                              state
+                              contexts(first:100) {
                                 nodes {
-                                    commit {
-                                        oid
-                                        checkSuites {
-                                          totalCount
-                                        }
-                                        statusCheckRollup {
-                                            state
-                                            contexts(first:100) {
-                                                nodes {
-                                                    ... on CheckRun {
-                                                        isRequired(pullRequestNumber:$number)
-                                                        conclusion
-                                                        name
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                                  ... on CheckRun {
+                                    isRequired(pullRequestNumber:$number)
+                                    conclusion
+                                    name
+                                  }
                                 }
+                              }
                             }
-                            reviews(states: APPROVED) {
-                                totalCount
-                            }
+                          }
                         }
+                      }
                     }
+                  }
                 }`
   // Note: https://docs.github.com/en/graphql/overview/schema-previews#merge-info-preview (mergeStateStatus)
   const variables = {
