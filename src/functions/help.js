@@ -27,11 +27,33 @@ export async function help(octokit, context, reactionId, inputs) {
     required_contexts_message = `There are required contexts designated for this Action`
   }
 
-  var checks_message = defaultSpecificMessage
-  if (inputs.checks.trim() === 'required') {
-    checks_message = `Only required CI checks must pass before a deployment can be requested`
+  var commit_verification_message = defaultSpecificMessage
+  if (inputs.commit_verification === true) {
+    commit_verification_message = `This Action will require that commits have a verified signature before they can be deployed`
   } else {
+    commit_verification_message = `This Action will not require commits to have a verified signature before they can be deployed`
+  }
+
+  var checks_message = defaultSpecificMessage
+  if (
+    typeof inputs.checks === 'string' &&
+    inputs.checks.trim() === 'required'
+  ) {
+    checks_message = `Only required CI checks must pass before a deployment can be requested`
+  } else if (
+    typeof inputs.checks === 'string' &&
+    inputs.checks.trim() === 'all'
+  ) {
     checks_message = `All CI checks must pass before a deployment can be requested`
+  } else {
+    checks_message = `The following CI checks must pass before a deployment can be requested: \`${inputs.checks.join(`,`)}\``
+  }
+
+  var ignored_checks_message = defaultSpecificMessage
+  if (inputs.ignored_checks.length > 0) {
+    ignored_checks_message = `The following CI checks will be ignored when determining if a deployment can be requested: \`${inputs.ignored_checks.join(`,`)}\``
+  } else {
+    ignored_checks_message = `No CI checks will be ignored when determining if a deployment can be requested`
   }
 
   var skip_ci_message = defaultSpecificMessage
@@ -192,6 +214,7 @@ export async function help(octokit, context, reactionId, inputs) {
   }\` - The GitHub reaction icon to add to the deployment comment when a deployment is triggered
   - \`update_branch: ${inputs.update_branch}\` - ${update_branch_message}
   - \`outdated_mode: ${inputs.outdated_mode}\`
+  - \`commit_verification: ${inputs.commit_verification}\` - ${commit_verification_message}
   - \`required_contexts: ${
     inputs.required_contexts
   }\` - ${required_contexts_message}
@@ -200,6 +223,7 @@ export async function help(octokit, context, reactionId, inputs) {
   } on forked repositories
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`checks: ${inputs.checks}\` - ${checks_message}
+  - \`ignored_checks: ${inputs.ignored_checks}\` - ${ignored_checks_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`draft_permitted_targets: ${
     inputs.draft_permitted_targets

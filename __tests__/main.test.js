@@ -86,6 +86,7 @@ beforeEach(() => {
   process.env.INPUT_CHECKS = 'all'
   process.env.INPUT_ENFORCED_DEPLOYMENT_ORDER = ''
   process.env.INPUT_COMMIT_VERIFICATION = 'false'
+  process.env.INPUT_IGNORED_CHECKS = ''
 
   github.context.payload = {
     issue: {
@@ -908,6 +909,29 @@ test('successfully runs the action after trimming the body', async () => {
 
 test('successfully runs the action with required contexts', async () => {
   process.env.INPUT_REQUIRED_CONTEXTS = 'lint,test,build'
+  expect(await run()).toBe('success')
+  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
+  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
+
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+})
+
+test('successfully runs the action with required contexts, explict checks, and some ignored checks', async () => {
+  process.env.INPUT_CHECKS = 'test,build'
+  process.env.INPUT_REQUIRED_CONTEXTS = 'lint,test,build'
+  process.env.INPUT_IGNORED_CHECKS = 'lint,foo'
   expect(await run()).toBe('success')
   expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
   expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')

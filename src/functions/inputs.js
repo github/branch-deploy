@@ -38,7 +38,7 @@ export function getInputs() {
   const required_contexts = core.getInput('required_contexts')
   const allowForks = core.getBooleanInput('allow_forks')
   const skipCi = core.getInput('skip_ci')
-  const checks = core.getInput('checks')
+  var checks = core.getInput('checks')
   const skipReviews = core.getInput('skip_reviews')
   const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
   const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
@@ -54,6 +54,7 @@ export function getInputs() {
     core.getInput('enforced_deployment_order')
   )
   const commit_verification = core.getBooleanInput('commit_verification')
+  const ignored_checks = stringToArray(core.getInput('ignored_checks'))
 
   // validate inputs
   validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -62,7 +63,12 @@ export function getInputs() {
     'default_branch',
     'strict'
   ])
-  validateInput('checks', checks, ['all', 'required'])
+
+  if (checks === 'all' || checks === 'required') {
+    validateInput('checks', checks, ['all', 'required'])
+  } else {
+    checks = stringToArray(checks)
+  }
 
   // rollup all the inputs into a single object
   return {
@@ -97,6 +103,7 @@ export function getInputs() {
     sticky_locks: sticky_locks,
     sticky_locks_for_noop: sticky_locks_for_noop,
     enforced_deployment_order: enforced_deployment_order,
-    commit_verification: commit_verification
+    commit_verification: commit_verification,
+    ignored_checks: ignored_checks
   }
 }

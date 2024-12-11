@@ -42699,6 +42699,7 @@ async function prechecks(context, octokit, data) {
   const skipReviews = skipReviewsArray.includes(data.environment)
   const allowDraftDeploy = draftPermittedTargetsArray.includes(data.environment)
   const checks = data.inputs.checks
+  const ignoredChecks = data.inputs.ignored_checks || []
 
   var ref = pr.data.head.ref
   var noopMode = data.environmentObj.noop
@@ -42792,6 +42793,7 @@ async function prechecks(context, octokit, data) {
                                                     ... on CheckRun {
                                                         isRequired(pullRequestNumber:$number)
                                                         conclusion
+                                                        name
                                                     }
                                                 }
                                             }
@@ -42865,10 +42867,9 @@ async function prechecks(context, octokit, data) {
         `⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${data.environment}${COLORS.reset} environment`
       )
       commitStatus = 'skip_ci'
-    }
 
-    // If there are no CI checks defined at all, we can set the commitStatus to null
-    else if (
+      // If there are no CI checks defined at all, we can set the commitStatus to null
+    } else if (
       result.repository.pullRequest.commits.nodes[0].commit.checkSuites
         .totalCount === 0
     ) {
@@ -42877,21 +42878,43 @@ async function prechecks(context, octokit, data) {
 
       // If only the required checks need to pass
     } else if (checks === 'required') {
-      commitStatus =
-        result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.nodes
-          .filter(x => x.isRequired)
-          .reduce(
-            (acc, x) => acc && ['SUCCESS', 'SKIPPED'].includes(x.conclusion),
-            true
-          )
-          ? 'SUCCESS'
-          : 'FAILURE'
+      commitStatus = filterChecks(
+        checks,
+        result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup
+          .contexts.nodes,
+        ignoredChecks,
+        true
+      )
 
       // If there are CI checked defined, we need to check for the 'state' of the latest commit
+    } else if (checks === 'all') {
+      // if there are no ignored checks, we can just check the state of the latest commit
+      if (ignoredChecks.length === 0) {
+        commitStatus =
+          result.repository.pullRequest.commits.nodes[0].commit
+            .statusCheckRollup.state
+
+        // if there are ignored checks, we need to filter out the ignored checks from the graphql result
+      } else {
+        commitStatus = filterChecks(
+          checks,
+          result.repository.pullRequest.commits.nodes[0].commit
+            .statusCheckRollup.contexts.nodes,
+          ignoredChecks,
+          false
+        )
+      }
+
+      // if we make it here, checks is not a string (e.g. 'all' or 'required') but it is actually an array of the exact checks...
+      // that a user wants to pass in order for the deployment to proceed
     } else {
-      commitStatus =
+      commitStatus = filterChecks(
+        checks,
         result.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup
-          .state
+          .contexts.nodes,
+        ignoredChecks,
+        false
+      )
     }
   } catch (e) {
     core.debug(
@@ -43284,6 +43307,59 @@ async function prechecks(context, octokit, data) {
     sha: sha,
     isFork: isFork
   }
+}
+
+// A helper function to filter out ignored checks and return the combined status of the remaining checks
+// :param checks: the checks input option
+// :param checkResults: An array of check results (objects) from the graphql query
+// :param ignoredChecks: An array of check names to ignore
+// :param required: A boolean to determine if a check being a required check should be considered
+function filterChecks(checks, checkResults, ignoredChecks, required) {
+  const healthyCheckStatuses = ['SUCCESS', 'SKIPPED', 'NEUTRAL']
+
+  core.debug(`filterChecks() - checks: ${checks}`)
+  core.debug(`filterChecks() - ignoredChecks: ${ignoredChecks}`)
+  core.debug(`filterChecks() - required: ${required}`)
+
+  const result = checkResults
+    .filter(check => {
+      // If checks is an array and it contains items, filter checks based on it
+      if (Array.isArray(checks) && checks.length > 0) {
+        const isIncluded = checks.includes(check.name)
+        if (isIncluded) {
+          core.debug(`explicitly including ci check: ${check.name}`)
+        }
+
+        return checks.includes(check.name)
+      }
+      return true
+    })
+
+    // Filter out ignored checks
+    .filter(check => {
+      const isIgnored = ignoredChecks.includes(check.name)
+      if (isIgnored) {
+        core.debug(`ignoring ci check: ${check.name}`)
+      }
+      return !isIgnored && (required ? check.isRequired : true)
+    })
+
+  const resultReduced = result
+    // Return the combined status of the remaining checks
+    .reduce(
+      (acc, check) => acc && healthyCheckStatuses.includes(check.conclusion),
+      true
+    )
+    ? 'SUCCESS'
+    : 'FAILURE'
+
+  if (result.length === 0) {
+    core.debug(
+      'after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined'
+    )
+  }
+
+  return resultReduced
 }
 
 ;// CONCATENATED MODULE: ./src/functions/valid-branch-name.js
@@ -45102,11 +45178,33 @@ async function help(octokit, context, reactionId, inputs) {
     required_contexts_message = `There are required contexts designated for this Action`
   }
 
-  var checks_message = defaultSpecificMessage
-  if (inputs.checks.trim() === 'required') {
-    checks_message = `Only required CI checks must pass before a deployment can be requested`
+  var commit_verification_message = defaultSpecificMessage
+  if (inputs.commit_verification === true) {
+    commit_verification_message = `This Action will require that commits have a verified signature before they can be deployed`
   } else {
+    commit_verification_message = `This Action will not require commits to have a verified signature before they can be deployed`
+  }
+
+  var checks_message = defaultSpecificMessage
+  if (
+    typeof inputs.checks === 'string' &&
+    inputs.checks.trim() === 'required'
+  ) {
+    checks_message = `Only required CI checks must pass before a deployment can be requested`
+  } else if (
+    typeof inputs.checks === 'string' &&
+    inputs.checks.trim() === 'all'
+  ) {
     checks_message = `All CI checks must pass before a deployment can be requested`
+  } else {
+    checks_message = `The following CI checks must pass before a deployment can be requested: \`${inputs.checks.join(`,`)}\``
+  }
+
+  var ignored_checks_message = defaultSpecificMessage
+  if (inputs.ignored_checks.length > 0) {
+    ignored_checks_message = `The following CI checks will be ignored when determining if a deployment can be requested: \`${inputs.ignored_checks.join(`,`)}\``
+  } else {
+    ignored_checks_message = `No CI checks will be ignored when determining if a deployment can be requested`
   }
 
   var skip_ci_message = defaultSpecificMessage
@@ -45267,6 +45365,7 @@ async function help(octokit, context, reactionId, inputs) {
   }\` - The GitHub reaction icon to add to the deployment comment when a deployment is triggered
   - \`update_branch: ${inputs.update_branch}\` - ${update_branch_message}
   - \`outdated_mode: ${inputs.outdated_mode}\`
+  - \`commit_verification: ${inputs.commit_verification}\` - ${commit_verification_message}
   - \`required_contexts: ${
     inputs.required_contexts
   }\` - ${required_contexts_message}
@@ -45275,6 +45374,7 @@ async function help(octokit, context, reactionId, inputs) {
   } on forked repositories
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`checks: ${inputs.checks}\` - ${checks_message}
+  - \`ignored_checks: ${inputs.ignored_checks}\` - ${ignored_checks_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`draft_permitted_targets: ${
     inputs.draft_permitted_targets
@@ -45346,7 +45446,7 @@ function getInputs() {
   const required_contexts = core.getInput('required_contexts')
   const allowForks = core.getBooleanInput('allow_forks')
   const skipCi = core.getInput('skip_ci')
-  const checks = core.getInput('checks')
+  var checks = core.getInput('checks')
   const skipReviews = core.getInput('skip_reviews')
   const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
   const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
@@ -45362,6 +45462,7 @@ function getInputs() {
     core.getInput('enforced_deployment_order')
   )
   const commit_verification = core.getBooleanInput('commit_verification')
+  const ignored_checks = stringToArray(core.getInput('ignored_checks'))
 
   // validate inputs
   inputs_validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -45370,7 +45471,12 @@ function getInputs() {
     'default_branch',
     'strict'
   ])
-  inputs_validateInput('checks', checks, ['all', 'required'])
+
+  if (checks === 'all' || checks === 'required') {
+    inputs_validateInput('checks', checks, ['all', 'required'])
+  } else {
+    checks = stringToArray(checks)
+  }
 
   // rollup all the inputs into a single object
   return {
@@ -45405,7 +45511,8 @@ function getInputs() {
     sticky_locks: sticky_locks,
     sticky_locks_for_noop: sticky_locks_for_noop,
     enforced_deployment_order: enforced_deployment_order,
-    commit_verification: commit_verification
+    commit_verification: commit_verification,
+    ignored_checks: ignored_checks
   }
 }
 
