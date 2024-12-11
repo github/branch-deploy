@@ -1706,7 +1706,70 @@ test('runs prechecks and finds the PR is in a changes requested state and CI is 
   })
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `CHANGES_REQUESTED`\n- commitStatus: `FAILURE`\n\n> This is usually caused by missing PR approvals or CI checks failing',
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `CHANGES_REQUESTED`\n- commitStatus: `FAILURE`\n\n> Your pull request needs to address the requested changes, get approvals, and have passing CI checks before you can proceed with deployment',
+    status: false
+  })
+})
+
+test('runs prechecks and finds the PR is in a REVIEW_REQUIRED state and CI is failing', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'REVIEW_REQUIRED',
+        reviews: {
+          totalCount: 1
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abc123',
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `FAILURE`\n\n> Your pull request needs to get approvals and have passing CI checks before you can proceed with deployment',
+    status: false
+  })
+})
+
+test('runs prechecks and finds the PR is in a changes requested state and has no CI checks defined', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'CHANGES_REQUESTED',
+        reviews: {
+          totalCount: 1
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abc123',
+                checkSuites: {
+                  totalCount: 0
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `CHANGES_REQUESTED`\n- commitStatus: `null`\n\n> Your pull request is missing required approvals',
     status: false
   })
 })

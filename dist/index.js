@@ -43324,6 +43324,24 @@ async function prechecks(context, octokit, data) {
     )
     return {message: message, status: false}
 
+    // If it is not a noop deploy and the PR has requested changes with failing CI checks
+  } else if (
+    !noopMode &&
+    reviewDecision === 'CHANGES_REQUESTED' &&
+    commitStatus === 'FAILURE'
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request needs to address the requested changes, get approvals, and have passing CI checks before you can proceed with deployment`
+    return {message: message, status: false}
+
+    // If it is not a noop deploy and the PR is missing required reviews with failing CI checks
+  } else if (
+    !noopMode &&
+    reviewDecision === 'REVIEW_REQUIRED' &&
+    commitStatus === 'FAILURE'
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request needs to get approvals and have passing CI checks before you can proceed with deployment`
+    return {message: message, status: false}
+
     // If there are any other errors blocking deployment, let the user know
   } else {
     message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`
