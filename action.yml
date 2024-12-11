@@ -106,7 +106,7 @@ inputs:
     required: false
     default: "all"
   ignored_checks:
-    description: 'A comma separated list of checks that will be ignored when determining if a deployment can continue. This setting allows you to skip failing, pending, or incomplete checks regardless of the `checks` setting above. Example: "lint,markdown-formatting,update-pr-label"'
+    description: 'A comma separated list of checks that will be ignored when determining if a deployment can continue. This setting allows you to skip failing, pending, or incomplete checks regardless of the `checks` setting above. Example: "lint,markdown-formatting,update-pr-label". View the documentation (docs/checks.md) for more details.'
     required: false
     default: ""
   skip_reviews:
