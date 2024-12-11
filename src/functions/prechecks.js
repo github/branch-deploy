@@ -130,37 +130,37 @@ export async function prechecks(context, octokit, data) {
 
   // Check to ensure PR CI checks are passing and the PR has been reviewed
   const query = `query($owner:String!, $name:String!, $number:Int!) {
-                    repository(owner:$owner, name:$name) {
-                        pullRequest(number:$number) {
-                            reviewDecision
-                            mergeStateStatus
-                            commits(last: 1) {
+                  repository(owner:$owner, name:$name) {
+                    pullRequest(number:$number) {
+                      reviewDecision
+                      mergeStateStatus
+                      reviews(states: APPROVED) {
+                        totalCount
+                      }
+                      commits(last: 1) {
+                        nodes {
+                          commit {
+                            oid
+                            checkSuites {
+                              totalCount
+                            }
+                            statusCheckRollup {
+                              state
+                              contexts(first:100) {
                                 nodes {
-                                    commit {
-                                        oid
-                                        checkSuites {
-                                          totalCount
-                                        }
-                                        statusCheckRollup {
-                                            state
-                                            contexts(first:100) {
-                                                nodes {
-                                                    ... on CheckRun {
-                                                        isRequired(pullRequestNumber:$number)
-                                                        conclusion
-                                                        name
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                                  ... on CheckRun {
+                                    isRequired(pullRequestNumber:$number)
+                                    conclusion
+                                    name
+                                  }
                                 }
+                              }
                             }
-                            reviews(states: APPROVED) {
-                                totalCount
-                            }
+                          }
                         }
+                      }
                     }
+                  }
                 }`
   // Note: https://docs.github.com/en/graphql/overview/schema-previews#merge-info-preview (mergeStateStatus)
   const variables = {
@@ -187,6 +187,12 @@ export async function prechecks(context, octokit, data) {
   } else {
     // Otherwise, grab the reviewDecision from the GraphQL result
     reviewDecision = result.repository.pullRequest.reviewDecision
+
+    if (reviewDecision === 'APPROVED') {
+      core.info(
+        `🟢 the pull request is ${COLORS.success}approved${COLORS.reset}`
+      )
+    }
   }
 
   // If pull request reviews are not required and the PR is from a fork and the request isn't a deploy to the stable branch, we need to alert the user that this is potentially dangerous

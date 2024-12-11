@@ -9,23 +9,58 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 
-latest_tag=$(git describe --tags $(git rev-list --tags --max-count=1))
-echo -e "The latest release tag is: ${BLUE}${latest_tag}${OFF}"
-read -p 'New Release Tag (vX.X.X format): ' new_tag
-
-tag_regex='^v[0-9]+\.[0-9]+\.[0-9]+$'
-echo "$new_tag" | grep -E "$tag_regex"
-
-if [[ $? -ne 0 ]]; then
-  echo -e "${RED}ERROR${OFF} - Tag: $new_tag is not valid. Please use vX.X.X format."
+# Read the version from src/version.js
+version_file="src/version.js"
+if [[ ! -f $version_file ]]; then
+  echo -e "${RED}ERROR${OFF} - Version file not found: $version_file"
   exit 1
 fi
 
+version_line=$(grep 'export const VERSION' $version_file)
+if [[ -z $version_line ]]; then
+  echo -e "${RED}ERROR${OFF} - Version line not found in: $version_file"
+  exit 1
+fi
+
+# Extract the version value
+new_tag=$(echo $version_line | sed -E "s/export const VERSION = '([^']+)'/\1/")
+if [[ -z $new_tag ]]; then
+  echo -e "${RED}ERROR${OFF} - Failed to extract version from: $version_file"
+  exit 1
+fi
+
+# Validate the version tag format
+tag_regex='^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$'
+echo "$new_tag" | grep -E "$tag_regex" > /dev/null
+
+if [[ $? -ne 0 ]]; then
+  echo -e "${RED}ERROR${OFF} - Tag: $new_tag is not valid. Please use vX.X.X or vX.X.X-rc.X format."
+  exit 1
+fi
+
+# Get the latest tag
+latest_tag=$(git describe --tags $(git rev-list --tags --max-count=1))
+echo -e "The latest release tag is: ${BLUE}${latest_tag}${OFF}"
+
+# Confirm the new tag
+read -p "New Release Tag (press ENTER for default: ${new_tag}): " input_tag
+new_tag=${input_tag:-$new_tag}
+
+# Tag the new release
 git tag -a $new_tag -m "$new_tag Release"
+if [[ $? -ne 0 ]]; then
+  echo -e "${RED}ERROR${OFF} - Failed to create tag: $new_tag"
+  exit 1
+fi
 
 echo -e "${GREEN}OK${OFF} - Tagged: $new_tag"
 
+# Push the tags to remote
 git push --tags
+if [[ $? -ne 0 ]]; then
+  echo -e "${RED}ERROR${OFF} - Failed to push tags to remote"
+  exit 1
+fi
 
 echo -e "${GREEN}OK${OFF} - Tags pushed to remote!"
 echo -e "${GREEN}DONE${OFF}"

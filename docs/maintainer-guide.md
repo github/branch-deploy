@@ -11,7 +11,7 @@ Here is a very high level flow of how we go from idea to release:
 3. Either the user or a maintainer creates a pull request with the feature
 4. The pull request is reviewed by a maintainer - CI passing, etc
 5. The pull request is merged
-6. A new tag is pushed to the repository
+6. A new tag is pushed to the repository (see section below for more details)
 7. A pre-release is created on GitHub. Maintainers can test this pre-release and so can users.
 8. The pre-release looks good, so the maintainer(s) flip the release to a full release (aka latest)
 9. The [`update-latest-release-tag`](../.github/workflows/update-latest-release-tag.yml) workflow is run to sync major release tags with the latest release tag
@@ -22,11 +22,15 @@ Here is a very high level flow of how we go from idea to release:
 
 Creating a release is a rather straight forward process.
 
-Simply run the following script and follow the prompts to create, and push a new release tag:
+First, you must edit the [`src/version.js`](src/version.js) file to bump the version number.
+
+Second, you simply run the following script to push a new release tag using the version number in `src/version.js` as a default:
 
 ```bash
 script/release
 ```
+
+> Pretty much just `script/release` and press `ENTER` for the default
 
 Now that the new release is published you can set it as a pre-release to test it out, or set it as the latest release.
 

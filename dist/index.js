@@ -39954,6 +39954,17 @@ var dist_node = __nccwpck_require__(3450);
 // EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
 var lib = __nccwpck_require__(958);
 var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
+;// CONCATENATED MODULE: ./src/version.js
+// The version of the branch-deploy Action
+// Acceptable version formats:
+// - v1.0.0
+// - v4.5.1
+// - v10.123.44
+// - v1.1.1-rc.1
+// - etc
+
+const VERSION = 'v10.0.0-rc.1'
+
 ;// CONCATENATED MODULE: ./src/functions/colors.js
 const COLORS = {
   highlight: '\u001b[35m', // magenta
@@ -42775,37 +42786,37 @@ async function prechecks(context, octokit, data) {
 
   // Check to ensure PR CI checks are passing and the PR has been reviewed
   const query = `query($owner:String!, $name:String!, $number:Int!) {
-                    repository(owner:$owner, name:$name) {
-                        pullRequest(number:$number) {
-                            reviewDecision
-                            mergeStateStatus
-                            commits(last: 1) {
+                  repository(owner:$owner, name:$name) {
+                    pullRequest(number:$number) {
+                      reviewDecision
+                      mergeStateStatus
+                      reviews(states: APPROVED) {
+                        totalCount
+                      }
+                      commits(last: 1) {
+                        nodes {
+                          commit {
+                            oid
+                            checkSuites {
+                              totalCount
+                            }
+                            statusCheckRollup {
+                              state
+                              contexts(first:100) {
                                 nodes {
-                                    commit {
-                                        oid
-                                        checkSuites {
-                                          totalCount
-                                        }
-                                        statusCheckRollup {
-                                            state
-                                            contexts(first:100) {
-                                                nodes {
-                                                    ... on CheckRun {
-                                                        isRequired(pullRequestNumber:$number)
-                                                        conclusion
-                                                        name
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                                  ... on CheckRun {
+                                    isRequired(pullRequestNumber:$number)
+                                    conclusion
+                                    name
+                                  }
                                 }
+                              }
                             }
-                            reviews(states: APPROVED) {
-                                totalCount
-                            }
+                          }
                         }
+                      }
                     }
+                  }
                 }`
   // Note: https://docs.github.com/en/graphql/overview/schema-previews#merge-info-preview (mergeStateStatus)
   const variables = {
@@ -42832,6 +42843,12 @@ async function prechecks(context, octokit, data) {
   } else {
     // Otherwise, grab the reviewDecision from the GraphQL result
     reviewDecision = result.repository.pullRequest.reviewDecision
+
+    if (reviewDecision === 'APPROVED') {
+      core.info(
+        `🟢 the pull request is ${COLORS.success}approved${COLORS.reset}`
+      )
+    }
   }
 
   // If pull request reviews are not required and the PR is from a fork and the request isn't a deploy to the stable branch, we need to alert the user that this is potentially dangerous
@@ -44878,6 +44895,7 @@ function calculateDeploymentTime(start_time, end_time) {
 
 
 
+
 async function post() {
   try {
     const token = core.getState('actionsToken')
@@ -44940,7 +44958,7 @@ async function post() {
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
-      userAgent: 'github/branch-deploy',
+      userAgent: `github/branch-deploy@${VERSION}`,
       additionalPlugins: [dist_node.octokitRetry]
     })
 
@@ -45742,9 +45760,11 @@ function isTimestampOlder(timestampA, timestampB) {
 
 
 
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
+    core.info(`🛸 github/branch-deploy ${COLORS.info}${VERSION}${COLORS.reset}`)
     core.debug(`context: ${JSON.stringify(github.context)}`)
 
     // Get the inputs for the branch-deploy Action
@@ -45755,7 +45775,7 @@ async function run() {
 
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
-      userAgent: 'github/branch-deploy',
+      userAgent: `github/branch-deploy@${VERSION}`,
       additionalPlugins: [dist_node.octokitRetry]
     })
 
