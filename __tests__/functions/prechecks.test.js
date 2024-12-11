@@ -1386,7 +1386,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
   })
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `PENDING`\n\n> CI checks must be passing and the PR must be reviewed in order to continue',
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `PENDING`\n\n> CI checks must be passing and the PR must be approved in order to continue',
     status: false
   })
 })
@@ -1536,6 +1536,36 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `SUCCESS`\n\n> CI checks are passing but an approval is required before you can proceed with deployment',
+    status: false
+  })
+})
+
+test('runs prechecks and finds CI is passing but the PR is in a CHANGES_REQUESTED state for reviews', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'CHANGES_REQUESTED',
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abc123',
+                checkSuites: {
+                  totalCount: 1
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `CHANGES_REQUESTED`\n- commitStatus: `SUCCESS`\n\n> CI checks are passing but an approval is required before you can proceed with deployment',
     status: false
   })
 })
