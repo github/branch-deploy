@@ -187,6 +187,12 @@ export async function prechecks(context, octokit, data) {
   } else {
     // Otherwise, grab the reviewDecision from the GraphQL result
     reviewDecision = result.repository.pullRequest.reviewDecision
+
+    if (reviewDecision === 'APPROVED') {
+      core.info(
+        `🟢 the pull request is ${COLORS.success}approved${COLORS.reset}`
+      )
+    }
   }
 
   // If pull request reviews are not required and the PR is from a fork and the request isn't a deploy to the stable branch, we need to alert the user that this is potentially dangerous
