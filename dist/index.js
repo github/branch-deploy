@@ -43458,6 +43458,11 @@ async function branchRulesetChecks(context, octokit, data) {
   const branch = data.branch
   const use_security_warnings = data?.use_security_warnings !== false
 
+  // exit early if the user has disabled security warnings
+  if (!use_security_warnings) {
+    return {success: true}
+  }
+
   const {data: branch_rules} = await octokit.rest.repos.getBranchRules({
     ...context.repo,
     branch,
@@ -43469,11 +43474,6 @@ async function branchRulesetChecks(context, octokit, data) {
   )
 
   var failed_checks = []
-
-  // exit early if the user has disabled security warnings
-  if (!use_security_warnings) {
-    return {success: true}
-  }
 
   // leave a warning if no rulesets are defined
   if (branch_rules.length === 0) {
