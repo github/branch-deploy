@@ -31,7 +31,6 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
-        getBranchProtection: jest.fn().mockReturnValueOnce([]),
         getBranchRules: jest.fn().mockReturnValueOnce([])
       }
     }
@@ -41,6 +40,6 @@ beforeEach(() => {
 test('finds that no branch protections or rulesets are defined', async () => {
   expect(await branchProtectionChecks(context, octokit, data)).toBeUndefined()
   expect(infoMock).toHaveBeenCalledWith(
-    `👀 branch ${COLORS.highlight}protection${COLORS.reset}: []`
+    `👀 branch ${COLORS.highlight}rulesets${COLORS.reset}: []`
   )
 })
