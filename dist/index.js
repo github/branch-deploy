@@ -43421,6 +43421,34 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
   return resultReduced
 }
 
+;// CONCATENATED MODULE: ./src/functions/branch-protection-checks.js
+
+
+
+
+async function branchProtectionChecks(context, octokit, data) {
+  const branch = data.branch
+
+  const branch_protection = await octokit.rest.repos.getBranchProtection({
+    ...context.repo,
+    branch,
+    headers: API_HEADERS
+  })
+
+  const branch_rules = await octokit.rest.repos.getBranchRules({
+    ...context.repo,
+    branch,
+    headers: API_HEADERS
+  })
+
+  core.info(
+    `👀 branch ${COLORS.highlight}protection${COLORS.reset}: ${JSON.stringify(branch_protection)}`
+  )
+  core.info(
+    `👀 branch ${COLORS.highlight}rules${COLORS.reset}: ${JSON.stringify(branch_rules)}`
+  )
+}
+
 ;// CONCATENATED MODULE: ./src/functions/valid-branch-name.js
 
 
@@ -45803,6 +45831,7 @@ function isTimestampOlder(timestampA, timestampB) {
 
 
 
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
@@ -46221,6 +46250,11 @@ async function run() {
       core.setFailed(precheckResults.message)
       return 'failure'
     }
+
+    // run branch protection checks
+    await branchProtectionChecks(github.context, octokit, {
+      branch: inputs.stable_branch
+    })
 
     // fetch commit data from the API
     const commitData = await octokit.rest.repos.getCommit({

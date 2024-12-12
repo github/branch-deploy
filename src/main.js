@@ -14,6 +14,7 @@ import {actionStatus} from './functions/action-status'
 import {createDeploymentStatus} from './functions/deployment'
 import {isDeprecated} from './functions/deprecated-checks'
 import {prechecks} from './functions/prechecks'
+import {branchProtectionChecks} from './functions/branch-protection-checks'
 import {validPermissions} from './functions/valid-permissions'
 import {lock} from './functions/lock'
 import {unlock} from './functions/unlock'
@@ -448,6 +449,11 @@ export async function run() {
       core.setFailed(precheckResults.message)
       return 'failure'
     }
+
+    // run branch protection checks
+    await branchProtectionChecks(context, octokit, {
+      branch: inputs.stable_branch
+    })
 
     // fetch commit data from the API
     const commitData = await octokit.rest.repos.getCommit({
