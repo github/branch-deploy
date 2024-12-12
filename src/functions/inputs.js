@@ -55,6 +55,7 @@ export function getInputs() {
   )
   const commit_verification = core.getBooleanInput('commit_verification')
   const ignored_checks = stringToArray(core.getInput('ignored_checks'))
+  const use_security_warnings = core.getBooleanInput('use_security_warnings')
 
   // validate inputs
   validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -104,6 +105,7 @@ export function getInputs() {
     sticky_locks_for_noop: sticky_locks_for_noop,
     enforced_deployment_order: enforced_deployment_order,
     commit_verification: commit_verification,
-    ignored_checks: ignored_checks
+    ignored_checks: ignored_checks,
+    use_security_warnings: use_security_warnings
   }
 }

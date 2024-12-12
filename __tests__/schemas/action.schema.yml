@@ -480,6 +480,16 @@ inputs:
     default:
       type: string
       required: false
+  use_security_warnings:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
 
 # outputs section
 outputs:
