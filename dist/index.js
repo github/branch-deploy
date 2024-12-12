@@ -43436,7 +43436,7 @@ async function branchProtectionChecks(context, octokit, data) {
     headers: API_HEADERS
   })
 
-  core.debug(
+  core.info(
     `branch ${COLORS.highlight}rulesets${COLORS.reset}: ${JSON.stringify(branch_rules)}`
   )
 
