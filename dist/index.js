@@ -43421,7 +43421,34 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
   return resultReduced
 }
 
+;// CONCATENATED MODULE: ./src/functions/suggested-rulesets.js
+const SUGGESTED_RULESETS = [
+  {
+    type: 'deletion'
+  },
+  {
+    type: 'non_fast_forward'
+  },
+  {
+    type: 'pull_request',
+    parameters: {
+      dismiss_stale_reviews_on_push: true,
+      require_code_owner_review: true
+    }
+  },
+  {
+    type: 'required_status_checks',
+    parameters: {
+      strict_required_status_checks_policy: true
+    }
+  },
+  {
+    type: 'required_deployments'
+  }
+]
+
 ;// CONCATENATED MODULE: ./src/functions/branch-protection-checks.js
+
 
 
 
@@ -43453,6 +43480,30 @@ async function branchProtectionChecks(context, octokit, data) {
       `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} are not defined for branch ${COLORS.highlight}${branch}${COLORS.reset}`
     )
     failed_checks.push('missing_branch_rulesets')
+  } else {
+    // loop through the suggested rulesets and check them against the branch rules
+    SUGGESTED_RULESETS.forEach(suggested_rule => {
+      const rule_type = suggested_rule.type
+      const rule_parameters = suggested_rule.parameters
+
+      const branch_rule = branch_rules.find(rule => rule.type === rule_type)
+
+      if (!branch_rule) {
+        core.warning(
+          `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} is missing a rule of type ${COLORS.highlight}${rule_type}${COLORS.reset}`
+        )
+        failed_checks.push(`missing_${rule_type}`)
+      } else if (rule_parameters) {
+        Object.keys(rule_parameters).forEach(key => {
+          if (branch_rule.parameters[key] !== rule_parameters[key]) {
+            core.warning(
+              `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains a rule of type ${COLORS.highlight}${rule_type}${COLORS.reset} with a parameter ${COLORS.highlight}${key}${COLORS.reset} which does not match the suggested parameter`
+            )
+            failed_checks.push(`mismatch_${rule_type}_${key}`)
+          }
+        })
+      }
+    })
   }
 
   if (failed_checks.length > 0) {
