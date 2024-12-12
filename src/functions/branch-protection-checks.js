@@ -13,7 +13,7 @@ export async function branchProtectionChecks(context, octokit, data) {
     headers: API_HEADERS
   })
 
-  core.info(
+  core.debug(
     `branch ${COLORS.highlight}rulesets${COLORS.reset}: ${JSON.stringify(branch_rules)}`
   )
 
