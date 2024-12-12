@@ -45485,6 +45485,7 @@ async function help(octokit, context, reactionId, inputs) {
   } on forked repositories
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`checks: ${inputs.checks}\` - ${checks_message}
+  - \`use_security_warnings: ${inputs.use_security_warnings}\` - This Action will ${inputs.use_security_warnings === true ? 'use' : 'not use'} security warnings
   - \`ignored_checks: ${inputs.ignored_checks}\` - ${ignored_checks_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`draft_permitted_targets: ${
@@ -45574,6 +45575,7 @@ function getInputs() {
   )
   const commit_verification = core.getBooleanInput('commit_verification')
   const ignored_checks = stringToArray(core.getInput('ignored_checks'))
+  const use_security_warnings = core.getBooleanInput('use_security_warnings')
 
   // validate inputs
   inputs_validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -45623,7 +45625,8 @@ function getInputs() {
     sticky_locks_for_noop: sticky_locks_for_noop,
     enforced_deployment_order: enforced_deployment_order,
     commit_verification: commit_verification,
-    ignored_checks: ignored_checks
+    ignored_checks: ignored_checks,
+    use_security_warnings: use_security_warnings
   }
 }
 
