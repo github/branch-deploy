@@ -3,7 +3,7 @@ import {COLORS} from './colors'
 import {API_HEADERS} from './api-headers'
 import {SUGGESTED_RULESETS} from './suggested-rulesets'
 
-export async function branchProtectionChecks(context, octokit, data) {
+export async function branchRulesetChecks(context, octokit, data) {
   const branch = data.branch
   const use_security_warnings = data?.use_security_warnings !== false
 

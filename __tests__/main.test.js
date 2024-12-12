@@ -2,7 +2,7 @@ import {run} from '../src/main'
 import * as reactEmote from '../src/functions/react-emote'
 import * as contextCheck from '../src/functions/context-check'
 import * as prechecks from '../src/functions/prechecks'
-import * as branchProtectionChecks from '../src/functions/branch-protection-checks'
+import * as branchRulesetChecks from '../src/functions/branch-ruleset-checks'
 import * as help from '../src/functions/help'
 import * as validPermissions from '../src/functions/valid-permissions'
 import * as identicalCommitCheck from '../src/functions/identical-commit-check'
@@ -166,7 +166,7 @@ beforeEach(() => {
     }
   })
   jest
-    .spyOn(branchProtectionChecks, 'branchProtectionChecks')
+    .spyOn(branchRulesetChecks, 'branchRulesetChecks')
     .mockImplementation(() => {
       return undefined
     })

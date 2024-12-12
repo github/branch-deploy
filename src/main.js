@@ -14,7 +14,7 @@ import {actionStatus} from './functions/action-status'
 import {createDeploymentStatus} from './functions/deployment'
 import {isDeprecated} from './functions/deprecated-checks'
 import {prechecks} from './functions/prechecks'
-import {branchProtectionChecks} from './functions/branch-protection-checks'
+import {branchRulesetChecks} from './functions/branch-ruleset-checks'
 import {validPermissions} from './functions/valid-permissions'
 import {lock} from './functions/lock'
 import {unlock} from './functions/unlock'
@@ -450,8 +450,8 @@ export async function run() {
       return 'failure'
     }
 
-    // run branch protection checks
-    await branchProtectionChecks(context, octokit, {
+    // run branch ruleset checks
+    await branchRulesetChecks(context, octokit, {
       branch: inputs.stable_branch,
       use_security_warnings: inputs.use_security_warnings
     })

@@ -43448,13 +43448,13 @@ const SUGGESTED_RULESETS = [
   }
 ]
 
-;// CONCATENATED MODULE: ./src/functions/branch-protection-checks.js
+;// CONCATENATED MODULE: ./src/functions/branch-ruleset-checks.js
 
 
 
 
 
-async function branchProtectionChecks(context, octokit, data) {
+async function branchRulesetChecks(context, octokit, data) {
   const branch = data.branch
   const use_security_warnings = data?.use_security_warnings !== false
 
@@ -46339,8 +46339,8 @@ async function run() {
       return 'failure'
     }
 
-    // run branch protection checks
-    await branchProtectionChecks(github.context, octokit, {
+    // run branch ruleset checks
+    await branchRulesetChecks(github.context, octokit, {
       branch: inputs.stable_branch,
       use_security_warnings: inputs.use_security_warnings
     })

@@ -1,4 +1,4 @@
-import {branchProtectionChecks} from '../../src/functions/branch-protection-checks'
+import {branchRulesetChecks} from '../../src/functions/branch-ruleset-checks'
 import * as core from '@actions/core'
 import {COLORS} from '../../src/functions/colors'
 import {SUGGESTED_RULESETS} from '../../src/functions/suggested-rulesets'
@@ -85,7 +85,7 @@ test('finds that no branch protections or rulesets are defined', async () => {
       }
     }
   }
-  expect(await branchProtectionChecks(context, octokit, data)).toStrictEqual({
+  expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: false,
     failed_checks: ['missing_branch_rulesets']
   })
@@ -96,7 +96,7 @@ test('finds that no branch protections or rulesets are defined', async () => {
 
 test('exits early if the user has disabled security warnings', async () => {
   data.use_security_warnings = false
-  expect(await branchProtectionChecks(context, octokit, data)).toStrictEqual({
+  expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: true
   })
   expect(warningMock).not.toHaveBeenCalled()
@@ -116,7 +116,7 @@ test('finds that the branch ruleset is missing the deletion rule', async () => {
     }
   }
 
-  expect(await branchProtectionChecks(context, octokit, data)).toStrictEqual({
+  expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: false,
     failed_checks: ['missing_deletion']
   })
@@ -147,7 +147,7 @@ test('finds that the branch ruleset is missing the dismiss_stale_reviews_on_push
     }
   }
 
-  expect(await branchProtectionChecks(context, octokit, data)).toStrictEqual({
+  expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: false,
     failed_checks: ['mismatch_pull_request_dismiss_stale_reviews_on_push']
   })
@@ -172,7 +172,7 @@ test('finds that all suggested branch rulesets are defined', async () => {
     }
   }
 
-  expect(await branchProtectionChecks(context, octokit, data)).toStrictEqual({
+  expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: true,
     failed_checks: []
   })
@@ -211,7 +211,7 @@ test('finds that all suggested branch rulesets are defined but required reviews 
     }
   }
 
-  expect(await branchProtectionChecks(context, octokit, data)).toStrictEqual({
+  expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: false,
     failed_checks: ['mismatch_pull_request_required_approving_review_count']
   })
