@@ -9,7 +9,8 @@ export const SUGGESTED_RULESETS = [
     type: 'pull_request',
     parameters: {
       dismiss_stale_reviews_on_push: true,
-      require_code_owner_review: true
+      require_code_owner_review: true,
+      required_approving_review_count: 1 // At least one approving review is required by default (or greater)
     }
   },
   {

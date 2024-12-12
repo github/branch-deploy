@@ -43433,7 +43433,8 @@ const SUGGESTED_RULESETS = [
     type: 'pull_request',
     parameters: {
       dismiss_stale_reviews_on_push: true,
-      require_code_owner_review: true
+      require_code_owner_review: true,
+      required_approving_review_count: 1 // At least one approving review is required by default (or greater)
     }
   },
   {
@@ -43496,10 +43497,20 @@ async function branchProtectionChecks(context, octokit, data) {
       } else if (rule_parameters) {
         Object.keys(rule_parameters).forEach(key => {
           if (branch_rule.parameters[key] !== rule_parameters[key]) {
-            core.warning(
-              `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains a rule of type ${COLORS.highlight}${rule_type}${COLORS.reset} with a parameter ${COLORS.highlight}${key}${COLORS.reset} which does not match the suggested parameter`
-            )
-            failed_checks.push(`mismatch_${rule_type}_${key}`)
+            if (
+              key === 'required_approving_review_count' &&
+              branch_rule.parameters['required_approving_review_count'] === 0
+            ) {
+              core.warning(
+                `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains the required_approving_review_count parameter but it is set to 0`
+              )
+              failed_checks.push(`mismatch_${rule_type}_${key}`)
+            } else {
+              core.warning(
+                `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains a rule of type ${COLORS.highlight}${rule_type}${COLORS.reset} with a parameter ${COLORS.highlight}${key}${COLORS.reset} which does not match the suggested parameter`
+              )
+              failed_checks.push(`mismatch_${rule_type}_${key}`)
+            }
           }
         })
       }

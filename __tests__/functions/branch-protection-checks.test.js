@@ -181,3 +181,41 @@ test('finds that all suggested branch rulesets are defined', async () => {
     `🔐 branch ruleset checks ${COLORS.success}passed${COLORS.reset}`
   )
 })
+
+test('finds that all suggested branch rulesets are defined but required reviews is set to 0', async () => {
+  rulesets = SUGGESTED_RULESETS.map(suggested_rule => {
+    return {
+      type: suggested_rule.type,
+      parameters: suggested_rule.parameters
+    }
+  })
+
+  rulesets = rulesets.map(rule => {
+    if (rule.type === 'pull_request') {
+      return {
+        type: 'pull_request',
+        parameters: {
+          ...rule.parameters,
+          required_approving_review_count: 0
+        }
+      }
+    }
+    return rule
+  })
+
+  octokit = {
+    rest: {
+      repos: {
+        getBranchRules: jest.fn().mockReturnValueOnce({data: rulesets})
+      }
+    }
+  }
+
+  expect(await branchProtectionChecks(context, octokit, data)).toStrictEqual({
+    success: false,
+    failed_checks: ['mismatch_pull_request_required_approving_review_count']
+  })
+  expect(warningMock).toHaveBeenCalledWith(
+    `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${data.branch}${COLORS.reset} contains the required_approving_review_count parameter but it is set to 0`
+  )
+})
