@@ -42745,6 +42745,15 @@ async function prechecks(context, octokit, data) {
     )
   }
 
+  // If the PR is targeting a branch other than the default branch (and it is not a stable branch deploy) reject the deployment
+  if (
+    data.environmentObj.stable_branch_used === false &&
+    data.inputs.stable_branch !== baseRef
+  ) {
+    message = `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`${baseRef}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`
+    return {message: message, status: false}
+  }
+
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
   // Note: We should not export fork values if the stable_branch is being used here
   if (isFork === true && forkBypass === false) {

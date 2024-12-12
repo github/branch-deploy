@@ -84,7 +84,7 @@ beforeEach(() => {
         sha: 'abc123'
       },
       base: {
-        ref: 'base-ref'
+        ref: 'main'
       }
     },
     status: 200
@@ -1020,7 +1020,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
         }
       },
       base: {
-        ref: 'base-ref'
+        ref: 'main'
       }
     },
     status: 200
@@ -1032,6 +1032,54 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     ref: 'abcde12345',
     sha: 'abcde12345',
     isFork: true
+  })
+})
+
+test('runs prechecks and finds that the PR from a fork is targeting a non-default branch and rejects the deployment', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        reviews: {
+          totalCount: 1
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abcde12345',
+                checkSuites: {
+                  totalCount: 8
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        label: 'test-repo:test-ref',
+        repo: {
+          fork: true
+        }
+      },
+      base: {
+        ref: 'some-other-branch'
+      }
+    },
+    status: 200
+  })
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`some-other-branch\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
+    status: false
   })
 })
 
@@ -1072,7 +1120,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
         }
       },
       base: {
-        ref: 'base-ref'
+        ref: 'main'
       }
     },
     status: 200
@@ -1124,7 +1172,7 @@ test('runs prechecks and finds that the IssueOps command is a fork and does not 
         }
       },
       base: {
-        ref: 'base-ref'
+        ref: 'main'
       }
     },
     status: 200
@@ -1182,7 +1230,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
         }
       },
       base: {
-        ref: 'base-ref'
+        ref: 'main'
       }
     },
     status: 200
@@ -1245,7 +1293,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
         }
       },
       base: {
-        ref: 'base-ref'
+        ref: 'main'
       }
     },
     status: 200
@@ -1309,7 +1357,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
         }
       },
       base: {
-        ref: 'base-ref'
+        ref: 'main'
       }
     },
     status: 200
@@ -1372,7 +1420,7 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
         }
       },
       base: {
-        ref: 'base-ref'
+        ref: 'main'
       }
     },
     status: 200
@@ -1933,7 +1981,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
   data.environmentObj.noop = true
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return {outdated: true, branch: 'base-ref'}
+    return {outdated: true, branch: 'main'}
   })
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
@@ -2017,7 +2065,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
   })
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return {outdated: true, branch: 'base-ref'}
+    return {outdated: true, branch: 'main'}
   })
 
   data.environmentObj.noop = true
@@ -2025,7 +2073,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: `422`\n- update_branch: `force`\n\n> Failed to update pull request branch with the `base-ref` branch',
+      '### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: `422`\n- update_branch: `force`\n\n> Failed to update pull request branch with the `main` branch',
     status: false
   })
 })
@@ -2059,7 +2107,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
   })
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return {outdated: true, branch: 'base-ref'}
+    return {outdated: true, branch: 'main'}
   })
 
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue(null)
@@ -2106,12 +2154,12 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
   data.inputs.update_branch = 'warn'
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return {outdated: true, branch: 'base-ref'}
+    return {outdated: true, branch: 'main'}
   })
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `base-ref` branch and try again',
+      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` branch and try again',
     status: false
   })
 })
@@ -2301,12 +2349,12 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
   data.inputs.update_branch = 'warn'
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return {outdated: true, branch: 'base-ref'}
+    return {outdated: true, branch: 'main'}
   })
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `base-ref` branch and try again',
+      '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` branch and try again',
     status: false
   })
 })
@@ -2340,7 +2388,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
   })
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return {outdated: true, branch: 'base-ref'}
+    return {outdated: true, branch: 'main'}
   })
 
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
@@ -3161,7 +3209,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
   })
 
   jest.spyOn(isOutdated, 'isOutdated').mockImplementation(() => {
-    return {outdated: true, branch: 'base-ref'}
+    return {outdated: true, branch: 'main'}
   })
 
   octokit.rest.pulls.updateBranch = jest.fn().mockReturnValue({
