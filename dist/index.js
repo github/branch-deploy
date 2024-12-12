@@ -43460,7 +43460,7 @@ async function branchProtectionChecks(context, octokit, data) {
       `😨 the following branch ruleset warnings were detected: ${failed_checks.join(', ')}`
     )
     core.warning(
-      `💡 your branch ruleset setting may be insecure - please review the documentation: https://github.com/github/branch-deploy/blob/main/docs/branch-rulesets.md`
+      `📚 your branch ruleset settings may be insecure - please review the documentation: https://github.com/github/branch-deploy/blob/main/docs/branch-rulesets.md`
     )
   }
 
