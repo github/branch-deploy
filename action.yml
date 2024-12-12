@@ -185,6 +185,10 @@ inputs:
     description: 'A comma separated list of environments that must be deployed in a specific order. Example: `"development,staging,production"`. If this is set then you cannot deploy to latter environments unless the former ones have a successful and active deployment on the latest commit first.'
     required: false
     default: ""
+  use_security_warnings:
+    description: 'Whether or not to leave security related warnings in log messages during deployments. Default is "true"'
+    required: false
+    default: "true"
 outputs:
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'

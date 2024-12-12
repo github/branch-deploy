@@ -43421,6 +43421,119 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
   return resultReduced
 }
 
+;// CONCATENATED MODULE: ./src/functions/suggested-rulesets.js
+const SUGGESTED_RULESETS = [
+  {
+    type: 'deletion' // ensure that the stable / default branch is protected from deletion
+  },
+  {
+    type: 'non_fast_forward' // ensure that the stable / default branch is protected from force pushes
+  },
+  {
+    type: 'pull_request', // ensure that the stable / default branch requires a PR to merge into
+    parameters: {
+      dismiss_stale_reviews_on_push: true, // Dismisses approvals when new commits are pushed to the branch
+      require_code_owner_review: true, // Require an approved review from code owners
+      required_approving_review_count: 1 // At least one approving review is required by default (or greater)
+    }
+  },
+  {
+    type: 'required_status_checks', // ensure that the stable / default branch requires checks to pass before merging into
+    parameters: {
+      strict_required_status_checks_policy: true // requires that the branch is up to date with the latest stable / default branch before merging
+    }
+  },
+  {
+    type: 'required_deployments' // ensure that the stable / default branch requires deployments to pass before merging into (can be any environment)
+  }
+]
+
+;// CONCATENATED MODULE: ./src/functions/branch-ruleset-checks.js
+
+
+
+
+
+async function branchRulesetChecks(context, octokit, data) {
+  const branch = data.branch
+  const use_security_warnings = data?.use_security_warnings !== false
+
+  const {data: branch_rules} = await octokit.rest.repos.getBranchRules({
+    ...context.repo,
+    branch,
+    headers: API_HEADERS
+  })
+
+  core.debug(
+    `branch ${COLORS.highlight}rulesets${COLORS.reset}: ${JSON.stringify(branch_rules)}`
+  )
+
+  var failed_checks = []
+
+  // exit early if the user has disabled security warnings
+  if (!use_security_warnings) {
+    return {success: true}
+  }
+
+  // leave a warning if no rulesets are defined
+  if (branch_rules.length === 0) {
+    core.warning(
+      `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} are not defined for branch ${COLORS.highlight}${branch}${COLORS.reset}`
+    )
+    failed_checks.push('missing_branch_rulesets')
+  } else {
+    // loop through the suggested rulesets and check them against the branch rules
+    SUGGESTED_RULESETS.forEach(suggested_rule => {
+      const rule_type = suggested_rule.type
+      const rule_parameters = suggested_rule.parameters
+
+      const branch_rule = branch_rules.find(rule => rule.type === rule_type)
+
+      if (!branch_rule) {
+        core.warning(
+          `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} is missing a rule of type ${COLORS.highlight}${rule_type}${COLORS.reset}`
+        )
+        failed_checks.push(`missing_${rule_type}`)
+      } else if (rule_parameters) {
+        Object.keys(rule_parameters).forEach(key => {
+          if (branch_rule.parameters[key] !== rule_parameters[key]) {
+            if (
+              key === 'required_approving_review_count' &&
+              branch_rule.parameters['required_approving_review_count'] === 0
+            ) {
+              core.warning(
+                `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains the required_approving_review_count parameter but it is set to 0`
+              )
+              failed_checks.push(`mismatch_${rule_type}_${key}`)
+            } else {
+              core.warning(
+                `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains a rule of type ${COLORS.highlight}${rule_type}${COLORS.reset} with a parameter ${COLORS.highlight}${key}${COLORS.reset} which does not match the suggested parameter`
+              )
+              failed_checks.push(`mismatch_${rule_type}_${key}`)
+            }
+          }
+        })
+      }
+    })
+  }
+
+  if (failed_checks.length > 0) {
+    core.warning(
+      `😨 the following branch ruleset warnings were detected: ${failed_checks.join(', ')}`
+    )
+    core.warning(
+      `📚 your branch ruleset settings may be insecure - please review the documentation: https://github.com/github/branch-deploy/blob/main/docs/branch-rulesets.md`
+    )
+  }
+
+  // if there are no failed checks, log a success message
+  if (failed_checks.length === 0) {
+    core.info(`🔐 branch ruleset checks ${COLORS.success}passed${COLORS.reset}`)
+  }
+
+  return {success: failed_checks.length === 0, failed_checks: failed_checks}
+}
+
 ;// CONCATENATED MODULE: ./src/functions/valid-branch-name.js
 
 
@@ -45434,6 +45547,7 @@ async function help(octokit, context, reactionId, inputs) {
   } on forked repositories
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`checks: ${inputs.checks}\` - ${checks_message}
+  - \`use_security_warnings: ${inputs.use_security_warnings}\` - This Action will ${inputs.use_security_warnings === true ? 'use' : 'not use'} security warnings
   - \`ignored_checks: ${inputs.ignored_checks}\` - ${ignored_checks_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`draft_permitted_targets: ${
@@ -45523,6 +45637,7 @@ function getInputs() {
   )
   const commit_verification = core.getBooleanInput('commit_verification')
   const ignored_checks = stringToArray(core.getInput('ignored_checks'))
+  const use_security_warnings = core.getBooleanInput('use_security_warnings')
 
   // validate inputs
   inputs_validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -45572,7 +45687,8 @@ function getInputs() {
     sticky_locks_for_noop: sticky_locks_for_noop,
     enforced_deployment_order: enforced_deployment_order,
     commit_verification: commit_verification,
-    ignored_checks: ignored_checks
+    ignored_checks: ignored_checks,
+    use_security_warnings: use_security_warnings
   }
 }
 
@@ -45771,6 +45887,7 @@ function isTimestampOlder(timestampA, timestampB) {
 }
 
 ;// CONCATENATED MODULE: ./src/main.js
+
 
 
 
@@ -46221,6 +46338,12 @@ async function run() {
       core.setFailed(precheckResults.message)
       return 'failure'
     }
+
+    // run branch ruleset checks
+    await branchRulesetChecks(github.context, octokit, {
+      branch: inputs.stable_branch,
+      use_security_warnings: inputs.use_security_warnings
+    })
 
     // fetch commit data from the API
     const commitData = await octokit.rest.repos.getCommit({

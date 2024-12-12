@@ -2,6 +2,7 @@ import {run} from '../src/main'
 import * as reactEmote from '../src/functions/react-emote'
 import * as contextCheck from '../src/functions/context-check'
 import * as prechecks from '../src/functions/prechecks'
+import * as branchRulesetChecks from '../src/functions/branch-ruleset-checks'
 import * as help from '../src/functions/help'
 import * as validPermissions from '../src/functions/valid-permissions'
 import * as identicalCommitCheck from '../src/functions/identical-commit-check'
@@ -87,6 +88,7 @@ beforeEach(() => {
   process.env.INPUT_ENFORCED_DEPLOYMENT_ORDER = ''
   process.env.INPUT_COMMIT_VERIFICATION = 'false'
   process.env.INPUT_IGNORED_CHECKS = ''
+  process.env.INPUT_USE_SECURITY_WARNINGS = 'true'
 
   github.context.payload = {
     issue: {
@@ -163,6 +165,11 @@ beforeEach(() => {
       isFork: false
     }
   })
+  jest
+    .spyOn(branchRulesetChecks, 'branchRulesetChecks')
+    .mockImplementation(() => {
+      return undefined
+    })
   jest
     .spyOn(commitSafetyChecks, 'commitSafetyChecks')
     .mockImplementation(() => {

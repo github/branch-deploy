@@ -223,6 +223,7 @@ export async function help(octokit, context, reactionId, inputs) {
   } on forked repositories
   - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
   - \`checks: ${inputs.checks}\` - ${checks_message}
+  - \`use_security_warnings: ${inputs.use_security_warnings}\` - This Action will ${inputs.use_security_warnings === true ? 'use' : 'not use'} security warnings
   - \`ignored_checks: ${inputs.ignored_checks}\` - ${ignored_checks_message}
   - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
   - \`draft_permitted_targets: ${
