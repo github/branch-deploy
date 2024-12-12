@@ -43497,14 +43497,19 @@ async function branchRulesetChecks(context, octokit, data) {
       } else if (rule_parameters) {
         Object.keys(rule_parameters).forEach(key => {
           if (branch_rule.parameters[key] !== rule_parameters[key]) {
-            if (
-              key === 'required_approving_review_count' &&
-              branch_rule.parameters['required_approving_review_count'] === 0
-            ) {
-              core.warning(
-                `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains the required_approving_review_count parameter but it is set to 0`
-              )
-              failed_checks.push(`mismatch_${rule_type}_${key}`)
+            if (key === 'required_approving_review_count') {
+              if (
+                branch_rule.parameters['required_approving_review_count'] === 0
+              ) {
+                core.warning(
+                  `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains the required_approving_review_count parameter but it is set to 0`
+                )
+                failed_checks.push(`mismatch_${rule_type}_${key}`)
+              } else {
+                core.debug(
+                  `required_approving_review_count is ${branch_rule.parameters['required_approving_review_count']} - OK`
+                )
+              }
             } else {
               core.warning(
                 `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains a rule of type ${COLORS.highlight}${rule_type}${COLORS.reset} with a parameter ${COLORS.highlight}${key}${COLORS.reset} which does not match the suggested parameter`

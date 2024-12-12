@@ -8,7 +8,7 @@ var octokit
 var data
 var rulesets
 
-// const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
+const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
 const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
 const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
 
@@ -217,5 +217,44 @@ test('finds that all suggested branch rulesets are defined but required reviews 
   })
   expect(warningMock).toHaveBeenCalledWith(
     `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${data.branch}${COLORS.reset} contains the required_approving_review_count parameter but it is set to 0`
+  )
+})
+
+test('should still pass even with many required reviewers', async () => {
+  rulesets = SUGGESTED_RULESETS.map(suggested_rule => {
+    return {
+      type: suggested_rule.type,
+      parameters: suggested_rule.parameters
+    }
+  })
+
+  rulesets = rulesets.map(rule => {
+    if (rule.type === 'pull_request') {
+      return {
+        type: 'pull_request',
+        parameters: {
+          ...rule.parameters,
+          required_approving_review_count: 4
+        }
+      }
+    }
+    return rule
+  })
+
+  octokit = {
+    rest: {
+      repos: {
+        getBranchRules: jest.fn().mockReturnValueOnce({data: rulesets})
+      }
+    }
+  }
+
+  expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
+    success: true,
+    failed_checks: []
+  })
+  expect(warningMock).not.toHaveBeenCalled()
+  expect(debugMock).toHaveBeenCalledWith(
+    `required_approving_review_count is 4 - OK`
   )
 })
