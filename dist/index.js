@@ -46341,7 +46341,8 @@ async function run() {
 
     // run branch protection checks
     await branchProtectionChecks(github.context, octokit, {
-      branch: inputs.stable_branch
+      branch: inputs.stable_branch,
+      use_security_warnings: inputs.use_security_warnings
     })
 
     // fetch commit data from the API
