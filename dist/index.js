@@ -43429,7 +43429,7 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
 async function branchProtectionChecks(context, octokit, data) {
   const branch = data.branch
 
-  const branch_rules = await octokit.rest.repos.getBranchRules({
+  const {data: branch_rules} = await octokit.rest.repos.getBranchRules({
     ...context.repo,
     branch,
     headers: API_HEADERS

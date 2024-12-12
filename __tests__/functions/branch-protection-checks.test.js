@@ -31,7 +31,7 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
-        getBranchRules: jest.fn().mockReturnValueOnce([])
+        getBranchRules: jest.fn().mockReturnValueOnce({data: []})
       }
     }
   }
