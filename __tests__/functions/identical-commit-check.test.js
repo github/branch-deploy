@@ -37,7 +37,7 @@ beforeEach(() => {
         getBranch: jest.fn().mockReturnValue({
           data: {
             commit: {
-              sha: 'deadbeef',
+              sha: 'abcdef',
               commit: {
                 tree: {
                   sha: 'deadbeef'
@@ -89,7 +89,7 @@ test('checks if the default branch sha and deployment sha are identical, and the
   )
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'false')
   expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
-  expect(setOutputMock).not.toHaveBeenCalledWith('sha', 'deadbeef')
+  expect(setOutputMock).not.toHaveBeenCalledWith('sha', 'abcdef')
 })
 
 test('checks if the default branch sha and deployment sha are identical, and they are not', async () => {
@@ -107,6 +107,9 @@ test('checks if the default branch sha and deployment sha are identical, and the
     await identicalCommitCheck(octokit, context, 'production')
   ).toStrictEqual(false)
   expect(infoMock).toHaveBeenCalledWith(
+    `📍 latest commit sha on ${COLORS.highlight}main${COLORS.reset}: ${COLORS.info}abcdef${COLORS.reset}`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
     `🌲 latest default ${COLORS.info}branch${COLORS.reset} tree sha: ${COLORS.info}deadbeef${COLORS.reset}`
   )
   expect(infoMock).toHaveBeenCalledWith(
@@ -117,5 +120,5 @@ test('checks if the default branch sha and deployment sha are identical, and the
   )
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
-  expect(setOutputMock).toHaveBeenCalledWith('sha', 'deadbeef')
+  expect(setOutputMock).toHaveBeenCalledWith('sha', 'abcdef')
 })

@@ -45203,6 +45203,11 @@ async function identicalCommitCheck(octokit, context, environment) {
   const defaultBranchTreeSha = defaultBranchData.commit.commit.tree.sha
   core.debug(`default branch tree sha: ${defaultBranchTreeSha}`)
 
+  const latestDefaultBranchCommitSha = defaultBranchData.commit.sha
+  core.info(
+    `📍 latest commit sha on ${COLORS.highlight}${defaultBranchName}${COLORS.reset}: ${COLORS.info}${latestDefaultBranchCommitSha}${COLORS.reset}`
+  )
+
   // find the latest deployment with the payload type of branch-deploy
   const {data: deploymentsData} = await octokit.rest.repos.listDeployments({
     owner,
@@ -45273,14 +45278,14 @@ async function identicalCommitCheck(octokit, context, environment) {
       `💡 the latest deployment tree sha is ${COLORS.highlight}not${COLORS.reset} equal to the default branch tree sha`
     )
     core.info(
-      `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${defaultBranchTreeSha}${COLORS.reset}`
+      `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${latestDefaultBranchCommitSha}${COLORS.reset}`
     )
     core.info(
       `🚀 a ${COLORS.success}new deployment${COLORS.reset} will be created based on your configuration`
     )
     core.setOutput('continue', 'true')
     core.setOutput('environment', environment)
-    core.setOutput('sha', defaultBranchTreeSha)
+    core.setOutput('sha', latestDefaultBranchCommitSha)
   }
 
   return result
