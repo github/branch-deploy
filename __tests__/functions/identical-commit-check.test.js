@@ -89,6 +89,7 @@ test('checks if the default branch sha and deployment sha are identical, and the
   )
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'false')
   expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
+  expect(setOutputMock).not.toHaveBeenCalledWith('sha', 'deadbeef')
 })
 
 test('checks if the default branch sha and deployment sha are identical, and they are not', async () => {
@@ -106,8 +107,15 @@ test('checks if the default branch sha and deployment sha are identical, and the
     await identicalCommitCheck(octokit, context, 'production')
   ).toStrictEqual(false)
   expect(infoMock).toHaveBeenCalledWith(
+    `🌲 latest default ${COLORS.info}branch${COLORS.reset} tree sha: ${COLORS.info}deadbeef${COLORS.reset}`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🌲 latest ${COLORS.info}deployment${COLORS.reset} tree sha:     ${COLORS.info}beefdead${COLORS.reset}`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
     `🚀 a ${COLORS.success}new deployment${COLORS.reset} will be created based on your configuration`
   )
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
+  expect(setOutputMock).toHaveBeenCalledWith('sha', 'deadbeef')
 })

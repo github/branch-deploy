@@ -45266,14 +45266,21 @@ async function identicalCommitCheck(octokit, context, environment) {
     core.setOutput('continue', 'false')
     core.setOutput('environment', environment)
   } else {
+    // if the latest deployment sha is not identical to the latest commit on the default branch then we need to create a new deployment
+    // this deployment should use the latest commit on the default branch to ensure that the repository is deployed at its latest state
+    // a scenario where this might occur is if the default branch is force-pushed and you need to start a new deployment from the latest commit on the default branch
     core.info(
       `💡 the latest deployment tree sha is ${COLORS.highlight}not${COLORS.reset} equal to the default branch tree sha`
+    )
+    core.info(
+      `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${defaultBranchTreeSha}${COLORS.reset}`
     )
     core.info(
       `🚀 a ${COLORS.success}new deployment${COLORS.reset} will be created based on your configuration`
     )
     core.setOutput('continue', 'true')
     core.setOutput('environment', environment)
+    core.setOutput('sha', defaultBranchTreeSha)
   }
 
   return result
