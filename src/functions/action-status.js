@@ -50,19 +50,19 @@ export async function actionStatus(
     reaction = thumbsDown
   }
 
-  // add a reaction to the issue_comment to indicate success or failure
-  await octokit.rest.reactions.createForIssueComment({
-    ...context.repo,
-    comment_id: context.payload.comment.id,
-    content: reaction,
-    headers: API_HEADERS
-  })
-
   // remove the initial reaction on the IssueOp comment that triggered this action
   await octokit.rest.reactions.deleteForIssueComment({
     ...context.repo,
     comment_id: context.payload.comment.id,
     reaction_id: reactionId,
+    headers: API_HEADERS
+  })
+
+  // add a reaction to the issue_comment to indicate success or failure
+  await octokit.rest.reactions.createForIssueComment({
+    ...context.repo,
+    comment_id: context.payload.comment.id,
+    content: reaction,
     headers: API_HEADERS
   })
 }

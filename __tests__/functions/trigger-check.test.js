@@ -3,6 +3,7 @@ import * as core from '@actions/core'
 import {COLORS} from '../../src/functions/colors'
 
 const color = COLORS.highlight
+const colorReset = COLORS.reset
 const infoMock = jest.spyOn(core, 'info')
 const debugMock = jest.spyOn(core, 'debug')
 
@@ -18,7 +19,7 @@ test('checks a message and finds a standard trigger', async () => {
   const trigger = '.deploy'
   expect(await triggerCheck(body, trigger)).toBe(true)
   expect(infoMock).toHaveBeenCalledWith(
-    `✅ comment body starts with trigger: ${color}.deploy`
+    `✅ comment body starts with trigger: ${color}.deploy${colorReset}`
   )
 })
 
@@ -27,7 +28,7 @@ test('checks a message and does not find trigger', async () => {
   const trigger = '.deploy'
   expect(await triggerCheck(body, trigger)).toBe(false)
   expect(debugMock).toHaveBeenCalledWith(
-    `comment body does not start with trigger: ${color}.deploy`
+    `comment body does not start with trigger: ${color}.deploy${colorReset}`
   )
 })
 
@@ -50,6 +51,6 @@ test('checks a message and does not find global trigger', async () => {
   const trigger = '.deploy'
   expect(await triggerCheck(body, trigger)).toBe(false)
   expect(debugMock).toHaveBeenCalledWith(
-    `comment body does not start with trigger: ${color}.deploy`
+    `comment body does not start with trigger: ${color}.deploy${colorReset}`
   )
 })
