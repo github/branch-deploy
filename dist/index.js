@@ -39987,13 +39987,13 @@ async function triggerCheck(body, trigger) {
   // If the trigger is not activated, set the output to false and return with false
   if (!body.startsWith(trigger)) {
     core.debug(
-      `comment body does not start with trigger: ${COLORS.highlight}${trigger}`
+      `comment body does not start with trigger: ${COLORS.highlight}${trigger}${COLORS.reset}`
     )
     return false
   }
 
   core.info(
-    `✅ comment body starts with trigger: ${COLORS.highlight}${trigger}`
+    `✅ comment body starts with trigger: ${COLORS.highlight}${trigger}${COLORS.reset}`
   )
   return true
 }
