@@ -65,6 +65,8 @@ jobs:
       # Check out the repository
       - uses: actions/checkout@v4
         if: ${{ steps.deployment-check.outputs.continue == 'true' }} # only run if the Action returned 'true' for the 'continue' output
+        with:
+          ref: ${{ steps.deployment-check.outputs.sha }} # checkout the EXACT sha of the default branch for deployment (latest commit on the default branch)
 
       # Do your deployment here! (However you want to do it)
       # This could be deployment logic via SSH, Terraform, AWS, Heroku, etc.
