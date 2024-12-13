@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import {identicalCommitCheck} from '../../src/functions/identical-commit-check'
 import {COLORS} from '../../src/functions/colors'
 
+const saveStateMock = jest.spyOn(core, 'saveState')
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')
 
@@ -13,6 +14,7 @@ beforeEach(() => {
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
+  jest.spyOn(core, 'saveState').mockImplementation(() => {})
 
   context = {
     repo: {
@@ -90,6 +92,7 @@ test('checks if the default branch sha and deployment sha are identical, and the
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'false')
   expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
   expect(setOutputMock).not.toHaveBeenCalledWith('sha', 'abcdef')
+  expect(saveStateMock).not.toHaveBeenCalledWith('sha', 'abcdef')
 })
 
 test('checks if the default branch sha and deployment sha are identical, and they are not', async () => {
@@ -121,4 +124,5 @@ test('checks if the default branch sha and deployment sha are identical, and the
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('environment', 'production')
   expect(setOutputMock).toHaveBeenCalledWith('sha', 'abcdef')
+  expect(saveStateMock).toHaveBeenCalledWith('sha', 'abcdef')
 })

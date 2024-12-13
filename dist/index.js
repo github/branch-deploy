@@ -45286,6 +45286,7 @@ async function identicalCommitCheck(octokit, context, environment) {
     core.setOutput('continue', 'true')
     core.setOutput('environment', environment)
     core.setOutput('sha', latestDefaultBranchCommitSha)
+    core.saveState('sha', latestDefaultBranchCommitSha)
   }
 
   return result
