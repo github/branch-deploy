@@ -45299,6 +45299,8 @@ async function identicalCommitCheck(octokit, context, environment) {
 
 
 
+
+
 // Helper function to automatically find, and release a deployment lock when a pull request is merged
 // :param octokit: the authenticated octokit instance
 // :param context: the context object
@@ -45326,6 +45328,17 @@ async function unlockOnMerge(octokit, context, environment_targets) {
     // construct the lock branch name for this environment
     var lockBranch = `${constructValidBranchName(environment)}-${LOCK_METADATA.lockBranchSuffix}`
 
+    // Check if the lock branch exists
+    const branchExists = await checkBranch(octokit, context, lockBranch)
+
+    // if the lock branch does not exist at all, then there is no lock to release
+    if (!branchExists) {
+      core.info(
+        `⏩ no lock branch found for environment ${COLORS.highlight}${environment}${COLORS.reset} - skipping...`
+      )
+      continue
+    }
+
     // attempt to fetch the lockFile for this branch
     var lockFile = await checkLockFile(octokit, context, lockBranch)
 
@@ -45333,7 +45346,9 @@ async function unlockOnMerge(octokit, context, environment_targets) {
     if (lockFile && lockFile?.link) {
       // if the lockFile has a link property, find the PR number from the link
       var prNumber = lockFile.link.split('/pull/')[1].split('#issuecomment')[0]
-      core.info(`🔍 checking lock for PR ${prNumber} (env: ${environment})`)
+      core.info(
+        `🔍 checking lock for PR ${COLORS.info}${prNumber}${COLORS.reset} (env: ${COLORS.highlight}${environment}${COLORS.reset})`
+      )
 
       // if the PR number matches the PR number of the merged pull request, then this lock is associated with the merged pull request
       if (prNumber === context.payload.pull_request.number.toString()) {
@@ -45355,16 +45370,19 @@ async function unlockOnMerge(octokit, context, environment_targets) {
 
         // log the result and format the output as it will always be a string ending with '- silent'
         var resultFmt = result.replace('- silent', '')
-        core.info(`🔓 ${resultFmt.trim()} - environment: ${environment}`)
+        core.info(
+          `🔓 ${resultFmt.trim()} - environment: ${COLORS.highlight}${environment}${COLORS.reset}`
+        )
       } else {
-        core.debug(
-          `⏩ lock for PR ${prNumber} (env: ${environment}) is not associated with PR ${context.payload.pull_request.number} - skipping...`
+        core.info(
+          `⏩ lock for PR ${COLORS.info}${prNumber}${COLORS.reset} (env: ${COLORS.highlight}${environment}${COLORS.reset}) is not associated with PR ${COLORS.info}${context.payload.pull_request.number}${COLORS.reset} - skipping...`
         )
       }
     } else {
-      core.debug(
-        `⏩ no lock found for environment ${environment} - skipping...`
+      core.info(
+        `⏩ no lock file found for environment ${COLORS.highlight}${environment}${COLORS.reset} - skipping...`
       )
+      continue
     }
   }
 

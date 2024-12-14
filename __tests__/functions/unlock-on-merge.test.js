@@ -1,7 +1,9 @@
 import * as core from '@actions/core'
 import * as unlock from '../../src/functions/unlock'
 import * as checkLockFile from '../../src/functions/check-lock-file'
+import * as checkBranch from '../../src/functions/lock'
 import {unlockOnMerge} from '../../src/functions/unlock-on-merge'
+import {COLORS} from '../../src/functions/colors'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')
@@ -26,6 +28,9 @@ beforeEach(() => {
     return {
       link: 'https://github.com/corp/test/pull/123#issuecomment-123456789'
     }
+  })
+  jest.spyOn(checkBranch, 'checkBranch').mockImplementation(() => {
+    return true
   })
 
   context = {
@@ -54,13 +59,13 @@ test('successfully unlocks all environments on a pull request merge', async () =
     await unlockOnMerge(octokit, context, environment_targets)
   ).toStrictEqual(true)
   expect(infoMock).toHaveBeenCalledWith(
-    '🔓 removed lock - environment: staging'
+    `🔓 removed lock - environment: ${COLORS.highlight}staging${COLORS.reset}`
   )
   expect(infoMock).toHaveBeenCalledWith(
-    '🔓 removed lock - environment: development'
+    `🔓 removed lock - environment: ${COLORS.highlight}development${COLORS.reset}`
   )
   expect(infoMock).toHaveBeenCalledWith(
-    '🔓 removed lock - environment: production'
+    `🔓 removed lock - environment: ${COLORS.highlight}production${COLORS.reset}`
   )
   expect(setOutputMock).toHaveBeenCalledWith(
     'unlocked_environments',
@@ -95,14 +100,41 @@ test('only unlocks one environment because the other has no lock and the other i
   expect(
     await unlockOnMerge(octokit, context, environment_targets)
   ).toStrictEqual(true)
-  expect(debugMock).toHaveBeenCalledWith(
-    '⏩ lock for PR 111 (env: production) is not associated with PR 123 - skipping...'
-  )
-  expect(debugMock).toHaveBeenCalledWith(
-    '⏩ no lock found for environment development - skipping...'
+  expect(infoMock).toHaveBeenCalledWith(
+    `⏩ lock for PR ${COLORS.info}111${COLORS.reset} (env: ${COLORS.highlight}production${COLORS.reset}) is not associated with PR ${COLORS.info}123${COLORS.reset} - skipping...`
   )
   expect(infoMock).toHaveBeenCalledWith(
-    '🔓 removed lock - environment: staging'
+    `⏩ no lock file found for environment ${COLORS.highlight}development${COLORS.reset} - skipping...`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🔓 removed lock - environment: ${COLORS.highlight}staging${COLORS.reset}`
+  )
+})
+
+test('only unlocks one environment because the other is not associated with the pull request and the other has no lock branch', async () => {
+  checkLockFile.checkLockFile.mockImplementationOnce(() => {
+    return {
+      link: 'https://github.com/corp/test/pull/111#issuecomment-123456789'
+    }
+  })
+  checkBranch.checkBranch.mockImplementationOnce(() => {
+    return true
+  })
+  checkBranch.checkBranch.mockImplementationOnce(() => {
+    return false
+  })
+
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(true)
+  expect(infoMock).toHaveBeenCalledWith(
+    `⏩ lock for PR ${COLORS.info}111${COLORS.reset} (env: ${COLORS.highlight}production${COLORS.reset}) is not associated with PR ${COLORS.info}123${COLORS.reset} - skipping...`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `⏩ no lock branch found for environment ${COLORS.highlight}development${COLORS.reset} - skipping...`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🔓 removed lock - environment: ${COLORS.highlight}staging${COLORS.reset}`
   )
 })
 
