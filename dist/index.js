@@ -45129,8 +45129,6 @@ async function post() {
       deployment_start_time: core.getState('deployment_start_time')
     }
 
-    core.info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`)
-
     // If bypass is set, exit the workflow
     if (bypass) {
       core.warning(`⛔ ${COLORS.highlight}bypass${COLORS.reset} set, exiting`)
@@ -45155,6 +45153,8 @@ async function post() {
       userAgent: `github/branch-deploy@${VERSION}`,
       additionalPlugins: [dist_node.octokitRetry]
     })
+
+    core.info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`)
 
     // Set the environment_url
     if (data.environment_url === null) {
