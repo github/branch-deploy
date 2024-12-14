@@ -245,7 +245,7 @@ async function findReason(context, sticky) {
 // :param context: The GitHub Actions event context
 // :param branchName: The name of the branch to check
 // :return: true if the branch exists, false if not
-async function checkBranch(octokit, context, branchName) {
+export async function checkBranch(octokit, context, branchName) {
   core.debug(`checking if branch ${branchName} exists...`)
   // Check if the lock branch already exists
   try {
