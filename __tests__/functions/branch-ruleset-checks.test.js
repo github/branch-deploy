@@ -2,6 +2,7 @@ import {branchRulesetChecks} from '../../src/functions/branch-ruleset-checks'
 import * as core from '@actions/core'
 import {COLORS} from '../../src/functions/colors'
 import {SUGGESTED_RULESETS} from '../../src/functions/suggested-rulesets'
+import {ERROR} from '../../src/functions/templates/error'
 
 var context
 var octokit
@@ -11,6 +12,13 @@ var rulesets
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
 const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
 const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
+
+class ForbiddenError extends Error {
+  constructor(message) {
+    super(message)
+    this.status = 403
+  }
+}
 
 beforeEach(() => {
   jest.spyOn(core, 'info').mockImplementation(() => {})
@@ -256,5 +264,43 @@ test('should still pass even with many required reviewers', async () => {
   expect(warningMock).not.toHaveBeenCalled()
   expect(debugMock).toHaveBeenCalledWith(
     `required_approving_review_count is 4 - OK`
+  )
+})
+
+test('fails due to a 403 from the GitHub API due to a repository being private on the free tier without access to repo rulesets', async () => {
+  octokit = {
+    rest: {
+      repos: {
+        getBranchRules: jest
+          .fn()
+          .mockRejectedValueOnce(
+            new ForbiddenError(ERROR.messages.upgrade_or_public.message)
+          )
+      }
+    }
+  }
+  expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
+    success: false,
+    failed_checks: ['upgrade_or_public_required']
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    ERROR.messages.upgrade_or_public.help_text
+  )
+})
+
+test('fails due to an unknown 403 from the GitHub API', async () => {
+  const errorMessage = 'oh no, something went wrong - forbidden'
+  octokit = {
+    rest: {
+      repos: {
+        getBranchRules: jest
+          .fn()
+          .mockRejectedValueOnce(new ForbiddenError(errorMessage))
+      }
+    }
+  }
+
+  await expect(branchRulesetChecks(context, octokit, data)).rejects.toThrow(
+    errorMessage
   )
 })

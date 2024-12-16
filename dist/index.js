@@ -43448,7 +43448,21 @@ const SUGGESTED_RULESETS = [
   }
 ]
 
+;// CONCATENATED MODULE: ./src/functions/templates/error.js
+const ERROR = {
+  messages: {
+    upgrade_or_public: {
+      status: 403,
+      message:
+        'Upgrade to GitHub Pro or make this repository public to enable this feature',
+      help_text:
+        'Rulesets are available in public repositories with GitHub Free and GitHub Free for organizations, and in public and private repositories with GitHub Pro, GitHub Team, and GitHub Enterprise Cloud. For more information see https://docs.github.com/en/get-started/learning-about-github/githubs-plans or https://docs.github.com/rest/repos/rules#get-rules-for-a-branch - (Upgrade to GitHub Pro or make this repository public to enable this feature.)'
+    }
+  }
+}
+
 ;// CONCATENATED MODULE: ./src/functions/branch-ruleset-checks.js
+
 
 
 
@@ -43463,53 +43477,67 @@ async function branchRulesetChecks(context, octokit, data) {
     return {success: true}
   }
 
-  const {data: branchRules} = await octokit.rest.repos.getBranchRules({
-    ...context.repo,
-    branch,
-    headers: API_HEADERS
-  })
-
-  core.debug(
-    `branch ${COLORS.highlight}rulesets${COLORS.reset}: ${JSON.stringify(branchRules)}`
-  )
-
-  const failed_checks = []
-
-  // Leave a warning if no rulesets are defined
-  if (branchRules.length === 0) {
-    core.warning(
-      `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} are not defined for branch ${COLORS.highlight}${branch}${COLORS.reset}`
-    )
-    failed_checks.push('missing_branch_rulesets')
-  } else {
-    // Loop through the suggested rulesets and check them against the branch rules
-    SUGGESTED_RULESETS.forEach(suggestedRule => {
-      const {type: ruleType, parameters: ruleParameters} = suggestedRule
-
-      const branchRule = branchRules.find(rule => rule.type === ruleType)
-
-      if (!branchRule) {
-        logMissingRule(branch, ruleType, failed_checks)
-      } else if (ruleParameters) {
-        checkRuleParameters(
-          branch,
-          ruleType,
-          ruleParameters,
-          branchRule,
-          failed_checks
-        )
-      }
+  try {
+    const {data: branchRules} = await octokit.rest.repos.getBranchRules({
+      ...context.repo,
+      branch,
+      headers: API_HEADERS
     })
+
+    core.debug(
+      `branch ${COLORS.highlight}rulesets${COLORS.reset}: ${JSON.stringify(branchRules)}`
+    )
+
+    const failed_checks = []
+
+    // Leave a warning if no rulesets are defined
+    if (branchRules.length === 0) {
+      core.warning(
+        `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} are not defined for branch ${COLORS.highlight}${branch}${COLORS.reset}`
+      )
+      failed_checks.push('missing_branch_rulesets')
+    } else {
+      // Loop through the suggested rulesets and check them against the branch rules
+      SUGGESTED_RULESETS.forEach(suggestedRule => {
+        const {type: ruleType, parameters: ruleParameters} = suggestedRule
+
+        const branchRule = branchRules.find(rule => rule.type === ruleType)
+
+        if (!branchRule) {
+          logMissingRule(branch, ruleType, failed_checks)
+        } else if (ruleParameters) {
+          checkRuleParameters(
+            branch,
+            ruleType,
+            ruleParameters,
+            branchRule,
+            failed_checks
+          )
+        }
+      })
+    }
+
+    logWarnings(failed_checks)
+
+    // If there are no failed checks, log a success message
+    if (failed_checks.length === 0) {
+      core.info(
+        `🔐 branch ruleset checks ${COLORS.success}passed${COLORS.reset}`
+      )
+    }
+
+    return {success: failed_checks.length === 0, failed_checks}
+  } catch (error) {
+    if (
+      error.status === ERROR.messages.upgrade_or_public.status &&
+      error.message.includes(ERROR.messages.upgrade_or_public.message)
+    ) {
+      core.debug(ERROR.messages.upgrade_or_public.help_text)
+      return {success: false, failed_checks: ['upgrade_or_public_required']}
+    } else {
+      throw error
+    }
   }
-
-  logWarnings(failed_checks)
-
-  // If there are no failed checks, log a success message
-  if (failed_checks.length === 0) {
-    core.info(`🔐 branch ruleset checks ${COLORS.success}passed${COLORS.reset}`)
-  }
-
-  return {success: failed_checks.length === 0, failed_checks}
 }
 
 function logMissingRule(branch, ruleType, failed_checks) {
