@@ -59,7 +59,7 @@ export async function commitSafetyChecks(context, data) {
     isTimestampOlder(comment_created_at, commit?.verification?.verified_at)
   ) {
     return {
-      message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. The commit signature was verified after the trigger comment was created.`,
+      message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. The commit signature was verified after the trigger comment was created. Please try again if you recently pushed a new commit.`,
       status: false,
       isVerified: isVerified
     }
