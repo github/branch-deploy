@@ -25,7 +25,7 @@ beforeEach(() => {
   jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   jest.spyOn(core, 'saveState').mockImplementation(() => {})
-  process.env.INPUT_PERMISSIONS = 'admin,write,maintain'
+  process.env.INPUT_PERMISSIONS = 'admin,write'
 
   baseCommitWithOid = {
     nodes: [
@@ -57,7 +57,7 @@ beforeEach(() => {
       skipReviews: '',
       draft_permitted_targets: '',
       checks: 'all',
-      permissions: ['admin', 'write', 'maintain'],
+      permissions: ['admin', 'write'],
       commit_verification: false,
       ignored_checks: []
     }
@@ -857,7 +857,7 @@ test('runs prechecks and fails due to bad user permissions', async () => {
     .mockReturnValueOnce({data: {permission: 'read'}, status: 200})
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      '👋 @monalisa, that command requires the following permission(s): `admin/write/maintain`\n\nYour current permissions: `read`',
+      '👋 @monalisa, that command requires the following permission(s): `admin/write`\n\nYour current permissions: `read`',
     status: false
   })
 })
