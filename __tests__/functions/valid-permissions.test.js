@@ -5,12 +5,12 @@ const setOutputMock = jest.spyOn(core, 'setOutput')
 
 var octokit
 var context
-var permissions = ['write', 'maintain', 'admin']
+var permissions = ['write', 'admin']
 
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
-  process.env.INPUT_PERMISSIONS = 'write,maintain,admin'
+  process.env.INPUT_PERMISSIONS = 'write,admin'
 
   context = {
     actor: 'monalisa'
@@ -46,7 +46,7 @@ test('determines that a user has does not valid permissions to invoke the Action
     })
 
   expect(await validPermissions(octokit, context, permissions)).toEqual(
-    '👋 @monalisa, that command requires the following permission(s): `write/maintain/admin`\n\nYour current permissions: `read`'
+    '👋 @monalisa, that command requires the following permission(s): `write/admin`\n\nYour current permissions: `read`'
   )
   expect(setOutputMock).toHaveBeenCalledWith('actor', 'monalisa')
 })

@@ -66,9 +66,9 @@ inputs:
     required: false
     default: ".wcid"
   permissions:
-    description: 'The allowed GitHub permissions an actor can have to invoke IssueOps commands - Example: "write,maintain,admin"'
+    description: 'The allowed GitHub permissions an actor can have to invoke IssueOps commands - Example: "write,admin"'
     required: true
-    default: "write,maintain,admin"
+    default: "write,admin"
   commit_verification:
     description: 'Whether or not to enforce commit verification before a deployment can continue. Default is "false"'
     required: false
