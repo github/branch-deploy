@@ -722,6 +722,14 @@ export async function run() {
           ? false
           : true
 
+    // Construct the deployment payload that will be sent to the GitHub API during the deployment creation
+    const payload = {
+      type: 'branch-deploy',
+      sha: precheckResults.sha,
+      params: params,
+      parsed_params: parsed_params
+    }
+
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
@@ -734,12 +742,7 @@ export async function run() {
       // :description note: Short description of the deployment.
       production_environment: isProductionEnvironment,
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
-      payload: {
-        type: 'branch-deploy',
-        sha: precheckResults.sha,
-        params: params,
-        parsed_params: parsed_params
-      },
+      payload: payload,
       headers: API_HEADERS
     })
     core.setOutput('deployment_id', createDeploy.id)
