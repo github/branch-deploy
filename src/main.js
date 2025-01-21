@@ -665,7 +665,7 @@ export async function run() {
     `)
 
     // Make a comment on the PR
-    const initialComment = await octokit.rest.issues.createComment({
+    const deploymentStartedComment = await octokit.rest.issues.createComment({
       ...context.repo,
       issue_number: context.issue.number,
       body: commentBody,
@@ -673,8 +673,8 @@ export async function run() {
     })
 
     // Set output for initial comment id
-    core.setOutput('initial_comment_id', initialComment.data.id)
-    core.saveState('initial_comment_id', initialComment.data.id)
+    core.setOutput('initial_comment_id', deploymentStartedComment.data.id)
+    core.saveState('initial_comment_id', deploymentStartedComment.data.id)
 
     // Set outputs for noopMode
     if (precheckResults.noopMode) {
