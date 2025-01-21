@@ -30,6 +30,7 @@ import {constructValidBranchName} from './functions/valid-branch-name'
 import {validDeploymentOrder} from './functions/valid-deployment-order'
 import {commitSafetyChecks} from './functions/commit-safety-checks'
 import {API_HEADERS} from './functions/api-headers'
+import {timestamp} from './functions/timestamp'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -607,8 +608,7 @@ export async function run() {
 
     // this is the timestamp that we consider the deployment to have "started" at for logging and auditing purposes
     // it is not the exact time the deployment started, but it is very close
-    const now = new Date()
-    const deployment_start_time = now.toISOString()
+    const deployment_start_time = timestamp()
     core.debug(`deployment_start_time: ${deployment_start_time}`)
     core.saveState('deployment_start_time', deployment_start_time)
 
