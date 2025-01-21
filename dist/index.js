@@ -42167,6 +42167,9 @@ async function createDeploymentStatus(
     headers: API_HEADERS
   })
 
+  core.debug(`deploymentStatus.id: ${result.id}`)
+  core.debug(`deploymentStatus.url: ${result.url}`)
+
   return result
 }
 
@@ -46000,7 +46003,16 @@ function isTimestampOlder(timestampA, timestampB) {
   return result
 }
 
+;// CONCATENATED MODULE: ./src/functions/timestamp.js
+// Helper function to generate an ISO 8601 formatted timestamp string
+// :returns: An ISO 8601 formatted timestamp string (ex: 2025-01-01T00:00:00.000Z)
+function timestamp() {
+  const now = new Date()
+  return now.toISOString()
+}
+
 ;// CONCATENATED MODULE: ./src/main.js
+
 
 
 
@@ -46610,8 +46622,7 @@ async function run() {
 
     // this is the timestamp that we consider the deployment to have "started" at for logging and auditing purposes
     // it is not the exact time the deployment started, but it is very close
-    const now = new Date()
-    const deployment_start_time = now.toISOString()
+    const deployment_start_time = timestamp()
     core.debug(`deployment_start_time: ${deployment_start_time}`)
     core.saveState('deployment_start_time', deployment_start_time)
 
@@ -46668,7 +46679,7 @@ async function run() {
     `)
 
     // Make a comment on the PR
-    const initialComment = await octokit.rest.issues.createComment({
+    const deploymentStartedComment = await octokit.rest.issues.createComment({
       ...github.context.repo,
       issue_number: github.context.issue.number,
       body: commentBody,
@@ -46676,8 +46687,8 @@ async function run() {
     })
 
     // Set output for initial comment id
-    core.setOutput('initial_comment_id', initialComment.data.id)
-    core.saveState('initial_comment_id', initialComment.data.id)
+    core.setOutput('initial_comment_id', deploymentStartedComment.data.id)
+    core.saveState('initial_comment_id', deploymentStartedComment.data.id)
 
     // Set outputs for noopMode
     if (precheckResults.noopMode) {
@@ -46733,7 +46744,14 @@ async function run() {
       sha: precheckResults.sha,
       params: params,
       parsed_params: parsed_params,
-      github_run_id: github_run_id
+      github_run_id: github_run_id,
+      initial_comment_id: github.context.payload.comment.id,
+      initial_reaction_id: reactRes.data.id,
+      deployment_started_comment_id: deploymentStartedComment.data.id,
+      timestamp: deployment_start_time,
+      commit_verified: commitSafetyCheckResults.isVerified,
+      actor: github.context.actor,
+      stable_branch_used: stableBranchUsed
     }
 
     // Create a new deployment
@@ -46773,6 +46791,15 @@ async function run() {
       core.saveState('bypass', 'true')
       return 'safe-exit'
     }
+
+    // Debug log information about the deployment that was just created
+    core.info(
+      `📓 deployment id: ${COLORS.highlight}${createDeploy.id}${COLORS.reset}`
+    )
+    core.debug(`deployment.url: ${createDeploy.url}`)
+    core.debug(`deployment.created_at: ${createDeploy.created_at}`)
+    core.debug(`deployment.updated_at: ${createDeploy.updated_at}`)
+    core.debug(`deployment.statuses_url: ${createDeploy.statuses_url}`)
 
     // Set the deployment status to in_progress
     await createDeploymentStatus(

@@ -730,7 +730,14 @@ export async function run() {
       sha: precheckResults.sha,
       params: params,
       parsed_params: parsed_params,
-      github_run_id: github_run_id
+      github_run_id: github_run_id,
+      initial_comment_id: context.payload.comment.id,
+      initial_reaction_id: reactRes.data.id,
+      deployment_started_comment_id: deploymentStartedComment.data.id,
+      timestamp: deployment_start_time,
+      commit_verified: commitSafetyCheckResults.isVerified,
+      actor: context.actor,
+      stable_branch_used: stableBranchUsed
     }
 
     // Create a new deployment

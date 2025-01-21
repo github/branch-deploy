@@ -16,6 +16,7 @@ import * as isDeprecated from '../src/functions/deprecated-checks'
 import * as nakedCommandCheck from '../src/functions/naked-command-check'
 import * as validDeploymentOrder from '../src/functions/valid-deployment-order'
 import * as commitSafetyChecks from '../src/functions/commit-safety-checks'
+import * as timestamp from '../src/functions/timestamp'
 import {COLORS} from '../src/functions/colors'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
@@ -113,7 +114,7 @@ beforeEach(() => {
       rest: {
         issues: {
           createComment: jest.fn().mockReturnValueOnce({
-            data: {}
+            data: {id: 123456}
           })
         },
         repos: {
@@ -153,7 +154,10 @@ beforeEach(() => {
     return true
   })
   jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
-    return {data: {id: '123'}}
+    return {data: {id: 123}}
+  })
+  jest.spyOn(timestamp, 'timestamp').mockImplementation(() => {
+    return '2025-01-01T00:00:00.000Z'
   })
   jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
     return {
@@ -175,7 +179,8 @@ beforeEach(() => {
     .mockImplementation(() => {
       return {
         status: true,
-        message: 'success'
+        message: 'success',
+        isVerified: true
       }
     })
   jest
@@ -964,7 +969,7 @@ test('detects an out of date branch and exits', async () => {
       rest: {
         issues: {
           createComment: jest.fn().mockReturnValueOnce({
-            data: {}
+            data: {id: 123123}
           })
         },
         repos: {
@@ -1063,7 +1068,8 @@ test('fails commitSafetyChecks', async () => {
       return {
         status: false,
         message:
-          '### ⚠️ Cannot proceed with deployment... a scary commit was found'
+          '### ⚠️ Cannot proceed with deployment... a scary commit was found',
+        isVerified: false
       }
     })
   jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
@@ -1266,7 +1272,14 @@ test('stores params and parsed params into context with complex params', async (
       parsed_params,
       sha: 'deadbeef',
       type: 'branch-deploy',
-      github_run_id: 12345
+      github_run_id: 12345,
+      initial_comment_id: 123,
+      initial_reaction_id: 123,
+      deployment_started_comment_id: 123456,
+      timestamp: '2025-01-01T00:00:00.000Z',
+      commit_verified: true,
+      actor: 'monalisa',
+      stable_branch_used: false
     })
   })
   expect(await run()).toBe('success')
