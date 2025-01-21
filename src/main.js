@@ -30,6 +30,7 @@ import {constructValidBranchName} from './functions/valid-branch-name'
 import {validDeploymentOrder} from './functions/valid-deployment-order'
 import {commitSafetyChecks} from './functions/commit-safety-checks'
 import {API_HEADERS} from './functions/api-headers'
+import {timestamp} from './functions/timestamp'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -592,6 +593,8 @@ export async function run() {
       return 'safe-exit'
     }
 
+    const github_run_id = parseInt(process.env.GITHUB_RUN_ID)
+
     // Add a comment to the PR letting the user know that a deployment has been started
     // Format the success message
     var deploymentType
@@ -601,12 +604,11 @@ export async function run() {
       deploymentType =
         environmentObj.environmentObj.sha !== null ? 'sha' : 'branch'
     }
-    const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+    const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${github_run_id}`
 
     // this is the timestamp that we consider the deployment to have "started" at for logging and auditing purposes
     // it is not the exact time the deployment started, but it is very close
-    const now = new Date()
-    const deployment_start_time = now.toISOString()
+    const deployment_start_time = timestamp()
     core.debug(`deployment_start_time: ${deployment_start_time}`)
     core.saveState('deployment_start_time', deployment_start_time)
 
@@ -663,7 +665,7 @@ export async function run() {
     `)
 
     // Make a comment on the PR
-    const initialComment = await octokit.rest.issues.createComment({
+    const deploymentStartedComment = await octokit.rest.issues.createComment({
       ...context.repo,
       issue_number: context.issue.number,
       body: commentBody,
@@ -671,8 +673,8 @@ export async function run() {
     })
 
     // Set output for initial comment id
-    core.setOutput('initial_comment_id', initialComment.data.id)
-    core.saveState('initial_comment_id', initialComment.data.id)
+    core.setOutput('initial_comment_id', deploymentStartedComment.data.id)
+    core.saveState('initial_comment_id', deploymentStartedComment.data.id)
 
     // Set outputs for noopMode
     if (precheckResults.noopMode) {
@@ -722,6 +724,22 @@ export async function run() {
           ? false
           : true
 
+    // Construct the deployment payload that will be sent to the GitHub API during the deployment creation
+    const payload = {
+      type: 'branch-deploy',
+      sha: precheckResults.sha,
+      params: params,
+      parsed_params: parsed_params,
+      github_run_id: github_run_id,
+      initial_comment_id: context.payload.comment.id,
+      initial_reaction_id: reactRes.data.id,
+      deployment_started_comment_id: deploymentStartedComment.data.id,
+      timestamp: deployment_start_time,
+      commit_verified: commitSafetyCheckResults.isVerified,
+      actor: context.actor,
+      stable_branch_used: stableBranchUsed
+    }
+
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
@@ -734,12 +752,7 @@ export async function run() {
       // :description note: Short description of the deployment.
       production_environment: isProductionEnvironment,
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
-      payload: {
-        type: 'branch-deploy',
-        sha: precheckResults.sha,
-        params: params,
-        parsed_params: parsed_params
-      },
+      payload: payload,
       headers: API_HEADERS
     })
     core.setOutput('deployment_id', createDeploy.id)
@@ -764,6 +777,15 @@ export async function run() {
       core.saveState('bypass', 'true')
       return 'safe-exit'
     }
+
+    // Debug log information about the deployment that was just created
+    core.info(
+      `📓 deployment id: ${COLORS.highlight}${createDeploy.id}${COLORS.reset}`
+    )
+    core.debug(`deployment.url: ${createDeploy.url}`)
+    core.debug(`deployment.created_at: ${createDeploy.created_at}`)
+    core.debug(`deployment.updated_at: ${createDeploy.updated_at}`)
+    core.debug(`deployment.statuses_url: ${createDeploy.statuses_url}`)
 
     // Set the deployment status to in_progress
     await createDeploymentStatus(

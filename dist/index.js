@@ -39979,7 +39979,7 @@ var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 // - v1.1.1-rc.1
 // - etc
 
-const VERSION = 'v10.0.2'
+const VERSION = 'v10.1.0'
 
 ;// CONCATENATED MODULE: ./src/functions/colors.js
 const COLORS = {
@@ -42166,6 +42166,9 @@ async function createDeploymentStatus(
     environment_url: environment_url,
     headers: API_HEADERS
   })
+
+  core.debug(`deploymentStatus.id: ${result.id}`)
+  core.debug(`deploymentStatus.url: ${result.url}`)
 
   return result
 }
@@ -46000,7 +46003,16 @@ function isTimestampOlder(timestampA, timestampB) {
   return result
 }
 
+;// CONCATENATED MODULE: ./src/functions/timestamp.js
+// Helper function to generate an ISO 8601 formatted timestamp string
+// :returns: An ISO 8601 formatted timestamp string (ex: 2025-01-01T00:00:00.000Z)
+function timestamp() {
+  const now = new Date()
+  return now.toISOString()
+}
+
 ;// CONCATENATED MODULE: ./src/main.js
+
 
 
 
@@ -46595,6 +46607,8 @@ async function run() {
       return 'safe-exit'
     }
 
+    const github_run_id = parseInt(process.env.GITHUB_RUN_ID)
+
     // Add a comment to the PR letting the user know that a deployment has been started
     // Format the success message
     var deploymentType
@@ -46604,12 +46618,11 @@ async function run() {
       deploymentType =
         environmentObj.environmentObj.sha !== null ? 'sha' : 'branch'
     }
-    const log_url = `${process.env.GITHUB_SERVER_URL}/${github.context.repo.owner}/${github.context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+    const log_url = `${process.env.GITHUB_SERVER_URL}/${github.context.repo.owner}/${github.context.repo.repo}/actions/runs/${github_run_id}`
 
     // this is the timestamp that we consider the deployment to have "started" at for logging and auditing purposes
     // it is not the exact time the deployment started, but it is very close
-    const now = new Date()
-    const deployment_start_time = now.toISOString()
+    const deployment_start_time = timestamp()
     core.debug(`deployment_start_time: ${deployment_start_time}`)
     core.saveState('deployment_start_time', deployment_start_time)
 
@@ -46666,7 +46679,7 @@ async function run() {
     `)
 
     // Make a comment on the PR
-    const initialComment = await octokit.rest.issues.createComment({
+    const deploymentStartedComment = await octokit.rest.issues.createComment({
       ...github.context.repo,
       issue_number: github.context.issue.number,
       body: commentBody,
@@ -46674,8 +46687,8 @@ async function run() {
     })
 
     // Set output for initial comment id
-    core.setOutput('initial_comment_id', initialComment.data.id)
-    core.saveState('initial_comment_id', initialComment.data.id)
+    core.setOutput('initial_comment_id', deploymentStartedComment.data.id)
+    core.saveState('initial_comment_id', deploymentStartedComment.data.id)
 
     // Set outputs for noopMode
     if (precheckResults.noopMode) {
@@ -46725,6 +46738,22 @@ async function run() {
           ? false
           : true
 
+    // Construct the deployment payload that will be sent to the GitHub API during the deployment creation
+    const payload = {
+      type: 'branch-deploy',
+      sha: precheckResults.sha,
+      params: params,
+      parsed_params: parsed_params,
+      github_run_id: github_run_id,
+      initial_comment_id: github.context.payload.comment.id,
+      initial_reaction_id: reactRes.data.id,
+      deployment_started_comment_id: deploymentStartedComment.data.id,
+      timestamp: deployment_start_time,
+      commit_verified: commitSafetyCheckResults.isVerified,
+      actor: github.context.actor,
+      stable_branch_used: stableBranchUsed
+    }
+
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
@@ -46737,12 +46766,7 @@ async function run() {
       // :description note: Short description of the deployment.
       production_environment: isProductionEnvironment,
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
-      payload: {
-        type: 'branch-deploy',
-        sha: precheckResults.sha,
-        params: params,
-        parsed_params: parsed_params
-      },
+      payload: payload,
       headers: API_HEADERS
     })
     core.setOutput('deployment_id', createDeploy.id)
@@ -46767,6 +46791,15 @@ async function run() {
       core.saveState('bypass', 'true')
       return 'safe-exit'
     }
+
+    // Debug log information about the deployment that was just created
+    core.info(
+      `📓 deployment id: ${COLORS.highlight}${createDeploy.id}${COLORS.reset}`
+    )
+    core.debug(`deployment.url: ${createDeploy.url}`)
+    core.debug(`deployment.created_at: ${createDeploy.created_at}`)
+    core.debug(`deployment.updated_at: ${createDeploy.updated_at}`)
+    core.debug(`deployment.statuses_url: ${createDeploy.statuses_url}`)
 
     // Set the deployment status to in_progress
     await createDeploymentStatus(
