@@ -1213,7 +1213,8 @@ test('stores params and parsed params into context', async () => {
       params,
       parsed_params,
       sha: 'abc123',
-      type: 'branch-deploy'
+      type: 'branch-deploy',
+      github_run_id: 12345
     })
   })
   expect(await run()).toBe('success')
@@ -1264,7 +1265,8 @@ test('stores params and parsed params into context with complex params', async (
       params,
       parsed_params,
       sha: 'deadbeef',
-      type: 'branch-deploy'
+      type: 'branch-deploy',
+      github_run_id: 12345
     })
   })
   expect(await run()).toBe('success')

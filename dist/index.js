@@ -46595,6 +46595,8 @@ async function run() {
       return 'safe-exit'
     }
 
+    const github_run_id = parseInt(process.env.GITHUB_RUN_ID)
+
     // Add a comment to the PR letting the user know that a deployment has been started
     // Format the success message
     var deploymentType
@@ -46604,7 +46606,7 @@ async function run() {
       deploymentType =
         environmentObj.environmentObj.sha !== null ? 'sha' : 'branch'
     }
-    const log_url = `${process.env.GITHUB_SERVER_URL}/${github.context.repo.owner}/${github.context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+    const log_url = `${process.env.GITHUB_SERVER_URL}/${github.context.repo.owner}/${github.context.repo.repo}/actions/runs/${github_run_id}`
 
     // this is the timestamp that we consider the deployment to have "started" at for logging and auditing purposes
     // it is not the exact time the deployment started, but it is very close
@@ -46730,7 +46732,8 @@ async function run() {
       type: 'branch-deploy',
       sha: precheckResults.sha,
       params: params,
-      parsed_params: parsed_params
+      parsed_params: parsed_params,
+      github_run_id: github_run_id
     }
 
     // Create a new deployment
