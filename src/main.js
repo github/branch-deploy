@@ -772,7 +772,9 @@ export async function run() {
     }
 
     // Debug log information about the deployment that was just created
-    core.info(`📓 deployment id: ${COLORS.highlight}${createDeploy.id}${COLORS.reset}`)
+    core.info(
+      `📓 deployment id: ${COLORS.highlight}${createDeploy.id}${COLORS.reset}`
+    )
     core.debug(`deployment.url: ${createDeploy.url}`)
     core.debug(`deployment.created_at: ${createDeploy.created_at}`)
     core.debug(`deployment.updated_at: ${createDeploy.updated_at}`)
