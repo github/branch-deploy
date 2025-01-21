@@ -14,7 +14,6 @@ Here is the data that the branch-deploy Action will add to the deployment payloa
     "initial_comment_id": 123,
     "initial_reaction_id": 123,
     "deployment_started_comment_id": 123456,
-    "deployment_started_comment_id": 123123,
     "timestamp": "2025-01-01T00:00:00.000Z",
     "commit_verified": true,
     "actor": "<string>",
