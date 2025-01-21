@@ -34,6 +34,9 @@ export async function createDeploymentStatus(
     headers: API_HEADERS
   })
 
+  core.debug(`deploymentStatus.id: ${result.id}`)
+  core.debug(`deploymentStatus.url: ${result.url}`)
+
   return result
 }
 
