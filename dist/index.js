@@ -39979,7 +39979,7 @@ var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 // - v1.1.1-rc.1
 // - etc
 
-const VERSION = 'v10.0.2'
+const VERSION = 'v10.1.0'
 
 ;// CONCATENATED MODULE: ./src/functions/colors.js
 const COLORS = {
