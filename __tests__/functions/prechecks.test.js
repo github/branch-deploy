@@ -59,7 +59,8 @@ beforeEach(() => {
       checks: 'all',
       permissions: ['admin', 'write'],
       commit_verification: false,
-      ignored_checks: []
+      ignored_checks: [],
+      allow_non_default_target_branch_deployments: false
     }
   }
 
@@ -1080,6 +1081,163 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`some-other-branch\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
     status: false
+  })
+})
+
+test('runs prechecks and finds that the PR from a fork is targeting a non-default branch and allows it based on the action config', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        reviews: {
+          totalCount: 1
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abcde12345',
+                checkSuites: {
+                  totalCount: 8
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        sha: 'abcde12345',
+        ref: 'test-ref',
+        label: 'test-repo:test-ref',
+        repo: {
+          fork: true
+        }
+      },
+      base: {
+        ref: 'some-other-branch'
+      }
+    },
+    status: 200
+  })
+
+  data.inputs.allow_non_default_target_branch_deployments = true
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message: `✅ PR is approved and all CI checks passed`,
+    status: true,
+    noopMode: false,
+    ref: 'abcde12345',
+    sha: 'abcde12345',
+    isFork: true
+  })
+})
+
+test('runs prechecks and finds that the PR is targeting a non-default branch and rejects the deployment', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        reviews: {
+          totalCount: 1
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abcde12345',
+                checkSuites: {
+                  totalCount: 8
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        ref: 'test-ref',
+        sha: 'abc123'
+      },
+      repo: {
+        fork: false
+      },
+      base: {
+        ref: 'not-main'
+      }
+    },
+    status: 200
+  })
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`not-main\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
+    status: false
+  })
+})
+
+test('runs prechecks and finds that the PR is targeting a non-default branch and allows the deployment based on the action config', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        reviews: {
+          totalCount: 1
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abcde12345',
+                checkSuites: {
+                  totalCount: 8
+                },
+                statusCheckRollup: {
+                  state: 'SUCCESS'
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+  octokit.rest.pulls.get = jest.fn().mockReturnValue({
+    data: {
+      head: {
+        ref: 'test-ref',
+        sha: 'abcde12345'
+      },
+      repo: {
+        fork: false
+      },
+      base: {
+        ref: 'not-main'
+      }
+    },
+    status: 200
+  })
+
+  data.inputs.allow_non_default_target_branch_deployments = true
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message: `✅ PR is approved and all CI checks passed`,
+    status: true,
+    noopMode: false,
+    ref: 'test-ref',
+    sha: 'abcde12345',
+    isFork: false
   })
 })
 
