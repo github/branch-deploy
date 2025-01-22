@@ -45677,6 +45677,13 @@ async function help(octokit, context, reactionId, inputs) {
   - \`allow_sha_deployments: ${
     inputs.allow_sha_deployments
   }\` - ${sha_deployment_message}
+  - \`allow_non_default_target_branch_deployments: ${
+    inputs.allow_non_default_target_branch_deployments
+  }\` - This Action will ${
+    inputs.allow_non_default_target_branch_deployments === true
+      ? 'allow'
+      : 'not allow'
+  } the deployments of pull requests that target a branch other than the default branch (aka stable branch)
 
   ---
 
@@ -45755,6 +45762,9 @@ function getInputs() {
   const commit_verification = core.getBooleanInput('commit_verification')
   const ignored_checks = stringToArray(core.getInput('ignored_checks'))
   const use_security_warnings = core.getBooleanInput('use_security_warnings')
+  const allow_non_default_target_branch_deployments = core.getBooleanInput(
+    'allow_non_default_target_branch_deployments'
+  )
 
   // validate inputs
   inputs_validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -45805,7 +45815,9 @@ function getInputs() {
     enforced_deployment_order: enforced_deployment_order,
     commit_verification: commit_verification,
     ignored_checks: ignored_checks,
-    use_security_warnings: use_security_warnings
+    use_security_warnings: use_security_warnings,
+    allow_non_default_target_branch_deployments:
+      allow_non_default_target_branch_deployments
   }
 }
 
