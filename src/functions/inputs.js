@@ -56,6 +56,9 @@ export function getInputs() {
   const commit_verification = core.getBooleanInput('commit_verification')
   const ignored_checks = stringToArray(core.getInput('ignored_checks'))
   const use_security_warnings = core.getBooleanInput('use_security_warnings')
+  const allow_non_default_target_branch_deployments = core.getBooleanInput(
+    'allow_non_default_target_branch_deployments'
+  )
 
   // validate inputs
   validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -106,6 +109,8 @@ export function getInputs() {
     enforced_deployment_order: enforced_deployment_order,
     commit_verification: commit_verification,
     ignored_checks: ignored_checks,
-    use_security_warnings: use_security_warnings
+    use_security_warnings: use_security_warnings,
+    allow_non_default_target_branch_deployments:
+      allow_non_default_target_branch_deployments
   }
 }

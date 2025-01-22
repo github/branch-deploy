@@ -50,7 +50,8 @@ const defaultInputs = {
   commit_verification: true,
   ignored_checks: [],
   enforced_deployment_order: [],
-  use_security_warnings: true
+  use_security_warnings: true,
+  allow_non_default_target_branch_deployments: false
 }
 
 test('successfully calls help with defaults', async () => {
@@ -89,7 +90,8 @@ test('successfully calls help with non-defaults', async () => {
     ignored_checks: ['lint', 'format'],
     commit_verification: false,
     enforced_deployment_order: [],
-    use_security_warnings: false
+    use_security_warnings: false,
+    allow_non_default_target_branch_deployments: false
   }
 
   expect(await help(octokit, context, 123, inputs))
@@ -127,7 +129,8 @@ test('successfully calls help with non-defaults again', async () => {
     ignored_checks: ['lint'],
     commit_verification: false,
     enforced_deployment_order: ['development', 'staging', 'production'],
-    use_security_warnings: false
+    use_security_warnings: false,
+    allow_non_default_target_branch_deployments: false
   }
 
   expect(await help(octokit, context, 123, inputs))
@@ -176,7 +179,8 @@ test('successfully calls help with non-defaults and unknown update_branch settin
     checks: 'required',
     ignored_checks: ['lint'],
     enforced_deployment_order: [],
-    use_security_warnings: false
+    use_security_warnings: false,
+    allow_non_default_target_branch_deployments: true
   }
 
   expect(await help(octokit, context, 123, inputs))
@@ -196,5 +200,10 @@ test('successfully calls help with non-defaults and unknown update_branch settin
   )
   expect(debugMock).toHaveBeenCalledWith(
     expect.stringMatching(/not use security warnings/)
+  )
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringMatching(
+      /will allow the deployments of pull requests that target a branch other than the default branch/
+    )
   )
 })

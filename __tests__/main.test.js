@@ -90,6 +90,7 @@ beforeEach(() => {
   process.env.INPUT_COMMIT_VERIFICATION = 'false'
   process.env.INPUT_IGNORED_CHECKS = ''
   process.env.INPUT_USE_SECURITY_WARNINGS = 'true'
+  process.env.INPUT_ALLOW_NON_DEFAULT_TARGET_BRANCH_DEPLOYMENTS = 'false'
 
   github.context.payload = {
     issue: {

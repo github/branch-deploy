@@ -39979,7 +39979,7 @@ var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 // - v1.1.1-rc.1
 // - etc
 
-const VERSION = 'v10.1.0'
+const VERSION = 'v10.2.0'
 
 ;// CONCATENATED MODULE: ./src/functions/colors.js
 const COLORS = {
@@ -42764,13 +42764,37 @@ async function prechecks(context, octokit, data) {
     )
   }
 
-  // If the PR is targeting a branch other than the default branch (and it is not a stable branch deploy) reject the deployment
+  const nonDefaultTargetBranchUsed = data.inputs.stable_branch !== baseRef
+  const isNotStableBranchDeploy = !data.environmentObj.stable_branch_used
+  const nonDefaultDeploysAllowed =
+    data.inputs.allow_non_default_target_branch_deployments
+  const securityWarningsEnabled = data.inputs.use_security_warnings
+
+  if (nonDefaultTargetBranchUsed) {
+    core.setOutput('non_default_target_branch_used', 'true')
+  }
+
+  // If the PR is targeting a branch other than the default branch (and it is not a stable branch deploy) reject the deployment, unless the Action is explicitly configured to allow it
   if (
-    data.environmentObj.stable_branch_used === false &&
-    data.inputs.stable_branch !== baseRef
+    isNotStableBranchDeploy &&
+    nonDefaultTargetBranchUsed &&
+    !nonDefaultDeploysAllowed
   ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`${baseRef}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`
-    return {message: message, status: false}
+    return {
+      message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`${baseRef}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
+      status: false
+    }
+  }
+
+  if (
+    isNotStableBranchDeploy &&
+    nonDefaultTargetBranchUsed &&
+    nonDefaultDeploysAllowed &&
+    securityWarningsEnabled
+  ) {
+    core.warning(
+      `🚨 this pull request is attempting to merge into the \`${baseRef}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`) - this action is potentially dangerous`
+    )
   }
 
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
@@ -45677,6 +45701,13 @@ async function help(octokit, context, reactionId, inputs) {
   - \`allow_sha_deployments: ${
     inputs.allow_sha_deployments
   }\` - ${sha_deployment_message}
+  - \`allow_non_default_target_branch_deployments: ${
+    inputs.allow_non_default_target_branch_deployments
+  }\` - This Action will ${
+    inputs.allow_non_default_target_branch_deployments === true
+      ? 'allow'
+      : 'not allow'
+  } the deployments of pull requests that target a branch other than the default branch (aka stable branch)
 
   ---
 
@@ -45755,6 +45786,9 @@ function getInputs() {
   const commit_verification = core.getBooleanInput('commit_verification')
   const ignored_checks = stringToArray(core.getInput('ignored_checks'))
   const use_security_warnings = core.getBooleanInput('use_security_warnings')
+  const allow_non_default_target_branch_deployments = core.getBooleanInput(
+    'allow_non_default_target_branch_deployments'
+  )
 
   // validate inputs
   inputs_validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -45805,7 +45839,9 @@ function getInputs() {
     enforced_deployment_order: enforced_deployment_order,
     commit_verification: commit_verification,
     ignored_checks: ignored_checks,
-    use_security_warnings: use_security_warnings
+    use_security_warnings: use_security_warnings,
+    allow_non_default_target_branch_deployments:
+      allow_non_default_target_branch_deployments
   }
 }
 
