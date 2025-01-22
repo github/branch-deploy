@@ -60,6 +60,7 @@ beforeEach(() => {
       permissions: ['admin', 'write'],
       commit_verification: false,
       ignored_checks: [],
+      use_security_warnings: true,
       allow_non_default_target_branch_deployments: false
     }
   }
@@ -1034,6 +1035,11 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     sha: 'abcde12345',
     isFork: true
   })
+
+  expect(setOutputMock).not.toHaveBeenCalledWith(
+    'non_default_target_branch_used',
+    'true'
+  )
 })
 
 test('runs prechecks and finds that the PR from a fork is targeting a non-default branch and rejects the deployment', async () => {
@@ -1082,6 +1088,11 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
     message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`some-other-branch\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
     status: false
   })
+
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'non_default_target_branch_used',
+    'true'
+  )
 })
 
 test('runs prechecks and finds that the PR from a fork is targeting a non-default branch and allows it based on the action config', async () => {
@@ -1137,6 +1148,11 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
     sha: 'abcde12345',
     isFork: true
   })
+
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'non_default_target_branch_used',
+    'true'
+  )
 })
 
 test('runs prechecks and finds that the PR is targeting a non-default branch and rejects the deployment', async () => {
@@ -1185,9 +1201,14 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
     message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`not-main\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
     status: false
   })
+
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'non_default_target_branch_used',
+    'true'
+  )
 })
 
-test('runs prechecks and finds that the PR is targeting a non-default branch and allows the deployment based on the action config', async () => {
+test('runs prechecks and finds that the PR is targeting a non-default branch and allows the deployment based on the action config and logs a warning', async () => {
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
       pullRequest: {
@@ -1239,6 +1260,15 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
     sha: 'abcde12345',
     isFork: false
   })
+
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'non_default_target_branch_used',
+    'true'
+  )
+
+  expect(warningMock).toHaveBeenCalledWith(
+    `🚨 this pull request is attempting to merge into the \`not-main\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`) - this action is potentially dangerous`
+  )
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment and is from a forked repository and the PR is approved but CI is failing and it is a noop', async () => {

@@ -268,6 +268,8 @@ outputs:
     description: 'The string "true" if the commit has a verified signature, otherwise "false"'
   total_seconds:
     description: 'The total number of seconds that the deployment took to complete (Integer)'
+  non_default_target_branch_used:
+    description: 'The string "true" if the pull request is targeting a branch other than the default branch (aka stable branch) for the merge, otherwise unset'
 runs:
   using: "node20"
   main: "dist/index.js"

@@ -343,6 +343,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `needs_to_be_deployed` | A comma separated list of environments that need successful and active deployments before the current environment (that was requested) can be deployed. This output is tied to the `enforced_deployment_order` input option - See the [enforced deployment order docs](./docs/enforced-deployment-order.md) for more details |
 | `commit_verified` | The string `"true"` if the commit is verified, otherwise `"false"` |
 | `total_seconds` | The total number of seconds that the deployment took to complete (Integer) |
+| `non_default_target_branch_used` | The string `"true"` if the pull request is targeting a branch other than the default branch (aka stable branch) for the merge, otherwise unset |
 
 ## Custom Deployment Messages ✏️
 
