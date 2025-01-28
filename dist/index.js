@@ -43416,6 +43416,7 @@ async function prechecks(context, octokit, data) {
 // :param checkResults: An array of check results (objects) from the graphql query
 // :param ignoredChecks: An array of check names to ignore
 // :param required: A boolean to determine if a check being a required check should be considered
+// :returns: A string representing the combined status of the remaining checks (e.g. 'SUCCESS' or 'FAILURE')
 function filterChecks(checks, checkResults, ignoredChecks, required) {
   const healthyCheckStatuses = ['SUCCESS', 'SKIPPED', 'NEUTRAL']
 
@@ -43429,7 +43430,9 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
       if (Array.isArray(checks) && checks.length > 0) {
         const isIncluded = checks.includes(check.name)
         if (isIncluded) {
-          core.debug(`explicitly including ci check: ${check.name}`)
+          core.debug(
+            `filterChecks() - explicitly including ci check: ${check.name}`
+          )
         }
 
         return checks.includes(check.name)
@@ -43441,7 +43444,7 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
     .filter(check => {
       const isIgnored = ignoredChecks.includes(check.name)
       if (isIgnored) {
-        core.debug(`ignoring ci check: ${check.name}`)
+        core.debug(`filterChecks() - ignoring ci check: ${check.name}`)
       }
       return !isIgnored && (required ? check.isRequired : true)
     })
@@ -43457,7 +43460,7 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
 
   if (result.length === 0) {
     core.debug(
-      'after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined'
+      'filterChecks() - after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined'
     )
   }
 
