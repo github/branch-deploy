@@ -386,6 +386,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   expect(debugMock).toHaveBeenCalledWith(
     'filterChecks() - explicitly including ci check: lint'
   )
+  expect(debugMock).toHaveBeenCalledWith(
+    'filterChecks() - markdown-lint is not in the explicit list of checks to include (test,acceptance-test,lint)'
+  )
   expect(debugMock).not.toHaveBeenCalledWith(
     'filterChecks() - ignoring ci check: markdown-lint'
   )

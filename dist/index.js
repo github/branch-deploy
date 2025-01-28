@@ -43424,47 +43424,58 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
   core.debug(`filterChecks() - ignoredChecks: ${ignoredChecks}`)
   core.debug(`filterChecks() - required: ${required}`)
 
-  const result = checkResults
+  // Filter the checkResults based on user input (checks), ignoring checks, and required flag
+  const filteredChecks = checkResults
     .filter(check => {
-      // If checks is an array and it contains items, filter checks based on it
+      // If checks is an array (meaning it isn't just `required` or `all`) and it contains items, filter checks based on it
       if (Array.isArray(checks) && checks.length > 0) {
+        // check if the `checks` input option explicitly includes the name of the check that was found
         const isIncluded = checks.includes(check.name)
+
         if (isIncluded) {
           core.debug(
             `filterChecks() - explicitly including ci check: ${check.name}`
           )
+        } else {
+          core.debug(
+            `filterChecks() - ${check.name} is not in the explicit list of checks to include (${checks})`
+          )
         }
 
-        return checks.includes(check.name)
+        return isIncluded
       }
+
+      // If checks is 'all' or 'required', don't filter by name
+      // This means that checks is either 'required' or 'all'
+      // filter() expects a boolean to be returned
       return true
     })
 
-    // Filter out ignored checks
     .filter(check => {
+      // Filter out ignored checks
       const isIgnored = ignoredChecks.includes(check.name)
       if (isIgnored) {
         core.debug(`filterChecks() - ignoring ci check: ${check.name}`)
       }
+      // If required is true, only keep checks that are required
       return !isIgnored && (required ? check.isRequired : true)
     })
 
-  const resultReduced = result
-    // Return the combined status of the remaining checks
-    .reduce(
-      (acc, check) => acc && healthyCheckStatuses.includes(check.conclusion),
-      true
-    )
-    ? 'SUCCESS'
-    : 'FAILURE'
+  // Determine if all remaining checks are in a healthy state
+  const allHealthy = filteredChecks.every(check =>
+    healthyCheckStatuses.includes(check.conclusion)
+  )
 
-  if (result.length === 0) {
+  // If no checks remain after filtering, default to SUCCESS
+  if (filteredChecks.length === 0) {
     core.debug(
       'filterChecks() - after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined'
     )
+    return 'SUCCESS'
   }
 
-  return resultReduced
+  // Return SUCCESS if all checks are healthy, otherwise FAILURE
+  return allHealthy ? 'SUCCESS' : 'FAILURE'
 }
 
 ;// CONCATENATED MODULE: ./src/functions/suggested-rulesets.js
