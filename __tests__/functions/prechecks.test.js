@@ -397,6 +397,95 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   )
 })
 
+test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with a few explictly requested checks and a few ignored checks but one CI check is missing', async () => {
+  octokit.graphql = jest.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'CLEAN',
+        reviews: {
+          totalCount: 1
+        },
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid: 'abc123',
+                checkSuites: {
+                  totalCount: 5
+                },
+                statusCheckRollup: {
+                  state: 'FAILURE',
+                  contexts: {
+                    nodes: [
+                      {
+                        isRequired: true,
+                        conclusion: 'SUCCESS',
+                        name: 'test'
+                      },
+                      {
+                        isRequired: false,
+                        conclusion: 'SUCCESS',
+                        name: 'acceptance-test'
+                      },
+                      {
+                        isRequired: true,
+                        conclusion: 'SKIPPED',
+                        name: 'lint'
+                      },
+                      {
+                        isRequired: false,
+                        conclusion: 'FAILURE',
+                        name: 'build'
+                      },
+                      {
+                        isRequired: true,
+                        conclusion: 'FAILURE',
+                        name: 'markdown-lint'
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  })
+
+  data.inputs.checks = ['test', 'acceptance-test', 'quality-control', 'lint']
+  data.inputs.ignored_checks = ['lint']
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      'The `checks` input option requires that all of the following checks are passing: `test,acceptance-test,quality-control,lint`. However, the following checks are missing: `quality-control`',
+    status: false
+  })
+
+  expect(warningMock).toHaveBeenCalledWith(
+    `the ${COLORS.info}checks${COLORS.reset} input option requires that all of the following checks are passing: ${COLORS.highlight}${data.inputs.checks.join(', ')}${COLORS.reset} - however, the following checks are missing: ${COLORS.highlight}quality-control${COLORS.reset}`
+  )
+  expect(debugMock).not.toHaveBeenCalledWith(
+    'filterChecks() - explicitly including ci check: test'
+  )
+  expect(debugMock).not.toHaveBeenCalledWith(
+    'filterChecks() - explicitly including ci check: acceptance-test'
+  )
+  expect(debugMock).not.toHaveBeenCalledWith(
+    'filterChecks() - explicitly including ci check: lint'
+  )
+  expect(debugMock).not.toHaveBeenCalledWith(
+    'filterChecks() - markdown-lint is not in the explicit list of checks to include (test,acceptance-test,lint)'
+  )
+  expect(debugMock).not.toHaveBeenCalledWith(
+    'filterChecks() - ignoring ci check: markdown-lint'
+  )
+  expect(debugMock).not.toHaveBeenCalledWith(
+    'filterChecks() - ignoring ci check: lint'
+  )
+})
+
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment but checks and ignore checks cancel eachother out', async () => {
   octokit.graphql = jest.fn().mockReturnValue({
     repository: {
