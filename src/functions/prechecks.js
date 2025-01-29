@@ -660,8 +660,8 @@ export async function prechecks(context, octokit, data) {
     // Regardless of the reviewDecision or noop, if the commitStatus is 'MISSING' this means that a user has explicitly requested a CI check to be passing with the `checks: <check1>,<check2>,<etc>` input option, but the check could not be found in the GraphQL result
     // In this case, we should alert the user that the check could not be found and exit
   } else if (commitStatus === 'MISSING') {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
-    return {message: filterChecksResults.message, status: false}
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> ${filterChecksResults.message}`
+    return {message: message, status: false}
 
     // If CI is passing but the PR is missing an approval, let the user know
   } else if (

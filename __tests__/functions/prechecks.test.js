@@ -459,7 +459,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 
   expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
-      'The `checks` input option requires that all of the following checks are passing: `test,acceptance-test,quality-control,lint`. However, the following checks are missing: `quality-control`',
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `MISSING`\n\n> The `checks` input option requires that all of the following checks are passing: `test,acceptance-test,quality-control,lint`. However, the following checks are missing: `quality-control`',
     status: false
   })
 
