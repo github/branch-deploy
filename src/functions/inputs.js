@@ -59,6 +59,12 @@ export function getInputs() {
   const allow_non_default_target_branch_deployments = core.getBooleanInput(
     'allow_non_default_target_branch_deployments'
   )
+  const deployment_confirmation = core.getBooleanInput(
+    'deployment_confirmation'
+  )
+  const deployment_confirmation_timeout = core.getInput(
+    'deployment_confirmation_timeout'
+  )
 
   // validate inputs
   validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -109,6 +115,8 @@ export function getInputs() {
     enforced_deployment_order: enforced_deployment_order,
     commit_verification: commit_verification,
     ignored_checks: ignored_checks,
+    deployment_confirmation: deployment_confirmation,
+    deployment_confirmation_timeout: deployment_confirmation_timeout,
     use_security_warnings: use_security_warnings,
     allow_non_default_target_branch_deployments:
       allow_non_default_target_branch_deployments

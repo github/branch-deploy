@@ -139,6 +139,57 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
   })
 })
 
+test('successfully prompts for deployment confirmation and gets confirmed by the original actor with some null data params in the issue comment', async () => {
+  data.params = null
+  data.parsed_params = null
+  data.environmentUrl = null
+
+  // Mock that the user adds a +1 reaction
+  octokit.rest.reactions.listForIssueComment.mockResolvedValueOnce({
+    data: [
+      {
+        user: {login: 'monalisa'},
+        content: '+1'
+      }
+    ]
+  })
+
+  const result = await deploymentConfirmation(context, octokit, data)
+
+  expect(result).toBe(true)
+  expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
+    body: expect.stringContaining('"url": null'),
+    issue_number: 1,
+    owner: 'corp',
+    repo: 'test',
+    headers: API_HEADERS
+  })
+  expect(core.debug).toHaveBeenCalledWith(
+    'deployment confirmation comment id: 124'
+  )
+  expect(core.info).toHaveBeenCalledWith(
+    `🕒 waiting ${COLORS.highlight}60${COLORS.reset} seconds for deployment confirmation`
+  )
+  expect(core.info).toHaveBeenCalledWith(
+    `✅ deployment confirmed by ${COLORS.highlight}monalisa${COLORS.reset} - sha: ${COLORS.highlight}abc123${COLORS.reset}`
+  )
+
+  expect(octokit.rest.reactions.listForIssueComment).toHaveBeenCalledWith({
+    comment_id: 124,
+    owner: 'corp',
+    repo: 'test',
+    headers: API_HEADERS
+  })
+
+  expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith({
+    body: expect.stringContaining('✅ Deployment confirmed by __monalisa__'),
+    comment_id: 124,
+    owner: 'corp',
+    repo: 'test',
+    headers: API_HEADERS
+  })
+})
+
 test('user rejects the deployment with thumbs down', async () => {
   // Mock that the user adds a -1 reaction
   octokit.rest.reactions.listForIssueComment.mockResolvedValueOnce({
@@ -240,6 +291,67 @@ test('ignores reactions from other users', async () => {
   expect(core.info).toHaveBeenCalledWith(
     `✅ deployment confirmed by ${COLORS.highlight}monalisa${COLORS.reset} - sha: ${COLORS.highlight}abc123${COLORS.reset}`
   )
+})
+
+test('ignores non thumbsUp/thumbsDown reactions from the original actor', async () => {
+  // Mock reactions list with various reaction types from original actor
+  octokit.rest.reactions.listForIssueComment.mockResolvedValueOnce({
+    data: [
+      {
+        user: {login: 'monalisa'},
+        content: 'confused'
+      },
+      {
+        user: {login: 'monalisa'},
+        content: 'eyes'
+      },
+      {
+        user: {login: 'monalisa'},
+        content: 'rocket'
+      }
+    ]
+  })
+
+  // Add a thumbs up in the second poll
+  octokit.rest.reactions.listForIssueComment.mockResolvedValueOnce({
+    data: [
+      {
+        user: {login: 'monalisa'},
+        content: 'confused'
+      },
+      {
+        user: {login: 'monalisa'},
+        content: 'eyes'
+      },
+      {
+        user: {login: 'monalisa'},
+        content: 'rocket'
+      },
+      {
+        user: {login: 'monalisa'},
+        content: '+1'
+      }
+    ]
+  })
+
+  const result = await deploymentConfirmation(context, octokit, data)
+
+  expect(result).toBe(true)
+  expect(octokit.rest.reactions.listForIssueComment).toHaveBeenCalledTimes(2)
+
+  // Verify that debug was called for each ignored reaction type
+  expect(core.debug).toHaveBeenCalledWith('ignoring reaction: confused')
+  expect(core.debug).toHaveBeenCalledWith('ignoring reaction: eyes')
+  expect(core.debug).toHaveBeenCalledWith('ignoring reaction: rocket')
+
+  // Verify final confirmation happened
+  expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith({
+    body: expect.stringContaining('✅ Deployment confirmed by __monalisa__'),
+    comment_id: 124,
+    owner: 'corp',
+    repo: 'test',
+    headers: API_HEADERS
+  })
 })
 
 test('handles API errors gracefully', async () => {
