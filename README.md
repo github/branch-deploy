@@ -502,6 +502,7 @@ Here are some additional security best practices to consider:
 - Set the `commit_verification` input option to `"true"` to enforce commit verification before a deployment can continue. This is an excellent way to enforce tighter security controls on your deployments. If a deployment is requested on a commit that does not have a verified signature, the deployment will be rejected.
 - Ensure that your branch protection settings require that PRs have approvals before. This prevents users from deploying changes that have not been reviewed.
 - Ensure that your branch protection settings require that PRs have some CI checks defined, and that those CI checks are required. This ensure that the code being deployed has passing CI checks.
+- Set the [`deployment_confirmation: true`](./docs/deployment-confirmation.md) input option to require a final safety check of human approval before each deployment can continue. Ensure that you review the sha being used in the deployment confirmation comment with the sha that you expect to be deployed.
 
 ### Admins 👩‍🔬
 
