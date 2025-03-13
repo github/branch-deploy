@@ -6,8 +6,7 @@ For projects that require the highest level of deployment safety/security, the b
 
 This can be considered a "final safety check" before a deployment can continue.
 
-By using this feature, it is also an extremely effect way to prevent accidental or malicious commits from being deployed without first having one last safety review. This is important for hardening against Actions related [TOCTOU](https://github.com/AdnaneKhan/ActionsTOCTOU) vulnerabilities.
-
+By using this feature, it is also an extremely effective way to prevent accidental or malicious commits from being deployed without first having one last safety review. This is important for hardening against Actions related [TOCTOU](https://github.com/AdnaneKhan/ActionsTOCTOU) vulnerabilities.
 ## How it works
 
 When a user invokes a deployment via the `.deploy` (or `.noop`) command, the branch-deploy Action will pause _just_ before the final call to start a deployment by this Action. The Action will then create a new comment on the pull request that invoked the deployment, asking the user to confirm (or reject) the deployment.
