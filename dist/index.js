@@ -46832,6 +46832,10 @@ async function deploymentConfirmation(context, octokit, data) {
 
             return false
           }
+        } else {
+          core.debug(
+            `ignoring reaction from ${reaction.user.login}, expected ${context.actor}`
+          )
         }
       }
 

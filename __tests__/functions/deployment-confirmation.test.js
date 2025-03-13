@@ -226,6 +226,9 @@ test('ignores reactions from other users', async () => {
     repo: 'test',
     headers: API_HEADERS
   })
+  expect(core.debug).toHaveBeenCalledWith(
+    'ignoring reaction from other-user, expected monalisa'
+  )
 })
 
 test('handles API errors gracefully', async () => {
