@@ -46762,7 +46762,7 @@ async function deploymentConfirmation(context, octokit, data) {
     - Branch: \`${data.ref}\`
     - Deployment Type: \`${data.deploymentType}\`
 
-    > You will have \`${data.deployment_confirmation_timeout}\` seconds to confirm this deployment.
+    > You will have \`${data.deployment_confirmation_timeout}\` seconds to confirm this deployment ([logs](${data.log_url})).
 
     <details><summary>Details</summary>
 
