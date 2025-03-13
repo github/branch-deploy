@@ -6,7 +6,7 @@ For projects that require the highest level of deployment safety/security, the b
 
 This can be considered a "final safety check" before a deployment can continue.
 
-By using this feature, it is also an extremely effective way to prevent accidental or malicious commits from being deployed without first having one last safety review. This is important for hardening against Actions related [TOCTOU](https://github.com/AdnaneKhan/ActionsTOCTOU) vulnerabilities.
+By using this feature, it is also an extremely effective way to prevent accidental or malicious commits from being deployed without first having one last safety review. This is important for hardening against Actions related [TOCTOU](https://github.com/AdnaneKhan/ActionsTOCTOU) vulnerabilities. For example, since noop deployments do not require PR approvals (except on forks), a malicious actor could push a commit to a PR just after the `.noop` command is invoked and hope their code is executed. By requiring a deployment confirmation, this attack vector is effectively mitigated as the deployer would have the opportunity to reject the deployment when they notice the unexpected commit. This same attack vector is also mitigated by using the [branch rulesets](./branch-rulesets.md) feature (for regular `.deploy` operations), which is also a good security practice to use in conjunction with deployment confirmation.
 
 ## How it works
 
