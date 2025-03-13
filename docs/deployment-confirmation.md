@@ -2,9 +2,9 @@
 
 ## Overview
 
-For projects that require the highest level of deployment safety/security, the branch-deploy Action can be configured to require a deployment confirmation before a deployment is allowed to proceed.
+For projects that require the highest level of deployment safety/security, the branch-deploy Action can be configured to require a deployment **confirmation** before a deployment is allowed to proceed.
 
-This can be considered a "final safety check" before a deployment is allowed to proceed.
+This can be considered a "final safety check" before a deployment can continue.
 
 By using this feature, it is also an extremely effect way to prevent accidental or malicious commits from being deployed without first having one last safety review. This is important for hardening against Actions related [TOCTOU](https://github.com/AdnaneKhan/ActionsTOCTOU) vulnerabilities.
 
@@ -12,9 +12,11 @@ By using this feature, it is also an extremely effect way to prevent accidental 
 
 When a user invokes a deployment via the `.deploy` (or `.noop`) command, the branch-deploy Action will pause _just_ before the final call to start a deployment by this Action. The Action will then create a new comment on the pull request that invoked the deployment, asking the user to confirm (or reject) the deployment.
 
-This comment will provide the user with a summary of the deployment that is __about__ to be run. The user will then have the opportunity to confirm (with a 👍) or deny (with a 👎) the deployment.
+This comment will provide the user with a summary of the deployment that is **about** to be run. The user will then have the opportunity to confirm (with a 👍) or deny (with a 👎) the deployment.
 
 Depending on the user's response (or lack of response), the branch-deploy Action will update the comment with the outcome.
+
+The only reaction (👍 or 👎) that will be considered is the first reaction from the original actor that invoked the deployment (via `.deploy`). For example, if `@monalisa` comments `.deploy`, only `@monalisa` can give deployment confirmation via a reaction. All other reactions will be ignored on the deployment confirmation comment.
 
 ### Usage
 
