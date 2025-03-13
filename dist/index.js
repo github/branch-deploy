@@ -46359,6 +46359,14 @@ async function help(octokit, context, reactionId, inputs) {
     inputs.draft_permitted_targets
   }\` - ${draft_permitted_targets_message}
   - \`admins: ${inputs.admins}\` - ${admins_message}
+  - \`deployment_confirmation: ${
+    inputs.deployment_confirmation
+  }\` - This Action will ${
+    inputs.deployment_confirmation === true ? 'require' : 'not require'
+  } additional confirmation before deploying
+  - \`deployment_confirmation_timeout: ${
+    inputs.deployment_confirmation_timeout
+  }\` - The timeout (seconds) for the deployment confirmation
   - \`permissions: ${inputs.permissions.join(
     ','
   )}\` - The acceptable permissions that this Action will require to run
@@ -46409,6 +46417,17 @@ function inputs_validateInput(inputName, inputValue, validValues) {
   }
 }
 
+// Helper function to parse and validate integer inputs
+// :param inputName: The name of the input being parsed (string)
+// :returns: The parsed integer value
+function getIntInput(inputName) {
+  const value = parseInt(core.getInput(inputName), 10)
+  if (isNaN(value)) {
+    throw new Error(`Invalid value for ${inputName}: must be an integer`)
+  }
+  return value
+}
+
 // Helper function to get all the inputs for the Action
 // :returns: An object containing all the inputs
 function getInputs() {
@@ -46456,7 +46475,7 @@ function getInputs() {
   const deployment_confirmation = core.getBooleanInput(
     'deployment_confirmation'
   )
-  const deployment_confirmation_timeout = core.getInput(
+  const deployment_confirmation_timeout = getIntInput(
     'deployment_confirmation_timeout'
   )
 

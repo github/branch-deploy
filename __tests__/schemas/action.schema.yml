@@ -500,6 +500,26 @@ inputs:
     default:
       type: string
       required: false
+  deployment_confirmation:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
+  deployment_confirmation_timeout:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
 
 # outputs section
 outputs:

@@ -228,6 +228,22 @@ test('successfully runs the action', async () => {
   )
 })
 
+test('fails the action early on when it fails to parse an int input', async () => {
+  process.env.INPUT_DEPLOYMENT_CONFIRMATION_TIMEOUT = 'not-an-int'
+
+  expect(await run()).toBe(undefined)
+  expect(setFailedMock).toHaveBeenCalledWith(
+    'Invalid value for deployment_confirmation_timeout: must be an integer'
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  expect(infoMock).not.toHaveBeenCalledWith(
+    `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
+  )
+  expect(infoMock).not.toHaveBeenCalledWith(
+    `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
+  )
+})
+
 test('successfully runs the action with deployment confirmation', async () => {
   process.env.INPUT_DEPLOYMENT_CONFIRMATION = 'true'
 

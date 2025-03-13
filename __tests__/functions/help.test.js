@@ -51,7 +51,9 @@ const defaultInputs = {
   ignored_checks: [],
   enforced_deployment_order: [],
   use_security_warnings: true,
-  allow_non_default_target_branch_deployments: false
+  allow_non_default_target_branch_deployments: false,
+  deployment_confirmation: false,
+  deployment_confirmation_timeout: 60
 }
 
 test('successfully calls help with defaults', async () => {
@@ -91,7 +93,8 @@ test('successfully calls help with non-defaults', async () => {
     commit_verification: false,
     enforced_deployment_order: [],
     use_security_warnings: false,
-    allow_non_default_target_branch_deployments: false
+    allow_non_default_target_branch_deployments: false,
+    deployment_confirmation: true
   }
 
   expect(await help(octokit, context, 123, inputs))

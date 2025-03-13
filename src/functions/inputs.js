@@ -15,6 +15,17 @@ function validateInput(inputName, inputValue, validValues) {
   }
 }
 
+// Helper function to parse and validate integer inputs
+// :param inputName: The name of the input being parsed (string)
+// :returns: The parsed integer value
+function getIntInput(inputName) {
+  const value = parseInt(core.getInput(inputName), 10)
+  if (isNaN(value)) {
+    throw new Error(`Invalid value for ${inputName}: must be an integer`)
+  }
+  return value
+}
+
 // Helper function to get all the inputs for the Action
 // :returns: An object containing all the inputs
 export function getInputs() {
@@ -62,7 +73,7 @@ export function getInputs() {
   const deployment_confirmation = core.getBooleanInput(
     'deployment_confirmation'
   )
-  const deployment_confirmation_timeout = core.getInput(
+  const deployment_confirmation_timeout = getIntInput(
     'deployment_confirmation_timeout'
   )
 
