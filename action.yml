@@ -194,7 +194,7 @@ inputs:
     required: false
     default: "false"
   deployment_confirmation:
-    description: 'Whether or not to require an additional confirmation before a deployment can continue. Default is "false". If your project requires elevated security, it is highly recommended to enable this option - especially in open source projects where you might be deploying forks.'
+    description: 'Whether or not to require an additional confirmation before a deployment can continue. Default is "false". If your project requires elevated security, it is highly recommended to enable this option - especially in open source projects where you might be deploying forks. docs/deployment-confirmation.md'
     required: false
     default: "false"
   deployment_confirmation_timeout:
