@@ -46711,7 +46711,156 @@ function timestamp() {
   return now.toISOString()
 }
 
+;// CONCATENATED MODULE: ./src/functions/deployment-confirmation.js
+
+
+
+
+
+const deployment_confirmation_thumbsUp = '+1'
+const deployment_confirmation_thumbsDown = '-1'
+
+// Helper function to allow the original actor to confirm the deployment by adding a reaction to a comment
+// :param context: The context of the action
+// :param octokit: The octokit object
+// :returns: true if the deployment has been confirmed by the original actor, false otherwise
+async function deploymentConfirmation(context, octokit, data) {
+  const message = lib_default()(`
+    ### Deployment Confirmation Required 🚦
+
+    In order to proceed with this deployment, __${context.actor}__ must react to this comment with either a 👍 or a 👎.
+
+    - Commit: \`${data.sha}\`
+    - Environment: \`${data.environment}\`
+    - Branch: \`${data.ref}\`
+    - Deployment Type: \`${data.deploymentType}\`
+
+    > You will have \`${data.deployment_confirmation_timeout}\` seconds to confirm this deployment.
+
+    <details><summary>Details</summary>
+
+    <!--- deployment-confirmation-metadata-start -->
+
+    \`\`\`json
+    {
+      "type": "${data.deploymentType.toLowerCase()}",
+      "environment": {
+        "name": "${data.environment}",
+        "url": ${data.environmentUrl ? `"${data.environmentUrl}"` : null}
+      },
+      "deployment": {
+        "logs": "${data.log_url}"
+      },
+      "git": {
+        "branch": "${data.ref}",
+        "commit": "${data.sha}",
+        "verified": ${data.isVerified}
+      },
+      "context": {
+        "actor": "${context.actor}",
+        "noop": ${data.noopMode},
+        "fork": ${data.isFork},
+        "comment": {
+          "created_at": "${context.payload.comment.created_at}",
+          "updated_at": "${context.payload.comment.updated_at}",
+          "body": "${data.body}",
+          "html_url": "${context.payload.comment.html_url}"
+        }
+      },
+      "parameters": {
+        "raw": ${data.params ? `"${data.params}"` : null},
+        "parsed": ${data.parsed_params ? `${JSON.stringify(data.parsed_params)}` : null}
+      }
+    }
+    \`\`\`
+
+    <!--- deployment-confirmation-metadata-end -->
+
+    </details>
+  `)
+
+  const comment = await octokit.rest.issues.createComment({
+    ...context.repo,
+    issue_number: context.issue.number,
+    body: message,
+    headers: API_HEADERS
+  })
+
+  const commentId = comment.data.id
+  core.debug(`deployment confirmation comment id: ${commentId}`)
+
+  core.info(
+    `🕒 waiting ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds for deployment confirmation`
+  )
+
+  // Convert timeout to milliseconds for setTimeout
+  const timeoutMs = data.deployment_confirmation_timeout * 1000
+  const startTime = Date.now()
+  const pollInterval = 2000 // Check every 2 seconds
+
+  // Poll for reactions until we find a valid one or timeout
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      // Get all reactions on the confirmation comment
+      const reactions = await octokit.rest.reactions.listForIssueComment({
+        ...context.repo,
+        comment_id: commentId,
+        headers: API_HEADERS
+      })
+
+      // Look for thumbs up or thumbs down from the original actor
+      for (const reaction of reactions.data) {
+        if (reaction.user.login === context.actor) {
+          if (reaction.content === deployment_confirmation_thumbsUp) {
+            // Update confirmation comment with success message
+            await octokit.rest.issues.updateComment({
+              ...context.repo,
+              comment_id: commentId,
+              body: `${message}\n\n✅ Deployment confirmed by __${context.actor}__.`,
+              headers: API_HEADERS
+            })
+
+            return true
+          } else if (reaction.content === deployment_confirmation_thumbsDown) {
+            // Update confirmation comment with cancellation message
+            await octokit.rest.issues.updateComment({
+              ...context.repo,
+              comment_id: commentId,
+              body: `${message}\n\n❌ Deployment rejected by __${context.actor}__.`,
+              headers: API_HEADERS
+            })
+
+            return false
+          }
+        }
+      }
+
+      // Wait before checking again
+      await new Promise(resolve => setTimeout(resolve, pollInterval))
+    } catch (error) {
+      core.warning(
+        `temporary failure when checking for reactions on the deployment confirmation comment: ${error.message}`
+      )
+      await new Promise(resolve => setTimeout(resolve, pollInterval))
+    }
+  }
+
+  // Timeout reached without confirmation
+  await octokit.rest.issues.updateComment({
+    ...context.repo,
+    comment_id: commentId,
+    body: `${message}\n\n⏱️ Deployment confirmation timed out after \`${data.deployment_confirmation_timeout}\` seconds. The deployment request has been rejected.`,
+    headers: API_HEADERS
+  })
+
+  core.info(
+    `⏱️ deployment confirmation timed out after ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds`
+  )
+  return false
+}
+
 ;// CONCATENATED MODULE: ./src/main.js
+
 
 
 
@@ -47319,6 +47468,41 @@ async function run() {
         environmentObj.environmentObj.sha !== null ? 'sha' : 'branch'
     }
     const log_url = `${process.env.GITHUB_SERVER_URL}/${github.context.repo.owner}/${github.context.repo.repo}/actions/runs/${github_run_id}`
+
+    // if the deployment_confirmation is set to 'true', then we will prompt the user to confirm the deployment
+    if (inputs.deployment_confirmation) {
+      const deploymentConfirmed = await deploymentConfirmation(
+        github.context,
+        octokit,
+        {
+          sha: precheckResults.sha,
+          ref: precheckResults.ref,
+          deploymentType: deploymentType,
+          environment: environment,
+          environmentUrl: environmentObj.environmentUrl,
+          deployment_confirmation_timeout:
+            inputs.deployment_confirmation_timeout,
+          isVerified: commitSafetyCheckResults.isVerified,
+          log_url: log_url,
+          body: body,
+          params: params,
+          parsed_params: parsed_params,
+          github_run_id: github_run_id,
+          noopMode: precheckResults.noopMode,
+          isFork: precheckResults.isFork
+        }
+      )
+      if (deploymentConfirmed === true) {
+        core.info(
+          `✅ deployment confirmed by ${COLORS.highlight}${github.context.actor}${COLORS.reset} - sha: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`
+        )
+      } else {
+        // Set the bypass state to true so that the post run logic will not run
+        core.saveState('bypass', 'true')
+        core.setFailed(`❌ deployment not confirmed - exiting`)
+        return 'failure'
+      }
+    }
 
     // this is the timestamp that we consider the deployment to have "started" at for logging and auditing purposes
     // it is not the exact time the deployment started, but it is very close
