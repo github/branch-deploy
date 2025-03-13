@@ -193,6 +193,14 @@ inputs:
     description: 'Whether or not to allow deployments of pull requests that target a branch other than the default branch (aka stable branch) as their merge target. By default, this Action would reject the deployment of a branch named "feature-branch" if it was targeting "foo" instead of "main" (or whatever your default branch is). This option allows you to override that behavior and be able to deploy any branch in your repository regardless of the target branch. This option is potentially unsafe and should be used with caution as most default branches contain branch protection rules. Often times non-default branches do not contain these same branch protection rules. Follow along in this issue thread to learn more https://github.com/github/branch-deploy/issues/340'
     required: false
     default: "false"
+  deployment_confirmation:
+    description: 'Whether or not to require an additional confirmation before a deployment can continue. Default is "false". If your project requires elevated security, it is highly recommended to enable this option - especially in open source projects where you might be deploying forks.'
+    required: false
+    default: "false"
+  deployment_confirmation_timeout:
+    description: 'The number of seconds to wait for a deployment confirmation before timing out. Default is "60" seconds (1 minute).'
+    required: false
+    default: "60"
 outputs:
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'

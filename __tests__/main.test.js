@@ -17,6 +17,7 @@ import * as nakedCommandCheck from '../src/functions/naked-command-check'
 import * as validDeploymentOrder from '../src/functions/valid-deployment-order'
 import * as commitSafetyChecks from '../src/functions/commit-safety-checks'
 import * as timestamp from '../src/functions/timestamp'
+import * as deploymentConfirmation from '../src/functions/deployment-confirmation'
 import {COLORS} from '../src/functions/colors'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
@@ -91,6 +92,8 @@ beforeEach(() => {
   process.env.INPUT_IGNORED_CHECKS = ''
   process.env.INPUT_USE_SECURITY_WARNINGS = 'true'
   process.env.INPUT_ALLOW_NON_DEFAULT_TARGET_BRANCH_DEPLOYMENTS = 'false'
+  process.env.INPUT_DEPLOYMENT_CONFIRMATION = 'false'
+  process.env.INPUT_DEPLOYMENT_CONFIRMATION_TIMEOUT = '60'
 
   github.context.payload = {
     issue: {
@@ -148,6 +151,11 @@ beforeEach(() => {
   jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
     return false
   })
+  jest
+    .spyOn(deploymentConfirmation, 'deploymentConfirmation')
+    .mockImplementation(() => {
+      return true
+    })
   jest.spyOn(lock, 'lock').mockImplementation(() => {
     return true
   })
@@ -217,6 +225,97 @@ test('successfully runs the action', async () => {
   )
   expect(infoMock).toHaveBeenCalledWith(
     `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
+  )
+})
+
+test('fails the action early on when it fails to parse an int input', async () => {
+  process.env.INPUT_DEPLOYMENT_CONFIRMATION_TIMEOUT = 'not-an-int'
+
+  expect(await run()).toBe(undefined)
+  expect(setFailedMock).toHaveBeenCalledWith(
+    'Invalid value for deployment_confirmation_timeout: must be an integer'
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  expect(infoMock).not.toHaveBeenCalledWith(
+    `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
+  )
+  expect(infoMock).not.toHaveBeenCalledWith(
+    `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
+  )
+})
+
+test('successfully runs the action with deployment confirmation', async () => {
+  process.env.INPUT_DEPLOYMENT_CONFIRMATION = 'true'
+
+  jest
+    .spyOn(deploymentConfirmation, 'deploymentConfirmation')
+    .mockImplementation(() => {
+      return true
+    })
+
+  expect(await run()).toBe('success')
+  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
+  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+  expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
+  expect(debugMock).toHaveBeenCalledWith('production_environment: true')
+  expect(debugMock).toHaveBeenCalledWith(
+    'deploymentConfirmation() was successful - continuing with the deployment'
+  )
+  expect(saveStateMock).not.toHaveBeenCalledWith('environment_url', String)
+  expect(setOutputMock).not.toHaveBeenCalledWith('environment_url', String)
+  expect(infoMock).toHaveBeenCalledWith(
+    `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
+  )
+})
+
+test('rejects the deployment when deployment confirmation is set, but does not succeed', async () => {
+  process.env.INPUT_DEPLOYMENT_CONFIRMATION = 'true'
+
+  jest
+    .spyOn(deploymentConfirmation, 'deploymentConfirmation')
+    .mockImplementation(() => {
+      return false
+    })
+
+  expect(await run()).toBe('failure')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(setOutputMock).not.toHaveBeenCalledWith('continue', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(saveStateMock).not.toHaveBeenCalledWith('noop', false)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+  expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
+  expect(debugMock).not.toHaveBeenCalledWith('production_environment: true')
+  expect(debugMock).toHaveBeenCalledWith(
+    '❌ deployment not confirmed - exiting'
+  )
+  expect(saveStateMock).not.toHaveBeenCalledWith('environment_url', String)
+  expect(setOutputMock).not.toHaveBeenCalledWith('environment_url', String)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  expect(infoMock).not.toHaveBeenCalledWith(
+    `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
   )
 })
 

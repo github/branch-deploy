@@ -31,6 +31,7 @@ import {validDeploymentOrder} from './functions/valid-deployment-order'
 import {commitSafetyChecks} from './functions/commit-safety-checks'
 import {API_HEADERS} from './functions/api-headers'
 import {timestamp} from './functions/timestamp'
+import {deploymentConfirmation} from './functions/deployment-confirmation'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -605,6 +606,41 @@ export async function run() {
         environmentObj.environmentObj.sha !== null ? 'sha' : 'branch'
     }
     const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${github_run_id}`
+
+    // if the deployment_confirmation is set to 'true', then we will prompt the user to confirm the deployment
+    if (inputs.deployment_confirmation === true) {
+      const deploymentConfirmed = await deploymentConfirmation(
+        context,
+        octokit,
+        {
+          sha: precheckResults.sha,
+          ref: precheckResults.ref,
+          deploymentType: deploymentType,
+          environment: environment,
+          environmentUrl: environmentObj.environmentUrl,
+          deployment_confirmation_timeout:
+            inputs.deployment_confirmation_timeout,
+          isVerified: commitSafetyCheckResults.isVerified,
+          log_url: log_url,
+          body: body,
+          params: params,
+          parsed_params: parsed_params,
+          github_run_id: github_run_id,
+          noopMode: precheckResults.noopMode,
+          isFork: precheckResults.isFork
+        }
+      )
+      if (deploymentConfirmed === true) {
+        core.debug(
+          `deploymentConfirmation() was successful - continuing with the deployment`
+        )
+      } else {
+        // Set the bypass state to true so that the post run logic will not run
+        core.saveState('bypass', 'true')
+        core.debug(`❌ deployment not confirmed - exiting`)
+        return 'failure'
+      }
+    }
 
     // this is the timestamp that we consider the deployment to have "started" at for logging and auditing purposes
     // it is not the exact time the deployment started, but it is very close

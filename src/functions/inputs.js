@@ -15,6 +15,17 @@ function validateInput(inputName, inputValue, validValues) {
   }
 }
 
+// Helper function to parse and validate integer inputs
+// :param inputName: The name of the input being parsed (string)
+// :returns: The parsed integer value
+function getIntInput(inputName) {
+  const value = parseInt(core.getInput(inputName), 10)
+  if (isNaN(value)) {
+    throw new Error(`Invalid value for ${inputName}: must be an integer`)
+  }
+  return value
+}
+
 // Helper function to get all the inputs for the Action
 // :returns: An object containing all the inputs
 export function getInputs() {
@@ -58,6 +69,12 @@ export function getInputs() {
   const use_security_warnings = core.getBooleanInput('use_security_warnings')
   const allow_non_default_target_branch_deployments = core.getBooleanInput(
     'allow_non_default_target_branch_deployments'
+  )
+  const deployment_confirmation = core.getBooleanInput(
+    'deployment_confirmation'
+  )
+  const deployment_confirmation_timeout = getIntInput(
+    'deployment_confirmation_timeout'
   )
 
   // validate inputs
@@ -109,6 +126,8 @@ export function getInputs() {
     enforced_deployment_order: enforced_deployment_order,
     commit_verification: commit_verification,
     ignored_checks: ignored_checks,
+    deployment_confirmation: deployment_confirmation,
+    deployment_confirmation_timeout: deployment_confirmation_timeout,
     use_security_warnings: use_security_warnings,
     allow_non_default_target_branch_deployments:
       allow_non_default_target_branch_deployments
