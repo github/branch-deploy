@@ -106,6 +106,10 @@ export async function deploymentConfirmation(context, octokit, data) {
               headers: API_HEADERS
             })
 
+            core.info(
+              `✅ deployment confirmed by ${COLORS.highlight}${context.actor}${COLORS.reset} - sha: ${COLORS.highlight}${data.sha}${COLORS.reset}`
+            )
+
             return true
           } else if (reaction.content === thumbsDown) {
             // Update confirmation comment with cancellation message
@@ -115,6 +119,10 @@ export async function deploymentConfirmation(context, octokit, data) {
               body: `${message}\n\n❌ Deployment rejected by __${context.actor}__.`,
               headers: API_HEADERS
             })
+
+            core.setFailed(
+              `❌ deployment rejected by ${COLORS.highlight}${context.actor}${COLORS.reset}`
+            )
 
             return false
           }
@@ -143,7 +151,7 @@ export async function deploymentConfirmation(context, octokit, data) {
     headers: API_HEADERS
   })
 
-  core.info(
+  core.setFailed(
     `⏱️ deployment confirmation timed out after ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds`
   )
   return false

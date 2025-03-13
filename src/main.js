@@ -608,7 +608,7 @@ export async function run() {
     const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${github_run_id}`
 
     // if the deployment_confirmation is set to 'true', then we will prompt the user to confirm the deployment
-    if (inputs.deployment_confirmation) {
+    if (inputs.deployment_confirmation === true) {
       const deploymentConfirmed = await deploymentConfirmation(
         context,
         octokit,
@@ -631,13 +631,13 @@ export async function run() {
         }
       )
       if (deploymentConfirmed === true) {
-        core.info(
-          `✅ deployment confirmed by ${COLORS.highlight}${context.actor}${COLORS.reset} - sha: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`
+        core.debug(
+          `deploymentConfirmation() was successful - continuing with the deployment`
         )
       } else {
         // Set the bypass state to true so that the post run logic will not run
         core.saveState('bypass', 'true')
-        core.setFailed(`❌ deployment not confirmed - exiting`)
+        core.debug(`❌ deployment not confirmed - exiting`)
         return 'failure'
       }
     }

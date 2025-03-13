@@ -13,6 +13,7 @@ beforeEach(() => {
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'warning').mockImplementation(() => {})
+  jest.spyOn(core, 'setFailed').mockImplementation(() => {})
 
   // Mock setTimeout to execute immediately
   jest.spyOn(global, 'setTimeout').mockImplementation(fn => fn())
@@ -118,6 +119,9 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
   expect(core.info).toHaveBeenCalledWith(
     `🕒 waiting ${COLORS.highlight}60${COLORS.reset} seconds for deployment confirmation`
   )
+  expect(core.info).toHaveBeenCalledWith(
+    `✅ deployment confirmed by ${COLORS.highlight}monalisa${COLORS.reset} - sha: ${COLORS.highlight}abc123${COLORS.reset}`
+  )
 
   expect(octokit.rest.reactions.listForIssueComment).toHaveBeenCalledWith({
     comment_id: 124,
@@ -159,6 +163,10 @@ test('user rejects the deployment with thumbs down', async () => {
     repo: 'test',
     headers: API_HEADERS
   })
+
+  expect(core.setFailed).toHaveBeenCalledWith(
+    `❌ deployment rejected by ${COLORS.highlight}monalisa${COLORS.reset}`
+  )
 })
 
 test('deployment confirmation times out after no response', async () => {
@@ -185,7 +193,7 @@ test('deployment confirmation times out after no response', async () => {
     headers: API_HEADERS
   })
 
-  expect(core.info).toHaveBeenCalledWith(
+  expect(core.setFailed).toHaveBeenCalledWith(
     `⏱️ deployment confirmation timed out after ${COLORS.highlight}60${COLORS.reset} seconds`
   )
 })
@@ -229,6 +237,9 @@ test('ignores reactions from other users', async () => {
   expect(core.debug).toHaveBeenCalledWith(
     'ignoring reaction from other-user, expected monalisa'
   )
+  expect(core.info).toHaveBeenCalledWith(
+    `✅ deployment confirmed by ${COLORS.highlight}monalisa${COLORS.reset} - sha: ${COLORS.highlight}abc123${COLORS.reset}`
+  )
 })
 
 test('handles API errors gracefully', async () => {
@@ -254,4 +265,7 @@ test('handles API errors gracefully', async () => {
     'temporary failure when checking for reactions on the deployment confirmation comment: API error'
   )
   expect(octokit.rest.reactions.listForIssueComment).toHaveBeenCalledTimes(2)
+  expect(core.info).toHaveBeenCalledWith(
+    `✅ deployment confirmed by ${COLORS.highlight}monalisa${COLORS.reset} - sha: ${COLORS.highlight}abc123${COLORS.reset}`
+  )
 })
