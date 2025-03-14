@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {COLORS} from './colors'
 import {API_HEADERS} from './api-headers'
+import {timestamp} from './timestamp'
 
 const thumbsUp = '+1'
 const thumbsDown = '-1'
@@ -105,7 +106,7 @@ export async function deploymentConfirmation(context, octokit, data) {
             await octokit.rest.issues.updateComment({
               ...context.repo,
               comment_id: commentId,
-              body: `${message}\n\n✅ Deployment confirmed by __${context.actor}__.`,
+              body: `${message}\n\n✅ Deployment confirmed by __${context.actor}__ at \`${timestamp()}\`.`,
               headers: API_HEADERS
             })
 
@@ -119,7 +120,7 @@ export async function deploymentConfirmation(context, octokit, data) {
             await octokit.rest.issues.updateComment({
               ...context.repo,
               comment_id: commentId,
-              body: `${message}\n\n❌ Deployment rejected by __${context.actor}__.`,
+              body: `${message}\n\n❌ Deployment rejected by __${context.actor}__ at \`${timestamp()}\`.`,
               headers: API_HEADERS
             })
 
@@ -152,7 +153,7 @@ export async function deploymentConfirmation(context, octokit, data) {
   await octokit.rest.issues.updateComment({
     ...context.repo,
     comment_id: commentId,
-    body: `${message}\n\n⏱️ Deployment confirmation timed out after \`${data.deployment_confirmation_timeout}\` seconds. The deployment request has been rejected.`,
+    body: `${message}\n\n⏱️ Deployment confirmation timed out after \`${data.deployment_confirmation_timeout}\` seconds. The deployment request has been rejected at \`${timestamp()}\`.`,
     headers: API_HEADERS
   })
 

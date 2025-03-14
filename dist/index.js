@@ -46743,6 +46743,7 @@ function timestamp() {
 
 
 
+
 const deployment_confirmation_thumbsUp = '+1'
 const deployment_confirmation_thumbsDown = '-1'
 
@@ -46845,7 +46846,7 @@ async function deploymentConfirmation(context, octokit, data) {
             await octokit.rest.issues.updateComment({
               ...context.repo,
               comment_id: commentId,
-              body: `${message}\n\n✅ Deployment confirmed by __${context.actor}__.`,
+              body: `${message}\n\n✅ Deployment confirmed by __${context.actor}__ at \`${timestamp()}\`.`,
               headers: API_HEADERS
             })
 
@@ -46859,7 +46860,7 @@ async function deploymentConfirmation(context, octokit, data) {
             await octokit.rest.issues.updateComment({
               ...context.repo,
               comment_id: commentId,
-              body: `${message}\n\n❌ Deployment rejected by __${context.actor}__.`,
+              body: `${message}\n\n❌ Deployment rejected by __${context.actor}__ at \`${timestamp()}\`.`,
               headers: API_HEADERS
             })
 
@@ -46892,7 +46893,7 @@ async function deploymentConfirmation(context, octokit, data) {
   await octokit.rest.issues.updateComment({
     ...context.repo,
     comment_id: commentId,
-    body: `${message}\n\n⏱️ Deployment confirmation timed out after \`${data.deployment_confirmation_timeout}\` seconds. The deployment request has been rejected.`,
+    body: `${message}\n\n⏱️ Deployment confirmation timed out after \`${data.deployment_confirmation_timeout}\` seconds. The deployment request has been rejected at \`${timestamp()}\`.`,
     headers: API_HEADERS
   })
 
