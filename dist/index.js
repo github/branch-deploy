@@ -46730,7 +46730,7 @@ function isTimestampOlder(timestampA, timestampB) {
 }
 
 ;// CONCATENATED MODULE: ./src/functions/timestamp.js
-// Helper function to generate an ISO 8601 formatted timestamp string
+// Helper function to generate an ISO 8601 formatted timestamp string in UTC
 // :returns: An ISO 8601 formatted timestamp string (ex: 2025-01-01T00:00:00.000Z)
 function timestamp() {
   const now = new Date()
