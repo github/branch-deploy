@@ -130,11 +130,15 @@ beforeEach(() => {
             return {
               data: {
                 sha: mock_sha,
+                html_url: `https://github.com/corp/test/commit/${mock_sha}`,
                 commit: {
                   author: {
                     date: '2024-10-15T12:00:00Z'
                   },
                   verification: no_verification
+                },
+                committer: {
+                  login: 'monalisa'
                 }
               }
             }
@@ -1083,11 +1087,15 @@ test('detects an out of date branch and exits', async () => {
             return {
               data: {
                 sha: mock_sha,
+                html_url: `https://github.com/corp/test/commit/${mock_sha}`,
                 commit: {
                   author: {
                     date: '2024-10-15T12:00:00Z'
                   },
                   verification: no_verification
+                },
+                committer: {
+                  login: 'monalisa'
                 }
               }
             }
