@@ -466,6 +466,9 @@ export async function run() {
       headers: API_HEADERS
     })
 
+    const committer = commitData.data.committer.login
+    const commit_html_url = commitData.data.html_url
+
     // Run commit safety checks
     const commitSafetyCheckResults = await commitSafetyChecks(context, {
       commit: commitData.data.commit,
@@ -627,7 +630,9 @@ export async function run() {
           parsed_params: parsed_params,
           github_run_id: github_run_id,
           noopMode: precheckResults.noopMode,
-          isFork: precheckResults.isFork
+          isFork: precheckResults.isFork,
+          committer: committer,
+          commit_html_url: commit_html_url
         }
       )
       if (deploymentConfirmed === true) {
@@ -675,7 +680,9 @@ export async function run() {
         "git": {
           "branch": "${precheckResults.ref}",
           "commit": "${precheckResults.sha}",
-          "verified": ${commitSafetyCheckResults.isVerified}
+          "verified": ${commitSafetyCheckResults.isVerified},
+          "committer": "${committer}",
+          "html_url": "${commit_html_url}"
         },
         "context": {
           "actor": "${context.actor}",

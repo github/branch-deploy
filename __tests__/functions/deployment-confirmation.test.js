@@ -80,6 +80,8 @@ beforeEach(() => {
     log_url: 'https://github.com/corp/test/actions/runs/12345',
     ref: 'cool-branch',
     sha: 'abc123',
+    committer: 'monalisa',
+    commit_html_url: 'https://github.com/corp/test/commit/abc123',
     isVerified: true,
     noopMode: false,
     isFork: false,
@@ -143,6 +145,7 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
   data.params = null
   data.parsed_params = null
   data.environmentUrl = null
+  data.isVerified = false
 
   // Mock that the user adds a +1 reaction
   octokit.rest.reactions.listForIssueComment.mockResolvedValueOnce({

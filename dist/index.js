@@ -46757,6 +46757,7 @@ async function deploymentConfirmation(context, octokit, data) {
     In order to proceed with this deployment, __${context.actor}__ must react to this comment with either a 👍 or a 👎.
 
     - Commit: \`${data.sha}\`
+    - Committer: \`${data.committer}\` - **${data.isVerified ? 'verified' : 'unverified'}**
     - Environment: \`${data.environment}\`
     - Branch: \`${data.ref}\`
     - Deployment Type: \`${data.deploymentType}\`
@@ -46780,7 +46781,9 @@ async function deploymentConfirmation(context, octokit, data) {
       "git": {
         "branch": "${data.ref}",
         "commit": "${data.sha}",
-        "verified": ${data.isVerified}
+        "verified": ${data.isVerified},
+        "committer": "${data.committer}",
+        "html_url": "${data.commit_html_url}"
       },
       "context": {
         "actor": "${context.actor}",
@@ -47368,6 +47371,9 @@ async function run() {
       headers: API_HEADERS
     })
 
+    const committer = commitData.data.committer.login
+    const commit_html_url = commitData.data.html_url
+
     // Run commit safety checks
     const commitSafetyCheckResults = await commitSafetyChecks(github.context, {
       commit: commitData.data.commit,
@@ -47529,7 +47535,9 @@ async function run() {
           parsed_params: parsed_params,
           github_run_id: github_run_id,
           noopMode: precheckResults.noopMode,
-          isFork: precheckResults.isFork
+          isFork: precheckResults.isFork,
+          committer: committer,
+          commit_html_url: commit_html_url
         }
       )
       if (deploymentConfirmed === true) {
@@ -47577,7 +47585,9 @@ async function run() {
         "git": {
           "branch": "${precheckResults.ref}",
           "commit": "${precheckResults.sha}",
-          "verified": ${commitSafetyCheckResults.isVerified}
+          "verified": ${commitSafetyCheckResults.isVerified},
+          "committer": "${committer}",
+          "html_url": "${commit_html_url}"
         },
         "context": {
           "actor": "${github.context.actor}",

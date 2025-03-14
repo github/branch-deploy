@@ -17,6 +17,7 @@ export async function deploymentConfirmation(context, octokit, data) {
     In order to proceed with this deployment, __${context.actor}__ must react to this comment with either a 👍 or a 👎.
 
     - Commit: \`${data.sha}\`
+    - Committer: \`${data.committer}\` - **${data.isVerified ? 'verified' : 'unverified'}**
     - Environment: \`${data.environment}\`
     - Branch: \`${data.ref}\`
     - Deployment Type: \`${data.deploymentType}\`
@@ -40,7 +41,9 @@ export async function deploymentConfirmation(context, octokit, data) {
       "git": {
         "branch": "${data.ref}",
         "commit": "${data.sha}",
-        "verified": ${data.isVerified}
+        "verified": ${data.isVerified},
+        "committer": "${data.committer}",
+        "html_url": "${data.commit_html_url}"
       },
       "context": {
         "actor": "${context.actor}",
