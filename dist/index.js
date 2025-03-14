@@ -46756,7 +46756,7 @@ async function deploymentConfirmation(context, octokit, data) {
 
     In order to proceed with this deployment, __${context.actor}__ must react to this comment with either a 👍 or a 👎.
 
-    - Commit: \`${data.sha}\`
+    - Commit: [\`${data.sha}\`](${data.commit_html_url})
     - Committer: \`${data.committer}\` - **${data.isVerified ? 'verified' : 'unverified'}**
     - Environment: \`${data.environment}\`
     - Branch: \`${data.ref}\`
