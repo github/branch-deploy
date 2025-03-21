@@ -466,8 +466,14 @@ export async function run() {
       headers: API_HEADERS
     })
 
-    const committer = commitData.data.committer.login
+    const committer = commitData.data?.committer?.login
     const commit_html_url = commitData.data.html_url
+
+    if (committer === null || committer === undefined) {
+      core.warning(
+        '⚠️ could not find the login of the committer - https://github.com/github/branch-deploy/issues/379'
+      )
+    }
 
     // Run commit safety checks
     const commitSafetyCheckResults = await commitSafetyChecks(context, {
