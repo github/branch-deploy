@@ -288,6 +288,87 @@ test('successfully runs the action with deployment confirmation', async () => {
   )
 })
 
+test('successfully runs the action with deployment confirmation and when the committer is not set', async () => {
+  process.env.INPUT_DEPLOYMENT_CONFIRMATION = 'true'
+
+  jest
+    .spyOn(deploymentConfirmation, 'deploymentConfirmation')
+    .mockImplementation(() => {
+      return true
+    })
+
+  jest.spyOn(github, 'getOctokit').mockImplementation(() => {
+    return {
+      rest: {
+        issues: {
+          createComment: jest.fn().mockReturnValueOnce({
+            data: {id: 123456}
+          })
+        },
+        repos: {
+          createDeployment: createDeploymentMock,
+          createDeploymentStatus: jest.fn().mockImplementation(() => {
+            return {data: {}}
+          }),
+          getCommit: jest.fn().mockImplementation(() => {
+            return {
+              data: {
+                sha: mock_sha,
+                html_url: `https://github.com/corp/test/commit/${mock_sha}`,
+                commit: {
+                  author: {
+                    date: '2024-10-15T12:00:00Z'
+                  },
+                  verification: no_verification
+                },
+                committer: {}
+              }
+            }
+          })
+        },
+        pulls: {
+          get: jest.fn().mockImplementation(() => {
+            return {data: {head: {ref: 'test-ref'}}, status: 200}
+          })
+        }
+      }
+    }
+  })
+
+  expect(await run()).toBe('success')
+  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
+  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
+  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
+  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
+  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+  expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
+  expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
+  expect(debugMock).toHaveBeenCalledWith('production_environment: true')
+  expect(debugMock).toHaveBeenCalledWith(
+    'deploymentConfirmation() was successful - continuing with the deployment'
+  )
+  expect(warningMock).toHaveBeenCalledWith(
+    '⚠️ could not find the login of the committer - https://github.com/github/branch-deploy/issues/379'
+  )
+  expect(saveStateMock).not.toHaveBeenCalledWith('environment_url', String)
+  expect(setOutputMock).not.toHaveBeenCalledWith('environment_url', String)
+  expect(infoMock).toHaveBeenCalledWith(
+    `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
+  )
+})
+
 test('rejects the deployment when deployment confirmation is set, but does not succeed', async () => {
   process.env.INPUT_DEPLOYMENT_CONFIRMATION = 'true'
 
