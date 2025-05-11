@@ -20,7 +20,9 @@ This Action does the heavy lifting for you to enable branch deployments:
 - `.deploy` - Deploy a pull request
 - `.noop` - Deploy a pull request in noop mode. Noop deployments do not require a PR review or approval
 - `.deploy to <environment>` - Deploy a pull request to a specific environment
+- `.noop to <environment>` - Deploy a pull request in noop mode to a specific environment
 - `.deploy <stable_branch>` - Trigger a rollback deploy to your stable branch (main, master, etc)
+- `.noop <stable_branch>` - Trigger a rollback deploy in noop mode to your stable branch (main, master, etc)
 - `.lock` - Create a deployment lock for the default environment
 - `.lock --reason <text>` - Create a deployment lock for the default environment with a custom reason
 - `.lock --details` - View details about a deployment lock
