@@ -1,9 +1,11 @@
-import {
-  commitSafetyChecks,
-  isTimestampOlder
-} from '../../src/functions/commit-safety-checks'
+import {commitSafetyChecks} from '../../src/functions/commit-safety-checks'
 import {COLORS} from '../../src/functions/colors'
 import * as core from '@actions/core'
+
+jest.mock('../../src/functions/is-timestamp-older', () => ({
+  isTimestampOlder: jest.fn()
+}))
+import {isTimestampOlder} from '../../src/functions/is-timestamp-older'
 
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
 const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
@@ -55,14 +57,12 @@ beforeEach(() => {
 })
 
 test('checks a commit and finds that it is safe (date)', async () => {
+  isTimestampOlder.mockReturnValue(false)
   expect(await commitSafetyChecks(context, data)).toStrictEqual({
     message: 'success',
     status: true,
     isVerified: false
   })
-  expect(debugMock).toHaveBeenCalledWith(
-    '2024-10-15T12:00:00Z is not older than 2024-10-15T11:00:00Z'
-  )
   expect(debugMock).toHaveBeenCalledWith('isVerified: false')
   expect(debugMock).toHaveBeenCalledWith(
     `🔑 commit does not contain a verified signature but ${COLORS.highlight}commit signing is not required${COLORS.reset} - ${COLORS.success}OK${COLORS.reset}`
@@ -72,6 +72,7 @@ test('checks a commit and finds that it is safe (date)', async () => {
 })
 
 test('checks a commit and finds that it is safe (date + verification)', async () => {
+  isTimestampOlder.mockReturnValue(false)
   data.inputs.commit_verification = true
   data.commit.verification = {
     verified: true,
@@ -85,9 +86,6 @@ test('checks a commit and finds that it is safe (date + verification)', async ()
     status: true,
     isVerified: true
   })
-  expect(debugMock).toHaveBeenCalledWith(
-    '2024-10-15T12:00:00Z is not older than 2024-10-15T11:00:00Z'
-  )
   expect(debugMock).toHaveBeenCalledWith('isVerified: true')
   expect(infoMock).toHaveBeenCalledWith(
     `🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`
@@ -95,6 +93,7 @@ test('checks a commit and finds that it is safe (date + verification)', async ()
 })
 
 test('checks a commit and finds that it is not safe (date)', async () => {
+  isTimestampOlder.mockReturnValue(true)
   data.commit.author.date = '2024-10-15T12:00:01Z'
 
   expect(await commitSafetyChecks(context, data)).toStrictEqual({
@@ -103,13 +102,11 @@ test('checks a commit and finds that it is not safe (date)', async () => {
     status: false,
     isVerified: false
   })
-  expect(debugMock).toHaveBeenCalledWith(
-    '2024-10-15T12:00:00Z is older than 2024-10-15T12:00:01Z'
-  )
   expect(debugMock).toHaveBeenCalledWith('isVerified: false')
 })
 
 test('checks a commit and finds that it is not safe (verification)', async () => {
+  isTimestampOlder.mockReturnValue(false)
   data.inputs.commit_verification = true
   data.commit.verification = {
     verified: false,
@@ -124,9 +121,6 @@ test('checks a commit and finds that it is not safe (verification)', async () =>
     status: false,
     isVerified: false
   })
-  expect(debugMock).toHaveBeenCalledWith(
-    '2024-10-15T12:00:00Z is not older than 2024-10-15T11:00:00Z'
-  )
   expect(debugMock).toHaveBeenCalledWith('isVerified: false')
   expect(warningMock).toHaveBeenCalledWith(
     `🔑 commit signature is ${COLORS.error}invalid${COLORS.reset}`
@@ -136,6 +130,10 @@ test('checks a commit and finds that it is not safe (verification)', async () =>
 })
 
 test('checks a commit and finds that it is not safe (verification time) even though it is verified - rejected due to timestamp', async () => {
+  // First call: commit_created_at check (should be false), second call: verified_at check (should be true)
+  isTimestampOlder
+    .mockImplementationOnce(() => false)
+    .mockImplementationOnce(() => true)
   data.inputs.commit_verification = true
   data.commit.verification = {
     verified: true,
@@ -150,9 +148,6 @@ test('checks a commit and finds that it is not safe (verification time) even tho
     status: false,
     isVerified: true
   })
-  expect(debugMock).toHaveBeenCalledWith(
-    '2024-10-15T12:00:00Z is not older than 2024-10-15T11:00:00Z'
-  )
   expect(debugMock).toHaveBeenCalledWith('isVerified: true')
   expect(infoMock).toHaveBeenCalledWith(
     `🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`
@@ -162,6 +157,12 @@ test('checks a commit and finds that it is not safe (verification time) even tho
 })
 
 test('raises an error if the date format is invalid', async () => {
+  // Simulate isTimestampOlder throwing
+  isTimestampOlder.mockImplementation(() => {
+    throw new Error(
+      'Invalid date format. Please ensure the dates are valid UTC timestamps.'
+    )
+  })
   data.commit.author.date = '2024-10-15T12:00:uhoh'
   await expect(commitSafetyChecks(context, data)).rejects.toThrow(
     'Invalid date format. Please ensure the dates are valid UTC timestamps.'
@@ -184,6 +185,7 @@ test('throws if commit.author.date is missing', async () => {
 })
 
 test('rejects a deployment if commit.verification.verified_at is null and commit_verification is true', async () => {
+  isTimestampOlder.mockReturnValue(false)
   data.inputs.commit_verification = true
   data.commit.verification = {
     verified: true,
@@ -201,6 +203,7 @@ test('rejects a deployment if commit.verification.verified_at is null and commit
 })
 
 test('rejects a deployment if commit.verification.verified_at is missing and commit_verification is true', async () => {
+  isTimestampOlder.mockReturnValue(false)
   data.inputs.commit_verification = true
   data.commit.verification = {
     verified: true,
@@ -216,23 +219,8 @@ test('rejects a deployment if commit.verification.verified_at is missing and com
   })
 })
 
-test('isTimestampOlder throws if timestampA is missing', () => {
-  expect(() => isTimestampOlder(undefined, '2024-10-15T11:00:00Z')).toThrow(
-    'One or both timestamps are missing or empty.'
-  )
-})
-
-test('isTimestampOlder throws if timestampB is missing', () => {
-  expect(() => isTimestampOlder('2024-10-15T11:00:00Z', undefined)).toThrow(
-    'One or both timestamps are missing or empty.'
-  )
-})
-
-test('isTimestampOlder throws if both timestamps are invalid', () => {
-  expect(() => isTimestampOlder('bad', 'bad')).toThrow(/Invalid date format/)
-})
-
 test('isTimestampOlder covers else branch (not older)', async () => {
+  isTimestampOlder.mockReturnValue(false)
   const context = {payload: {comment: {created_at: '2024-10-15T12:00:00Z'}}}
   const data = {
     sha: 'abc123',
@@ -249,7 +237,5 @@ test('isTimestampOlder covers else branch (not older)', async () => {
     inputs: {commit_verification: false}
   }
   await commitSafetyChecks(context, data)
-  expect(debugMock).toHaveBeenCalledWith(
-    '2024-10-15T12:00:00Z is not older than 2024-10-15T11:00:00Z'
-  )
+  expect(debugMock).toHaveBeenCalledWith('isVerified: false')
 })
