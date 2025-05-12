@@ -46638,18 +46638,25 @@ async function commitSafetyChecks(context, data) {
   const commit = data.commit
   const inputs = data.inputs
   const sha = data.sha
+  const comment_created_at = context?.payload?.comment?.created_at
+  const commit_created_at = commit?.author?.date // fetch the timestamp that the commit was authored (format: "2024-10-21T19:10:24Z" - String)
+  const verified_at = commit?.verification?.verified_at
+  core.debug(`comment_created_at: ${comment_created_at}`)
+  core.debug(`commit_created_at: ${commit_created_at}`)
+  core.debug(`verified_at: ${verified_at}`)
+
+  // Defensive: Ensure required fields exist
+  if (!comment_created_at) {
+    throw new Error('Missing context.payload.comment.created_at')
+  }
+  if (!commit_created_at) {
+    throw new Error('Missing commit.author.date')
+  }
 
   const isVerified = commit?.verification?.verified === true ? true : false
   core.debug(`isVerified: ${isVerified}`)
   core.setOutput('commit_verified', isVerified)
   core.saveState('commit_verified', isVerified)
-
-  const comment_created_at = context.payload.comment.created_at
-  core.debug(`comment_created_at: ${comment_created_at}`)
-
-  // fetch the timestamp that the commit was authored (format: "2024-10-21T19:10:24Z" - String)
-  const commit_created_at = commit.author.date
-  core.debug(`commit_created_at: ${commit_created_at}`)
 
   // check to ensure that the commit was authored before the comment was created
   if (isTimestampOlder(comment_created_at, commit_created_at)) {
@@ -46681,11 +46688,20 @@ async function commitSafetyChecks(context, data) {
     }
   }
 
+  // if commit_verification is enabled and the verified_at timestamp is not present, throw an error
+  if (inputs.commit_verification === true && !verified_at) {
+    return {
+      message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`${commit?.verification?.reason}\`\n\n> The commit signature is not valid as there is no valid \`verified_at\` date. Please ensure the commit has been properly signed and try again.`,
+      status: false,
+      isVerified: isVerified
+    }
+  }
+
   // check to ensure that the commit signature was authored before the comment was created
   // even if the commit signature is valid, we still want to reject it if it was authored after the comment was created
   if (
     inputs.commit_verification === true &&
-    isTimestampOlder(comment_created_at, commit?.verification?.verified_at)
+    isTimestampOlder(comment_created_at, verified_at)
   ) {
     return {
       message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. The commit signature was verified after the trigger comment was created. Please try again if you recently pushed a new commit.`,
@@ -46707,6 +46723,10 @@ async function commitSafetyChecks(context, data) {
 // :param timestampB: The second timestamp to compare (String - format: "2024-10-21T19:10:24Z")
 // :returns: true if timestampA is older than timestampB, false otherwise
 function isTimestampOlder(timestampA, timestampB) {
+  // Defensive: handle null/undefined/empty
+  if (!timestampA || !timestampB) {
+    throw new Error('One or both timestamps are missing or empty.')
+  }
   // Parse the date strings into Date objects
   const timestampADate = new Date(timestampA)
   const timestampBDate = new Date(timestampB)
@@ -46714,7 +46734,7 @@ function isTimestampOlder(timestampA, timestampB) {
   // Check if the parsed dates are valid
   if (isNaN(timestampADate) || isNaN(timestampBDate)) {
     throw new Error(
-      'Invalid date format. Please ensure the dates are valid UTC timestamps.'
+      `Invalid date format. Please ensure the dates are valid UTC timestamps. Received: '${timestampA}', '${timestampB}'`
     )
   }
 
