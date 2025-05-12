@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import {COLORS} from './colors'
+import {isTimestampOlder} from './is-timestamp-older'
 
 // A helper method to ensure that the commit being used is safe for deployment
 // These safety checks are supplemental to the checks found in `src/functions/prechecks.js`
@@ -87,35 +88,4 @@ export async function commitSafetyChecks(context, data) {
     status: true,
     isVerified: isVerified
   }
-}
-
-// A helper method that checks if timestamp A is older than timestamp B
-// :param timestampA: The first timestamp to compare (String - format: "2024-10-21T19:10:24Z")
-// :param timestampB: The second timestamp to compare (String - format: "2024-10-21T19:10:24Z")
-// :returns: true if timestampA is older than timestampB, false otherwise
-export function isTimestampOlder(timestampA, timestampB) {
-  // Defensive: handle null/undefined/empty
-  if (!timestampA || !timestampB) {
-    throw new Error('One or both timestamps are missing or empty.')
-  }
-  // Parse the date strings into Date objects
-  const timestampADate = new Date(timestampA)
-  const timestampBDate = new Date(timestampB)
-
-  // Check if the parsed dates are valid
-  if (isNaN(timestampADate) || isNaN(timestampBDate)) {
-    throw new Error(
-      `Invalid date format. Please ensure the dates are valid UTC timestamps. Received: '${timestampA}', '${timestampB}'`
-    )
-  }
-
-  const result = timestampADate < timestampBDate
-
-  if (result) {
-    core.debug(`${timestampA} is older than ${timestampB}`)
-  } else {
-    core.debug(`${timestampA} is not older than ${timestampB}`)
-  }
-
-  return result
 }
