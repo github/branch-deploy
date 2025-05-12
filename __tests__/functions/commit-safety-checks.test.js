@@ -1,4 +1,7 @@
-import {commitSafetyChecks} from '../../src/functions/commit-safety-checks'
+import {
+  commitSafetyChecks,
+  isTimestampOlder
+} from '../../src/functions/commit-safety-checks'
 import {COLORS} from '../../src/functions/colors'
 import * as core from '@actions/core'
 
@@ -162,5 +165,91 @@ test('raises an error if the date format is invalid', async () => {
   data.commit.author.date = '2024-10-15T12:00:uhoh'
   await expect(commitSafetyChecks(context, data)).rejects.toThrow(
     'Invalid date format. Please ensure the dates are valid UTC timestamps.'
+  )
+})
+
+test('throws if context.payload.comment.created_at is missing', async () => {
+  const brokenContext = {payload: {comment: {}}}
+  await expect(commitSafetyChecks(brokenContext, data)).rejects.toThrow(
+    'Missing context.payload.comment.created_at'
+  )
+})
+
+test('throws if commit.author.date is missing', async () => {
+  const brokenData = JSON.parse(JSON.stringify(data))
+  delete brokenData.commit.author.date
+  await expect(commitSafetyChecks(context, brokenData)).rejects.toThrow(
+    'Missing commit.author.date'
+  )
+})
+
+test('rejects a deployment if commit.verification.verified_at is null and commit_verification is true', async () => {
+  data.inputs.commit_verification = true
+  data.commit.verification = {
+    verified: true,
+    reason: 'valid',
+    signature: 'SOME_SIGNATURE',
+    payload: 'SOME_PAYLOAD',
+    verified_at: null
+  }
+
+  await expect(commitSafetyChecks(context, data)).resolves.toEqual({
+    message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`valid\`\n\n> The commit signature is not valid as there is no valid \`verified_at\` date. Please ensure the commit has been properly signed and try again.`,
+    status: false,
+    isVerified: true
+  })
+})
+
+test('rejects a deployment if commit.verification.verified_at is missing and commit_verification is true', async () => {
+  data.inputs.commit_verification = true
+  data.commit.verification = {
+    verified: true,
+    reason: 'valid',
+    signature: 'SOME_SIGNATURE',
+    payload: 'SOME_PAYLOAD'
+  }
+
+  await expect(commitSafetyChecks(context, data)).resolves.toEqual({
+    message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`valid\`\n\n> The commit signature is not valid as there is no valid \`verified_at\` date. Please ensure the commit has been properly signed and try again.`,
+    status: false,
+    isVerified: true
+  })
+})
+
+test('isTimestampOlder throws if timestampA is missing', () => {
+  expect(() => isTimestampOlder(undefined, '2024-10-15T11:00:00Z')).toThrow(
+    'One or both timestamps are missing or empty.'
+  )
+})
+
+test('isTimestampOlder throws if timestampB is missing', () => {
+  expect(() => isTimestampOlder('2024-10-15T11:00:00Z', undefined)).toThrow(
+    'One or both timestamps are missing or empty.'
+  )
+})
+
+test('isTimestampOlder throws if both timestamps are invalid', () => {
+  expect(() => isTimestampOlder('bad', 'bad')).toThrow(/Invalid date format/)
+})
+
+test('isTimestampOlder covers else branch (not older)', async () => {
+  const context = {payload: {comment: {created_at: '2024-10-15T12:00:00Z'}}}
+  const data = {
+    sha: 'abc123',
+    commit: {
+      author: {date: '2024-10-15T11:00:00Z'},
+      verification: {
+        verified: false,
+        reason: 'unsigned',
+        signature: null,
+        payload: null,
+        verified_at: null
+      }
+    },
+    inputs: {commit_verification: false}
+  }
+  await commitSafetyChecks(context, data)
+  expect(debugMock).toHaveBeenCalledWith(
+    '2024-10-15T12:00:00Z is not older than 2024-10-15T11:00:00Z'
   )
 })
