@@ -4,6 +4,7 @@ import {isTimestampOlder} from '../../src/functions/is-timestamp-older'
 beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(core, 'debug').mockImplementation(() => {})
+  jest.spyOn(core, 'error').mockImplementation(() => {})
 })
 
 describe('isTimestampOlder', () => {
@@ -86,5 +87,28 @@ describe('isTimestampOlder', () => {
     expect(core.debug).toHaveBeenCalledWith(
       '2024-10-16T11:00:00Z is not older than 2024-10-16T11:00:00Z'
     )
+  })
+
+  test('accepts valid leap year date', () => {
+    // Feb 29, 2024 is valid (leap year)
+    expect(() =>
+      isTimestampOlder('2024-02-29T12:00:00Z', '2024-10-15T11:00:00Z')
+    ).not.toThrow()
+    expect(
+      isTimestampOlder('2024-02-29T12:00:00Z', '2024-10-15T11:00:00Z')
+    ).toBe(true)
+    expect(
+      isTimestampOlder('2024-10-15T11:00:00Z', '2024-02-29T12:00:00Z')
+    ).toBe(false)
+  })
+
+  test('throws an error on js silent date contructor corrections', () => {
+    // Invalid date: 2024-02-30T12:00:00Z actually becomes 2024-03-01T12:00:00Z (gross)
+    expect(() =>
+      isTimestampOlder('2024-02-30T12:00:00Z', '2024-10-15T11:00:00Z')
+    ).toThrow(/Invalid date format/)
+    expect(() =>
+      isTimestampOlder('2024-10-15T11:00:00Z', '2024-02-30T12:00:00Z')
+    ).toThrow(/Invalid date format/)
   })
 })

@@ -27,6 +27,38 @@ export function isTimestampOlder(timestampA, timestampB) {
   const timestampADate = new Date(timestampA)
   const timestampBDate = new Date(timestampB)
 
+  // Extra strict: ensure the parsed date matches the input string exactly (prevents JS date rollover)
+  const toStrictISOString = d => {
+    // Returns YYYY-MM-DDTHH:MM:SSZ
+    return (
+      d.getUTCFullYear().toString().padStart(4, '0') +
+      '-' +
+      (d.getUTCMonth() + 1).toString().padStart(2, '0') +
+      '-' +
+      d.getUTCDate().toString().padStart(2, '0') +
+      'T' +
+      d.getUTCHours().toString().padStart(2, '0') +
+      ':' +
+      d.getUTCMinutes().toString().padStart(2, '0') +
+      ':' +
+      d.getUTCSeconds().toString().padStart(2, '0') +
+      'Z'
+    )
+  }
+  if (
+    isNaN(timestampADate) ||
+    isNaN(timestampBDate) ||
+    toStrictISOString(timestampADate) !== timestampA ||
+    toStrictISOString(timestampBDate) !== timestampB
+  ) {
+    core.error(
+      `Invalid date parsing. Received: '${timestampA}' => ${timestampADate}, '${timestampB}' => ${timestampBDate}`
+    )
+    throw new Error(
+      `Invalid date format. Please ensure the dates are valid UTC timestamps. Received: '${timestampA}', '${timestampB}'`
+    )
+  }
+
   const result = timestampADate < timestampBDate
 
   if (result) {
