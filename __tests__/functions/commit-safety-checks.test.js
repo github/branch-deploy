@@ -140,7 +140,7 @@ test('checks a commit and finds that it is not safe (verification time) even tho
     reason: 'valid',
     signature: 'SOME_SIGNATURE',
     payload: 'SOME_PAYLOAD',
-    verified_at: '2024-10-15T12:00:01Z' // occured after the trigger comment was created
+    verified_at: '2024-10-15T12:00:01Z' // occurred after the trigger comment was created
   }
 
   expect(await commitSafetyChecks(context, data)).toStrictEqual({
