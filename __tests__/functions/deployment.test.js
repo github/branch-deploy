@@ -1,12 +1,12 @@
-import {it, test, expect, jest, beforeEach} from '@jest/globals'
+const {describe, it, test, expect, jest, beforeEach} = require('@jest/globals')
 
-import {
+const {
   createDeploymentStatus,
   latestActiveDeployment,
   activeDeployment
-} from '../../src/functions/deployment.js'
-import * as core from '@actions/core'
-import {API_HEADERS} from '../../src/functions/api-headers.js'
+} = require('../../src/functions/deployment')
+const core = require('@actions/core')
+const {API_HEADERS} = require('../../src/functions/api-headers')
 
 var octokit
 var context

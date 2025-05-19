@@ -3,47 +3,38 @@ const github = require('@actions/github')
 const {context} = require('@actions/github')
 const dedent = require('dedent-js')
 
-// Import ESM-only packages using dynamic imports
-let retry, paginateGraphQL
-try {
-  // First try to load as CommonJS modules (for tests)
-  retry = require('@octokit/plugin-retry').retry
-  paginateGraphQL = require('@octokit/plugin-paginate-graphql').paginateGraphQL
-} catch (e) {
-  // Will be handled later with dynamic imports during initialization
-  core.debug('Will load @octokit plugins using dynamic imports')
-}
+// Initialize octokit plugins as null and load them dynamically
+let retry = null
+let paginateGraphQL = null
 
-const {VERSION} = require('./version.js')
-const {triggerCheck} = require('./functions/trigger-check.js')
-const {contextCheck} = require('./functions/context-check.js')
-const {nakedCommandCheck} = require('./functions/naked-command-check.js')
-const {reactEmote} = require('./functions/react-emote.js')
-const {environmentTargets} = require('./functions/environment-targets.js')
-const {actionStatus} = require('./functions/action-status.js')
-const {createDeploymentStatus} = require('./functions/deployment.js')
-const {isDeprecated} = require('./functions/deprecated-checks.js')
-const {prechecks} = require('./functions/prechecks.js')
-const {branchRulesetChecks} = require('./functions/branch-ruleset-checks.js')
-const {validPermissions} = require('./functions/valid-permissions.js')
-const {lock} = require('./functions/lock.js')
-const {unlock} = require('./functions/unlock.js')
-const {post} = require('./functions/post.js')
-const {timeDiff} = require('./functions/time-diff.js')
-const {identicalCommitCheck} = require('./functions/identical-commit-check.js')
-const {unlockOnMerge} = require('./functions/unlock-on-merge.js')
-const {help} = require('./functions/help.js')
-const {LOCK_METADATA} = require('./functions/lock-metadata.js')
-const {COLORS} = require('./functions/colors.js')
-const {getInputs} = require('./functions/inputs.js')
-const {constructValidBranchName} = require('./functions/valid-branch-name.js')
-const {validDeploymentOrder} = require('./functions/valid-deployment-order.js')
-const {commitSafetyChecks} = require('./functions/commit-safety-checks.js')
-const {API_HEADERS} = require('./functions/api-headers.js')
-const {timestamp} = require('./functions/timestamp.js')
-const {
-  deploymentConfirmation
-} = require('./functions/deployment-confirmation.js')
+const {VERSION} = require('./version')
+const {triggerCheck} = require('./functions/trigger-check')
+const {contextCheck} = require('./functions/context-check')
+const {nakedCommandCheck} = require('./functions/naked-command-check')
+const {reactEmote} = require('./functions/react-emote')
+const {environmentTargets} = require('./functions/environment-targets')
+const {actionStatus} = require('./functions/action-status')
+const {createDeploymentStatus} = require('./functions/deployment')
+const {isDeprecated} = require('./functions/deprecated-checks')
+const {prechecks} = require('./functions/prechecks')
+const {branchRulesetChecks} = require('./functions/branch-ruleset-checks')
+const {validPermissions} = require('./functions/valid-permissions')
+const {lock} = require('./functions/lock')
+const {unlock} = require('./functions/unlock')
+const {post} = require('./functions/post')
+const {timeDiff} = require('./functions/time-diff')
+const {identicalCommitCheck} = require('./functions/identical-commit-check')
+const {unlockOnMerge} = require('./functions/unlock-on-merge')
+const {help} = require('./functions/help')
+const {LOCK_METADATA} = require('./functions/lock-metadata')
+const {COLORS} = require('./functions/colors')
+const {getInputs} = require('./functions/inputs')
+const {constructValidBranchName} = require('./functions/valid-branch-name')
+const {validDeploymentOrder} = require('./functions/valid-deployment-order')
+const {commitSafetyChecks} = require('./functions/commit-safety-checks')
+const {API_HEADERS} = require('./functions/api-headers')
+const {timestamp} = require('./functions/timestamp')
+const {deploymentConfirmation} = require('./functions/deployment-confirmation')
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
@@ -57,26 +48,37 @@ async function run() {
     // get all the Actions inputs and roll up them into a single object
     const inputs = getInputs()
 
-    // Create an octokit client with the retry plugin
-    let octokit
-
-    // If we couldn't load the plugins with require, use dynamic imports
-    if (!retry || !paginateGraphQL) {
+    // Try to load ESM-only packages
+    try {
+      // Try to load directly as CommonJS first (for tests)
+      const retryModule = require('@octokit/plugin-retry')
+      const paginateGraphQLModule = require('@octokit/plugin-paginate-graphql')
+      retry = retryModule.retry
+      paginateGraphQL = paginateGraphQLModule.paginateGraphQL
+    } catch (e) {
+      // If direct require fails, use dynamic imports
+      core.debug('Loading Octokit plugins using dynamic imports')
       try {
-        const {retry: dynamicRetry} = await import('@octokit/plugin-retry')
-        const {paginateGraphql: dynamicPaginate} = await import(
+        const retryModule = await import('@octokit/plugin-retry')
+        const paginateGraphQLModule = await import(
           '@octokit/plugin-paginate-graphql'
         )
-        retry = dynamicRetry
-        paginateGraphQL = dynamicPaginate
+        retry = retryModule.retry
+        paginateGraphQL = paginateGraphQLModule.paginateGraphQL
       } catch (error) {
         core.warning(`Error loading ESM plugins: ${error.message}`)
       }
     }
 
+    // Create an octokit client with the plugins
+    const octokit = github.getOctokit(token, {
+      userAgent: `github/branch-deploy@${VERSION}`,
+      additionalPlugins: [retry, paginateGraphQL].filter(Boolean)
+    })
+
     octokit = github.getOctokit(token, {
       userAgent: `github/branch-deploy@${VERSION}`,
-      additionalPlugins: [retry, paginateGraphQL]
+      additionalPlugins: [retry, paginateGraphQL].filter(Boolean)
     })
 
     // Set the state so that the post run logic will trigger
