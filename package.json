@@ -1,13 +1,14 @@
 {
   "description": "Enabling Branch Deployments through IssueOps with GitHub Actions",
   "main": "lib/main.js",
+  "type": "module",
   "scripts": {
     "format": "prettier --write '**/*.js'",
     "format-check": "prettier --check '**/*.js'",
     "lint": "eslint src/**/*.js",
     "package": "ncc build src/main.js -o dist --source-map --license licenses.txt",
-    "test": "(BRANCH_DEPLOY_JEST_TEST=true jest && make-coverage-badge --output-path ./badges/coverage.svg) || make-coverage-badge --output-path ./badges/coverage.svg",
-    "ci-test": "BRANCH_DEPLOY_JEST_TEST=true jest",
+    "test": "(NODE_OPTIONS=--experimental-vm-modules BRANCH_DEPLOY_JEST_TEST=true jest && make-coverage-badge --output-path ./badges/coverage.svg) || make-coverage-badge --output-path ./badges/coverage.svg",
+    "ci-test": "NODE_OPTIONS=--experimental-vm-modules BRANCH_DEPLOY_JEST_TEST=true jest",
     "all": "npm run format && npm run lint && npm run package",
     "bundle": "npm run format && npm run package",
     "act": "npm run format && npm run package && act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test"
@@ -35,25 +36,6 @@
     "github-username-regex-js": "^1.0.0",
     "nunjucks": "^3.2.4",
     "yargs-parser": "^21.1.1"
-  },
-  "jest": {
-    "coverageReporters": [
-      "json-summary",
-      "text",
-      "lcov"
-    ],
-    "collectCoverage": true,
-    "collectCoverageFrom": [
-      "./src/**"
-    ],
-    "coverageThreshold": {
-      "global": {
-        "lines": 100,
-        "statements": 100,
-        "branches": 100,
-        "functions": 100
-      }
-    }
   },
   "devDependencies": {
     "@babel/core": "^7.27.1",
