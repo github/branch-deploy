@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {COLORS} from './colors'
+import {COLORS} from './colors.js'
 
 const truncatedMessageStart =
   'The message is too large to be posted as a comment.\n<details><summary>Click to see the truncated message</summary>\n'

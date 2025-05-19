@@ -1,8 +1,10 @@
-import {environmentTargets} from '../../src/functions/environment-targets'
-import * as actionStatus from '../../src/functions/action-status'
+import { test, expect, jest, beforeEach } from '@jest/globals';
+
+import {environmentTargets} from '../../src/functions/environment-targets.js.js'
+import * as actionStatus from '../../src/functions/action-status.js.js'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
-import {COLORS} from '../../src/functions/colors'
+import {COLORS} from '../../src/functions/colors.js.js'
 
 const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})

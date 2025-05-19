@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
-import {actionStatus} from './action-status'
+import {actionStatus} from './action-status.js'
 
 const defaultSpecificMessage = '<something went wrong - please report this>'
 const usageGuideLink =

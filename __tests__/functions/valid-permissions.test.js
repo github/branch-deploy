@@ -1,5 +1,7 @@
+import { test, expect, jest, beforeEach } from '@jest/globals';
+
 import * as core from '@actions/core'
-import {validPermissions} from '../../src/functions/valid-permissions'
+import {validPermissions} from '../../src/functions/valid-permissions.js.js'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 

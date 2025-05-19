@@ -1,10 +1,10 @@
 import * as core from '@actions/core'
-import {actionStatus} from './action-status'
+import {actionStatus} from './action-status.js'
 import dedent from 'dedent-js'
-import {LOCK_METADATA} from './lock-metadata'
-import {constructValidBranchName} from './valid-branch-name'
-import {COLORS} from './colors'
-import {API_HEADERS} from './api-headers'
+import {LOCK_METADATA} from './lock-metadata.js'
+import {constructValidBranchName} from './valid-branch-name.js'
+import {COLORS} from './colors.js'
+import {API_HEADERS} from './api-headers.js'
 
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix

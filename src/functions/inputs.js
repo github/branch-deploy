@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {stringToArray} from '../functions/string-to-array'
+import {stringToArray} from '../functions/string-to-array.js.js'
 
 // Helper function to validate the input values
 // :param inputName: The name of the input being validated (string)

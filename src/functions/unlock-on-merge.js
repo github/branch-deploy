@@ -1,10 +1,10 @@
 import * as core from '@actions/core'
-import {unlock} from './unlock'
-import {LOCK_METADATA} from './lock-metadata'
-import {checkLockFile} from './check-lock-file'
-import {checkBranch} from './lock'
-import {constructValidBranchName} from './valid-branch-name'
-import {COLORS} from './colors'
+import {unlock} from './unlock.js'
+import {LOCK_METADATA} from './lock-metadata.js'
+import {checkLockFile} from './check-lock-file.js'
+import {checkBranch} from './lock.js'
+import {constructValidBranchName} from './valid-branch-name.js'
+import {COLORS} from './colors.js'
 
 // Helper function to automatically find, and release a deployment lock when a pull request is merged
 // :param octokit: the authenticated octokit instance

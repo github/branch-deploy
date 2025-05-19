@@ -3,12 +3,12 @@ import {retry} from '@octokit/plugin-retry'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 
-import {stringToArray} from './string-to-array.js'
-import {contextCheck} from './context-check.js'
-import {checkInput} from './check-input.js'
-import {postDeploy} from './post-deploy.js'
-import {COLORS} from './colors.js'
-import {VERSION} from '../version'
+import {stringToArray} from './string-to-array.js.js'
+import {contextCheck} from './context-check.js.js'
+import {checkInput} from './check-input.js.js'
+import {postDeploy} from './post-deploy.js.js'
+import {COLORS} from './colors.js.js'
+import {VERSION} from '../version.js'
 
 export async function post() {
   try {

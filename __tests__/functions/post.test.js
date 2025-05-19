@@ -1,10 +1,12 @@
+import { test, expect, jest, beforeEach } from '@jest/globals';
+
 import * as github from '@actions/github'
 import * as core from '@actions/core'
 
-import {post} from '../../src/functions/post'
-import {COLORS} from '../../src/functions/colors'
-import * as postDeploy from '../../src/functions/post-deploy'
-import * as contextCheck from '../../src/functions/context-check'
+import {post} from '../../src/functions/post.js.js'
+import {COLORS} from '../../src/functions/colors.js.js'
+import * as postDeploy from '../../src/functions/post-deploy.js.js'
+import * as contextCheck from '../../src/functions/context-check.js.js'
 
 const validBooleanInputs = {
   skip_completing: false

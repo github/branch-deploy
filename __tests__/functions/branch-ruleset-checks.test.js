@@ -1,8 +1,10 @@
-import {branchRulesetChecks} from '../../src/functions/branch-ruleset-checks'
+import { test, expect, jest, beforeEach } from '@jest/globals';
+
+import {branchRulesetChecks} from '../../src/functions/branch-ruleset-checks.js.js'
 import * as core from '@actions/core'
-import {COLORS} from '../../src/functions/colors'
-import {SUGGESTED_RULESETS} from '../../src/functions/suggested-rulesets'
-import {ERROR} from '../../src/functions/templates/error'
+import {COLORS} from '../../src/functions/colors.js.js'
+import {SUGGESTED_RULESETS} from '../../src/functions/suggested-rulesets.js.js'
+import {ERROR} from '../../src/functions/templates/error.js.js'
 
 var context
 var octokit

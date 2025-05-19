@@ -1,11 +1,13 @@
-import {commitSafetyChecks} from '../../src/functions/commit-safety-checks'
-import {COLORS} from '../../src/functions/colors'
+import { test, expect, jest, beforeEach } from '@jest/globals';
+
+import {commitSafetyChecks} from '../../src/functions/commit-safety-checks.js.js'
+import {COLORS} from '../../src/functions/colors.js.js'
 import * as core from '@actions/core'
 
 jest.mock('../../src/functions/is-timestamp-older', () => ({
   isTimestampOlder: jest.fn()
 }))
-import {isTimestampOlder} from '../../src/functions/is-timestamp-older'
+import {isTimestampOlder} from '../../src/functions/is-timestamp-older.js.js'
 
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
 const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})

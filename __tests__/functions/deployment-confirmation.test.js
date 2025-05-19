@@ -1,7 +1,9 @@
+import { test, expect, jest, beforeEach } from '@jest/globals';
+
 import * as core from '@actions/core'
-import {COLORS} from '../../src/functions/colors'
-import {deploymentConfirmation} from '../../src/functions/deployment-confirmation'
-import {API_HEADERS} from '../../src/functions/api-headers'
+import {COLORS} from '../../src/functions/colors.js.js'
+import {deploymentConfirmation} from '../../src/functions/deployment-confirmation.js.js'
+import {API_HEADERS} from '../../src/functions/api-headers.js.js'
 
 var context
 var octokit

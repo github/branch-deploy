@@ -1,12 +1,12 @@
 import * as core from '@actions/core'
 
-import {actionStatus} from './action-status'
-import {label} from './label'
-import {createDeploymentStatus} from './deployment'
-import {unlock} from './unlock'
-import {lock} from './lock'
-import {postDeployMessage} from './post-deploy-message'
-import {COLORS} from './colors'
+import {actionStatus} from './action-status.js'
+import {label} from './label.js'
+import {createDeploymentStatus} from './deployment.js'
+import {unlock} from './unlock.js'
+import {lock} from './lock.js'
+import {postDeployMessage} from './post-deploy-message.js'
+import {COLORS} from './colors.js'
 
 const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`
 const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`

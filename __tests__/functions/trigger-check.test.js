@@ -1,6 +1,8 @@
-import {triggerCheck} from '../../src/functions/trigger-check'
+import { test, expect, jest, beforeEach } from '@jest/globals';
+
+import {triggerCheck} from '../../src/functions/trigger-check.js.js'
 import * as core from '@actions/core'
-import {COLORS} from '../../src/functions/colors'
+import {COLORS} from '../../src/functions/colors.js.js'
 
 const color = COLORS.highlight
 const colorReset = COLORS.reset

@@ -1,7 +1,9 @@
-import {prechecks} from '../../src/functions/prechecks'
-import {COLORS} from '../../src/functions/colors'
-import * as isAdmin from '../../src/functions/admin'
-import * as isOutdated from '../../src/functions/outdated-check'
+import { test, expect, jest, beforeEach } from '@jest/globals';
+
+import {prechecks} from '../../src/functions/prechecks.js.js'
+import {COLORS} from '../../src/functions/colors.js.js'
+import * as isAdmin from '../../src/functions/admin.js.js'
+import * as isOutdated from '../../src/functions/outdated-check.js.js'
 import * as core from '@actions/core'
 
 // Globals for testing

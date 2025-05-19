@@ -1,5 +1,5 @@
 import {timeDiff} from '../../src/functions/time-diff.js'
-import { test, expect } from '@jest/globals'
+import {test, expect} from '@jest/globals'
 
 test('checks the time elapsed between two dates - days apart', async () => {
   expect(
