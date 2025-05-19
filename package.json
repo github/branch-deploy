@@ -27,9 +27,10 @@
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0",
-    "@octokit/plugin-retry": "^6.0.1",
-    "@octokit/rest": "^20.1.0",
+    "@octokit/plugin-paginate-graphql": "^5.2.4",
+    "@octokit/plugin-retry": "^7.0.0",
     "@octokit/request": "^9.2.3",
+    "@octokit/rest": "^20.1.0",
     "dedent-js": "^1.0.1",
     "github-username-regex-js": "^1.0.0",
     "nunjucks": "^3.2.4",
