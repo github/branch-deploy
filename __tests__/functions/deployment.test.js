@@ -4,7 +4,7 @@ import {
   createDeploymentStatus,
   latestActiveDeployment,
   activeDeployment
-} from '../../src/functions/deployment.js.js'
+} from '../../src/functions/deployment.js'
 import * as core from '@actions/core'
 import {API_HEADERS} from '../../src/functions/api-headers.js'
 

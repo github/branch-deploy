@@ -1,19 +1,36 @@
-import * as core from '@actions/core'
-import * as github from '@actions/github'
-import {context} from '@actions/github'
+const core = require('@actions/core')
+const github = require('@actions/github')
+const {context} = require('@actions/github')
 
-import {stringToArray} from './string-to-array.js'
-import {contextCheck} from './context-check.js'
-import {checkInput} from './check-input.js'
-import {postDeploy} from './post-deploy.js'
-import {COLORS} from './colors.js'
-import {VERSION} from '../version.js'
+const {stringToArray} = require('./string-to-array')
+const {contextCheck} = require('./context-check')
+const {checkInput} = require('./check-input')
+const {postDeploy} = require('./post-deploy')
+const {COLORS} = require('./colors')
+const {VERSION} = require('../version')
 
-// Use require for packages that only have ESM exports
-const retry = require('@octokit/plugin-retry').retry
+// Initialize as null and load dynamically if needed
+let retry = null
 
-export async function post() {
+async function post() {
   try {
+    // Load ESM modules dynamically if needed
+    if (!retry) {
+      try {
+        // Try to load directly (works in tests with jest transform)
+        const retryModule = require('@octokit/plugin-retry')
+        retry = retryModule.retry
+      } catch (e) {
+        // Handle ESM module loading
+        try {
+          const retryModule = await import('@octokit/plugin-retry')
+          retry = retryModule.retry
+        } catch (error) {
+          core.warning(`Error loading ESM plugin: ${error.message}`)
+        }
+      }
+    }
+
     const token = core.getState('actionsToken')
     const bypass = core.getState('bypass') === 'true'
     const skip_completing = core.getBooleanInput('skip_completing')
@@ -70,6 +87,16 @@ export async function post() {
       return
     }
 
+    // If we couldn't load the plugin with require, use dynamic imports
+    if (!retry) {
+      try {
+        const {retry: dynamicRetry} = await import('@octokit/plugin-retry')
+        retry = dynamicRetry
+      } catch (error) {
+        core.warning(`Error loading ESM plugin: ${error.message}`)
+      }
+    }
+
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
       userAgent: `github/branch-deploy@${VERSION}`,
@@ -91,3 +118,5 @@ export async function post() {
     core.setFailed(error.message)
   }
 }
+
+module.exports = { post }

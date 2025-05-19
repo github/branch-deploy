@@ -3,10 +3,16 @@ const github = require('@actions/github')
 const {context} = require('@actions/github')
 const dedent = require('dedent-js')
 
-// Use require for packages that only have ESM exports
-const retry = require('@octokit/plugin-retry').retry
-const paginateGraphQL =
-  require('@octokit/plugin-paginate-graphql').paginateGraphQL
+// Import ESM-only packages using dynamic imports
+let retry, paginateGraphQL
+try {
+  // First try to load as CommonJS modules (for tests)
+  retry = require('@octokit/plugin-retry').retry
+  paginateGraphQL = require('@octokit/plugin-paginate-graphql').paginateGraphQL
+} catch (e) {
+  // Will be handled later with dynamic imports during initialization
+  core.debug('Will load @octokit plugins using dynamic imports')
+}
 
 const {VERSION} = require('./version.js')
 const {triggerCheck} = require('./functions/trigger-check.js')
@@ -52,7 +58,23 @@ async function run() {
     const inputs = getInputs()
 
     // Create an octokit client with the retry plugin
-    const octokit = github.getOctokit(token, {
+    let octokit
+
+    // If we couldn't load the plugins with require, use dynamic imports
+    if (!retry || !paginateGraphQL) {
+      try {
+        const {retry: dynamicRetry} = await import('@octokit/plugin-retry')
+        const {paginateGraphql: dynamicPaginate} = await import(
+          '@octokit/plugin-paginate-graphql'
+        )
+        retry = dynamicRetry
+        paginateGraphQL = dynamicPaginate
+      } catch (error) {
+        core.warning(`Error loading ESM plugins: ${error.message}`)
+      }
+    }
+
+    octokit = github.getOctokit(token, {
       userAgent: `github/branch-deploy@${VERSION}`,
       additionalPlugins: [retry, paginateGraphQL]
     })

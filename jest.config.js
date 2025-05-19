@@ -11,5 +11,8 @@ module.exports = {
       branches: 100,
       functions: 100
     }
+  },
+  transform: {
+    '^.+\\.jsx?$': 'babel-jest'
   }
 }

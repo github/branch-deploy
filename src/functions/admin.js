@@ -4,8 +4,15 @@ import githubUsernameRegex from 'github-username-regex-js'
 import {COLORS} from './colors.js'
 import {API_HEADERS} from './api-headers.js'
 
-// Use require for packages that only have ESM exports
-const retry = require('@octokit/plugin-retry').retry
+// Handle ESM-only modules
+let retry
+try {
+  // First try to load as CommonJS modules (for tests)
+  retry = require('@octokit/plugin-retry').retry
+} catch (e) {
+  // Will be handled later with dynamic imports
+  core.debug('Will load @octokit/plugin-retry using dynamic imports')
+}
 
 // Helper function to check if a user exists in an org team
 // :param actor: The user to check
@@ -24,6 +31,16 @@ async function orgTeamCheck(actor, orgTeams) {
   }
 
   // Create a new octokit client with the admins_pat and the retry plugin
+  // If we couldn't load the plugin with require, use dynamic imports
+  if (!retry) {
+    try {
+      const {retry: dynamicRetry} = await import('@octokit/plugin-retry')
+      retry = dynamicRetry
+    } catch (error) {
+      core.warning(`Error loading ESM plugin: ${error.message}`)
+    }
+  }
+
   const octokit = github.getOctokit(adminsPat, {
     additionalPlugins: [retry]
   })
