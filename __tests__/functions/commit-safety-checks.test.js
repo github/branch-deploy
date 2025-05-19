@@ -1,19 +1,30 @@
-import {test, expect, jest, beforeEach} from '@jest/globals'
+const {test, expect, jest, beforeEach} = require('@jest/globals')
 
-import {commitSafetyChecks} from '../../src/functions/commit-safety-checks.js.js'
-import {COLORS} from '../../src/functions/colors.js.js'
-import * as core from '@actions/core'
+const {
+  commitSafetyChecks
+} = require('../../src/functions/commit-safety-checks.js')
+const {COLORS} = require('../../src/functions/colors.js')
 
-jest.mock('../../src/functions/is-timestamp-older', () => ({
+jest.mock('../../src/functions/is-timestamp-older.js', () => ({
   isTimestampOlder: jest.fn()
 }))
-import {isTimestampOlder} from '../../src/functions/is-timestamp-older.js.js'
+const {isTimestampOlder} = require('../../src/functions/is-timestamp-older.js')
 
-const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
-const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
-const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
-const saveStateMock = jest.spyOn(core, 'saveState').mockImplementation(() => {})
-const setOutputMock = jest.spyOn(core, 'setOutput').mockImplementation(() => {})
+const debugMock = jest
+  .spyOn(require('@actions/core'), 'debug')
+  .mockImplementation(() => {})
+const infoMock = jest
+  .spyOn(require('@actions/core'), 'info')
+  .mockImplementation(() => {})
+const warningMock = jest
+  .spyOn(require('@actions/core'), 'warning')
+  .mockImplementation(() => {})
+const saveStateMock = jest
+  .spyOn(require('@actions/core'), 'saveState')
+  .mockImplementation(() => {})
+const setOutputMock = jest
+  .spyOn(require('@actions/core'), 'setOutput')
+  .mockImplementation(() => {})
 
 var data
 var context
@@ -30,11 +41,6 @@ const sha = 'abc123'
 
 beforeEach(() => {
   jest.clearAllMocks()
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
-  jest.spyOn(core, 'saveState').mockImplementation(() => {})
-  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
 
   context = {
     payload: {
@@ -73,6 +79,60 @@ test('checks a commit and finds that it is safe (date)', async () => {
   expect(setOutputMock).toHaveBeenCalledWith('commit_verified', false)
 })
 
+// Test data setup
+var data
+var context
+
+const no_verification = {
+  verified: false,
+  reason: 'unsigned',
+  signature: null,
+  payload: null,
+  verified_at: null
+}
+
+const sha = 'abc123'
+
+beforeEach(() => {
+  jest.clearAllMocks()
+
+  context = {
+    payload: {
+      comment: {
+        created_at: '2024-10-15T12:00:00Z'
+      }
+    }
+  }
+
+  data = {
+    sha: sha,
+    commit: {
+      author: {
+        date: '2024-10-15T11:00:00Z'
+      },
+      verification: no_verification
+    },
+    inputs: {
+      commit_verification: false
+    }
+  }
+})
+
+test('checks a commit and finds that it is safe (date)', async () => {
+  isTimestampOlder.mockReturnValue(false)
+  expect(await commitSafetyChecks(context, data)).toStrictEqual({
+    message: 'success',
+    status: true,
+    isVerified: false
+  })
+  expect(core.debug).toHaveBeenCalledWith('isVerified: false')
+  expect(core.debug).toHaveBeenCalledWith(
+    `🔑 commit does not contain a verified signature but ${COLORS.highlight}commit signing is not required${COLORS.reset} - ${COLORS.success}OK${COLORS.reset}`
+  )
+  expect(core.saveState).toHaveBeenCalledWith('commit_verified', false)
+  expect(core.setOutput).toHaveBeenCalledWith('commit_verified', false)
+})
+
 test('checks a commit and finds that it is safe (date + verification)', async () => {
   isTimestampOlder.mockReturnValue(false)
   data.inputs.commit_verification = true
@@ -88,8 +148,8 @@ test('checks a commit and finds that it is safe (date + verification)', async ()
     status: true,
     isVerified: true
   })
-  expect(debugMock).toHaveBeenCalledWith('isVerified: true')
-  expect(infoMock).toHaveBeenCalledWith(
+  expect(core.debug).toHaveBeenCalledWith('isVerified: true')
+  expect(core.info).toHaveBeenCalledWith(
     `🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`
   )
 })
@@ -104,7 +164,7 @@ test('checks a commit and finds that it is not safe (date)', async () => {
     status: false,
     isVerified: false
   })
-  expect(debugMock).toHaveBeenCalledWith('isVerified: false')
+  expect(core.debug).toHaveBeenCalledWith('isVerified: false')
 })
 
 test('checks a commit and finds that it is not safe (verification)', async () => {
@@ -123,12 +183,12 @@ test('checks a commit and finds that it is not safe (verification)', async () =>
     status: false,
     isVerified: false
   })
-  expect(debugMock).toHaveBeenCalledWith('isVerified: false')
-  expect(warningMock).toHaveBeenCalledWith(
+  expect(core.debug).toHaveBeenCalledWith('isVerified: false')
+  expect(core.warning).toHaveBeenCalledWith(
     `🔑 commit signature is ${COLORS.error}invalid${COLORS.reset}`
   )
-  expect(saveStateMock).toHaveBeenCalledWith('commit_verified', false)
-  expect(setOutputMock).toHaveBeenCalledWith('commit_verified', false)
+  expect(core.saveState).toHaveBeenCalledWith('commit_verified', false)
+  expect(core.setOutput).toHaveBeenCalledWith('commit_verified', false)
 })
 
 test('checks a commit and finds that it is not safe (verification time) even though it is verified - rejected due to timestamp', async () => {
@@ -150,12 +210,12 @@ test('checks a commit and finds that it is not safe (verification time) even tho
     status: false,
     isVerified: true
   })
-  expect(debugMock).toHaveBeenCalledWith('isVerified: true')
-  expect(infoMock).toHaveBeenCalledWith(
+  expect(core.debug).toHaveBeenCalledWith('isVerified: true')
+  expect(core.info).toHaveBeenCalledWith(
     `🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`
   )
-  expect(saveStateMock).toHaveBeenCalledWith('commit_verified', true)
-  expect(setOutputMock).toHaveBeenCalledWith('commit_verified', true)
+  expect(core.saveState).toHaveBeenCalledWith('commit_verified', true)
+  expect(core.setOutput).toHaveBeenCalledWith('commit_verified', true)
 })
 
 test('raises an error if the date format is invalid', async () => {
@@ -239,5 +299,5 @@ test('isTimestampOlder covers else branch (not older)', async () => {
     inputs: {commit_verification: false}
   }
   await commitSafetyChecks(context, data)
-  expect(debugMock).toHaveBeenCalledWith('isVerified: false')
+  expect(core.debug).toHaveBeenCalledWith('isVerified: false')
 })

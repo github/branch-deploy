@@ -1,8 +1,8 @@
 import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import * as core from '@actions/core'
-import {isOutdated} from '../../src/functions/outdated-check.js.js'
-import {COLORS} from '../../src/functions/colors.js.js'
+import {isOutdated} from '../../src/functions/outdated-check.js'
+import {COLORS} from '../../src/functions/colors.js'
 
 const debugMock = jest.spyOn(core, 'debug')
 const warningMock = jest.spyOn(core, 'warning')

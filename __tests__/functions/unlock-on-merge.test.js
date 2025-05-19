@@ -1,11 +1,11 @@
 import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import * as core from '@actions/core'
-import * as unlock from '../../src/functions/unlock.js.js'
-import * as checkLockFile from '../../src/functions/check-lock-file.js.js'
-import * as checkBranch from '../../src/functions/lock.js.js'
-import {unlockOnMerge} from '../../src/functions/unlock-on-merge.js.js'
-import {COLORS} from '../../src/functions/colors.js.js'
+import * as unlock from '../../src/functions/unlock.js'
+import * as checkLockFile from '../../src/functions/check-lock-file.js'
+import * as checkBranch from '../../src/functions/lock.js'
+import {unlockOnMerge} from '../../src/functions/unlock-on-merge.js'
+import {COLORS} from '../../src/functions/colors.js'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')

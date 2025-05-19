@@ -6,7 +6,7 @@ import {
   activeDeployment
 } from '../../src/functions/deployment.js.js'
 import * as core from '@actions/core'
-import {API_HEADERS} from '../../src/functions/api-headers.js.js'
+import {API_HEADERS} from '../../src/functions/api-headers.js'
 
 var octokit
 var context

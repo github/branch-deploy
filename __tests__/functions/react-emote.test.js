@@ -1,6 +1,6 @@
 import {test, expect, jest} from '@jest/globals'
 
-import {reactEmote} from '../../src/functions/react-emote.js.js'
+import {reactEmote} from '../../src/functions/react-emote.js'
 
 const context = {
   repo: {

@@ -1,9 +1,9 @@
 import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import * as core from '@actions/core'
-import {COLORS} from '../../src/functions/colors.js.js'
-import {validDeploymentOrder} from '../../src/functions/valid-deployment-order.js.js'
-import * as activeDeployment from '../../src/functions/deployment.js.js'
+import {COLORS} from '../../src/functions/colors.js'
+import {validDeploymentOrder} from '../../src/functions/valid-deployment-order.js'
+import * as activeDeployment from '../../src/functions/deployment.js'
 
 let octokit
 let context

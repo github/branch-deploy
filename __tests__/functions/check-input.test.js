@@ -1,6 +1,6 @@
 import {test, expect} from '@jest/globals'
 
-import {checkInput} from '../../src/functions/check-input.js.js'
+import {checkInput} from '../../src/functions/check-input.js'
 
 test('checks an input an finds that it is valid', async () => {
   expect(checkInput('production')).toStrictEqual('production')

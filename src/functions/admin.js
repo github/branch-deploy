@@ -1,9 +1,11 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import githubUsernameRegex from 'github-username-regex-js'
-import {retry} from '@octokit/plugin-retry'
-import {COLORS} from './colors.js.js'
-import {API_HEADERS} from './api-headers.js.js'
+import {COLORS} from './colors.js'
+import {API_HEADERS} from './api-headers.js'
+
+// Use require for packages that only have ESM exports
+const retry = require('@octokit/plugin-retry').retry
 
 // Helper function to check if a user exists in an org team
 // :param actor: The user to check

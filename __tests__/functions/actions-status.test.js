@@ -1,9 +1,9 @@
 import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import * as core from '@actions/core'
-import {actionStatus} from '../../src/functions/action-status.js.js'
-import {truncateCommentBody} from '../../src/functions/truncate-comment-body.js.js'
-import {API_HEADERS} from '../../src/functions/api-headers.js.js'
+import {actionStatus} from '../../src/functions/action-status.js'
+import {truncateCommentBody} from '../../src/functions/truncate-comment-body.js'
+import {API_HEADERS} from '../../src/functions/api-headers.js'
 
 var context
 var octokit

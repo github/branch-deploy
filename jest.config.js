@@ -1,30 +1,15 @@
-export default {
-  transform: {},
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1'
-  },
+module.exports = {
   testEnvironment: 'node',
-  transformIgnorePatterns: [
-    'node_modules/(?!(@octokit)/)'
-  ],
-  setupFilesAfterEnv: [
-    './jest-setup.js'
-  ],
-  coverageReporters: [
-    'json-summary',
-    'text',
-    'lcov',
-  ],
+  transformIgnorePatterns: ['node_modules/(?!(@octokit)/)'],
+  coverageReporters: ['json-summary', 'text', 'lcov'],
   collectCoverage: true,
-  collectCoverageFrom: [
-    './src/**',
-  ],
+  collectCoverageFrom: ['./src/**'],
   coverageThreshold: {
     global: {
       lines: 100,
       statements: 100,
       branches: 100,
-      functions: 100,
-    },
-  },
-};
+      functions: 100
+    }
+  }
+}

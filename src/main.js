@@ -1,41 +1,46 @@
-import * as core from '@actions/core'
-import * as github from '@actions/github'
-import {context} from '@actions/github'
-import {retry} from '@octokit/plugin-retry'
-import {paginateGraphQL} from '@octokit/plugin-paginate-graphql'
-import dedent from 'dedent-js'
+const core = require('@actions/core')
+const github = require('@actions/github')
+const {context} = require('@actions/github')
+const dedent = require('dedent-js')
 
-import {VERSION} from './version.js.js'
-import {triggerCheck} from './functions/trigger-check.js.js'
-import {contextCheck} from './functions/context-check.js.js'
-import {nakedCommandCheck} from './functions/naked-command-check.js.js'
-import {reactEmote} from './functions/react-emote.js.js'
-import {environmentTargets} from './functions/environment-targets.js.js'
-import {actionStatus} from './functions/action-status.js.js'
-import {createDeploymentStatus} from './functions/deployment.js.js'
-import {isDeprecated} from './functions/deprecated-checks.js.js'
-import {prechecks} from './functions/prechecks.js.js'
-import {branchRulesetChecks} from './functions/branch-ruleset-checks.js.js'
-import {validPermissions} from './functions/valid-permissions.js.js'
-import {lock} from './functions/lock.js.js'
-import {unlock} from './functions/unlock.js.js'
-import {post} from './functions/post.js.js'
-import {timeDiff} from './functions/time-diff.js.js'
-import {identicalCommitCheck} from './functions/identical-commit-check.js.js'
-import {unlockOnMerge} from './functions/unlock-on-merge.js.js'
-import {help} from './functions/help.js.js'
-import {LOCK_METADATA} from './functions/lock-metadata.js.js'
-import {COLORS} from './functions/colors.js.js'
-import {getInputs} from './functions/inputs.js.js'
-import {constructValidBranchName} from './functions/valid-branch-name.js.js'
-import {validDeploymentOrder} from './functions/valid-deployment-order.js.js'
-import {commitSafetyChecks} from './functions/commit-safety-checks.js.js'
-import {API_HEADERS} from './functions/api-headers.js.js'
-import {timestamp} from './functions/timestamp.js.js'
-import {deploymentConfirmation} from './functions/deployment-confirmation.js.js'
+// Use require for packages that only have ESM exports
+const retry = require('@octokit/plugin-retry').retry
+const paginateGraphQL =
+  require('@octokit/plugin-paginate-graphql').paginateGraphQL
+
+const {VERSION} = require('./version.js')
+const {triggerCheck} = require('./functions/trigger-check.js')
+const {contextCheck} = require('./functions/context-check.js')
+const {nakedCommandCheck} = require('./functions/naked-command-check.js')
+const {reactEmote} = require('./functions/react-emote.js')
+const {environmentTargets} = require('./functions/environment-targets.js')
+const {actionStatus} = require('./functions/action-status.js')
+const {createDeploymentStatus} = require('./functions/deployment.js')
+const {isDeprecated} = require('./functions/deprecated-checks.js')
+const {prechecks} = require('./functions/prechecks.js')
+const {branchRulesetChecks} = require('./functions/branch-ruleset-checks.js')
+const {validPermissions} = require('./functions/valid-permissions.js')
+const {lock} = require('./functions/lock.js')
+const {unlock} = require('./functions/unlock.js')
+const {post} = require('./functions/post.js')
+const {timeDiff} = require('./functions/time-diff.js')
+const {identicalCommitCheck} = require('./functions/identical-commit-check.js')
+const {unlockOnMerge} = require('./functions/unlock-on-merge.js')
+const {help} = require('./functions/help.js')
+const {LOCK_METADATA} = require('./functions/lock-metadata.js')
+const {COLORS} = require('./functions/colors.js')
+const {getInputs} = require('./functions/inputs.js')
+const {constructValidBranchName} = require('./functions/valid-branch-name.js')
+const {validDeploymentOrder} = require('./functions/valid-deployment-order.js')
+const {commitSafetyChecks} = require('./functions/commit-safety-checks.js')
+const {API_HEADERS} = require('./functions/api-headers.js')
+const {timestamp} = require('./functions/timestamp.js')
+const {
+  deploymentConfirmation
+} = require('./functions/deployment-confirmation.js')
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
-export async function run() {
+async function run() {
   try {
     core.info(`🛸 github/branch-deploy ${COLORS.info}${VERSION}${COLORS.reset}`)
     core.debug(`context: ${JSON.stringify(context)}`)
@@ -872,3 +877,6 @@ if (core.getState('isPost') === 'true') {
     run()
   }
 }
+
+// Export functions for testing
+exports.run = run

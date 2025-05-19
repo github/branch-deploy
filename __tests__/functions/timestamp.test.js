@@ -1,6 +1,6 @@
 import {describe, it, expect, jest, beforeEach} from '@jest/globals'
 
-import {timestamp} from '../../src/functions/timestamp.js.js'
+import {timestamp} from '../../src/functions/timestamp.js'
 
 beforeEach(() => {
   jest.clearAllMocks()
