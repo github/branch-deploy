@@ -1,4 +1,4 @@
-import { test, expect, jest, beforeEach } from '@jest/globals';
+import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import {environmentTargets} from '../../src/functions/environment-targets.js.js'
 import * as actionStatus from '../../src/functions/action-status.js.js'

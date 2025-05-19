@@ -1,4 +1,4 @@
-import { test, expect, jest } from '@jest/globals';
+import {test, expect, jest} from '@jest/globals'
 
 import {reactEmote} from '../../src/functions/react-emote.js.js'
 

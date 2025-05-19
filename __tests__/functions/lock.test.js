@@ -1,4 +1,4 @@
-import { test, expect, jest, beforeEach } from '@jest/globals';
+import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import * as core from '@actions/core'
 import {lock} from '../../src/functions/lock.js.js'

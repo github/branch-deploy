@@ -1,4 +1,4 @@
-import { test, expect, jest, beforeEach } from '@jest/globals';
+import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import {isDeprecated} from '../../src/functions/deprecated-checks.js.js'
 import * as core from '@actions/core'

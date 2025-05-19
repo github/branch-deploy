@@ -1,4 +1,4 @@
-import { test, expect, jest, beforeEach } from '@jest/globals';
+import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import {triggerCheck} from '../../src/functions/trigger-check.js.js'
 import * as core from '@actions/core'

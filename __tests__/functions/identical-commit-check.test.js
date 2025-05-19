@@ -1,4 +1,4 @@
-import { test, expect, jest, beforeEach } from '@jest/globals';
+import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import * as core from '@actions/core'
 import {identicalCommitCheck} from '../../src/functions/identical-commit-check.js.js'

@@ -1,4 +1,4 @@
-import { test, expect, jest, beforeEach } from '@jest/globals';
+import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import * as core from '@actions/core'
 import {isOutdated} from '../../src/functions/outdated-check.js.js'

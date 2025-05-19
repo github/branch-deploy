@@ -1,4 +1,4 @@
-import { test, expect, jest, beforeEach } from '@jest/globals';
+import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import {prechecks} from '../../src/functions/prechecks.js.js'
 import {COLORS} from '../../src/functions/colors.js.js'

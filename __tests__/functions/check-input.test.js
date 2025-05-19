@@ -1,4 +1,4 @@
-import { test, expect } from '@jest/globals';
+import {test, expect} from '@jest/globals'
 
 import {checkInput} from '../../src/functions/check-input.js.js'
 

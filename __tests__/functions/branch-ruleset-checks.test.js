@@ -1,4 +1,4 @@
-import { test, expect, jest, beforeEach } from '@jest/globals';
+import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import {branchRulesetChecks} from '../../src/functions/branch-ruleset-checks.js.js'
 import * as core from '@actions/core'

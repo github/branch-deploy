@@ -1,4 +1,4 @@
-import { test, expect, jest, beforeEach } from '@jest/globals';
+import {test, expect, jest, beforeEach} from '@jest/globals'
 
 import {stringToArray} from '../../src/functions/string-to-array.js.js'
 import * as core from '@actions/core'

@@ -1,4 +1,4 @@
-import { it, test, expect, jest, beforeEach } from '@jest/globals';
+import {it, test, expect, jest, beforeEach} from '@jest/globals'
 
 import {
   createDeploymentStatus,
