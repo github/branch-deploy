@@ -19,7 +19,7 @@ jobs:
           persist-credentials: false
 
       - name: actions-config-validation
-        uses: GrantBirki/json-yaml-validate@947ae8ac60c83cf78e4e00b3170ff8bee61f5248 # pin@v3.3.0
+        uses: GrantBirki/json-yaml-validate@250fa0dc7d7f4a888b24dc2a6b2ff589753fba70 # pin@v3.3.2
         with:
           comment: "true" # enable comment mode
           yaml_schema: "__tests__/schemas/action.schema.yml"
