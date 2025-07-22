@@ -33,7 +33,7 @@
     "dedent-js": "^1.0.1",
     "github-username-regex-js": "^1.0.0",
     "nunjucks": "^3.2.4",
-    "yargs-parser": "^22.0.0"
+    "yargs-parser": "^21.1.1"
   },
   "jest": {
     "coverageReporters": [
