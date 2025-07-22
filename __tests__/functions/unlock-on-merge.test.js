@@ -7,7 +7,7 @@ import {COLORS} from '../../src/functions/colors'
 
 const setOutputMock = jest.spyOn(core, 'setOutput')
 const infoMock = jest.spyOn(core, 'info')
-const setFailedMock = jest.spyOn(core, 'setFailed')
+const warningMock = jest.spyOn(core, 'warning')
 const debugMock = jest.spyOn(core, 'debug')
 
 const environment_targets = 'production,development,staging'
@@ -16,7 +16,7 @@ var context
 var octokit
 beforeEach(() => {
   jest.clearAllMocks()
-  jest.spyOn(core, 'setFailed').mockImplementation(() => {})
+  jest.spyOn(core, 'warning').mockImplementation(() => {})
   jest.spyOn(core, 'setOutput').mockImplementation(() => {})
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
@@ -148,7 +148,25 @@ test('fails due to the context not being a PR merge', async () => {
   expect(infoMock).toHaveBeenCalledWith(
     'event name: pull_request, action: opened, merged: false'
   )
-  expect(setFailedMock).toHaveBeenCalledWith(
-    'this workflow can only run in the context of a merged pull request'
+  expect(warningMock).toHaveBeenCalledWith(
+    `this workflow can only run in the context of a ${COLORS.highlight}merged${COLORS.reset} pull request`
+  )
+})
+
+test('fails due to the context being a PR closed event but not a merge', async () => {
+  context.payload.action = 'closed'
+  context.payload.pull_request.merged = false
+  context.payload.eventName = 'pull_request'
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(false)
+  expect(warningMock).toHaveBeenCalledWith(
+    `this workflow can only run in the context of a ${COLORS.highlight}merged${COLORS.reset} pull request`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    'event name: pull_request, action: closed, merged: false'
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    'pull request was closed but not merged so this workflow will not run - OK'
   )
 })
