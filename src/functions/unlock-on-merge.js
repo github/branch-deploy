@@ -27,9 +27,11 @@ export async function unlockOnMerge(octokit, context, environment_targets) {
 
     // many pull requests in a project will end up being closed without being merged, so we can just log this so its clear
     if (context?.payload?.action === 'closed') {
-      core.info(`pull request was closed but not merged so this workflow will not run - OK`)
+      core.info(
+        `pull request was closed but not merged so this workflow will not run - OK`
+      )
     }
-    
+
     return false
   }
 
