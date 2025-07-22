@@ -46047,12 +46047,20 @@ async function unlockOnMerge(octokit, context, environment_targets) {
     context?.payload?.action !== 'closed' ||
     context?.payload?.pull_request?.merged !== true
   ) {
+    core.warning(
+      `this workflow can only run in the context of a ${COLORS.highlight}merged${COLORS.reset} pull request`
+    )
     core.info(
       `event name: ${context?.eventName}, action: ${context?.payload?.action}, merged: ${context?.payload?.pull_request?.merged}`
     )
-    core.setFailed(
-      'this workflow can only run in the context of a merged pull request'
-    )
+
+    // many pull requests in a project will end up being closed without being merged, so we can just log this so its clear
+    if (context?.payload?.action === 'closed') {
+      core.info(
+        `pull request was closed but not merged so this workflow will not run - OK`
+      )
+    }
+
     return false
   }
 
