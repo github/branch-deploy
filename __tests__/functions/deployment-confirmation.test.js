@@ -75,6 +75,7 @@ beforeEach(() => {
   data = {
     deployment_confirmation_timeout: 60,
     deploymentType: 'branch',
+    deploymentApiType: 'deploy',
     environment: 'production',
     environmentUrl: 'https://example.com',
     log_url: 'https://github.com/corp/test/actions/runs/12345',
@@ -110,6 +111,56 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
   expect(result).toBe(true)
   expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
     body: expect.stringContaining('Deployment Confirmation Required'),
+    issue_number: 1,
+    owner: 'corp',
+    repo: 'test',
+    headers: API_HEADERS
+  })
+  expect(core.debug).toHaveBeenCalledWith(
+    'deployment confirmation comment id: 124'
+  )
+  expect(core.info).toHaveBeenCalledWith(
+    `🕒 waiting ${COLORS.highlight}60${COLORS.reset} seconds for deployment confirmation`
+  )
+  expect(core.info).toHaveBeenCalledWith(
+    `✅ deployment confirmed by ${COLORS.highlight}monalisa${COLORS.reset} - sha: ${COLORS.highlight}abc123${COLORS.reset}`
+  )
+
+  expect(octokit.rest.reactions.listForIssueComment).toHaveBeenCalledWith({
+    comment_id: 124,
+    owner: 'corp',
+    repo: 'test',
+    headers: API_HEADERS
+  })
+
+  expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith({
+    body: expect.stringContaining('✅ Deployment confirmed by __monalisa__'),
+    comment_id: 124,
+    owner: 'corp',
+    repo: 'test',
+    headers: API_HEADERS
+  })
+})
+
+test('successfully prompts for destroy confirmation and gets confirmed by the original actor', async () => {
+  // Mock that the user adds a +1 reaction
+  octokit.rest.reactions.listForIssueComment.mockResolvedValueOnce({
+    data: [
+      {
+        user: {login: 'monalisa'},
+        content: '+1'
+      }
+    ]
+  })
+
+  data.deploymentType = 'destroy'
+  data.deploymentApiType = 'destroy'
+
+  const result = await deploymentConfirmation(context, octokit, data)
+
+  expect(result).toBe(true)
+  expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
+    body: expect.stringContaining('Deployment Type: `destroy`'),
     issue_number: 1,
     owner: 'corp',
     repo: 'test',

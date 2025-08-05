@@ -24,6 +24,7 @@ const environment = 'production'
 const body = '.deploy'
 const trigger = '.deploy'
 const noop_trigger = '.noop'
+const destroy_trigger = '.destroy'
 const stable_branch = 'main'
 const environmentUrls =
   'production|https://example.com,development|https://dev.example.com,staging|http://staging.example.com'
@@ -35,6 +36,7 @@ test('checks the comment body and does not find an explicit environment target',
       body,
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -43,6 +45,7 @@ test('checks the comment body and does not find an explicit environment target',
     environmentObj: {
       target: 'production',
       noop: false,
+      destroy: false,
       stable_branch_used: false,
       params: null,
       parsed_params: null,
@@ -61,6 +64,7 @@ test('checks the comment body and finds an explicit environment target for devel
       '.deploy development',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -69,6 +73,7 @@ test('checks the comment body and finds an explicit environment target for devel
     environmentObj: {
       target: 'development',
       noop: false,
+      destroy: false,
       stable_branch_used: false,
       params: null,
       parsed_params: null,
@@ -87,6 +92,7 @@ test('checks the comment body and finds an explicit environment target for devel
       '.deploy development | something1 something2 something3',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -95,6 +101,7 @@ test('checks the comment body and finds an explicit environment target for devel
     environmentObj: {
       target: 'development',
       noop: false,
+      destroy: false,
       stable_branch_used: false,
       params: 'something1 something2 something3',
       parsed_params: {_: ['something1', 'something2', 'something3']},
@@ -120,6 +127,7 @@ test('checks the comment body and finds an explicit environment target and an ex
       '.deploy 82c238c277ca3df56fe9418a5913d9188eafe3bc development | something1 something2 something3',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -128,6 +136,7 @@ test('checks the comment body and finds an explicit environment target and an ex
     environmentObj: {
       target: 'development',
       noop: false,
+      destroy: false,
       stable_branch_used: false,
       params: 'something1 something2 something3',
       parsed_params: {_: ['something1', 'something2', 'something3']},
@@ -153,6 +162,7 @@ test('checks the comment body and finds an explicit environment target and an ex
       '.noop 82c238c277ca3df56fe9418a5913d9188eafe3bc development | something1 something2 something3',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -161,6 +171,7 @@ test('checks the comment body and finds an explicit environment target and an ex
     environmentObj: {
       target: 'development',
       noop: true,
+      destroy: false,
       stable_branch_used: false,
       params: 'something1 something2 something3',
       parsed_params: {_: ['something1', 'something2', 'something3']},
@@ -186,6 +197,7 @@ test('checks the comment body and finds an explicit environment target and an ex
       '.noop 82c238c277ca3df56fe9418a5913d9188eafe3bc development | --cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -194,6 +206,7 @@ test('checks the comment body and finds an explicit environment target and an ex
     environmentObj: {
       target: 'development',
       noop: true,
+      destroy: false,
       stable_branch_used: false,
       params:
         '--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue',
@@ -228,6 +241,7 @@ test('checks the comment body and finds an explicit environment target and an ex
       '.noop f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b development | something1 something2 something3',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -236,6 +250,7 @@ test('checks the comment body and finds an explicit environment target and an ex
     environmentObj: {
       target: 'development',
       noop: true,
+      destroy: false,
       stable_branch_used: false,
       params: 'something1 something2 something3',
       parsed_params: {_: ['something1', 'something2', 'something3']},
@@ -261,6 +276,7 @@ test('checks the comment body and finds an explicit environment target and an ex
       '.noop 82c238c277ca3df56fe9418a5913d9188eafe3bc       ',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -269,6 +285,7 @@ test('checks the comment body and finds an explicit environment target and an ex
     environmentObj: {
       target: 'production',
       noop: true,
+      destroy: false,
       stable_branch_used: false,
       params: null,
       parsed_params: null,
@@ -289,6 +306,7 @@ test('checks the comment body and finds an explicit environment target for devel
       '.deploy main development + something1 | something2 something3',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch,
       null,
       null,
@@ -303,6 +321,7 @@ test('checks the comment body and finds an explicit environment target for devel
     environmentObj: {
       target: 'development',
       noop: false,
+      destroy: false,
       stable_branch_used: true,
       params: 'something1 | something2 something3',
       parsed_params: {_: ['something1', '|', 'something2', 'something3']},
@@ -328,6 +347,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       '.noop staging',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -336,6 +356,7 @@ test('checks the comment body and finds an explicit environment target for stagi
     environmentObj: {
       target: 'staging',
       noop: true,
+      destroy: false,
       stable_branch_used: false,
       params: null,
       parsed_params: null,
@@ -354,6 +375,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       '.noop main staging',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -362,6 +384,7 @@ test('checks the comment body and finds an explicit environment target for stagi
     environmentObj: {
       target: 'staging',
       noop: true,
+      destroy: false,
       stable_branch_used: true,
       params: null,
       parsed_params: null,
@@ -380,6 +403,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       '.noop staging',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch,
       null,
       null,
@@ -393,6 +417,7 @@ test('checks the comment body and finds an explicit environment target for stagi
     environmentObj: {
       target: 'staging',
       noop: true,
+      destroy: false,
       stable_branch_used: false,
       params: null,
       parsed_params: null,
@@ -424,6 +449,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       '.noop main to staging | something1 something2 something3',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch,
       null,
       null,
@@ -437,6 +463,7 @@ test('checks the comment body and finds an explicit environment target for stagi
     environmentObj: {
       target: 'staging',
       noop: true,
+      destroy: false,
       stable_branch_used: true,
       params: 'something1 something2 something3',
       parsed_params: {_: ['something1', 'something2', 'something3']},
@@ -473,6 +500,7 @@ test('checks the comment body and uses the default production environment target
       '.deploy',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch,
       null,
       null,
@@ -486,6 +514,7 @@ test('checks the comment body and uses the default production environment target
     environmentObj: {
       target: 'production',
       noop: false,
+      destroy: false,
       stable_branch_used: false,
       params: null,
       parsed_params: null,
@@ -515,6 +544,7 @@ test('checks the comment body and finds an explicit environment target for a pro
       '.deploy production',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch,
       null,
       null,
@@ -528,6 +558,7 @@ test('checks the comment body and finds an explicit environment target for a pro
     environmentObj: {
       target: 'production',
       noop: false,
+      destroy: false,
       params: null,
       parsed_params: null,
       stable_branch_used: false,
@@ -551,6 +582,7 @@ test('checks the comment body and finds an explicit environment target for a pro
       '.deploy production',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch,
       null,
       null,
@@ -565,6 +597,7 @@ test('checks the comment body and finds an explicit environment target for a pro
       target: 'production',
       stable_branch_used: false,
       noop: false,
+      destroy: false,
       params: null,
       parsed_params: null,
       sha: null
@@ -590,6 +623,7 @@ test('checks the comment body and finds an explicit environment target for a pro
       '.deploy production',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch,
       null,
       null,
@@ -604,6 +638,7 @@ test('checks the comment body and finds an explicit environment target for a pro
       target: 'production',
       stable_branch_used: false,
       noop: false,
+      destroy: false,
       params: null,
       parsed_params: null,
       sha: null
@@ -626,6 +661,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       '.noop to staging',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -635,6 +671,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       target: 'staging',
       stable_branch_used: false,
       noop: true,
+      destroy: false,
       params: null,
       parsed_params: null,
       sha: null
@@ -652,6 +689,7 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
       '.noop main',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -661,6 +699,7 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
       target: 'production',
       stable_branch_used: true,
       noop: true,
+      destroy: false,
       params: null,
       parsed_params: null,
       sha: null
@@ -678,6 +717,7 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
       '.noop main | foo=bar',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -687,6 +727,7 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
       target: 'production',
       stable_branch_used: true,
       noop: true,
+      destroy: false,
       params: 'foo=bar',
       parsed_params: {_: ['foo=bar']},
       sha: null
@@ -704,6 +745,7 @@ test('checks the comment body and finds an explicit environment target for produ
       '.deploy to production',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -713,6 +755,7 @@ test('checks the comment body and finds an explicit environment target for produ
       target: 'production',
       stable_branch_used: false,
       noop: false,
+      destroy: false,
       params: null,
       parsed_params: null,
       sha: null
@@ -730,6 +773,7 @@ test('checks the comment body on a noop deploy and does not find an explicit env
       '.noop', // comment body
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -739,6 +783,7 @@ test('checks the comment body on a noop deploy and does not find an explicit env
       target: 'production',
       stable_branch_used: false,
       noop: true,
+      destroy: false,
       params: null,
       parsed_params: null,
       sha: null
@@ -756,6 +801,7 @@ test('checks the comment body on a deployment and does not find any matching env
       '.deploy to chaos',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -763,6 +809,7 @@ test('checks the comment body on a deployment and does not find any matching env
     environmentUrl: null,
     environmentObj: {
       noop: null,
+      destroy: null,
       params: null,
       parsed_params: null,
       stable_branch_used: null,
@@ -788,6 +835,7 @@ test('checks the comment body on a stable branch deployment and finds a matching
       '.deploy main to production',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -797,6 +845,7 @@ test('checks the comment body on a stable branch deployment and finds a matching
       target: 'production',
       stable_branch_used: true,
       noop: false,
+      destroy: false,
       params: null,
       parsed_params: null,
       sha: null
@@ -814,6 +863,7 @@ test('checks the comment body on a stable branch deployment and finds a matching
       '.deploy main production',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -823,6 +873,7 @@ test('checks the comment body on a stable branch deployment and finds a matching
       target: 'production',
       stable_branch_used: true,
       noop: false,
+      destroy: false,
       params: null,
       parsed_params: null,
       sha: null
@@ -840,6 +891,7 @@ test('checks the comment body on a stable branch deployment and uses the default
       '.deploy main',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -849,6 +901,7 @@ test('checks the comment body on a stable branch deployment and uses the default
       target: 'production',
       stable_branch_used: true,
       noop: false,
+      destroy: false,
       params: null,
       parsed_params: null,
       sha: null
@@ -866,6 +919,7 @@ test('checks the comment body on a stable branch deployment and does not find a 
       '.deploy main chaos',
       trigger,
       noop_trigger,
+      destroy_trigger,
       stable_branch
     )
   ).toStrictEqual({
@@ -873,6 +927,7 @@ test('checks the comment body on a stable branch deployment and does not find a 
     environmentUrl: null,
     environmentObj: {
       noop: null,
+      destroy: null,
       params: null,
       parsed_params: null,
       stable_branch_used: null,
@@ -898,6 +953,7 @@ test('checks the comment body on a lock request and uses the default environment
       '.lock', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit
@@ -917,6 +973,7 @@ test('checks the comment body on a lock request with a reason and uses the defau
       '.lock --reason making a small change to our api because reasons', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit
@@ -936,6 +993,7 @@ test('checks the comment body on a lock request with a reason and uses the expli
       '.lock  production    --reason small change to mappings for risk rating - - 92*91-2408|  ', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit
@@ -955,6 +1013,7 @@ test('checks the comment body on an unlock request and uses the default environm
       '.unlock', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit
@@ -974,6 +1033,7 @@ test('checks the comment body on an unlock request and uses the default environm
       '.unlock --reason oh wait this command does not need a reason.. oops', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit
@@ -993,6 +1053,7 @@ test('checks the comment body on an unlock request and uses the development envi
       '.unlock development --reason oh wait this command does not need a reason.. oops', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit
@@ -1012,6 +1073,7 @@ test('checks the comment body on a lock info alias request and uses the default 
       '.wcid', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit
@@ -1031,6 +1093,7 @@ test('checks the comment body on a lock request and uses the production environm
       '.lock production', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit
@@ -1050,6 +1113,7 @@ test('checks the comment body on an unlock request and uses the development envi
       '.unlock development', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit
@@ -1069,6 +1133,7 @@ test('checks the comment body on a lock info alias request and uses the developm
       '.wcid development', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit
@@ -1088,6 +1153,7 @@ test('checks the comment body on a lock info request and uses the development en
       '.lock --info development', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit
@@ -1107,6 +1173,7 @@ test('checks the comment body on a lock info request and uses the development en
       '.lock -d development', // comment body
       '.lock', // lock trigger
       '.unlock', // unlock trigger
+      '.destroy', // destroy trigger
       null, // stable_branch not used for lock/unlock requests
       null, // context
       null, // octokit

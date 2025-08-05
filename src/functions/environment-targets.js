@@ -11,6 +11,7 @@ import {parseParams} from './params'
 // :param body: The body of the comment
 // :param trigger: The trigger used to initiate the deployment
 // :param noop_trigger: The trigger used to initiate a noop deployment
+// :param destroy_trigger: The trigger used to initiate a destroy deployment
 // :param stable_branch: The stable branch
 // :param environment: The default environment
 // :param param_separator: The separator used to seperate the command from the parameters
@@ -20,6 +21,7 @@ async function onDeploymentChecks(
   body,
   trigger,
   noop_trigger,
+  destroy_trigger,
   stable_branch,
   environment,
   param_separator
@@ -71,9 +73,18 @@ async function onDeploymentChecks(
     `${escapedNoopTrigger}\\s+((?![a-f0-9]{40}[a-f0-9]{24})[a-f0-9]{40}|[a-f0-9]{64})`,
     'i'
   )
+  const escapedDestroyTrigger = destroy_trigger.replace(
+    /[-[\]/{}()*+?.\\^$|]/g,
+    '\\$&'
+  )
+  const destroyRegex = new RegExp(
+    `${escapedDestroyTrigger}\\s+((?![a-f0-9]{40}[a-f0-9]{24})[a-f0-9]{40}|[a-f0-9]{64})`,
+    'i'
+  )
 
   const match = bodyFmt.trim().match(regex)
   const noopMatch = bodyFmt.trim().match(noopRegex)
+  const destroyMatch = bodyFmt.trim().match(destroyRegex)
   if (match) {
     sha = match[1] // The captured SHA value
     // if a sha was used, then we need to remove it from the body for env checks
@@ -88,6 +99,15 @@ async function onDeploymentChecks(
     core.info(
       `📍 detected SHA in noop command: ${COLORS.highlight}${sha}${COLORS.reset}`
     )
+  } else if (destroyMatch) {
+    sha = destroyMatch[1] // The captured SHA value
+    // if a sha was used, then we need to remove it from the body for env checks
+    bodyFmt = bodyFmt.replace(new RegExp(`\\s*${sha}\\s*`, 'g'), '').trim()
+    core.info(
+      `📍 detected SHA in destroy command: ${COLORS.highlight}${sha}${COLORS.reset}`
+    )
+  } else {
+    core.debug('no SHA detected in command')
   }
 
   // Loop through all the environment targets to see if an explicit target is being used
@@ -99,6 +119,7 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: false,
+        destroy: false,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -111,6 +132,20 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: true,
+        destroy: false,
+        params: paramsTrim,
+        parsed_params: parsed_params,
+        sha: sha
+      }
+    }
+    // If the body on a destroy trigger contains the target
+    else if (bodyFmt.replace(destroy_trigger, '').trim() === target) {
+      core.debug(`found environment target for destroy trigger: ${target}`)
+      return {
+        target: target,
+        stable_branch_used: false,
+        noop: false,
+        destroy: true,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -125,6 +160,7 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: false,
+        destroy: false,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -139,6 +175,22 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: false,
         noop: true,
+        destroy: false,
+        params: paramsTrim,
+        parsed_params: parsed_params,
+        sha: sha
+      }
+    }
+    // If the body with 'to <target>' contains the target on a destroy trigger
+    else if (bodyFmt.replace(destroy_trigger, '').trim() === `to ${target}`) {
+      core.debug(
+        `found environment target for destroy trigger (with 'to'): ${target}`
+      )
+      return {
+        target: target,
+        stable_branch_used: false,
+        noop: false,
+        destroy: true,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -156,6 +208,7 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: false,
+        destroy: false,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -173,6 +226,26 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: true,
+        destroy: false,
+        params: paramsTrim,
+        parsed_params: parsed_params,
+        sha: sha
+      }
+    }
+    // If the body with 'to <target>' contains the target on a stable branch destroy trigger
+    else if (
+      bodyFmt.replace(`${destroy_trigger} ${stable_branch}`, '').trim() ===
+      `to ${target}`
+    ) {
+      core.debug(
+        `found environment target for stable branch destroy trigger (with 'to'): ${target}`
+      )
+      core.info(`🤠 Whoa partner! A ${COLORS.highlight}destroy${COLORS.reset} command to the ${COLORS.highlight}${stable_branch}${COLORS.reset} branch?! That takes some confidence. You are BOLD.`)
+      return {
+        target: target,
+        stable_branch_used: true,
+        noop: false,
+        destroy: true,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -187,6 +260,7 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: false,
+        destroy: false,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -203,6 +277,26 @@ async function onDeploymentChecks(
         target: target,
         stable_branch_used: true,
         noop: true,
+        destroy: false,
+        params: paramsTrim,
+        parsed_params: parsed_params,
+        sha: sha
+      }
+    }
+    // If the body on a stable branch destroy trigger contains the target
+    else if (
+      bodyFmt.replace(`${destroy_trigger} ${stable_branch}`, '').trim() ===
+      target
+    ) {
+      core.debug(
+        `found environment target for stable branch destroy trigger: ${target}`
+      )
+      core.info(`🤠 Whoa partner! A ${COLORS.highlight}destroy${COLORS.reset} command to the ${COLORS.highlight}${stable_branch}${COLORS.reset} branch?! That takes some confidence. You are BOLD.`)
+      return {
+        target: target,
+        stable_branch_used: true,
+        noop: false,
+        destroy: true,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -215,6 +309,7 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: false,
         noop: false,
+        destroy: false,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -227,6 +322,20 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: false,
         noop: true,
+        destroy: false,
+        params: paramsTrim,
+        parsed_params: parsed_params,
+        sha: sha
+      }
+    }
+    // If the body matches the destroy_trigger phrase exactly, just use the default environment
+    else if (bodyFmt.trim() === destroy_trigger) {
+      core.debug('using default environment for destroy trigger')
+      return {
+        target: environment,
+        stable_branch_used: false,
+        noop: false,
+        destroy: true,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -239,6 +348,7 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: true,
         noop: false,
+        destroy: false,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -251,6 +361,21 @@ async function onDeploymentChecks(
         target: environment,
         stable_branch_used: true,
         noop: true,
+        destroy: false,
+        params: paramsTrim,
+        parsed_params: parsed_params,
+        sha: sha
+      }
+    }
+    // If the body matches the stable branch phrase exactly on a destroy trigger, just use the default environment
+    else if (bodyFmt.trim() === `${destroy_trigger} ${stable_branch}`) {
+      core.debug('using default environment for stable branch destroy trigger')
+      core.info(`🤠 Whoa partner! A ${COLORS.highlight}destroy${COLORS.reset} command to the ${COLORS.highlight}${stable_branch}${COLORS.reset} branch?! That takes some confidence. You are BOLD.`)
+      return {
+        target: environment,
+        stable_branch_used: true,
+        noop: false,
+        destroy: true,
         params: paramsTrim,
         parsed_params: parsed_params,
         sha: sha
@@ -263,6 +388,7 @@ async function onDeploymentChecks(
     target: false,
     stable_branch_used: null,
     noop: null,
+    destroy: null,
     params: null,
     parsed_params: null,
     sha: null
@@ -274,6 +400,7 @@ async function onDeploymentChecks(
 // :param body: The body of the comment
 // :param lock_trigger: The trigger used to initiate the lock command
 // :param unlock_trigger: The trigger used to initiate the unlock command
+// :param destroy_trigger: The trigger used to initiate the destroy command
 // :param environment: The default environment from the Actions inputs
 // :returns: The environment target if found, false otherwise
 async function onLockChecks(
@@ -281,6 +408,7 @@ async function onLockChecks(
   body,
   lock_trigger,
   unlock_trigger,
+  destroy_trigger,
   environment
 ) {
   // if the body contains the globalFlag, exit right away as environments are not relevant
@@ -319,6 +447,12 @@ async function onLockChecks(
     return environment
   }
 
+  // if the body matches the destroy trigger exactly, just use the default environment
+  if (body.trim() === destroy_trigger.trim()) {
+    core.debug('using default environment for destroy request')
+    return environment
+  }
+
   // if the body matches the lock info alias exactly, just use the default environment
   if (body.trim() === lockInfoAlias.trim()) {
     core.debug('using default environment for lock info request')
@@ -333,6 +467,9 @@ async function onLockChecks(
       return target
     } else if (body.replace(unlock_trigger, '').trim() === target) {
       core.debug(`found environment target for unlock request: ${target}`)
+      return target
+    } else if (body.replace(destroy_trigger, '').trim() === target) {
+      core.debug(`found environment target for destroy request: ${target}`)
       return target
     } else if (body.replace(lockInfoAlias, '').trim() === target) {
       core.debug(`found environment target for lock info request: ${target}`)
@@ -406,6 +543,7 @@ async function findEnvironmentUrl(environment, environment_urls) {
 // :param body: The comment body
 // :param trigger: The trigger prefix
 // :param alt_trigger: Usually the noop trigger prefix
+// :param destroy_trigger: The destroy trigger prefix
 // :param stable_branch: The stable branch (only used for branch deploys)
 // :param context: The context of the Action
 // :param octokit: The Octokit instance
@@ -419,6 +557,7 @@ export async function environmentTargets(
   body,
   trigger,
   alt_trigger,
+  destroy_trigger,
   stable_branch,
   context,
   octokit,
@@ -445,6 +584,7 @@ export async function environmentTargets(
       body,
       trigger,
       alt_trigger,
+      destroy_trigger,
       environment
     )
     if (environmentDetected !== false) {
@@ -476,6 +616,7 @@ export async function environmentTargets(
       body,
       trigger,
       alt_trigger,
+      destroy_trigger,
       stable_branch,
       environment,
       param_separator

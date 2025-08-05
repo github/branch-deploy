@@ -35,6 +35,7 @@ export function getInputs() {
   const stable_branch = core.getInput('stable_branch')
   const noop_trigger = core.getInput('noop_trigger')
   const lock_trigger = core.getInput('lock_trigger')
+  const destroy_trigger = core.getInput('destroy_trigger')
   const production_environments = stringToArray(
     core.getInput('production_environments')
   )
@@ -99,6 +100,7 @@ export function getInputs() {
     stable_branch: stable_branch,
     noop_trigger: noop_trigger,
     lock_trigger: lock_trigger,
+    destroy_trigger: destroy_trigger,
     production_environments: production_environments,
     environment_targets: environment_targets,
     unlock_trigger: unlock_trigger,

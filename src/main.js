@@ -98,6 +98,7 @@ export async function run() {
         [
           inputs.trigger,
           inputs.noop_trigger,
+          inputs.destroy_trigger,
           inputs.lock_trigger,
           inputs.unlock_trigger,
           inputs.lock_info_alias
@@ -120,13 +121,16 @@ export async function run() {
 
     // check if the comment is a trigger and what type of trigger it is
     const isDeploy = await triggerCheck(body, inputs.trigger)
+    const isDestroy = await triggerCheck(body, inputs.destroy_trigger)
     const isNoopDeploy = await triggerCheck(body, inputs.noop_trigger)
     const isLock = await triggerCheck(body, inputs.lock_trigger)
     const isUnlock = await triggerCheck(body, inputs.unlock_trigger)
     const isHelp = await triggerCheck(body, inputs.help_trigger)
     const isLockInfoAlias = await triggerCheck(body, inputs.lock_info_alias)
 
-    if (isDeploy || isNoopDeploy) {
+    if (isDeploy || isNoopDeploy || isDestroy) {
+      // deployments, noops, and destroy commands are all treated as "deployment events"
+      // yes, even destroy commands because they are the same as a .deploy command but with one extra output set
       core.setOutput('type', 'deploy')
     } else if (isLock) {
       core.setOutput('type', 'lock')
@@ -142,6 +146,12 @@ export async function run() {
       core.setOutput('triggered', 'false')
       core.info('⛔ no trigger detected in comment - exiting')
       return 'safe-exit'
+    }
+
+    if (isDestroy) {
+      core.info(`🗑️ destroy command detected`)
+      core.setOutput('destroy', 'true')
+      core.saveState('destroy', 'true')
     }
 
     // If we made it this far, the action has been triggered in one manner or another
@@ -390,6 +400,7 @@ export async function run() {
       body, // comment body
       inputs.trigger, // trigger
       inputs.noop_trigger, // noop trigger
+      inputs.destroy_trigger, // destroy trigger
       inputs.stable_branch, // ref
       context, // context object
       octokit, // octokit object
@@ -607,12 +618,18 @@ export async function run() {
 
     // Add a comment to the PR letting the user know that a deployment has been started
     // Format the success message
+    var deploymentApiType
     var deploymentType
     if (precheckResults.noopMode) {
       deploymentType = 'noop'
+      deploymentApiType = 'noop'
+    } else if (isDestroy) {
+      deploymentType = 'destroy'
+      deploymentApiType = 'destroy'
     } else {
       deploymentType =
         environmentObj.environmentObj.sha !== null ? 'sha' : 'branch'
+      deploymentApiType = 'deploy'
     }
     const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${github_run_id}`
 
@@ -625,6 +642,7 @@ export async function run() {
           sha: precheckResults.sha,
           ref: precheckResults.ref,
           deploymentType: deploymentType,
+          deploymentApiType: deploymentApiType,
           environment: environment,
           environmentUrl: environmentObj.environmentUrl,
           deployment_confirmation_timeout:
@@ -680,6 +698,7 @@ export async function run() {
           "url": ${environmentObj.environmentUrl ? `"${environmentObj.environmentUrl}"` : null}
         },
         "deployment": {
+          "type": "${deploymentApiType}",
           "timestamp": "${deployment_start_time}",
           "logs": "${log_url}"
         },
@@ -776,6 +795,7 @@ export async function run() {
     // Construct the deployment payload that will be sent to the GitHub API during the deployment creation
     const payload = {
       type: 'branch-deploy',
+      deployment_type: deploymentApiType,
       sha: precheckResults.sha,
       params: params,
       parsed_params: parsed_params,
@@ -857,6 +877,8 @@ export async function run() {
     core.saveState('bypass', 'true')
     core.error(error.stack)
     core.setFailed(error.message)
+    console.log(error.message)
+    console.log(error.stack)
   }
 }
 

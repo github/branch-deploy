@@ -37,6 +37,7 @@ export async function deploymentConfirmation(context, octokit, data) {
         "url": ${data.environmentUrl ? `"${data.environmentUrl}"` : null}
       },
       "deployment": {
+        "type": "${data.deploymentApiType}",
         "logs": "${data.log_url}"
       },
       "git": {

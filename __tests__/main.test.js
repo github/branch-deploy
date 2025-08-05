@@ -71,6 +71,7 @@ beforeEach(() => {
   process.env.INPUT_PRODUCTION_ENVIRONMENTS = 'production'
   process.env.INPUT_STABLE_BRANCH = 'main'
   process.env.INPUT_NOOP_TRIGGER = '.noop'
+  process.env.INPUT_DESTROY_TRIGGER = '.destroy'
   process.env.INPUT_LOCK_TRIGGER = '.lock'
   process.env.INPUT_UNLOCK_TRIGGER = '.unlock'
   process.env.INPUT_HELP_TRIGGER = '.help'
