@@ -33,7 +33,7 @@
     "dedent-js": "^1.0.1",
     "github-username-regex-js": "^1.0.0",
     "nunjucks": "^3.2.4",
-    "yargs-parser": "^21.1.1"
+    "yargs-parser": "^22.0.0"
   },
   "jest": {
     "coverageReporters": [
@@ -55,12 +55,12 @@
     }
   },
   "devDependencies": {
-    "@babel/core": "^7.27.7",
+    "@babel/core": "^7.28.3",
     "@babel/plugin-transform-modules-commonjs": "^7.27.1",
-    "@types/node": "^24.0.8",
+    "@types/node": "^24.3.0",
     "@vercel/ncc": "^0.38.3",
     "eslint": "^8.57.0",
-    "jest": "^30.0.3",
+    "jest": "^30.1.2",
     "js-yaml": "^4.1.0",
     "make-coverage-badge": "^1.2.0",
     "prettier": "^3.6.2"
