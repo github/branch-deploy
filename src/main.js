@@ -230,7 +230,7 @@ export async function run() {
         return 'safe-exit'
       }
 
-      // If it is a lock or lock info releated request
+      // If it is a lock or lock info related request
       if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
         if (
@@ -250,7 +250,8 @@ export async function run() {
             null, // environment (we will find this in the lock function - important)
             true, // details only flag
             false, // postDeployStep
-            true // leaveComment
+            true, // leaveComment
+            null // task (not applicable for details only)
           )
           // extract values from the lock response
           const lockData = lockResponse.lockData
@@ -371,7 +372,8 @@ export async function run() {
           null, // environment (we will find this in the lock function)
           false, // details only flag
           false, // postDeployStep
-          true // leaveComment
+          true, // leaveComment
+          null // task (not applicable for sticky locks)
         )
         core.saveState('bypass', 'true')
         return 'safe-exit'
@@ -384,6 +386,7 @@ export async function run() {
       }
     }
 
+    // At this point, it must be a 'deploy' or 'noopDeploy' request
     // Check if the default environment is being overwritten by an explicit environment
     const environmentObj = await environmentTargets(
       environment, // environment
@@ -511,7 +514,8 @@ export async function run() {
         context,
         inputs.enforced_deployment_order,
         environment,
-        precheckResults.sha
+        precheckResults.sha,
+        inputs.deployment_task.trim() || null
       )
 
       if (!deploymentOrderResults.valid) {
@@ -595,7 +599,9 @@ export async function run() {
       environment, // environment
       null, // details only flag
       false, // postDeployStep
-      leaveComment // leaveComment - true/false depending on the input
+      leaveComment, // leaveComment - true/false depending on the input
+      inputs.deployment_task.trim() || null, // task for concurrent deployments
+      issue_number
     )
 
     // If the lock request fails, exit the Action
@@ -789,14 +795,20 @@ export async function run() {
       stable_branch_used: stableBranchUsed
     }
 
+    // Determine task parameter for concurrent deployments
+    const task = inputs.deployment_task.trim() || 'deploy' // Default to 'deploy' for backwards compatibility
+    const auto_inactive = inputs.deployment_task.trim() ? false : true // Don't auto-inactive when using tasks
+
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
       repo: repo,
       ref: precheckResults.ref,
       auto_merge: auto_merge,
+      auto_inactive: auto_inactive,
       required_contexts: requiredContexts,
       environment: environment,
+      task: task,
       // description: "",
       // :description note: Short description of the deployment.
       production_environment: isProductionEnvironment,
@@ -806,6 +818,8 @@ export async function run() {
     })
     core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)
+    core.setOutput('deployment_task', task)
+    core.saveState('deployment_task', task)
 
     // If a merge to the base branch is required, let the user know and exit
     if (

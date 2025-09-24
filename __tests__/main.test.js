@@ -585,7 +585,8 @@ test('runs the action and fails due to invalid environment deployment order', as
     expect.any(Object),
     ['development', 'staging', 'production'],
     'production',
-    'deadbeef'
+    'deadbeef',
+    null
   )
 })
 

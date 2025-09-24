@@ -8,13 +8,15 @@ import {activeDeployment} from './deployment.js'
 // :param enforced_deployment_order: The enforced deployment order (ex: ['development', 'staging', 'production'])
 // :param environment: The environment to check for (ex: production)
 // :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+// :param task: The task to filter deployments for (ex: backend, frontend) - optional
 // :returns: an object with the valid: true if the deployment order is valid, false otherwise, and results: an array of the previous environments in the enforced deployment order that do not have active deployments
 export async function validDeploymentOrder(
   octokit,
   context,
   enforced_deployment_order,
   environment,
-  sha
+  sha,
+  task = null
 ) {
   core.info(`🚦 deployment order is ${COLORS.highlight}enforced${COLORS.reset}`)
 
@@ -52,7 +54,8 @@ export async function validDeploymentOrder(
       octokit,
       context,
       previous_environment,
-      sha
+      sha,
+      task
     )
 
     if (!is_active) {

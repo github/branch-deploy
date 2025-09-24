@@ -17,15 +17,18 @@ const LOCK_COMMIT_MSG = LOCK_METADATA.lockCommitMsg
 // Helper function to construct the branch name
 // :param environment: The name of the environment
 // :param global: A bool indicating whether the lock is global or not
+// :param task: The task to include in the lock branch name (optional)
 // :returns: The branch name (String)
-async function constructBranchName(environment, global) {
+async function constructBranchName(environment, global, task = null) {
   // If the lock is global, return the global lock branch name
   if (global === true) {
     return GLOBAL_LOCK_BRANCH
   }
 
   // If the lock is not global, return the environment-specific lock branch name
-  return `${constructValidBranchName(environment)}-${LOCK_BRANCH_SUFFIX}`
+  // Include task in the branch name if provided to support concurrent deployments
+  const taskSuffix = task ? `-${constructValidBranchName(task)}` : ''
+  return `${constructValidBranchName(environment)}${taskSuffix}-${LOCK_BRANCH_SUFFIX}`
 }
 
 // Helper function for creating a lock file for branch-deployment locks
@@ -38,6 +41,8 @@ async function constructBranchName(environment, global) {
 // :param global: A bool indicating whether the lock is global or not (should lock all environments)
 // :param reactionId: The ID of the reaction that triggered the lock request
 // :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
+// :param task: The task to include in the lock (optional for concurrent deployments)
+// :param: issue_number: The issue/PR number associated with the comment triggering the action
 // :returns: The result of the createOrUpdateFileContents API call
 async function createLock(
   octokit,
@@ -48,7 +53,9 @@ async function createLock(
   environment,
   global,
   reactionId,
-  leaveComment
+  leaveComment,
+  task = null,
+  issue_number = null
 ) {
   core.debug('attempting to create lock...')
 
@@ -58,7 +65,7 @@ async function createLock(
   // Construct the file contents for the lock file
   // Use the 'sticky' flag to determine whether the lock is sticky or not
   // Sticky locks will persist forever unless the 'unlock on merge' mode is being utilized
-  // non-sticky locks are tempory and only exist during the deployment process to prevent other deployments...
+  // non-sticky locks are temporary and only exist during the deployment process to prevent other deployments...
   // ... to the same environment
   const lockData = {
     reason: reason,
@@ -68,8 +75,10 @@ async function createLock(
     sticky: sticky,
     environment: environment,
     global: global,
-    unlock_command: await constructUnlockCommand(environment, global),
-    link: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
+    task: task,
+    pr_number: issue_number,
+    unlock_command: await constructUnlockCommand(environment, global, task),
+    link: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/pull/${issue_number}#issuecomment-${context.payload.comment.id}`
   }
 
   // Create the lock file
@@ -78,7 +87,7 @@ async function createLock(
     path: LOCK_FILE,
     message: LOCK_COMMIT_MSG,
     content: Buffer.from(JSON.stringify(lockData)).toString('base64'),
-    branch: await constructBranchName(environment, global),
+    branch: await constructBranchName(environment, global, task),
     request: {retries: 10, retryAfter: 1}, // retry up to 10 times with a 1s delay
     headers: API_HEADERS
   })
@@ -105,7 +114,11 @@ async function createLock(
       lockMsg = '**globally**'
       core.setOutput('global_lock_claimed', 'true')
     } else {
-      lockMsg = `to the \`${environment}\` environment`
+      if (task) {
+        lockMsg = `to the \`${environment}\` environment with task \`${task}\``
+      } else {
+        lockMsg = `to the \`${environment}\` environment`
+      }
     }
 
     const comment = dedent(`
@@ -130,8 +143,9 @@ async function createLock(
 // Helper function to construct the unlock command
 // :param environment: The name of the environment
 // :param global: A bool indicating whether the lock is global or not
+// :param task: The task to include in the unlock command (optional)
 // :returns: The unlock command (String)
-async function constructUnlockCommand(environment, global) {
+async function constructUnlockCommand(environment, global, task = null) {
   // fetch the unlock trigger
   const unlockTrigger = core.getInput('unlock_trigger').trim()
   // fetch the global lock flag
@@ -143,7 +157,9 @@ async function constructUnlockCommand(environment, global) {
   }
 
   // If the lock is not global, return the environment-specific lock branch name
-  return `${unlockTrigger} ${environment}`
+  // Include task if provided for concurrent deployment unlocking
+  const taskParam = task ? ` --task ${task}` : ''
+  return `${unlockTrigger} ${environment}${taskParam}`
 }
 
 // Helper function to find the environment to be locked (if any - otherwise, the default)
@@ -320,10 +336,110 @@ async function checkLockOwner(
   leaveComment
 ) {
   core.debug('checking the owner of the lock...')
-  // If the requestor is the one who owns the lock, return 'owner'
-  if (lockData.created_by === context.actor) {
+
+  // Check if the requestor is the same user
+  const sameUser = lockData.created_by === context.actor
+
+  // For backward compatibility, if lockData doesn't have task, only check user
+  if (lockData.task === undefined) {
     core.info(
-      `✅ ${COLORS.highlight}${context.actor}${COLORS.reset} initiated this request and is also the owner of the current lock`
+      'Lock data has no task - using legacy ownership check (user only)'
+    )
+    core.info(`lockData: ${JSON.stringify(lockData)}`)
+
+    if (sameUser) {
+      core.info(
+        `✅ ${COLORS.highlight}${context.actor}${COLORS.reset} initiated this request and is also the owner of the current lock`
+      )
+
+      // If this is a '.lock' command (sticky) and not a sticky_locks deployment request, update with actionStatus as we are about to exit
+      if (sticky === true && leaveComment === true) {
+        // Find the total time since the lock was created
+        const totalTime = await timeDiff(
+          lockData.created_at,
+          new Date().toISOString()
+        )
+
+        let lockMsg
+        if (lockData.global === true) {
+          lockMsg = 'global'
+        } else {
+          lockMsg = `\`${lockData.environment}\` environment`
+        }
+
+        const youOwnItComment = dedent(`
+          ### 🔒 Deployment Lock Information
+
+          __${context.actor}__, you are already the owner of the current ${lockMsg} deployment lock
+
+          The current lock has been active for \`${totalTime}\`
+
+          > If you need to release the lock, please comment \`${lockData.unlock_command}\`
+          `)
+
+        await actionStatus(
+          context,
+          octokit,
+          reactionId,
+          youOwnItComment,
+          true,
+          true
+        )
+      }
+
+      return true
+    } else {
+      // Different user owns the lock - provide standard lock message
+
+      // Determine the lock type for the message
+      var lockMsg
+      if (lockData.global === true) {
+        lockMsg = '`global`'
+      } else {
+        lockMsg = `\`${lockData.environment}\` environment`
+      }
+
+      const lockUnavailableComment = `Sorry __${context.actor}__, the ${lockMsg} deployment lock is currently claimed by __${lockData.created_by}__`
+
+      await actionStatus(context, octokit, reactionId, lockUnavailableComment)
+      core.saveState('bypass', 'true')
+      core.setFailed(
+        `Cannot claim deployment lock for ${lockMsg}. ${lockUnavailableComment}`
+      )
+
+      core.debug(
+        `the lock was not claimed as it is owned by ${lockData.created_by}`
+      )
+      if (lockData.reason === null) {
+        core.debug('no reason detected')
+      } else {
+        core.debug(`lock reason: ${lockData.reason}`)
+      }
+
+      return false
+    }
+  }
+
+  // Enhanced ownership check for newer locks that include task information
+  const currentBranch = context.payload.pull_request?.head?.ref
+  const sameBranch = lockData.branch === currentBranch
+
+  core.debug(
+    `Lock ownership check - sameUser: ${sameUser}, sameBranch: ${sameBranch}`
+  )
+  core.debug(
+    `Current actor: ${context.actor}, Lock owner: ${lockData.created_by}`
+  )
+  core.debug(
+    `Current PR: ${context.issue.number}, Lock PR: ${lockData.pr_number}`
+  )
+  core.debug(
+    `Current branch: ${currentBranch}, Lock branch: ${lockData.branch}`
+  )
+
+  if (sameUser && sameBranch) {
+    core.info(
+      `✅ ${COLORS.highlight}${context.actor}${COLORS.reset} initiated this request and owns the current lock from the same PR and branch`
     )
 
     // If this is a '.lock' command (sticky) and not a sticky_locks deployment request, update with actionStatus as we are about to exit
@@ -336,15 +452,15 @@ async function checkLockOwner(
 
       let lockMsg
       if (lockData.global === true) {
-        lockMsg = 'global'
+        lockMsg = '`global` deployment lock'
       } else {
-        lockMsg = `\`${lockData.environment}\` environment`
+        lockMsg = `deployment lock on \`${lockData.environment}\` environment for the task \`${lockData.task}\``
       }
 
       const youOwnItComment = dedent(`
         ### 🔒 Deployment Lock Information
 
-        __${context.actor}__, you are already the owner of the current ${lockMsg} deployment lock
+        __${context.actor}__, you are already the owner of the current ${lockMsg}
 
         The current lock has been active for \`${totalTime}\`
 
@@ -364,8 +480,10 @@ async function checkLockOwner(
     return true
   }
 
-  // Deconstruct the context to obtain the owner and repo
-  const {owner, repo} = context.repo
+  // If same user but different PR or branch, provide specific messaging
+  if (sameUser && !sameBranch) {
+    core.warning('⚠️ Same user but different branch - denying lock access')
+  }
 
   // Find the total time since the lock was created
   const totalTime = await timeDiff(
@@ -402,10 +520,19 @@ async function checkLockOwner(
     )
     lockBranchForLink = GLOBAL_LOCK_BRANCH
   } else {
-    lockText = `the \`${lockData.environment}\` environment deployment lock is currently claimed by __${lockData.created_by}__`
+    const taskText = lockData.task ? ` (task: \`${lockData.task}\`)` : ''
+    lockText = `the \`${lockData.environment}\` environment deployment lock${taskText} is currently claimed by __${lockData.created_by}__`
+
     environmentText = `- __Environment__: \`${lockData.environment}\``
-    lockBranchForLink = `${lockData.environment}-${LOCK_BRANCH_SUFFIX}`
+    lockBranchForLink = await constructBranchName(
+      lockData.environment,
+      lockData.global,
+      lockData.task
+    )
   }
+
+  // Deconstruct the context to obtain the owner and repo
+  const {owner, repo} = context.repo
 
   // Construct the comment to add to the issue, alerting that the lock is already claimed
   const comment = dedent(`
@@ -418,6 +545,8 @@ async function checkLockOwner(
   ${reasonText}
   ${environmentText}
   - __Branch__: \`${lockData.branch}\`
+  - __PR Number__: \`#${lockData.pr_number || 'N/A'}\`
+  - __Task__: \`${lockData.task || 'N/A'}\`
   - __Created At__: \`${lockData.created_at}\`
   - __Created By__: \`${lockData.created_by}\`
   - __Sticky__: \`${lockData.sticky}\`
@@ -454,7 +583,9 @@ async function checkLockOwner(
 // :param detailsOnly: A bool indicating whether to only return the details of the lock and not alter its state
 // :param postDeployStep: A bool indicating whether this function is being called from the post-deploy step
 // :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
-// :returns: A lock repsponse object
+// :param task: The deployment task to lock (if any)
+// :param issue_number: The number of the issue being processed
+// :returns: A lock response object
 // Example:
 // {
 //   status: 'owner' | false | true | null | 'details-only',
@@ -477,7 +608,9 @@ export async function lock(
   environment = null,
   detailsOnly = false,
   postDeployStep = false,
-  leaveComment = true
+  leaveComment = true,
+  task = null,
+  issue_number = null
 ) {
   var global
 
@@ -486,6 +619,9 @@ export async function lock(
   core.debug(`lock() called with environment: ${environment}`)
   core.debug(`lock() called with detailsOnly: ${detailsOnly}`)
   core.debug(`lock() called with postDeployStep: ${postDeployStep}`)
+  core.debug(`lock() called with leaveComment: ${leaveComment}`)
+  core.debug(`lock() called with task: ${task}`)
+  core.debug(`lock() called with issue_number: ${issue_number}`)
 
   // find the global flag for returning
   const globalFlag = core.getInput('global_lock_flag').trim()
@@ -504,12 +640,12 @@ export async function lock(
   }
 
   // construct the branch name for the lock
-  const branchName = await constructBranchName(environment, global)
+  const lockBranchName = await constructBranchName(environment, global, task)
 
   // lock debug info
   core.debug(`detected lock env: ${environment}`)
   core.debug(`detected lock global: ${global}`)
-  core.debug(`constructed lock branch name: ${branchName}`)
+  core.debug(`constructed lock branch name: ${lockBranchName}`)
 
   // Before we can process THIS lock request, we must first check for a global lock
   // If there is a global lock, we must check if the requestor is the owner of the lock
@@ -535,7 +671,7 @@ export async function lock(
     detailsOnly === true &&
     postDeployStep === false
   ) {
-    // If the lock file exists and this is a detailsOnly request for the global lock, return the lock data
+    // If the global lock file exists and this is a detailsOnly request for the global lock, return the lock data
     return {
       status: 'details-only',
       lockData: globalLockData,
@@ -545,7 +681,7 @@ export async function lock(
     }
   }
 
-  // If the global lock exists, check if the requestor is the owner
+  // If the global lock exists, but it is NOT a detailsOnly request, check if the requestor is the owner
   if (globalLockData && postDeployStep === false) {
     core.debug('global lock exists - checking if requestor is the owner')
     // Check if the requestor is the owner of the global lock
@@ -567,31 +703,35 @@ export async function lock(
       )
     }
   }
+  // -- End of global lock
 
   // Check if the lock branch exists
-  const branchExists = await checkBranch(octokit, context, branchName)
+  const lockBranchExists = await checkBranch(octokit, context, lockBranchName)
 
-  if (branchExists === false && detailsOnly === true) {
+  if (lockBranchExists === false && detailsOnly === true) {
     // If the lock branch doesn't exist and this is a detailsOnly request, return null
     core.debug('lock branch does not exist and this is a detailsOnly request')
     return {status: null, lockData: null, globalFlag, environment, global}
   }
 
-  if (branchExists) {
+  if (lockBranchExists) {
     // Check if the lock file exists
-    const lockData = await checkLockFile(octokit, context, branchName)
+    const lockData = await checkLockFile(octokit, context, lockBranchName)
 
-    if (lockData === false && detailsOnly === true) {
-      // If the lock file doesn't exist and this is a detailsOnly request, return null
-      return {status: null, lockData: null, globalFlag, environment, global}
-    } else if (lockData && detailsOnly) {
-      // If the lock file exists and this is a detailsOnly request, return the lock data
-      return {
-        status: 'details-only',
-        lockData: lockData,
-        globalFlag,
-        environment,
-        global
+    // If detailsOnly request
+    if (detailsOnly) {
+      if (lockData === false) {
+        // If the lock file doesn't exist and this is a detailsOnly request, return null
+        return {status: null, lockData: null, globalFlag, environment, global}
+      } else {
+        // If the lock file exists and this is a detailsOnly request, return the lock data
+        return {
+          status: 'details-only',
+          lockData: lockData,
+          globalFlag,
+          environment,
+          global
+        }
       }
     }
 
@@ -607,7 +747,9 @@ export async function lock(
         environment,
         global,
         reactionId,
-        leaveComment
+        leaveComment,
+        task,
+        issue_number
       )
       return {status: true, lockData: null, globalFlag, environment, global}
     } else {
@@ -646,7 +788,7 @@ export async function lock(
   // We can now safely create the lock branch and the lock file
 
   // Create the lock branch if it doesn't exist
-  await createBranch(octokit, context, branchName)
+  await createBranch(octokit, context, lockBranchName)
 
   // Create the lock file
   await createLock(
@@ -658,7 +800,9 @@ export async function lock(
     environment,
     global,
     reactionId,
-    leaveComment
+    leaveComment,
+    task,
+    issue_number
   )
   return {status: true, lockData: null, globalFlag, environment, global}
 }
