@@ -76,6 +76,7 @@ export function getInputs() {
   const deployment_confirmation_timeout = getIntInput(
     'deployment_confirmation_timeout'
   )
+  const deployment_task = core.getInput('deployment_task')
 
   // validate inputs
   validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -130,6 +131,7 @@ export function getInputs() {
     deployment_confirmation_timeout: deployment_confirmation_timeout,
     use_security_warnings: use_security_warnings,
     allow_non_default_target_branch_deployments:
-      allow_non_default_target_branch_deployments
+      allow_non_default_target_branch_deployments,
+    deployment_task: deployment_task
   }
 }

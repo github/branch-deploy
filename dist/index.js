@@ -42799,9 +42799,21 @@ async function createDeploymentStatus(
 // :param context: The GitHub Actions event context
 // :param environment: The environment to check for (ex: production)
 // :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+// :param task: The task to filter deployments for (ex: backend, frontend) - optional
 // :returns: true if the deployment is active for the given environment at the given commit sha, false otherwise
-async function activeDeployment(octokit, context, environment, sha) {
-  const deployment = await latestActiveDeployment(octokit, context, environment)
+async function activeDeployment(
+  octokit,
+  context,
+  environment,
+  sha,
+  task = null
+) {
+  const deployment = await latestActiveDeployment(
+    octokit,
+    context,
+    environment,
+    task
+  )
 
   // If no deployment was found, return false
   if (deployment === null) {
@@ -42816,6 +42828,7 @@ async function activeDeployment(octokit, context, environment, sha) {
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
 // :param environment: The environment to get the latest deployment for (ex: production)
+// :param task: The task to filter deployments for (ex: backend, frontend) - optional
 // :returns: The result of the deployment (Object)
 // 'nodes' may look like this:
 // otherwise, nodes may look like this:
@@ -42838,7 +42851,12 @@ async function activeDeployment(octokit, context, environment, sha) {
 //       }
 //   }
 // ]
-async function latestActiveDeployment(octokit, context, environment) {
+async function latestActiveDeployment(
+  octokit,
+  context,
+  environment,
+  task = null
+) {
   const {owner, repo} = context.repo
 
   const variables = {
@@ -42854,15 +42872,20 @@ async function latestActiveDeployment(octokit, context, environment) {
 
   // If no deployments were found, return null
   if (nodes.length === 0) {
-    core.debug(`no deployments found for ${environment}`)
+    core.debug(
+      `no deployments found for ${environment}${task ? ` with task ${task}` : ''}`
+    )
     return null
   }
 
   // Check for an active deployment in the first page of deployments
-  let activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
+  let activeDeployment = nodes.find(deployment => {
+    const matchesTask = !task || deployment.task === task
+    return deployment.state === 'ACTIVE' && matchesTask
+  })
   if (activeDeployment) {
     core.debug(
-      `found active deployment for ${environment} in page ${queryNumber}`
+      `found active deployment for ${environment}${task ? ` with task ${task}` : ''} in page ${queryNumber}`
     )
     return activeDeployment
   }
@@ -42876,16 +42899,19 @@ async function latestActiveDeployment(octokit, context, environment) {
     data = await octokit.graphql(buildQuery(endCursor), variables)
 
     nodes = data.repository.deployments.nodes
-    activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
+    activeDeployment = nodes.find(deployment => {
+      const matchesTask = !task || deployment.task === task
+      return deployment.state === 'ACTIVE' && matchesTask
+    })
 
     if (activeDeployment) {
       core.debug(
-        `found active deployment for ${environment} in page ${queryNumber}`
+        `found active deployment for ${environment}${task ? ` with task ${task}` : ''} in page ${queryNumber}`
       )
       return activeDeployment
     } else {
       core.debug(
-        `no active deployment found for ${environment} in page ${queryNumber}`
+        `no active deployment found for ${environment}${task ? ` with task ${task}` : ''} in page ${queryNumber}`
       )
     }
 
@@ -42894,7 +42920,7 @@ async function latestActiveDeployment(octokit, context, environment) {
   }
 
   core.debug(
-    `no active deployment found for ${environment} after ${queryNumber} pages`
+    `no active deployment found for ${environment}${task ? ` with task ${task}` : ''} after ${queryNumber} pages`
   )
 
   // If no active deployment was found, return null
@@ -42913,6 +42939,7 @@ function buildQuery(page = null) {
             id
             payload
             state
+            task
             ref {
               name
             }
@@ -44431,15 +44458,18 @@ const LOCK_COMMIT_MSG = LOCK_METADATA.lockCommitMsg
 // Helper function to construct the branch name
 // :param environment: The name of the environment
 // :param global: A bool indicating whether the lock is global or not
+// :param task: The task to include in the lock branch name (optional)
 // :returns: The branch name (String)
-async function constructBranchName(environment, global) {
+async function constructBranchName(environment, global, task = null) {
   // If the lock is global, return the global lock branch name
   if (global === true) {
     return GLOBAL_LOCK_BRANCH
   }
 
   // If the lock is not global, return the environment-specific lock branch name
-  return `${constructValidBranchName(environment)}-${LOCK_BRANCH_SUFFIX}`
+  // Include task in the branch name if provided to support concurrent deployments
+  const taskSuffix = task ? `-${constructValidBranchName(task)}` : ''
+  return `${constructValidBranchName(environment)}${taskSuffix}-${LOCK_BRANCH_SUFFIX}`
 }
 
 // Helper function for creating a lock file for branch-deployment locks
@@ -44452,6 +44482,7 @@ async function constructBranchName(environment, global) {
 // :param global: A bool indicating whether the lock is global or not (should lock all environments)
 // :param reactionId: The ID of the reaction that triggered the lock request
 // :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
+// :param task: The task to include in the lock (optional for concurrent deployments)
 // :returns: The result of the createOrUpdateFileContents API call
 async function createLock(
   octokit,
@@ -44462,7 +44493,8 @@ async function createLock(
   environment,
   global,
   reactionId,
-  leaveComment
+  leaveComment,
+  task = null
 ) {
   core.debug('attempting to create lock...')
 
@@ -44482,7 +44514,8 @@ async function createLock(
     sticky: sticky,
     environment: environment,
     global: global,
-    unlock_command: await constructUnlockCommand(environment, global),
+    task: task,
+    unlock_command: await constructUnlockCommand(environment, global, task),
     link: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
   }
 
@@ -44492,7 +44525,7 @@ async function createLock(
     path: lock_LOCK_FILE,
     message: LOCK_COMMIT_MSG,
     content: Buffer.from(JSON.stringify(lockData)).toString('base64'),
-    branch: await constructBranchName(environment, global),
+    branch: await constructBranchName(environment, global, task),
     request: {retries: 10, retryAfter: 1}, // retry up to 10 times with a 1s delay
     headers: API_HEADERS
   })
@@ -44544,8 +44577,9 @@ async function createLock(
 // Helper function to construct the unlock command
 // :param environment: The name of the environment
 // :param global: A bool indicating whether the lock is global or not
+// :param task: The task to include in the unlock command (optional)
 // :returns: The unlock command (String)
-async function constructUnlockCommand(environment, global) {
+async function constructUnlockCommand(environment, global, task = null) {
   // fetch the unlock trigger
   const unlockTrigger = core.getInput('unlock_trigger').trim()
   // fetch the global lock flag
@@ -44557,7 +44591,9 @@ async function constructUnlockCommand(environment, global) {
   }
 
   // If the lock is not global, return the environment-specific lock branch name
-  return `${unlockTrigger} ${environment}`
+  // Include task if provided for concurrent deployment unlocking
+  const taskParam = task ? ` --task ${task}` : ''
+  return `${unlockTrigger} ${environment}${taskParam}`
 }
 
 // Helper function to find the environment to be locked (if any - otherwise, the default)
@@ -44891,7 +44927,8 @@ async function lock(
   environment = null,
   detailsOnly = false,
   postDeployStep = false,
-  leaveComment = true
+  leaveComment = true,
+  task = null
 ) {
   var global
 
@@ -44918,7 +44955,7 @@ async function lock(
   }
 
   // construct the branch name for the lock
-  const branchName = await constructBranchName(environment, global)
+  const branchName = await constructBranchName(environment, global, task)
 
   // lock debug info
   core.debug(`detected lock env: ${environment}`)
@@ -45021,7 +45058,8 @@ async function lock(
         environment,
         global,
         reactionId,
-        leaveComment
+        leaveComment,
+        task
       )
       return {status: true, lockData: null, globalFlag, environment, global}
     } else {
@@ -45072,7 +45110,8 @@ async function lock(
     environment,
     global,
     reactionId,
-    leaveComment
+    leaveComment,
+    task
   )
   return {status: true, lockData: null, globalFlag, environment, global}
 }
@@ -45094,7 +45133,7 @@ const unlock_GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
 // This function will also check if the global lock flag was provided
 // If the global lock flag was provided, the environment will be set to null
 // :param context: The GitHub Actions event context
-// :returns: An object - EX: {environment: 'staging', global: false}
+// :returns: An object - EX: {environment: 'staging', global: false, task: 'backend'}
 async function unlock_findEnvironment(context) {
   // Get the body of the comment
   var body = context.payload.comment.body.trim()
@@ -45123,17 +45162,29 @@ async function unlock_findEnvironment(context) {
   const unlockTrigger = core.getInput('unlock_trigger').trim()
   body = body.replace(unlockTrigger, '').trim()
 
+  // Parse task parameter if present (e.g., "--task backend")
+  let task = null
+  if (body.includes('--task')) {
+    const taskMatch = body.match(/--task\s+(\S+)/)
+    if (taskMatch) {
+      task = taskMatch[1]
+      body = body.replace(/--task\s+\S+/, '').trim()
+    }
+  }
+
   // If the body is empty, return the default environment
   if (body === '') {
     return {
       environment: core.getInput('environment').trim(),
-      global: false
+      global: false,
+      task: task
     }
   } else {
     // If there is anything left in the body, return that as the environment
     return {
       environment: body,
-      global: false
+      global: false,
+      task: task
     }
   }
 }
@@ -45144,13 +45195,15 @@ async function unlock_findEnvironment(context) {
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is successfully released) (Integer)
 // :param environment: The environment to remove the lock from (String) - can be null and if so, the environment will be determined from the context
 // :param silent: A bool indicating whether to add a comment to the issue or not (Boolean)
+// :param task: The task to remove the lock for (String) - optional for concurrent deployments
 // :returns: true if the lock was successfully released, a string with some details if silent was used, false otherwise
 async function unlock(
   octokit,
   context,
   reactionId,
   environment = null,
-  silent = false
+  silent = false,
+  task = null
 ) {
   try {
     var branchName
@@ -45161,6 +45214,10 @@ async function unlock(
       const envObject = await unlock_findEnvironment(context)
       environment = envObject.environment
       global = envObject.global
+      // Use task from comment if not provided as parameter
+      if (task === null) {
+        task = envObject.task
+      }
     } else {
       // if the environment was passed in, we can assume it is not a global lock
       global = false
@@ -45172,8 +45229,10 @@ async function unlock(
       branchName = unlock_GLOBAL_LOCK_BRANCH
       successText = '`global`'
     } else {
-      branchName = `${constructValidBranchName(environment)}-${unlock_LOCK_BRANCH_SUFFIX}`
-      successText = `\`${environment}\``
+      // Include task in the branch name if provided to support concurrent deployments
+      const taskSuffix = task ? `-${constructValidBranchName(task)}` : ''
+      branchName = `${constructValidBranchName(environment)}${taskSuffix}-${unlock_LOCK_BRANCH_SUFFIX}`
+      successText = `\`${environment}${task ? ` (task: ${task})` : ''}\``
     }
 
     // Delete the lock branch
@@ -45670,7 +45729,10 @@ async function postDeploy(context, octokit, data) {
       null, // reaction_id
       false, // sticky
       data.environment, // environment
-      true // detailsOnly set to true
+      true, // detailsOnly set to true
+      false, // postDeployStep
+      true, // leaveComment
+      null // task (not available in post-deploy context)
     )
 
     // obtain the lockData from the lock response
@@ -45694,7 +45756,8 @@ async function postDeploy(context, octokit, data) {
         context,
         null, // reaction_id
         data.environment, // environment
-        true // silent mode
+        true, // silent mode
+        null // task (not available in post-deploy context)
       )
     }
 
@@ -45738,7 +45801,8 @@ async function postDeploy(context, octokit, data) {
     data.environment, // environment
     true, // detailsOnly set to true
     true, // postDeployStep set to true - this means we will not exit early if a global lock exists
-    false // leaveComment
+    false, // leaveComment
+    null // task (not available in post-deploy context)
   )
 
   // obtain the lockData from the lock response
@@ -45758,7 +45822,8 @@ async function postDeploy(context, octokit, data) {
       context,
       null, // reaction_id
       data.environment, // environment
-      true // silent mode
+      true, // silent mode
+      null // task (not available in post-deploy context)
     )
   }
 
@@ -46493,6 +46558,7 @@ function getInputs() {
   const deployment_confirmation_timeout = getIntInput(
     'deployment_confirmation_timeout'
   )
+  const deployment_task = core.getInput('deployment_task')
 
   // validate inputs
   inputs_validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -46547,7 +46613,8 @@ function getInputs() {
     deployment_confirmation_timeout: deployment_confirmation_timeout,
     use_security_warnings: use_security_warnings,
     allow_non_default_target_branch_deployments:
-      allow_non_default_target_branch_deployments
+      allow_non_default_target_branch_deployments,
+    deployment_task: deployment_task
   }
 }
 
@@ -46562,13 +46629,15 @@ function getInputs() {
 // :param enforced_deployment_order: The enforced deployment order (ex: ['development', 'staging', 'production'])
 // :param environment: The environment to check for (ex: production)
 // :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+// :param task: The task to filter deployments for (ex: backend, frontend) - optional
 // :returns: an object with the valid: true if the deployment order is valid, false otherwise, and results: an array of the previous environments in the enforced deployment order that do not have active deployments
 async function validDeploymentOrder(
   octokit,
   context,
   enforced_deployment_order,
   environment,
-  sha
+  sha,
+  task = null
 ) {
   core.info(`🚦 deployment order is ${COLORS.highlight}enforced${COLORS.reset}`)
 
@@ -46606,7 +46675,8 @@ async function validDeploymentOrder(
       octokit,
       context,
       previous_environment,
-      sha
+      sha,
+      task
     )
 
     if (!is_active) {
@@ -47235,7 +47305,8 @@ async function run() {
             null, // environment (we will find this in the lock function - important)
             true, // details only flag
             false, // postDeployStep
-            true // leaveComment
+            true, // leaveComment
+            null // task (not applicable for details only)
           )
           // extract values from the lock response
           const lockData = lockResponse.lockData
@@ -47356,7 +47427,8 @@ async function run() {
           null, // environment (we will find this in the lock function)
           false, // details only flag
           false, // postDeployStep
-          true // leaveComment
+          true, // leaveComment
+          null // task (not applicable for sticky locks)
         )
         core.saveState('bypass', 'true')
         return 'safe-exit'
@@ -47496,7 +47568,8 @@ async function run() {
         github.context,
         inputs.enforced_deployment_order,
         environment,
-        precheckResults.sha
+        precheckResults.sha,
+        inputs.deployment_task.trim() || null
       )
 
       if (!deploymentOrderResults.valid) {
@@ -47580,7 +47653,8 @@ async function run() {
       environment, // environment
       null, // details only flag
       false, // postDeployStep
-      leaveComment // leaveComment - true/false depending on the input
+      leaveComment, // leaveComment - true/false depending on the input
+      inputs.deployment_task.trim() || null // task for concurrent deployments
     )
 
     // If the lock request fails, exit the Action
@@ -47774,14 +47848,20 @@ async function run() {
       stable_branch_used: stableBranchUsed
     }
 
+    // Determine task parameter for concurrent deployments
+    const task = inputs.deployment_task.trim() || 'deploy' // Default to 'deploy' for backwards compatibility
+    const auto_inactive = inputs.deployment_task.trim() ? false : true // Don't auto-inactive when using tasks
+
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
       repo: repo,
       ref: precheckResults.ref,
       auto_merge: auto_merge,
+      auto_inactive: auto_inactive,
       required_contexts: requiredContexts,
       environment: environment,
+      task: task,
       // description: "",
       // :description note: Short description of the deployment.
       production_environment: isProductionEnvironment,
@@ -47791,6 +47871,8 @@ async function run() {
     })
     core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)
+    core.setOutput('deployment_task', task)
+    core.saveState('deployment_task', task)
 
     // If a merge to the base branch is required, let the user know and exit
     if (

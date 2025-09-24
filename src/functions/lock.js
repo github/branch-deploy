@@ -17,15 +17,18 @@ const LOCK_COMMIT_MSG = LOCK_METADATA.lockCommitMsg
 // Helper function to construct the branch name
 // :param environment: The name of the environment
 // :param global: A bool indicating whether the lock is global or not
+// :param task: The task to include in the lock branch name (optional)
 // :returns: The branch name (String)
-async function constructBranchName(environment, global) {
+async function constructBranchName(environment, global, task = null) {
   // If the lock is global, return the global lock branch name
   if (global === true) {
     return GLOBAL_LOCK_BRANCH
   }
 
   // If the lock is not global, return the environment-specific lock branch name
-  return `${constructValidBranchName(environment)}-${LOCK_BRANCH_SUFFIX}`
+  // Include task in the branch name if provided to support concurrent deployments
+  const taskSuffix = task ? `-${constructValidBranchName(task)}` : ''
+  return `${constructValidBranchName(environment)}${taskSuffix}-${LOCK_BRANCH_SUFFIX}`
 }
 
 // Helper function for creating a lock file for branch-deployment locks
@@ -38,6 +41,7 @@ async function constructBranchName(environment, global) {
 // :param global: A bool indicating whether the lock is global or not (should lock all environments)
 // :param reactionId: The ID of the reaction that triggered the lock request
 // :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
+// :param task: The task to include in the lock (optional for concurrent deployments)
 // :returns: The result of the createOrUpdateFileContents API call
 async function createLock(
   octokit,
@@ -48,7 +52,8 @@ async function createLock(
   environment,
   global,
   reactionId,
-  leaveComment
+  leaveComment,
+  task = null
 ) {
   core.debug('attempting to create lock...')
 
@@ -68,7 +73,8 @@ async function createLock(
     sticky: sticky,
     environment: environment,
     global: global,
-    unlock_command: await constructUnlockCommand(environment, global),
+    task: task,
+    unlock_command: await constructUnlockCommand(environment, global, task),
     link: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`
   }
 
@@ -78,7 +84,7 @@ async function createLock(
     path: LOCK_FILE,
     message: LOCK_COMMIT_MSG,
     content: Buffer.from(JSON.stringify(lockData)).toString('base64'),
-    branch: await constructBranchName(environment, global),
+    branch: await constructBranchName(environment, global, task),
     request: {retries: 10, retryAfter: 1}, // retry up to 10 times with a 1s delay
     headers: API_HEADERS
   })
@@ -130,8 +136,9 @@ async function createLock(
 // Helper function to construct the unlock command
 // :param environment: The name of the environment
 // :param global: A bool indicating whether the lock is global or not
+// :param task: The task to include in the unlock command (optional)
 // :returns: The unlock command (String)
-async function constructUnlockCommand(environment, global) {
+async function constructUnlockCommand(environment, global, task = null) {
   // fetch the unlock trigger
   const unlockTrigger = core.getInput('unlock_trigger').trim()
   // fetch the global lock flag
@@ -143,7 +150,9 @@ async function constructUnlockCommand(environment, global) {
   }
 
   // If the lock is not global, return the environment-specific lock branch name
-  return `${unlockTrigger} ${environment}`
+  // Include task if provided for concurrent deployment unlocking
+  const taskParam = task ? ` --task ${task}` : ''
+  return `${unlockTrigger} ${environment}${taskParam}`
 }
 
 // Helper function to find the environment to be locked (if any - otherwise, the default)
@@ -477,7 +486,8 @@ export async function lock(
   environment = null,
   detailsOnly = false,
   postDeployStep = false,
-  leaveComment = true
+  leaveComment = true,
+  task = null
 ) {
   var global
 
@@ -504,7 +514,7 @@ export async function lock(
   }
 
   // construct the branch name for the lock
-  const branchName = await constructBranchName(environment, global)
+  const branchName = await constructBranchName(environment, global, task)
 
   // lock debug info
   core.debug(`detected lock env: ${environment}`)
@@ -607,7 +617,8 @@ export async function lock(
         environment,
         global,
         reactionId,
-        leaveComment
+        leaveComment,
+        task
       )
       return {status: true, lockData: null, globalFlag, environment, global}
     } else {
@@ -658,7 +669,8 @@ export async function lock(
     environment,
     global,
     reactionId,
-    leaveComment
+    leaveComment,
+    task
   )
   return {status: true, lockData: null, globalFlag, environment, global}
 }
