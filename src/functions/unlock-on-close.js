@@ -1,41 +1,40 @@
 import * as core from '@actions/core'
-import {unlock} from './unlock.js'
-import {LOCK_METADATA} from './lock-metadata.js'
-import {checkLockFile} from './check-lock-file.js'
-import {checkBranch} from './lock.js'
-import {constructValidBranchName} from './valid-branch-name.js'
-import {COLORS} from './colors.js'
+import {unlock} from './unlock'
+import {LOCK_METADATA} from './lock-metadata'
+import {checkLockFile} from './check-lock-file'
+import {checkBranch} from './lock'
+import {constructValidBranchName} from './valid-branch-name'
+import {COLORS} from './colors'
 
 // Helper function to automatically find, and release a deployment lock when a pull request is merged
 // :param octokit: the authenticated octokit instance
 // :param context: the context object
 // :param environment_targets: the environment targets to check for unlocking
 // :return: true if all locks were released successfully, false otherwise
-export async function unlockOnMerge(octokit, context, environment_targets) {
+export async function unlockOnClose(octokit, context, environment_targets) {
   // first, check the context to ensure that the event is a pull request 'closed' event and that the pull request was merged
   if (
     context?.eventName !== 'pull_request' ||
-    context?.payload?.action !== 'closed' ||
-    context?.payload?.pull_request?.merged !== true
+    context?.payload?.action !== 'closed'
   ) {
     core.warning(
-      `this workflow can only run in the context of a ${COLORS.highlight}merged${COLORS.reset} pull request`
+      `this workflow can only run in the context of a ${COLORS.highlight}closed${COLORS.reset} pull request`
     )
     core.info(
       `event name: ${context?.eventName}, action: ${context?.payload?.action}, merged: ${context?.payload?.pull_request?.merged}`
     )
 
-    // many pull requests in a project will end up being closed without being merged, so we can just log this so its clear
-    if (context?.payload?.action === 'closed') {
+    // If the pull request is merged, then the 'unlockOnMerge' mode should be used instead
+    if (context?.payload?.pull_request?.merged === true) {
       core.info(
-        `pull request was closed but not merged so this workflow will not run - OK (Use 'unlock-on-close' instead)`
+        `pull request was merged so this workflow should not run - OK (Use 'unlock-on-merge' instead)`
       )
     }
 
     return false
   }
 
-  // loop through all the environment targets and check each one for a lock associated with this merged pull request
+  // loop through all the environment targets and check each one for a lock associated with this closed pull request
   var releasedEnvironments = []
 
   const deployment_task = core.getInput('deployment_task')
@@ -103,7 +102,7 @@ export async function unlockOnMerge(octokit, context, environment_targets) {
           `🔍 checking lock for PR ${COLORS.info}${prNumber}${COLORS.reset} on branch ${COLORS.highlight}${lockBranch}${COLORS.reset}`
         )
 
-        // if the PR number matches the PR number of the merged pull request, then this lock is associated with the merged pull request
+        // if the PR number matches the PR number of the closed pull request, then this lock is associated with the closed pull request
         if (prNumber === context.payload.pull_request.number.toString()) {
           // release the lock
           const result = await unlock(
@@ -123,7 +122,7 @@ export async function unlockOnMerge(octokit, context, environment_targets) {
               releasedEnvironments.push(environment)
             }
           } else {
-            core.debug(`unlock result for unlock-on-merge: ${result}`)
+            core.debug(`unlock result for unlock-on-close: ${result}`)
           }
 
           // log the result and format the output as it will always be a string ending with '- silent'

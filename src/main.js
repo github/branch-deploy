@@ -21,6 +21,7 @@ import {unlock} from './functions/unlock.js'
 import {post} from './functions/post.js'
 import {timeDiff} from './functions/time-diff.js'
 import {identicalCommitCheck} from './functions/identical-commit-check.js'
+import {unlockOnClose} from './functions/unlock-on-close.js'
 import {unlockOnMerge} from './functions/unlock-on-merge.js'
 import {help} from './functions/help.js'
 import {LOCK_METADATA} from './functions/lock-metadata.js'
@@ -64,6 +65,14 @@ export async function run() {
       await unlockOnMerge(octokit, context, inputs.environment_targets)
       core.saveState('bypass', 'true')
       return 'success - unlock on merge mode'
+    }
+
+    // If we are running in the 'unlock on close' mode, run auto-unlock logic
+    if (inputs.unlockOnCloseMode) {
+      core.info(`🏃 running in 'unlock on close' mode`)
+      await unlockOnClose(octokit, context, inputs.environment_targets)
+      core.saveState('bypass', 'true')
+      return 'success - unlock on close mode'
     }
 
     // If we are running in the merge deploy mode, run commit checks
