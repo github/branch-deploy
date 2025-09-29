@@ -133,6 +133,10 @@ inputs:
     description: This is an advanced option that is an alternate workflow bundled into this Action. You can optionally use this mode in a custom workflow to automatically release all locks that came from a pull request when the pull request is merged. This is useful if you want to ensure that locks are not left behind when a pull request is merged.
     required: false
     default: "false"
+  unlock_on_close_mode:
+    description: This is an advanced option that is an alternate workflow bundled into this Action. You can optionally use this mode in a custom workflow to automatically release all locks that came from a pull request when the pull request is closed. This is useful if you want to ensure that locks are not left behind when a pull request is closed.
+    required: false
+    default: "false"
   skip_completing:
     description: 'If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false"'
     required: false
