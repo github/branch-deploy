@@ -342,9 +342,10 @@ async function checkLockOwner(
 
   // For backward compatibility, if lockData doesn't have task, only check user
   if (lockData.task === undefined) {
-    core.debug(
+    core.info(
       'Lock data has no task - using legacy ownership check (user only)'
     )
+    core.info(`lockData: ${JSON.stringify(lockData)}`)
 
     if (sameUser) {
       core.info(
