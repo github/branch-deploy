@@ -230,7 +230,7 @@ export async function run() {
         return 'safe-exit'
       }
 
-      // If it is a lock or lock info releated request
+      // If it is a lock or lock info related request
       if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
         if (
@@ -386,6 +386,7 @@ export async function run() {
       }
     }
 
+    // At this point, it must be a 'deploy' or 'noopDeploy' request
     // Check if the default environment is being overwritten by an explicit environment
     const environmentObj = await environmentTargets(
       environment, // environment
@@ -599,7 +600,8 @@ export async function run() {
       null, // details only flag
       false, // postDeployStep
       leaveComment, // leaveComment - true/false depending on the input
-      inputs.deployment_task.trim() || null // task for concurrent deployments
+      inputs.deployment_task.trim() || null, // task for concurrent deployments
+      issue_number
     )
 
     // If the lock request fails, exit the Action
