@@ -29,11 +29,11 @@
     "@actions/github": "^6.0.1",
     "@octokit/plugin-retry": "^6.0.1",
     "@octokit/rest": "^20.1.0",
-    "@octokit/request": "^10.0.3",
+    "@octokit/request": "^10.0.5",
     "dedent-js": "^1.0.1",
     "github-username-regex-js": "^1.0.0",
     "nunjucks": "^3.2.4",
-    "yargs-parser": "^21.1.1"
+    "yargs-parser": "^22.0.0"
   },
   "jest": {
     "coverageReporters": [
@@ -55,12 +55,12 @@
     }
   },
   "devDependencies": {
-    "@babel/core": "^7.27.7",
+    "@babel/core": "^7.28.4",
     "@babel/plugin-transform-modules-commonjs": "^7.27.1",
-    "@types/node": "^24.0.8",
-    "@vercel/ncc": "^0.38.3",
+    "@types/node": "^24.6.1",
+    "@vercel/ncc": "^0.38.4",
     "eslint": "^8.57.0",
-    "jest": "^30.0.3",
+    "jest": "^30.2.0",
     "js-yaml": "^4.1.0",
     "make-coverage-badge": "^1.2.0",
     "prettier": "^3.6.2"
