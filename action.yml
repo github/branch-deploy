@@ -206,7 +206,7 @@ inputs:
     required: false
     default: "60"
   deployment_task:
-    description: 'Task identifier for the deployment (enables concurrent deployments to same environment). When specified, multiple deployments can be active simultaneously for the same environment as long as they have different task values. Example: "frontend", "backend", "api"'
+    description: 'Controls task-based concurrent deployments to the same environment. Set to "all" to allow any task via --task flag in comments, or provide a comma-separated list of allowed tasks (e.g., "frontend,backend,api"). Tasks are specified in PR comments using --task <name>. Leave empty to disable task support.'
     required: false
     default: ""
 outputs:
