@@ -42255,15 +42255,28 @@ async function onDeploymentChecks(
 ) {
   var bodyFmt = body
 
+  // Parse --task parameter if present (e.g., "--task backend")
+  let task = null
+  if (bodyFmt.includes('--task')) {
+    const taskMatch = bodyFmt.match(/--task\s+(\S+)/)
+    if (taskMatch) {
+      task = taskMatch[1]
+      bodyFmt = bodyFmt.replace(/--task\s+\S+/, '').trim()
+      core.info(
+        `📋 detected task in command: ${COLORS.highlight}${task}${COLORS.reset}`
+      )
+    }
+  }
+
   // Seperate the issueops command on the 'param_separator'
-  var paramCheck = body.split(param_separator)
+  var paramCheck = bodyFmt.split(param_separator)
   paramCheck.shift() // remove everything before the 'param_separator'
   const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
   // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
   var paramsTrim = null
   var parsed_params = null
   if (params !== '') {
-    bodyFmt = body.split(`${param_separator}${params}`)[0].trim()
+    bodyFmt = bodyFmt.split(`${param_separator}${params}`)[0].trim()
     paramsTrim = params.trim()
     core.info(
       `🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`
@@ -42330,7 +42343,8 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
     // If the body on a noop trigger contains the target
@@ -42342,7 +42356,8 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
     // If the body with 'to <target>' contains the target on a branch deploy
@@ -42356,7 +42371,8 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
     // If the body with 'to <target>' contains the target on a noop trigger
@@ -42370,7 +42386,8 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
     // If the body with 'to <target>' contains the target on a stable branch deploy
@@ -42387,7 +42404,8 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
     // If the body with 'to <target>' contains the target on a stable branch noop trigger
@@ -42404,7 +42422,8 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
     // If the body on a stable branch deploy contains the target
@@ -42418,7 +42437,8 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
     // If the body on a stable branch noop trigger contains the target
@@ -42434,7 +42454,8 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
     // If the body matches the trigger phrase exactly, just use the default environment
@@ -42446,7 +42467,8 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
     // If the body matches the noop_trigger phrase exactly, just use the default environment
@@ -42458,7 +42480,8 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
@@ -42470,7 +42493,8 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
     // If the body matches the stable branch phrase exactly on a noop trigger, just use the default environment
@@ -42482,7 +42506,8 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha
+        sha: sha,
+        task: task
       }
     }
   }
@@ -42494,7 +42519,8 @@ async function onDeploymentChecks(
     noop: null,
     params: null,
     parsed_params: null,
-    sha: null
+    sha: null,
+    task: null
   }
 }
 
@@ -46888,7 +46914,7 @@ function getInputs() {
   const deployment_confirmation_timeout = getIntInput(
     'deployment_confirmation_timeout'
   )
-  const deployment_task = core.getInput('deployment_task')
+  var deployment_task = core.getInput('deployment_task')
 
   // validate inputs
   inputs_validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -46902,6 +46928,14 @@ function getInputs() {
     inputs_validateInput('checks', checks, ['all', 'required'])
   } else {
     checks = stringToArray(checks)
+  }
+
+  // Parse deployment_task - can be 'all', a comma-separated list, or empty
+  if (deployment_task === 'all' || deployment_task === '') {
+    // Keep as-is for 'all' or empty string
+  } else {
+    // Convert to array for list of allowed tasks
+    deployment_task = stringToArray(deployment_task)
   }
 
   // rollup all the inputs into a single object
@@ -47809,6 +47843,53 @@ async function run() {
     const params = environmentObj.environmentObj.params
     const parsed_params = environmentObj.environmentObj.parsed_params
 
+    // Extract task from parsed environment object
+    const task = environmentObj.environmentObj.task
+
+    // Validate task against allowed tasks if task support is enabled
+    if (task !== null && task !== undefined) {
+      if (inputs.deployment_task === '') {
+        // Task support is disabled
+        const message = lib_default()(`
+          ### ⚠️ Task Support Not Enabled
+
+          You specified \`--task ${task}\` but task support is not enabled.
+
+          To enable task support, set the \`deployment_task\` input to either:
+          - \`"all"\` to allow any task name
+          - A comma-separated list of allowed tasks (e.g., \`"frontend,backend,api"\`)
+        `)
+        await actionStatus(github.context, octokit, reactRes.data.id, message)
+        core.saveState('bypass', 'true')
+        core.setFailed(
+          `Task support not enabled but --task ${task} was specified`
+        )
+        return 'failure'
+      } else if (
+        inputs.deployment_task !== 'all' &&
+        !inputs.deployment_task.includes(task)
+      ) {
+        // Task is not in the allowed list
+        const allowedTasks =
+          typeof inputs.deployment_task === 'string'
+            ? inputs.deployment_task
+            : inputs.deployment_task.join(', ')
+        const message = lib_default()(`
+          ### ⚠️ Invalid Task
+
+          The task \`${task}\` is not in the list of allowed tasks.
+
+          Allowed tasks: \`${allowedTasks}\`
+        `)
+        await actionStatus(github.context, octokit, reactRes.data.id, message)
+        core.saveState('bypass', 'true')
+        core.setFailed(
+          `Task ${task} is not in the allowed list: ${allowedTasks}`
+        )
+        return 'failure'
+      }
+    }
+
     // If the environment targets are not valid, then exit
     if (!environment) {
       core.debug('No valid environment targets found')
@@ -47909,7 +47990,7 @@ async function run() {
         inputs.enforced_deployment_order,
         environment,
         precheckResults.sha,
-        inputs.deployment_task.trim() || null
+        task || null
       )
 
       if (!deploymentOrderResults.valid) {
@@ -47994,7 +48075,7 @@ async function run() {
       null, // details only flag
       false, // postDeployStep
       leaveComment, // leaveComment - true/false depending on the input
-      inputs.deployment_task.trim() || null, // task for concurrent deployments
+      task || null, // task for concurrent deployments
       issue_number
     )
 
@@ -48190,8 +48271,8 @@ async function run() {
     }
 
     // Determine task parameter for concurrent deployments
-    const task = inputs.deployment_task.trim() || 'deploy' // Default to 'deploy' for backwards compatibility
-    const auto_inactive = inputs.deployment_task.trim() ? false : true // Don't auto-inactive when using tasks
+    const deployment_task = task || 'deploy' // Default to 'deploy' for backwards compatibility
+    const auto_inactive = task ? false : true // Don't auto-inactive when using tasks
 
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
@@ -48202,7 +48283,7 @@ async function run() {
       auto_inactive: auto_inactive,
       required_contexts: requiredContexts,
       environment: environment,
-      task: task,
+      task: deployment_task,
       // description: "",
       // :description note: Short description of the deployment.
       production_environment: isProductionEnvironment,
@@ -48212,8 +48293,8 @@ async function run() {
     })
     core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)
-    core.setOutput('deployment_task', task)
-    core.saveState('deployment_task', task)
+    core.setOutput('deployment_task', deployment_task)
+    core.saveState('deployment_task', deployment_task)
 
     // If a merge to the base branch is required, let the user know and exit
     if (

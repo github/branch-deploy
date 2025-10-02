@@ -76,7 +76,7 @@ export function getInputs() {
   const deployment_confirmation_timeout = getIntInput(
     'deployment_confirmation_timeout'
   )
-  const deployment_task = core.getInput('deployment_task')
+  var deployment_task = core.getInput('deployment_task')
 
   // validate inputs
   validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -90,6 +90,14 @@ export function getInputs() {
     validateInput('checks', checks, ['all', 'required'])
   } else {
     checks = stringToArray(checks)
+  }
+
+  // Parse deployment_task - can be 'all', a comma-separated list, or empty
+  if (deployment_task === 'all' || deployment_task === '') {
+    // Keep as-is for 'all' or empty string
+  } else {
+    // Convert to array for list of allowed tasks
+    deployment_task = stringToArray(deployment_task)
   }
 
   // rollup all the inputs into a single object

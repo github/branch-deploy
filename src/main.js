@@ -424,6 +424,53 @@ export async function run() {
     const params = environmentObj.environmentObj.params
     const parsed_params = environmentObj.environmentObj.parsed_params
 
+    // Extract task from parsed environment object
+    const task = environmentObj.environmentObj.task
+
+    // Validate task against allowed tasks if task support is enabled
+    if (task !== null && task !== undefined) {
+      if (inputs.deployment_task === '') {
+        // Task support is disabled
+        const message = dedent(`
+          ### ⚠️ Task Support Not Enabled
+
+          You specified \`--task ${task}\` but task support is not enabled.
+
+          To enable task support, set the \`deployment_task\` input to either:
+          - \`"all"\` to allow any task name
+          - A comma-separated list of allowed tasks (e.g., \`"frontend,backend,api"\`)
+        `)
+        await actionStatus(context, octokit, reactRes.data.id, message)
+        core.saveState('bypass', 'true')
+        core.setFailed(
+          `Task support not enabled but --task ${task} was specified`
+        )
+        return 'failure'
+      } else if (
+        inputs.deployment_task !== 'all' &&
+        !inputs.deployment_task.includes(task)
+      ) {
+        // Task is not in the allowed list
+        const allowedTasks =
+          typeof inputs.deployment_task === 'string'
+            ? inputs.deployment_task
+            : inputs.deployment_task.join(', ')
+        const message = dedent(`
+          ### ⚠️ Invalid Task
+
+          The task \`${task}\` is not in the list of allowed tasks.
+
+          Allowed tasks: \`${allowedTasks}\`
+        `)
+        await actionStatus(context, octokit, reactRes.data.id, message)
+        core.saveState('bypass', 'true')
+        core.setFailed(
+          `Task ${task} is not in the allowed list: ${allowedTasks}`
+        )
+        return 'failure'
+      }
+    }
+
     // If the environment targets are not valid, then exit
     if (!environment) {
       core.debug('No valid environment targets found')
@@ -524,7 +571,7 @@ export async function run() {
         inputs.enforced_deployment_order,
         environment,
         precheckResults.sha,
-        inputs.deployment_task.trim() || null
+        task || null
       )
 
       if (!deploymentOrderResults.valid) {
@@ -609,7 +656,7 @@ export async function run() {
       null, // details only flag
       false, // postDeployStep
       leaveComment, // leaveComment - true/false depending on the input
-      inputs.deployment_task.trim() || null, // task for concurrent deployments
+      task || null, // task for concurrent deployments
       issue_number
     )
 
@@ -805,8 +852,8 @@ export async function run() {
     }
 
     // Determine task parameter for concurrent deployments
-    const task = inputs.deployment_task.trim() || 'deploy' // Default to 'deploy' for backwards compatibility
-    const auto_inactive = inputs.deployment_task.trim() ? false : true // Don't auto-inactive when using tasks
+    const deployment_task = task || 'deploy' // Default to 'deploy' for backwards compatibility
+    const auto_inactive = task ? false : true // Don't auto-inactive when using tasks
 
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
@@ -817,7 +864,7 @@ export async function run() {
       auto_inactive: auto_inactive,
       required_contexts: requiredContexts,
       environment: environment,
-      task: task,
+      task: deployment_task,
       // description: "",
       // :description note: Short description of the deployment.
       production_environment: isProductionEnvironment,
@@ -827,8 +874,8 @@ export async function run() {
     })
     core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)
-    core.setOutput('deployment_task', task)
-    core.saveState('deployment_task', task)
+    core.setOutput('deployment_task', deployment_task)
+    core.saveState('deployment_task', deployment_task)
 
     // If a merge to the base branch is required, let the user know and exit
     if (
