@@ -53,6 +53,7 @@ export function getInputs() {
   const skipReviews = core.getInput('skip_reviews')
   const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
   const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
+  const unlockOnCloseMode = core.getBooleanInput('unlock_on_close_mode')
   const admins = core.getInput('admins')
   const environment_urls = core.getInput('environment_urls')
   const param_separator = core.getInput('param_separator')
@@ -128,6 +129,7 @@ export function getInputs() {
     disable_naked_commands: disable_naked_commands,
     mergeDeployMode: mergeDeployMode,
     unlockOnMergeMode: unlockOnMergeMode,
+    unlockOnCloseMode: unlockOnCloseMode,
     environment_urls: environment_urls,
     param_separator: param_separator,
     sticky_locks: sticky_locks,

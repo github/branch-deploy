@@ -19,7 +19,8 @@ const LOCK_COMMIT_MSG = LOCK_METADATA.lockCommitMsg
 // :param global: A bool indicating whether the lock is global or not
 // :param task: The task to include in the lock branch name (optional)
 // :returns: The branch name (String)
-async function constructBranchName(environment, global, task = null) {
+async function constructBranchName(environment, global, task) {
+  task = task || null
   // If the lock is global, return the global lock branch name
   if (global === true) {
     return GLOBAL_LOCK_BRANCH
@@ -54,9 +55,11 @@ async function createLock(
   global,
   reactionId,
   leaveComment,
-  task = null,
-  issue_number = null
+  task,
+  issue_number
 ) {
+  task = task || null
+  issue_number = issue_number || null
   core.debug('attempting to create lock...')
 
   // Deconstruct the context to obtain the owner and repo
@@ -145,7 +148,8 @@ async function createLock(
 // :param global: A bool indicating whether the lock is global or not
 // :param task: The task to include in the unlock command (optional)
 // :returns: The unlock command (String)
-async function constructUnlockCommand(environment, global, task = null) {
+async function constructUnlockCommand(environment, global, task) {
+  task = task || null
   // fetch the unlock trigger
   const unlockTrigger = core.getInput('unlock_trigger').trim()
   // fetch the global lock flag
@@ -510,17 +514,27 @@ async function checkLockOwner(
   // dynamic lock text
   let lockText = ''
   let environmentText = ''
+  let taskDisplay = 'N/A'
   var lockBranchForLink
   if (lockData.global === true) {
     lockText = dedent(
       `the \`global\` deployment lock is currently claimed by __${lockData.created_by}__
-      
+
       A \`global\` deployment lock prevents all other users from deploying to any environment except for the owner of the lock
       `
     )
     lockBranchForLink = GLOBAL_LOCK_BRANCH
   } else {
-    const taskText = lockData.task ? ` (task: \`${lockData.task}\`)` : ''
+    // Format task for lock text and display
+    let taskText = ''
+    if (lockData.task) {
+      taskText = ` (task: \`${lockData.task}\`)`
+      taskDisplay = lockData.task
+    } else {
+      taskText = ''
+      taskDisplay = 'N/A'
+    }
+
     lockText = `the \`${lockData.environment}\` environment deployment lock${taskText} is currently claimed by __${lockData.created_by}__`
 
     environmentText = `- __Environment__: \`${lockData.environment}\``
@@ -534,6 +548,12 @@ async function checkLockOwner(
   // Deconstruct the context to obtain the owner and repo
   const {owner, repo} = context.repo
 
+  // Format PR number for display
+  let prNumberDisplay = 'N/A'
+  if (lockData.pr_number) {
+    prNumberDisplay = lockData.pr_number
+  }
+
   // Construct the comment to add to the issue, alerting that the lock is already claimed
   const comment = dedent(`
   ### ⚠️ Cannot ${header}
@@ -545,8 +565,8 @@ async function checkLockOwner(
   ${reasonText}
   ${environmentText}
   - __Branch__: \`${lockData.branch}\`
-  - __PR Number__: \`#${lockData.pr_number || 'N/A'}\`
-  - __Task__: \`${lockData.task || 'N/A'}\`
+  - __PR Number__: \`#${prNumberDisplay}\`
+  - __Task__: \`${taskDisplay}\`
   - __Created At__: \`${lockData.created_at}\`
   - __Created By__: \`${lockData.created_by}\`
   - __Sticky__: \`${lockData.sticky}\`

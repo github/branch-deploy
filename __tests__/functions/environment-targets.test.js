@@ -1145,3 +1145,94 @@ test('checks the comment body on a lock info request and uses the development en
     'found environment target for lock request: development'
   )
 })
+
+test('checks the comment body and parses --task flag', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy to development --task frontend',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({
+    environment: 'development',
+    environmentUrl: null,
+    environmentObj: {
+      target: 'development',
+      noop: false,
+      stable_branch_used: false,
+      params: null,
+      parsed_params: null,
+      sha: null,
+      task: 'frontend'
+    }
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    `📋 detected task in command: ${COLORS.highlight}frontend${COLORS.reset}`
+  )
+  expect(debugMock).toHaveBeenCalledWith(
+    "found environment target for branch deploy (with 'to'): development"
+  )
+})
+
+test('checks the comment body and parses --task flag with params', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy to development --task backend | something1 something2',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({
+    environment: 'development',
+    environmentUrl: null,
+    environmentObj: {
+      target: 'development',
+      noop: false,
+      stable_branch_used: false,
+      params: 'something1 something2',
+      parsed_params: {_: ['something1', 'something2']},
+      sha: null,
+      task: 'backend'
+    }
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    `📋 detected task in command: ${COLORS.highlight}backend${COLORS.reset}`
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    `🧮 detected parameters in command: ${COLORS.highlight}something1 something2`
+  )
+})
+
+test('checks the comment body with malformed --task flag (no value) and environment check fails', async () => {
+  expect(
+    await environmentTargets(
+      environment,
+      '.deploy production --task',
+      trigger,
+      noop_trigger,
+      stable_branch
+    )
+  ).toStrictEqual({
+    environment: false,
+    environmentUrl: null,
+    environmentObj: {
+      target: false,
+      noop: null,
+      stable_branch_used: null,
+      params: null,
+      parsed_params: null,
+      sha: null,
+      task: null
+    }
+  })
+  expect(warningMock).toHaveBeenCalledWith(
+    expect.stringContaining('No matching environment target found')
+  )
+  expect(infoMock).not.toHaveBeenCalledWith(
+    expect.stringContaining('📋 detected task in command:')
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})

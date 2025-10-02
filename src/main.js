@@ -451,10 +451,7 @@ export async function run() {
         !inputs.deployment_task.includes(task)
       ) {
         // Task is not in the allowed list
-        const allowedTasks =
-          typeof inputs.deployment_task === 'string'
-            ? inputs.deployment_task
-            : inputs.deployment_task.join(', ')
+        const allowedTasks = inputs.deployment_task.join(', ')
         const message = dedent(`
           ### ⚠️ Invalid Task
 

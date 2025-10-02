@@ -21,6 +21,12 @@ beforeEach(() => {
   jest.spyOn(core, 'info').mockImplementation(() => {})
   jest.spyOn(core, 'debug').mockImplementation(() => {})
   jest.spyOn(core, 'error').mockImplementation(() => {})
+  jest.spyOn(core, 'getInput').mockImplementation(name => {
+    if (name === 'deployment_task') {
+      return ''
+    }
+    return ''
+  })
   jest.spyOn(unlock, 'unlock').mockImplementation(() => {
     return 'removed lock - silent'
   })
@@ -51,7 +57,13 @@ beforeEach(() => {
     }
   }
 
-  octokit = {}
+  octokit = {
+    rest: {
+      repos: {
+        listBranches: jest.fn()
+      }
+    }
+  }
 })
 
 test('successfully unlocks all environments on a pull request merge', async () => {
@@ -173,4 +185,94 @@ test('fails due to the context being a PR closed event but not a merge', async (
   expect(infoMock).toHaveBeenCalledWith(
     "pull request was closed but not merged so this workflow will not run - OK (Use 'unlock-on-close' instead)"
   )
+})
+
+test('successfully unlocks all environments when deployment_task is set to "all"', async () => {
+  jest.spyOn(core, 'getInput').mockImplementation(name => {
+    if (name === 'deployment_task') {
+      return 'all'
+    }
+    return ''
+  })
+
+  // Mock the listBranches API call to return multiple lock branches
+  octokit.rest.repos.listBranches.mockResolvedValue({
+    data: [
+      {name: 'production-branch-deploy-lock'},
+      {name: 'production-deploy-frontend-branch-deploy-lock'},
+      {name: 'production-deploy-backend-branch-deploy-lock'},
+      {name: 'development-branch-deploy-lock'},
+      {name: 'staging-branch-deploy-lock'},
+      {name: 'some-other-branch'}
+    ]
+  })
+
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(true)
+
+  // Verify the info message about deployment_task being set to 'all' (line 43)
+  expect(infoMock).toHaveBeenCalledWith(
+    `ℹ️ ${COLORS.highlight}deployment_task${COLORS.reset} is set to 'all', look for all related branches to unlock`
+  )
+
+  // Verify that listBranches was called for each environment (lines 53-56)
+  expect(octokit.rest.repos.listBranches).toHaveBeenCalledTimes(3)
+
+  // Verify the matching branches were found and logged (lines 67-69)
+  expect(infoMock).toHaveBeenCalledWith(
+    expect.stringContaining('🔍 found')
+  )
+  expect(infoMock).toHaveBeenCalledWith(
+    expect.stringContaining('matching lock branches for environment')
+  )
+})
+
+test('unlocks environment with task suffix when lockFile has task property', async () => {
+  jest.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
+    return {
+      link: 'https://github.com/corp/test/pull/123#issuecomment-123456789',
+      task: 'deploy-frontend'
+    }
+  })
+
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(true)
+
+  // Verify that the output includes the task suffix (line 121)
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'unlocked_environments',
+    'production-deploy-frontend,development-deploy-frontend,staging-deploy-frontend'
+  )
+})
+
+test('handles deployment_task="all" with no matching branches', async () => {
+  jest.spyOn(core, 'getInput').mockImplementation(name => {
+    if (name === 'deployment_task') {
+      return 'all'
+    }
+    return ''
+  })
+
+  // Mock listBranches to return no matching lock branches
+  octokit.rest.repos.listBranches.mockResolvedValue({
+    data: [
+      {name: 'main'},
+      {name: 'feature-branch'},
+      {name: 'some-other-branch'}
+    ]
+  })
+
+  expect(
+    await unlockOnMerge(octokit, context, environment_targets)
+  ).toStrictEqual(true)
+
+  // Verify that it found 0 matching branches
+  expect(infoMock).toHaveBeenCalledWith(
+    expect.stringContaining('🔍 found 0 matching lock branches')
+  )
+
+  // No environments should be unlocked
+  expect(setOutputMock).toHaveBeenCalledWith('unlocked_environments', '')
 })
