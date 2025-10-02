@@ -46,7 +46,8 @@ test('checks the comment body and does not find an explicit environment target',
       stable_branch_used: false,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -72,7 +73,8 @@ test('checks the comment body and finds an explicit environment target for devel
       stable_branch_used: false,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -98,7 +100,8 @@ test('checks the comment body and finds an explicit environment target for devel
       stable_branch_used: false,
       params: 'something1 something2 something3',
       parsed_params: {_: ['something1', 'something2', 'something3']},
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -131,7 +134,8 @@ test('checks the comment body and finds an explicit environment target and an ex
       stable_branch_used: false,
       params: 'something1 something2 something3',
       parsed_params: {_: ['something1', 'something2', 'something3']},
-      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc',
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -164,7 +168,8 @@ test('checks the comment body and finds an explicit environment target and an ex
       stable_branch_used: false,
       params: 'something1 something2 something3',
       parsed_params: {_: ['something1', 'something2', 'something3']},
-      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc',
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -206,7 +211,8 @@ test('checks the comment body and finds an explicit environment target and an ex
         name: 'my-app',
         q: 'my-queue'
       },
-      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc',
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -239,7 +245,8 @@ test('checks the comment body and finds an explicit environment target and an ex
       stable_branch_used: false,
       params: 'something1 something2 something3',
       parsed_params: {_: ['something1', 'something2', 'something3']},
-      sha: 'f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b'
+      sha: 'f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b',
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -272,7 +279,8 @@ test('checks the comment body and finds an explicit environment target and an ex
       stable_branch_used: false,
       params: null,
       parsed_params: null,
-      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
+      sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc',
+      task: null
     }
   })
 
@@ -306,7 +314,8 @@ test('checks the comment body and finds an explicit environment target for devel
       stable_branch_used: true,
       params: 'something1 | something2 something3',
       parsed_params: {_: ['something1', '|', 'something2', 'something3']},
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -339,7 +348,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       stable_branch_used: false,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -365,7 +375,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       stable_branch_used: true,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -396,7 +407,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       stable_branch_used: false,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(infoMock).toHaveBeenCalledWith(
@@ -440,7 +452,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       stable_branch_used: true,
       params: 'something1 something2 something3',
       parsed_params: {_: ['something1', 'something2', 'something3']},
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(infoMock).toHaveBeenCalledWith(
@@ -489,7 +502,8 @@ test('checks the comment body and uses the default production environment target
       stable_branch_used: false,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(infoMock).toHaveBeenCalledWith(
@@ -531,7 +545,8 @@ test('checks the comment body and finds an explicit environment target for a pro
       params: null,
       parsed_params: null,
       stable_branch_used: false,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -567,7 +582,8 @@ test('checks the comment body and finds an explicit environment target for a pro
       noop: false,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -606,7 +622,8 @@ test('checks the comment body and finds an explicit environment target for a pro
       noop: false,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -637,7 +654,8 @@ test('checks the comment body and finds an explicit environment target for stagi
       noop: true,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -663,7 +681,8 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
       noop: true,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -689,7 +708,8 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
       noop: true,
       params: 'foo=bar',
       parsed_params: {_: ['foo=bar']},
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -715,7 +735,8 @@ test('checks the comment body and finds an explicit environment target for produ
       noop: false,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -741,7 +762,8 @@ test('checks the comment body on a noop deploy and does not find an explicit env
       noop: true,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -767,7 +789,8 @@ test('checks the comment body on a deployment and does not find any matching env
       parsed_params: null,
       stable_branch_used: null,
       target: false,
-      sha: null
+      sha: null,
+      task: null
     }
   })
 
@@ -799,7 +822,8 @@ test('checks the comment body on a stable branch deployment and finds a matching
       noop: false,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -825,7 +849,8 @@ test('checks the comment body on a stable branch deployment and finds a matching
       noop: false,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -851,7 +876,8 @@ test('checks the comment body on a stable branch deployment and uses the default
       noop: false,
       params: null,
       parsed_params: null,
-      sha: null
+      sha: null,
+      task: null
     }
   })
   expect(debugMock).toHaveBeenCalledWith(
@@ -877,7 +903,8 @@ test('checks the comment body on a stable branch deployment and does not find a 
       parsed_params: null,
       stable_branch_used: null,
       target: false,
-      sha: null
+      sha: null,
+      task: null
     }
   })
 
