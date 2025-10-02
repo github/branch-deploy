@@ -43681,7 +43681,8 @@ const LOCK_COMMIT_MSG = LOCK_METADATA.lockCommitMsg
 // :param global: A bool indicating whether the lock is global or not
 // :param task: The task to include in the lock branch name (optional)
 // :returns: The branch name (String)
-async function constructBranchName(environment, global, task = null) {
+async function constructBranchName(environment, global, task) {
+  task = task || null
   // If the lock is global, return the global lock branch name
   if (global === true) {
     return GLOBAL_LOCK_BRANCH
@@ -43716,9 +43717,11 @@ async function createLock(
   global,
   reactionId,
   leaveComment,
-  task = null,
-  issue_number = null
+  task,
+  issue_number
 ) {
+  task = task || null
+  issue_number = issue_number || null
   core.debug('attempting to create lock...')
 
   // Deconstruct the context to obtain the owner and repo
@@ -43807,7 +43810,8 @@ async function createLock(
 // :param global: A bool indicating whether the lock is global or not
 // :param task: The task to include in the unlock command (optional)
 // :returns: The unlock command (String)
-async function constructUnlockCommand(environment, global, task = null) {
+async function constructUnlockCommand(environment, global, task) {
+  task = task || null
   // fetch the unlock trigger
   const unlockTrigger = core.getInput('unlock_trigger').trim()
   // fetch the global lock flag
@@ -44172,17 +44176,27 @@ async function checkLockOwner(
   // dynamic lock text
   let lockText = ''
   let environmentText = ''
+  let taskDisplay = 'N/A'
   var lockBranchForLink
   if (lockData.global === true) {
     lockText = lib(
       `the \`global\` deployment lock is currently claimed by __${lockData.created_by}__
-      
+
       A \`global\` deployment lock prevents all other users from deploying to any environment except for the owner of the lock
       `
     )
     lockBranchForLink = GLOBAL_LOCK_BRANCH
   } else {
-    const taskText = lockData.task ? ` (task: \`${lockData.task}\`)` : ''
+    // Format task for lock text and display
+    let taskText = ''
+    if (lockData.task) {
+      taskText = ` (task: \`${lockData.task}\`)`
+      taskDisplay = lockData.task
+    } else {
+      taskText = ''
+      taskDisplay = 'N/A'
+    }
+
     lockText = `the \`${lockData.environment}\` environment deployment lock${taskText} is currently claimed by __${lockData.created_by}__`
 
     environmentText = `- __Environment__: \`${lockData.environment}\``
@@ -44196,6 +44210,12 @@ async function checkLockOwner(
   // Deconstruct the context to obtain the owner and repo
   const {owner, repo} = context.repo
 
+  // Format PR number for display
+  let prNumberDisplay = 'N/A'
+  if (lockData.pr_number) {
+    prNumberDisplay = lockData.pr_number
+  }
+
   // Construct the comment to add to the issue, alerting that the lock is already claimed
   const comment = lib(`
   ### ⚠️ Cannot ${header}
@@ -44207,8 +44227,8 @@ async function checkLockOwner(
   ${reasonText}
   ${environmentText}
   - __Branch__: \`${lockData.branch}\`
-  - __PR Number__: \`#${lockData.pr_number || 'N/A'}\`
-  - __Task__: \`${lockData.task || 'N/A'}\`
+  - __PR Number__: \`#${prNumberDisplay}\`
+  - __Task__: \`${taskDisplay}\`
   - __Created At__: \`${lockData.created_at}\`
   - __Created By__: \`${lockData.created_by}\`
   - __Sticky__: \`${lockData.sticky}\`
@@ -46085,6 +46105,7 @@ function getInputs() {
   const skipReviews = core.getInput('skip_reviews')
   const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
   const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
+  const unlockOnCloseMode = core.getBooleanInput('unlock_on_close_mode')
   const admins = core.getInput('admins')
   const environment_urls = core.getInput('environment_urls')
   const param_separator = core.getInput('param_separator')
@@ -46160,6 +46181,7 @@ function getInputs() {
     disable_naked_commands: disable_naked_commands,
     mergeDeployMode: mergeDeployMode,
     unlockOnMergeMode: unlockOnMergeMode,
+    unlockOnCloseMode: unlockOnCloseMode,
     environment_urls: environment_urls,
     param_separator: param_separator,
     sticky_locks: sticky_locks,
@@ -47064,10 +47086,7 @@ async function run() {
         !inputs.deployment_task.includes(task)
       ) {
         // Task is not in the allowed list
-        const allowedTasks =
-          typeof inputs.deployment_task === 'string'
-            ? inputs.deployment_task
-            : inputs.deployment_task.join(', ')
+        const allowedTasks = inputs.deployment_task.join(', ')
         const message = lib_default()(`
           ### ⚠️ Invalid Task
 

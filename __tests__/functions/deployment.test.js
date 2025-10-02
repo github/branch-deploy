@@ -313,3 +313,253 @@ test('returns false if the deployment is not found', async () => {
 
   expect(octokit.graphql).toHaveBeenCalled()
 })
+
+test('returns null when no deployments are found with task parameter', async () => {
+  octokit = createMockGraphQLOctokit({
+    repository: {
+      deployments: {
+        nodes: []
+      }
+    }
+  })
+
+  expect(
+    await latestActiveDeployment(octokit, context, environment, 'backend')
+  ).toBeNull()
+
+  expect(octokit.graphql).toHaveBeenCalled()
+  expect(core.debug).toHaveBeenCalledWith(
+    'no deployments found for production with task backend'
+  )
+})
+
+test('returns active deployment with matching task on first page', async () => {
+  const mockDataWithTask = {
+    repository: {
+      deployments: {
+        nodes: [
+          {
+            createdAt: '2024-09-19T20:18:18Z',
+            environment: 'production',
+            updatedAt: '2024-09-19T20:18:21Z',
+            id: 'DE_kwDOID9x8M5sC6QZ',
+            payload: '{"type":"branch-deploy"}',
+            state: 'ACTIVE',
+            task: 'backend',
+            creator: {
+              login: 'github-actions'
+            },
+            ref: {
+              name: 'main'
+            },
+            commit: {
+              oid: '315cec138fc9d7dac8a47c6bba4217d3965ede3b'
+            }
+          },
+          {
+            createdAt: '2024-09-19T20:18:10Z',
+            environment: 'production',
+            updatedAt: '2024-09-19T20:18:15Z',
+            id: 'DE_kwDOID9x8M5sC6QY',
+            payload: '{"type":"branch-deploy"}',
+            state: 'ACTIVE',
+            task: 'frontend',
+            creator: {
+              login: 'github-actions'
+            },
+            ref: {
+              name: 'main'
+            },
+            commit: {
+              oid: 'abc123'
+            }
+          }
+        ],
+        pageInfo: {
+          endCursor: null,
+          hasNextPage: false
+        }
+      }
+    }
+  }
+
+  octokit = createMockGraphQLOctokit(mockDataWithTask)
+
+  const result = await latestActiveDeployment(
+    octokit,
+    context,
+    environment,
+    'backend'
+  )
+
+  expect(result).toStrictEqual({
+    createdAt: '2024-09-19T20:18:18Z',
+    environment: 'production',
+    updatedAt: '2024-09-19T20:18:21Z',
+    id: 'DE_kwDOID9x8M5sC6QZ',
+    payload: '{"type":"branch-deploy"}',
+    state: 'ACTIVE',
+    task: 'backend',
+    creator: {
+      login: 'github-actions'
+    },
+    ref: {
+      name: 'main'
+    },
+    commit: {
+      oid: '315cec138fc9d7dac8a47c6bba4217d3965ede3b'
+    }
+  })
+
+  expect(octokit.graphql).toHaveBeenCalledTimes(1)
+  expect(core.debug).toHaveBeenCalledWith(
+    'found active deployment for production with task backend in page 1'
+  )
+})
+
+test('returns active deployment with matching task during pagination', async () => {
+  octokit.graphql = jest
+    .fn()
+    .mockReturnValueOnce({
+      repository: {
+        deployments: {
+          nodes: [
+            {
+              state: 'ACTIVE',
+              task: 'frontend'
+            },
+            {
+              state: 'INACTIVE',
+              task: 'backend'
+            }
+          ],
+          pageInfo: {
+            endCursor: 'cursor1',
+            hasNextPage: true
+          }
+        }
+      }
+    })
+    .mockReturnValueOnce({
+      repository: {
+        deployments: {
+          nodes: [
+            {
+              state: 'INACTIVE',
+              task: 'backend'
+            },
+            {
+              state: 'ACTIVE',
+              task: 'backend'
+            }
+          ],
+          pageInfo: {
+            endCursor: 'cursor2',
+            hasNextPage: false
+          }
+        }
+      }
+    })
+
+  const result = await latestActiveDeployment(
+    octokit,
+    context,
+    environment,
+    'backend'
+  )
+
+  expect(result).toStrictEqual({
+    state: 'ACTIVE',
+    task: 'backend'
+  })
+
+  expect(octokit.graphql).toHaveBeenCalledTimes(2)
+  expect(core.debug).toHaveBeenCalledWith(
+    'found active deployment for production with task backend in page 2'
+  )
+})
+
+test('returns null when no active deployment found after pagination with task filter', async () => {
+  octokit.graphql = jest
+    .fn()
+    .mockReturnValueOnce({
+      repository: {
+        deployments: {
+          nodes: [
+            {
+              state: 'ACTIVE',
+              task: 'frontend'
+            },
+            {
+              state: 'INACTIVE',
+              task: 'backend'
+            }
+          ],
+          pageInfo: {
+            endCursor: 'cursor1',
+            hasNextPage: true
+          }
+        }
+      }
+    })
+    .mockReturnValueOnce({
+      repository: {
+        deployments: {
+          nodes: [
+            {
+              state: 'INACTIVE',
+              task: 'backend'
+            },
+            {
+              state: 'ACTIVE',
+              task: 'frontend'
+            }
+          ],
+          pageInfo: {
+            endCursor: 'cursor2',
+            hasNextPage: true
+          }
+        }
+      }
+    })
+    .mockReturnValueOnce({
+      repository: {
+        deployments: {
+          nodes: [
+            {
+              state: 'PENDING',
+              task: 'backend'
+            },
+            {
+              state: 'ACTIVE',
+              task: 'frontend'
+            }
+          ],
+          pageInfo: {
+            endCursor: null,
+            hasNextPage: false
+          }
+        }
+      }
+    })
+
+  const result = await latestActiveDeployment(
+    octokit,
+    context,
+    environment,
+    'backend'
+  )
+
+  expect(result).toBeNull()
+
+  expect(octokit.graphql).toHaveBeenCalledTimes(3)
+  expect(core.debug).toHaveBeenCalledWith(
+    'no active deployment found for production with task backend in page 2'
+  )
+  expect(core.debug).toHaveBeenCalledWith(
+    'no active deployment found for production with task backend in page 3'
+  )
+  expect(core.debug).toHaveBeenCalledWith(
+    'no active deployment found for production with task backend after 3 pages'
+  )
+})

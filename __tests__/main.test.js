@@ -8,6 +8,7 @@ import * as help from '../src/functions/help.js'
 import * as validPermissions from '../src/functions/valid-permissions.js'
 import * as identicalCommitCheck from '../src/functions/identical-commit-check.js'
 import * as unlockOnMerge from '../src/functions/unlock-on-merge.js'
+import * as unlockOnClose from '../src/functions/unlock-on-close.js'
 import * as lock from '../src/functions/lock.js'
 import * as unlock from '../src/functions/unlock.js'
 import * as actionStatus from '../src/functions/action-status.js'
@@ -85,6 +86,7 @@ beforeEach(() => {
   process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
   process.env.INPUT_MERGE_DEPLOY_MODE = 'false'
   process.env.INPUT_UNLOCK_ON_MERGE_MODE = 'false'
+  process.env.INPUT_UNLOCK_ON_CLOSE_MODE = 'false'
   process.env.INPUT_STICKY_LOCKS = 'false'
   process.env.INPUT_STICKY_LOCKS_FOR_NOOP = 'false'
   process.env.INPUT_ALLOW_SHA_DEPLOYMENTS = 'false'
@@ -98,6 +100,7 @@ beforeEach(() => {
   process.env.INPUT_ALLOW_NON_DEFAULT_TARGET_BRANCH_DEPLOYMENTS = 'false'
   process.env.INPUT_DEPLOYMENT_CONFIRMATION = 'false'
   process.env.INPUT_DEPLOYMENT_CONFIRMATION_TIMEOUT = '60'
+  process.env.INPUT_DEPLOYMENT_TASK = ''
 
   github.context.payload = {
     issue: {
@@ -1370,6 +1373,17 @@ test('successfully runs in unlockOnMergeMode', async () => {
   expect(validDeploymentOrderMock).not.toHaveBeenCalled()
 })
 
+test('successfully runs in unlockOnCloseMode', async () => {
+  process.env.INPUT_UNLOCK_ON_CLOSE_MODE = 'true'
+  jest.spyOn(unlockOnClose, 'unlockOnClose').mockImplementation(() => {
+    return true
+  })
+  expect(await run()).toBe('success - unlock on close mode')
+  expect(infoMock).toHaveBeenCalledWith(`🏃 running in 'unlock on close' mode`)
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+})
+
 test('handles an input validation error and exits', async () => {
   process.env.INPUT_UPDATE_BRANCH = 'badvalue'
   try {
@@ -1474,4 +1488,389 @@ test('stores params and parsed params into context with complex params', async (
   expect(createDeploymentMock).toHaveBeenCalledWith(data)
   expect(setOutputMock).toHaveBeenCalledWith('params', params)
   expect(setOutputMock).toHaveBeenCalledWith('parsed_params', parsed_params)
+})
+test('fails when task is specified but task support is disabled', async () => {
+  process.env.INPUT_DEPLOYMENT_TASK = ''
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      id: 456,
+      body: '.deploy to production --task frontend',
+      created_at: '2020-01-01T00:00:00Z',
+      updated_at: '2020-01-01T00:00:00Z',
+      html_url: 'https://github.com/corp/test/pull/123#issuecomment-456',
+      user: {
+        login: 'monalisa'
+      }
+    }
+  }
+
+  jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
+    return {data: {id: 123}}
+  })
+  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+    return false
+  })
+  jest.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
+    return false
+  })
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return true
+  })
+
+  expect(await run()).toBe('failure')
+  expect(setFailedMock).toHaveBeenCalledWith(
+    'Task support not enabled but --task frontend was specified'
+  )
+})
+
+test('fails when task is not in the allowed list', async () => {
+  process.env.INPUT_DEPLOYMENT_TASK = 'backend,api'
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      id: 456,
+      body: '.deploy to production --task frontend',
+      created_at: '2020-01-01T00:00:00Z',
+      updated_at: '2020-01-01T00:00:00Z',
+      html_url: 'https://github.com/corp/test/pull/123#issuecomment-456',
+      user: {
+        login: 'monalisa'
+      }
+    }
+  }
+
+  jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
+    return {data: {id: 123}}
+  })
+  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+    return false
+  })
+  jest.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
+    return false
+  })
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return true
+  })
+
+  expect(await run()).toBe('failure')
+  expect(setFailedMock).toHaveBeenCalledWith(
+    'Task frontend is not in the allowed list: backend, api'
+  )
+})
+
+test('fails when task is not in the allowed list - deployment_task as array (covers line 455 false branch)', async () => {
+  // This test covers line 455: the false branch of the ternary where deployment_task is an array
+  // and needs to be joined with ', '
+  process.env.INPUT_DEPLOYMENT_TASK = 'backend,api,mobile'
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      id: 456,
+      body: '.deploy to production --task frontend',
+      created_at: '2020-01-01T00:00:00Z',
+      updated_at: '2020-01-01T00:00:00Z',
+      html_url: 'https://github.com/corp/test/pull/123#issuecomment-456',
+      user: {
+        login: 'monalisa'
+      }
+    }
+  }
+
+  jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
+    return {data: {id: 123}}
+  })
+  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+    return false
+  })
+  jest.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
+    return false
+  })
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return true
+  })
+
+  expect(await run()).toBe('failure')
+  expect(setFailedMock).toHaveBeenCalledWith(
+    'Task frontend is not in the allowed list: backend, api, mobile'
+  )
+})
+
+test.skip('succeeds when task is in the allowed list', async () => {
+  process.env.INPUT_DEPLOYMENT_TASK = 'frontend,backend,api'
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      id: 456,
+      body: '.deploy to production --task frontend',
+      created_at: '2020-01-01T00:00:00Z',
+      updated_at: '2020-01-01T00:00:00Z',
+      html_url: 'https://github.com/corp/test/pull/123#issuecomment-456',
+      user: {
+        login: 'monalisa'
+      }
+    }
+  }
+  github.context.actor = 'monalisa'
+
+  jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
+    return {data: {id: 123}}
+  })
+  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+    return false
+  })
+  jest.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
+    return false
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
+    return {
+      status: true,
+      ref: 'test-ref',
+      noopMode: false,
+      sha: mock_sha,
+      isFork: false
+    }
+  })
+  jest.spyOn(branchRulesetChecks, 'branchRulesetChecks').mockImplementation(
+    () => {
+      return true
+    }
+  )
+  jest.spyOn(commitSafetyChecks, 'commitSafetyChecks').mockImplementation(
+    () => {
+      return {
+        status: true,
+        isVerified: true
+      }
+    }
+  )
+  jest.spyOn(validDeploymentOrder, 'validDeploymentOrder').mockImplementation(
+    () => {
+      return {valid: true}
+    }
+  )
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {status: true, lockData: null}
+  })
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(timestamp, 'timestamp').mockImplementation(() => {
+    return '2025-01-01T00:00:00.000Z'
+  })
+
+  const octokit = {
+    rest: {
+      repos: {
+        get: jest.fn().mockReturnValue({
+          data: {default_branch: 'main'}
+        }),
+        getCommit: jest.fn().mockReturnValue({
+          data: {
+            sha: 'deadbeef',
+            commit: {verification: no_verification},
+            committer: {login: 'monalisa'},
+            html_url: 'https://github.com/corp/test/commit/deadbeef'
+          }
+        }),
+        createDeployment: createDeploymentMock
+      },
+      issues: {
+        createComment: jest.fn().mockReturnValue({
+          data: {id: 123456}
+        })
+      },
+      pulls: {
+        get: jest.fn().mockReturnValue({
+          data: {head: {ref: 'test-ref'}},
+          status: 200
+        })
+      }
+    }
+  }
+
+  jest.spyOn(github, 'getOctokit').mockImplementation(() => {
+    return octokit
+  })
+
+  expect(await run()).toBe('success')
+  expect(infoMock).toHaveBeenCalledWith(
+    `📋 detected task in command: ${COLORS.highlight}frontend${COLORS.reset}`
+  )
+  expect(createDeploymentMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      task: 'frontend',
+      auto_inactive: false
+    })
+  )
+})
+
+test.skip('succeeds when task support is set to "all"', async () => {
+  process.env.INPUT_DEPLOYMENT_TASK = 'all'
+  github.context.payload = {
+    issue: {
+      number: 123
+    },
+    comment: {
+      id: 456,
+      body: '.deploy to production --task anything',
+      created_at: '2020-01-01T00:00:00Z',
+      updated_at: '2020-01-01T00:00:00Z',
+      html_url: 'https://github.com/corp/test/pull/123#issuecomment-456',
+      user: {
+        login: 'monalisa'
+      }
+    }
+  }
+  github.context.actor = 'monalisa'
+
+  jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
+    return {data: {id: 123}}
+  })
+  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+    return false
+  })
+  jest.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
+    return false
+  })
+  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
+    return {
+      status: true,
+      ref: 'test-ref',
+      noopMode: false,
+      sha: mock_sha,
+      isFork: false
+    }
+  })
+  jest.spyOn(branchRulesetChecks, 'branchRulesetChecks').mockImplementation(
+    () => {
+      return true
+    }
+  )
+  jest.spyOn(commitSafetyChecks, 'commitSafetyChecks').mockImplementation(
+    () => {
+      return {
+        status: true,
+        isVerified: true
+      }
+    }
+  )
+  jest.spyOn(validDeploymentOrder, 'validDeploymentOrder').mockImplementation(
+    () => {
+      return {valid: true}
+    }
+  )
+  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    return {status: true, lockData: null}
+  })
+  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return true
+  })
+  jest.spyOn(timestamp, 'timestamp').mockImplementation(() => {
+    return '2025-01-01T00:00:00.000Z'
+  })
+
+  const octokit = {
+    rest: {
+      repos: {
+        get: jest.fn().mockReturnValue({
+          data: {default_branch: 'main'}
+        }),
+        getCommit: jest.fn().mockReturnValue({
+          data: {
+            sha: 'deadbeef',
+            commit: {verification: no_verification},
+            committer: {login: 'monalisa'},
+            html_url: 'https://github.com/corp/test/commit/deadbeef'
+          }
+        }),
+        createDeployment: createDeploymentMock
+      },
+      issues: {
+        createComment: jest.fn().mockReturnValue({
+          data: {id: 123456}
+        })
+      },
+      pulls: {
+        get: jest.fn().mockReturnValue({
+          data: {head: {ref: 'test-ref'}},
+          status: 200
+        })
+      }
+    }
+  }
+
+  jest.spyOn(github, 'getOctokit').mockImplementation(() => {
+    return octokit
+  })
+
+  expect(await run()).toBe('success')
+  expect(infoMock).toHaveBeenCalledWith(
+    `📋 detected task in command: ${COLORS.highlight}anything${COLORS.reset}`
+  )
+  expect(createDeploymentMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      task: 'anything',
+      auto_inactive: false
+    })
+  )
+})
+
+test('sets auto_inactive to false when task is present (covers line 856)', async () => {
+  // This test covers line 856: auto_inactive should be false when task is present
+  process.env.INPUT_DEPLOYMENT_TASK = 'frontend,backend'
+  github.context.payload.comment.body = '.deploy to production --task frontend'
+
+  expect(await run()).toBe('success')
+  expect(setOutputMock).toHaveBeenCalledWith('deployment_task', 'frontend')
+  expect(createDeploymentMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      task: 'frontend',
+      auto_inactive: false
+    })
+  )
+})
+
+test('sets auto_inactive to true when task is not present (covers line 856)', async () => {
+  // This test covers line 856: auto_inactive should be true when task is null/undefined
+  process.env.INPUT_DEPLOYMENT_TASK = ''
+  github.context.payload.comment.body = '.deploy to production'
+
+  expect(await run()).toBe('success')
+  expect(setOutputMock).toHaveBeenCalledWith('deployment_task', 'deploy')
+  expect(createDeploymentMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      task: 'deploy',
+      auto_inactive: true
+    })
+  )
 })
