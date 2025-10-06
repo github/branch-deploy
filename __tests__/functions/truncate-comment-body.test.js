@@ -1,4 +1,4 @@
-import {vi,expect,test,beforeEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {truncateCommentBody} from '../../src/functions/truncate-comment-body.js'
 
 beforeEach(() => {

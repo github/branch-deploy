@@ -1,4 +1,4 @@
-import {vi,expect,test,beforeEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {unlock} from '../../src/functions/unlock.js'
 import * as actionStatus from '../../src/functions/action-status.js'
 import {API_HEADERS} from '../../src/functions/api-headers.js'

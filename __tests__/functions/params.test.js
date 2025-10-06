@@ -1,4 +1,4 @@
-import {vi,expect,test,beforeEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {parseParams} from '../../src/functions/params.js'
 
 beforeEach(() => {

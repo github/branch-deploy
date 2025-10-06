@@ -1,5 +1,5 @@
 import {postDeploy} from '../../src/functions/post-deploy.js'
-import {vi,expect,test,beforeEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {COLORS} from '../../src/functions/colors.js'
 import * as actionStatus from '../../src/functions/action-status.js'
 import * as lock from '../../src/functions/lock.js'

@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {vi,expect,test,beforeEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {help} from '../../src/functions/help.js'
 
 const debugMock = vi.spyOn(core, 'debug')

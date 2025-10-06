@@ -1,5 +1,5 @@
 import * as github from '@actions/github'
-import {vi,expect,test,beforeEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
 
 import {post} from '../../src/functions/post.js'
