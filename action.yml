@@ -279,6 +279,6 @@ outputs:
   non_default_target_branch_used:
     description: 'The string "true" if the pull request is targeting a branch other than the default branch (aka stable branch) for the merge, otherwise unset'
 runs:
-  using: "node20"
+  using: "node24"
   main: "dist/index.js"
   post: "dist/index.js"
