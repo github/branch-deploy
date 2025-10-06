@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {COLORS} from '../../src/functions/colors.js'
 import {deploymentConfirmation} from '../../src/functions/deployment-confirmation.js'
 import {API_HEADERS} from '../../src/functions/api-headers.js'

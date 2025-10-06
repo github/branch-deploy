@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, describe, test, beforeEach} from 'vitest'
 import {isTimestampOlder} from '../../src/functions/is-timestamp-older.js'
 
 const debugMock = vi.spyOn(core, 'debug')

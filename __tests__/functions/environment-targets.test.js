@@ -1,5 +1,5 @@
 import {environmentTargets} from '../../src/functions/environment-targets.js'
-import {vi, expect, test, beforeEach} from 'vitest'
+import {vi,expect,test,beforeEach} from 'vitest'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {COLORS} from '../../src/functions/colors.js'

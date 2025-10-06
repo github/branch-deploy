@@ -1,5 +1,5 @@
 import {stringToArray} from '../../src/functions/string-to-array.js'
-import {vi, expect, test, beforeEach} from 'vitest'
+import {vi,expect,test,beforeEach} from 'vitest'
 import * as core from '@actions/core'
 
 const debugMock = vi.spyOn(core, 'debug')

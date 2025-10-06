@@ -1,4 +1,4 @@
-import {vi, expect, test, beforeEach} from 'vitest'
+import {vi,expect,test,beforeEach} from 'vitest'
 import {run} from '../src/main.js'
 import * as reactEmote from '../src/functions/react-emote.js'
 import * as contextCheck from '../src/functions/context-check.js'

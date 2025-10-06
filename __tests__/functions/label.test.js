@@ -1,6 +1,5 @@
 import {label} from '../../src/functions/label.js'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
-import * as core from '@actions/core'
+import {vi,expect,test,beforeEach} from 'vitest'
 
 var context
 var octokit

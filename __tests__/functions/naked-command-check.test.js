@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {nakedCommandCheck} from '../../src/functions/naked-command-check.js'
 import {COLORS} from '../../src/functions/colors.js'
 

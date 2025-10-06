@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {lock} from '../../src/functions/lock.js'
 import {COLORS} from '../../src/functions/colors.js'
 import * as actionStatus from '../../src/functions/action-status.js'

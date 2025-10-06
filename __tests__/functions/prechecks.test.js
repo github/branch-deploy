@@ -1,5 +1,5 @@
 import {prechecks} from '../../src/functions/prechecks.js'
-import {vi, expect, test, beforeEach} from 'vitest'
+import {vi,expect,test,beforeEach} from 'vitest'
 import {COLORS} from '../../src/functions/colors.js'
 import * as isAdmin from '../../src/functions/admin.js'
 import * as isOutdated from '../../src/functions/outdated-check.js'

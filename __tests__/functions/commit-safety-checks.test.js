@@ -1,4 +1,4 @@
-import {vi, expect, test, beforeEach} from 'vitest'
+import {vi,expect,test,beforeEach} from 'vitest'
 import {commitSafetyChecks} from '../../src/functions/commit-safety-checks.js'
 import {COLORS} from '../../src/functions/colors.js'
 import * as core from '@actions/core'

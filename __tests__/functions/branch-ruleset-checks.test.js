@@ -1,5 +1,5 @@
 import {branchRulesetChecks} from '../../src/functions/branch-ruleset-checks.js'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
 import {COLORS} from '../../src/functions/colors.js'
 import {SUGGESTED_RULESETS} from '../../src/functions/suggested-rulesets.js'

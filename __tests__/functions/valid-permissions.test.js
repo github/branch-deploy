@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {validPermissions} from '../../src/functions/valid-permissions.js'
 
 const setOutputMock = vi.spyOn(core, 'setOutput')

@@ -1,5 +1,5 @@
 import {reactEmote} from '../../src/functions/react-emote.js'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 
 const context = {
   repo: {

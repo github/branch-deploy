@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import * as unlock from '../../src/functions/unlock.js'
 import * as checkLockFile from '../../src/functions/check-lock-file.js'
 import * as checkBranch from '../../src/functions/lock.js'

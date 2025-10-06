@@ -1,5 +1,5 @@
 import {isAdmin} from '../../src/functions/admin.js'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {COLORS} from '../../src/functions/colors.js'
 import * as github from '@actions/github'
 import * as core from '@actions/core'

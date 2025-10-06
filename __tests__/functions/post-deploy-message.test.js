@@ -1,5 +1,5 @@
 import {postDeployMessage} from '../../src/functions/post-deploy-message.js'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 

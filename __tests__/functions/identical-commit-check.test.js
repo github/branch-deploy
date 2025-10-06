@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {identicalCommitCheck} from '../../src/functions/identical-commit-check.js'
 import {COLORS} from '../../src/functions/colors.js'
 

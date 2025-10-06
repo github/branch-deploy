@@ -1,10 +1,9 @@
-import {vi, expect, test, beforeEach} from 'vitest'
+import {vi,expect,test,beforeEach} from 'vitest'
 import {
   createDeploymentStatus,
   latestActiveDeployment,
   activeDeployment
 } from '../../src/functions/deployment.js'
-import * as core from '@actions/core'
 import {API_HEADERS} from '../../src/functions/api-headers.js'
 
 var octokit
