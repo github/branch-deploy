@@ -1,5 +1,13 @@
 import * as core from '@actions/core'
-import {truncateCommentBody} from '../../src/functions/truncate-comment-body'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
+import {truncateCommentBody} from '../../src/functions/truncate-comment-body.js'
 
 beforeEach(() => {
   jest.clearAllMocks()

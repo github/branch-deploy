@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {checkInput} from './check-input'
+import {checkInput} from './check-input.js'
 import dedent from 'dedent-js'
 import {existsSync} from 'fs'
 import nunjucks from 'nunjucks'

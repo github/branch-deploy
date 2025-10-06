@@ -1,7 +1,15 @@
 import * as core from '@actions/core'
-import {unlock} from '../../src/functions/unlock'
-import * as actionStatus from '../../src/functions/action-status'
-import {API_HEADERS} from '../../src/functions/api-headers'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
+import {unlock} from '../../src/functions/unlock.js'
+import * as actionStatus from '../../src/functions/action-status.js'
+import {API_HEADERS} from '../../src/functions/api-headers.js'
 
 class NotFoundError extends Error {
   constructor(message) {

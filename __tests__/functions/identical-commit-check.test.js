@@ -1,6 +1,14 @@
 import * as core from '@actions/core'
-import {identicalCommitCheck} from '../../src/functions/identical-commit-check'
-import {COLORS} from '../../src/functions/colors'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
+import {identicalCommitCheck} from '../../src/functions/identical-commit-check.js'
+import {COLORS} from '../../src/functions/colors.js'
 
 const saveStateMock = jest.spyOn(core, 'saveState')
 const setOutputMock = jest.spyOn(core, 'setOutput')

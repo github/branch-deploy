@@ -1,8 +1,8 @@
 import * as core from '@actions/core'
-import {COLORS} from './colors'
+import {COLORS} from './colors.js'
 import dedent from 'dedent-js'
-import {LOCK_METADATA} from './lock-metadata'
-import {API_HEADERS} from './api-headers'
+import {LOCK_METADATA} from './lock-metadata.js'
+import {API_HEADERS} from './api-headers.js'
 
 const thumbsDown = '-1'
 const docs =

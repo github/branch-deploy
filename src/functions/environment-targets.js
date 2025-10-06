@@ -1,10 +1,10 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
-import {checkInput} from './check-input'
-import {actionStatus} from './action-status'
-import {LOCK_METADATA} from './lock-metadata'
-import {COLORS} from './colors'
-import {parseParams} from './params'
+import {checkInput} from './check-input.js'
+import {actionStatus} from './action-status.js'
+import {LOCK_METADATA} from './lock-metadata.js'
+import {COLORS} from './colors.js'
+import {parseParams} from './params.js'
 
 // Helper function to that does environment checks specific to branch deploys
 // :param environment_targets_sanitized: The list of environment targets

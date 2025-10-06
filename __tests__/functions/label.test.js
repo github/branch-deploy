@@ -1,4 +1,12 @@
-import {label} from '../../src/functions/label'
+import {label} from '../../src/functions/label.js'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
 import * as core from '@actions/core'
 
 var context

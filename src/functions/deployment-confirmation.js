@@ -1,8 +1,8 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
-import {COLORS} from './colors'
-import {API_HEADERS} from './api-headers'
-import {timestamp} from './timestamp'
+import {COLORS} from './colors.js'
+import {API_HEADERS} from './api-headers.js'
+import {timestamp} from './timestamp.js'
 
 const thumbsUp = '+1'
 const thumbsDown = '-1'

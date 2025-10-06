@@ -1,12 +1,20 @@
-import {postDeploy} from '../../src/functions/post-deploy'
-import {COLORS} from '../../src/functions/colors'
-import * as actionStatus from '../../src/functions/action-status'
-import * as lock from '../../src/functions/lock'
-import * as unlock from '../../src/functions/unlock'
-import * as createDeploymentStatus from '../../src/functions/deployment'
-import * as postDeployMessage from '../../src/functions/post-deploy-message'
+import {postDeploy} from '../../src/functions/post-deploy.js'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
+import {COLORS} from '../../src/functions/colors.js'
+import * as actionStatus from '../../src/functions/action-status.js'
+import * as lock from '../../src/functions/lock.js'
+import * as unlock from '../../src/functions/unlock.js'
+import * as createDeploymentStatus from '../../src/functions/deployment.js'
+import * as postDeployMessage from '../../src/functions/post-deploy-message.js'
 import * as core from '@actions/core'
-import * as label from '../../src/functions/label'
+import * as label from '../../src/functions/label.js'
 
 const infoMock = jest.spyOn(core, 'info')
 const debugMock = jest.spyOn(core, 'debug')

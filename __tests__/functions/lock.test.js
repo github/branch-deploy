@@ -1,7 +1,15 @@
 import * as core from '@actions/core'
-import {lock} from '../../src/functions/lock'
-import {COLORS} from '../../src/functions/colors'
-import * as actionStatus from '../../src/functions/action-status'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
+import {lock} from '../../src/functions/lock.js'
+import {COLORS} from '../../src/functions/colors.js'
+import * as actionStatus from '../../src/functions/action-status.js'
 
 class NotFoundError extends Error {
   constructor(message) {

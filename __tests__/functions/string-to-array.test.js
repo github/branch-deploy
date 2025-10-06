@@ -1,4 +1,12 @@
-import {stringToArray} from '../../src/functions/string-to-array'
+import {stringToArray} from '../../src/functions/string-to-array.js'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
 import * as core from '@actions/core'
 
 const debugMock = jest.spyOn(core, 'debug')

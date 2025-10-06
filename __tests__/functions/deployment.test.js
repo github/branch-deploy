@@ -1,10 +1,11 @@
+import {jest, expect, test, beforeEach} from '@jest/globals'
 import {
   createDeploymentStatus,
   latestActiveDeployment,
   activeDeployment
-} from '../../src/functions/deployment'
+} from '../../src/functions/deployment.js'
 import * as core from '@actions/core'
-import {API_HEADERS} from '../../src/functions/api-headers'
+import {API_HEADERS} from '../../src/functions/api-headers.js'
 
 var octokit
 var context

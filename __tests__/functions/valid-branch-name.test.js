@@ -1,4 +1,12 @@
-import {constructValidBranchName} from '../../src/functions/valid-branch-name'
+import {constructValidBranchName} from '../../src/functions/valid-branch-name.js'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
 import * as core from '@actions/core'
 
 const debugMock = jest.spyOn(core, 'debug')

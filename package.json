@@ -1,5 +1,6 @@
 {
   "description": "Enabling Branch Deployments through IssueOps with GitHub Actions",
+  "type": "module",
   "main": "lib/main.js",
   "scripts": {
     "format": "prettier --write '**/*.js'",
@@ -36,6 +37,14 @@
     "yargs-parser": "^21.1.1"
   },
   "jest": {
+    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/__tests__/setup.js"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!(yargs-parser)/)"
+    ],
     "coverageReporters": [
       "json-summary",
       "text",

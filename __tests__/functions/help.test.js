@@ -1,6 +1,14 @@
 import * as core from '@actions/core'
-import {help} from '../../src/functions/help'
-import * as actionStatus from '../../src/functions/action-status'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
+import {help} from '../../src/functions/help.js'
+import * as actionStatus from '../../src/functions/action-status.js'
 
 const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
 

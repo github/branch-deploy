@@ -1,5 +1,13 @@
 import * as core from '@actions/core'
-import {isTimestampOlder} from '../../src/functions/is-timestamp-older'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
+import {isTimestampOlder} from '../../src/functions/is-timestamp-older.js'
 
 beforeEach(() => {
   jest.clearAllMocks()

@@ -1,4 +1,12 @@
-import {isDeprecated} from '../../src/functions/deprecated-checks'
+import {isDeprecated} from '../../src/functions/deprecated-checks.js'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
 import * as core from '@actions/core'
 
 const docsLink =

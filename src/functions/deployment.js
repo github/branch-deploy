@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {API_HEADERS} from './api-headers'
+import {API_HEADERS} from './api-headers.js'
 
 // Helper function to add deployment statuses to a PR / ref
 // :param octokit: The octokit client

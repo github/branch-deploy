@@ -1,4 +1,4 @@
-import {API_HEADERS} from './api-headers'
+import {API_HEADERS} from './api-headers.js'
 
 // Fixed presets of allowed emote types as defined by GitHub
 const presets = [

@@ -1,4 +1,12 @@
-import {timestamp} from '../../src/functions/timestamp'
+import {timestamp} from '../../src/functions/timestamp.js'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
 
 beforeEach(() => {
   jest.clearAllMocks()

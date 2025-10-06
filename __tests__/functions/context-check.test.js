@@ -1,4 +1,12 @@
-import {contextCheck} from '../../src/functions/context-check'
+import {contextCheck} from '../../src/functions/context-check.js'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
 import * as core from '@actions/core'
 
 const warningMock = jest.spyOn(core, 'warning')

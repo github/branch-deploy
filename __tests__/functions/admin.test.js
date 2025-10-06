@@ -1,5 +1,13 @@
-import {isAdmin} from '../../src/functions/admin'
-import {COLORS} from '../../src/functions/colors'
+import {isAdmin} from '../../src/functions/admin.js'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
+import {COLORS} from '../../src/functions/colors.js'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
 

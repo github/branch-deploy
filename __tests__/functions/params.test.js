@@ -1,5 +1,13 @@
 import * as core from '@actions/core'
-import {parseParams} from '../../src/functions/params'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
+import {parseParams} from '../../src/functions/params.js'
 
 beforeEach(() => {
   jest.clearAllMocks()

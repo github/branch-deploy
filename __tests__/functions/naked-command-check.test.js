@@ -1,6 +1,14 @@
 import * as core from '@actions/core'
-import {nakedCommandCheck} from '../../src/functions/naked-command-check'
-import {COLORS} from '../../src/functions/colors'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
+import {nakedCommandCheck} from '../../src/functions/naked-command-check.js'
+import {COLORS} from '../../src/functions/colors.js'
 
 const docs =
   'https://github.com/github/branch-deploy/blob/main/docs/naked-commands.md'

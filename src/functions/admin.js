@@ -1,9 +1,9 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import githubUsernameRegex from 'github-username-regex-js'
-import {octokitRetry} from '@octokit/plugin-retry'
-import {COLORS} from './colors'
-import {API_HEADERS} from './api-headers'
+import {retry} from '@octokit/plugin-retry'
+import {COLORS} from './colors.js'
+import {API_HEADERS} from './api-headers.js'
 
 // Helper function to check if a user exists in an org team
 // :param actor: The user to check
@@ -23,7 +23,7 @@ async function orgTeamCheck(actor, orgTeams) {
 
   // Create a new octokit client with the admins_pat and the retry plugin
   const octokit = github.getOctokit(adminsPat, {
-    additionalPlugins: [octokitRetry]
+    additionalPlugins: [retry]
   })
 
   // Loop through all org/team names

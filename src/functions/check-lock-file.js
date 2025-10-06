@@ -1,8 +1,8 @@
-import {LOCK_METADATA} from './lock-metadata'
-import {COLORS} from './colors'
-import {constructValidBranchName} from './valid-branch-name'
+import {LOCK_METADATA} from './lock-metadata.js'
+import {COLORS} from './colors.js'
+import {constructValidBranchName} from './valid-branch-name.js'
 import * as core from '@actions/core'
-import {API_HEADERS} from './api-headers'
+import {API_HEADERS} from './api-headers.js'
 
 const LOCK_FILE = LOCK_METADATA.lockFile
 

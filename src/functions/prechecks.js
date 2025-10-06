@@ -1,10 +1,10 @@
 import * as core from '@actions/core'
-import {validPermissions} from './valid-permissions'
-import {isAdmin} from './admin'
-import {isOutdated} from './outdated-check'
-import {stringToArray} from './string-to-array'
-import {COLORS} from './colors'
-import {API_HEADERS} from './api-headers'
+import {validPermissions} from './valid-permissions.js'
+import {isAdmin} from './admin.js'
+import {isOutdated} from './outdated-check.js'
+import {stringToArray} from './string-to-array.js'
+import {COLORS} from './colors.js'
+import {API_HEADERS} from './api-headers.js'
 
 // Runs precheck logic before the branch deployment can proceed
 // :param context: The context of the event

@@ -1,4 +1,12 @@
-import {postDeployMessage} from '../../src/functions/post-deploy-message'
+import {postDeployMessage} from '../../src/functions/post-deploy-message.js'
+import {
+  jest,
+  expect,
+  describe,
+  test,
+  beforeEach,
+  afterEach
+} from '@jest/globals'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 
