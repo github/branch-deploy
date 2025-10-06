@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {octokitRetry} from '@octokit/plugin-retry'
+import {retry} from '@octokit/plugin-retry'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 
@@ -71,7 +71,7 @@ export async function post() {
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
       userAgent: `github/branch-deploy@${VERSION}`,
-      additionalPlugins: [octokitRetry]
+      additionalPlugins: [retry]
     })
 
     core.info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`)

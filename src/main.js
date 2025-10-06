@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
-import {octokitRetry} from '@octokit/plugin-retry'
+import {retry} from '@octokit/plugin-retry'
 import dedent from 'dedent-js'
 
 import {VERSION} from './version'
@@ -48,7 +48,7 @@ export async function run() {
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
       userAgent: `github/branch-deploy@${VERSION}`,
-      additionalPlugins: [octokitRetry]
+      additionalPlugins: [retry]
     })
 
     // Set the state so that the post run logic will trigger
