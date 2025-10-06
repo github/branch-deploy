@@ -7,8 +7,8 @@
     "format-check": "prettier --check '**/*.js'",
     "lint": "eslint src/**/*.js",
     "package": "ncc build src/main.js -o dist --source-map --license licenses.txt",
-    "test": "(BRANCH_DEPLOY_VITEST_TEST=true vitest run && make-coverage-badge --output-path ./badges/coverage.svg) || make-coverage-badge --output-path ./badges/coverage.svg",
-    "ci-test": "BRANCH_DEPLOY_VITEST_TEST=true vitest run",
+    "test": "(BRANCH_DEPLOY_VITEST_TEST=true vitest run --coverage && mkdir -p badges && make-coverage-badge --output-path ./badges/coverage.svg) || (mkdir -p badges && make-coverage-badge --output-path ./badges/coverage.svg)",
+    "ci-test": "BRANCH_DEPLOY_VITEST_TEST=true vitest run --coverage",
     "all": "npm run format && npm run lint && npm run package",
     "bundle": "npm run format && npm run package",
     "act": "npm run format && npm run package && act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test"
