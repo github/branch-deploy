@@ -11,7 +11,7 @@ export default {
     }
   },
   testEnvironment: 'node',
-  transformIgnorePatterns: [
-    'node_modules/(?!(@octokit)/)'
-  ]
+  // Allow Jest to transform @octokit packages from node_modules
+  // This enables support for ESM packages from the Octokit ecosystem
+  transformIgnorePatterns: ['node_modules/(?!(@octokit)/)']
 }
