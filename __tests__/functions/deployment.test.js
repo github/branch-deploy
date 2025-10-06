@@ -1,4 +1,4 @@
-import {jest, expect, test, beforeEach} from '@jest/globals'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {
   createDeploymentStatus,
   latestActiveDeployment,
@@ -12,8 +12,7 @@ var context
 var mockDeploymentData
 var mockDeploymentResults
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  vi.clearAllMocks()
   process.env.GITHUB_SERVER_URL = 'https://github.com'
 
   context = {
@@ -82,7 +81,7 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
-        createDeploymentStatus: jest.fn().mockReturnValueOnce({
+        createDeploymentStatus: vi.fn().mockReturnValueOnce({
           data: {}
         })
       }
@@ -96,7 +95,7 @@ const ref = 'test-ref'
 const logUrl = 'https://github.com/corp/test/actions/runs/12345'
 
 const createMockGraphQLOctokit = data => ({
-  graphql: jest.fn().mockReturnValueOnce(data)
+  graphql: vi.fn().mockReturnValueOnce(data)
 })
 
 test('creates an in_progress deployment status', async () => {
@@ -149,7 +148,7 @@ test('returns null if no deployments are found', async () => {
 })
 
 test('returns null if no deployments are found in 3 pages of queries', async () => {
-  octokit.graphql = jest
+  octokit.graphql = vi
     .fn()
     .mockReturnValueOnce({
       repository: {
@@ -203,7 +202,7 @@ test('returns null if no deployments are found in 3 pages of queries', async () 
 })
 
 test('returns the deployment when it is found in the second page of queries', async () => {
-  octokit.graphql = jest
+  octokit.graphql = vi
     .fn()
     .mockReturnValueOnce({
       repository: {

@@ -1,43 +1,31 @@
 import * as core from '@actions/core'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 import * as unlock from '../../src/functions/unlock.js'
 import * as checkLockFile from '../../src/functions/check-lock-file.js'
 import * as checkBranch from '../../src/functions/lock.js'
 import {unlockOnMerge} from '../../src/functions/unlock-on-merge.js'
 import {COLORS} from '../../src/functions/colors.js'
 
-const setOutputMock = jest.spyOn(core, 'setOutput')
-const infoMock = jest.spyOn(core, 'info')
-const warningMock = jest.spyOn(core, 'warning')
-const debugMock = jest.spyOn(core, 'debug')
+const setOutputMock = vi.spyOn(core, 'setOutput')
+const infoMock = vi.spyOn(core, 'info')
+const warningMock = vi.spyOn(core, 'warning')
+const debugMock = vi.spyOn(core, 'debug')
 
 const environment_targets = 'production,development,staging'
 
 var context
 var octokit
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
-  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'error').mockImplementation(() => {})
-  jest.spyOn(unlock, 'unlock').mockImplementation(() => {
+  vi.clearAllMocks()
+  vi.spyOn(unlock, 'unlock').mockImplementation(() => {
     return 'removed lock - silent'
   })
-  jest.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
+  vi.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
     return {
       link: 'https://github.com/corp/test/pull/123#issuecomment-123456789'
     }
   })
-  jest.spyOn(checkBranch, 'checkBranch').mockImplementation(() => {
+  vi.spyOn(checkBranch, 'checkBranch').mockImplementation(() => {
     return true
   })
 
@@ -82,7 +70,7 @@ test('successfully unlocks all environments on a pull request merge', async () =
 })
 
 test('finds that no deployment lock is set so none are removed', async () => {
-  jest.spyOn(unlock, 'unlock').mockImplementation(() => {
+  vi.spyOn(unlock, 'unlock').mockImplementation(() => {
     return 'no deployment lock currently set - silent'
   })
 

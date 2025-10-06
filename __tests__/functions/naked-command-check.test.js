@@ -1,18 +1,11 @@
 import * as core from '@actions/core'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 import {nakedCommandCheck} from '../../src/functions/naked-command-check.js'
 import {COLORS} from '../../src/functions/colors.js'
 
 const docs =
   'https://github.com/github/branch-deploy/blob/main/docs/naked-commands.md'
-const warningMock = jest.spyOn(core, 'warning')
+const warningMock = vi.spyOn(core, 'warning')
 
 var context
 var octokit
@@ -20,9 +13,7 @@ var triggers
 var param_separator
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  vi.clearAllMocks()
 
   process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
 
@@ -47,12 +38,12 @@ beforeEach(() => {
   octokit = {
     rest: {
       reactions: {
-        createForIssueComment: jest.fn().mockReturnValueOnce({
+        createForIssueComment: vi.fn().mockReturnValueOnce({
           data: {}
         })
       },
       issues: {
-        createComment: jest.fn().mockReturnValueOnce({
+        createComment: vi.fn().mockReturnValueOnce({
           data: {}
         })
       }

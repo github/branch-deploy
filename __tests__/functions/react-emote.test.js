@@ -1,12 +1,5 @@
 import {reactEmote} from '../../src/functions/react-emote.js'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 
 const context = {
   repo: {
@@ -23,7 +16,7 @@ const context = {
 const octokit = {
   rest: {
     reactions: {
-      createForIssueComment: jest.fn().mockReturnValueOnce({
+      createForIssueComment: vi.fn().mockReturnValueOnce({
         data: {
           id: '1'
         }

@@ -1,12 +1,5 @@
 import {postDeploy} from '../../src/functions/post-deploy.js'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {COLORS} from '../../src/functions/colors.js'
 import * as actionStatus from '../../src/functions/action-status.js'
 import * as lock from '../../src/functions/lock.js'
@@ -16,9 +9,9 @@ import * as postDeployMessage from '../../src/functions/post-deploy-message.js'
 import * as core from '@actions/core'
 import * as label from '../../src/functions/label.js'
 
-const infoMock = jest.spyOn(core, 'info')
-const debugMock = jest.spyOn(core, 'debug')
-const warningMock = jest.spyOn(core, 'warning')
+const infoMock = vi.spyOn(core, 'info')
+const debugMock = vi.spyOn(core, 'debug')
+const warningMock = vi.spyOn(core, 'warning')
 
 const review_decision = 'APPROVED'
 
@@ -28,28 +21,25 @@ var labels
 var data
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
-  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
-  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+  vi.clearAllMocks()
+
+  vi.spyOn(label, 'label').mockImplementation(() => {
     return undefined
   })
-  jest.spyOn(label, 'label').mockImplementation(() => {
-    return undefined
-  })
-  jest.spyOn(postDeployMessage, 'postDeployMessage').mockImplementation(() => {
+
+  vi.spyOn(postDeployMessage, 'postDeployMessage').mockImplementation(() => {
     return 'Updated 1 server'
   })
-  jest.spyOn(lock, 'lock').mockImplementation(() => {
+
+  vi.spyOn(lock, 'lock').mockImplementation(() => {
     return {lockData: {sticky: true}}
   })
-  jest
-    .spyOn(createDeploymentStatus, 'createDeploymentStatus')
-    .mockImplementation(() => {
+
+  vi.spyOn(createDeploymentStatus, 'createDeploymentStatus').mockImplementation(
+    () => {
       return undefined
-    })
+    }
+  )
 
   context = {
     actor: 'monalisa',
@@ -58,6 +48,9 @@ beforeEach(() => {
     repo: {
       owner: 'corp',
       repo: 'test'
+    },
+    issue: {
+      number: 1
     },
     payload: {
       comment: {
@@ -69,7 +62,20 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
-        createDeploymentStatus: jest.fn().mockReturnValue({
+        createDeploymentStatus: vi.fn().mockReturnValue({
+          data: {}
+        })
+      },
+      issues: {
+        createComment: vi.fn().mockReturnValue({
+          data: {}
+        })
+      },
+      reactions: {
+        createForIssueComment: vi.fn().mockReturnValue({
+          data: {}
+        }),
+        deleteForIssueComment: vi.fn().mockReturnValue({
           data: {}
         })
       }
@@ -111,8 +117,8 @@ beforeEach(() => {
 })
 
 test('successfully completes a production branch deployment', async () => {
-  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
-  const createDeploymentStatusSpy = jest.spyOn(
+  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
+  const createDeploymentStatusSpy = vi.spyOn(
     createDeploymentStatus,
     'createDeploymentStatus'
   )
@@ -123,12 +129,20 @@ test('successfully completes a production branch deployment', async () => {
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
+      issue: {number: 1},
       payload: {comment: {id: '1'}},
       repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     {
       rest: {
+        issues: {
+          createComment: octokit.rest.issues.createComment
+        },
+        reactions: {
+          createForIssueComment: octokit.rest.reactions.createForIssueComment,
+          deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
+        },
         repos: {
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
@@ -142,6 +156,13 @@ test('successfully completes a production branch deployment', async () => {
   expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
     {
       rest: {
+        issues: {
+          createComment: octokit.rest.issues.createComment
+        },
+        reactions: {
+          createForIssueComment: octokit.rest.reactions.createForIssueComment,
+          deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
+        },
         repos: {
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
@@ -150,6 +171,7 @@ test('successfully completes a production branch deployment', async () => {
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
+      issue: {number: 1},
       payload: {comment: {id: '1'}},
       repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
@@ -163,8 +185,8 @@ test('successfully completes a production branch deployment', async () => {
 })
 
 test('successfully completes a production branch deployment that fails', async () => {
-  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
-  const createDeploymentStatusSpy = jest.spyOn(
+  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
+  const createDeploymentStatusSpy = vi.spyOn(
     createDeploymentStatus,
     'createDeploymentStatus'
   )
@@ -178,12 +200,20 @@ test('successfully completes a production branch deployment that fails', async (
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
+      issue: {number: 1},
       payload: {comment: {id: '1'}},
       repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     {
       rest: {
+        issues: {
+          createComment: octokit.rest.issues.createComment
+        },
+        reactions: {
+          createForIssueComment: octokit.rest.reactions.createForIssueComment,
+          deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
+        },
         repos: {
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
@@ -197,6 +227,13 @@ test('successfully completes a production branch deployment that fails', async (
   expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
     {
       rest: {
+        issues: {
+          createComment: octokit.rest.issues.createComment
+        },
+        reactions: {
+          createForIssueComment: octokit.rest.reactions.createForIssueComment,
+          deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
+        },
         repos: {
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
@@ -205,6 +242,7 @@ test('successfully completes a production branch deployment that fails', async (
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
+      issue: {number: 1},
       payload: {comment: {id: '1'}},
       repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
@@ -218,8 +256,8 @@ test('successfully completes a production branch deployment that fails', async (
 })
 
 test('successfully completes a production branch deployment with an environment url', async () => {
-  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
-  const createDeploymentStatusSpy = jest.spyOn(
+  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
+  const createDeploymentStatusSpy = vi.spyOn(
     createDeploymentStatus,
     'createDeploymentStatus'
   )
@@ -233,12 +271,20 @@ test('successfully completes a production branch deployment with an environment 
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
+      issue: {number: 1},
       payload: {comment: {id: '1'}},
       repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     {
       rest: {
+        issues: {
+          createComment: octokit.rest.issues.createComment
+        },
+        reactions: {
+          createForIssueComment: octokit.rest.reactions.createForIssueComment,
+          deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
+        },
         repos: {
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
@@ -252,6 +298,13 @@ test('successfully completes a production branch deployment with an environment 
   expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
     {
       rest: {
+        issues: {
+          createComment: octokit.rest.issues.createComment
+        },
+        reactions: {
+          createForIssueComment: octokit.rest.reactions.createForIssueComment,
+          deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
+        },
         repos: {
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
@@ -260,6 +313,7 @@ test('successfully completes a production branch deployment with an environment 
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
+      issue: {number: 1},
       payload: {comment: {id: '1'}},
       repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
@@ -273,14 +327,16 @@ test('successfully completes a production branch deployment with an environment 
 })
 
 test('successfully completes a production branch deployment and removes a non-sticky lock', async () => {
-  const lockSpy = jest.spyOn(lock, 'lock').mockImplementation(() => {
+  const lockSpy = vi.spyOn(lock, 'lock').mockImplementation(() => {
     return {lockData: {sticky: false}}
   })
-  jest.spyOn(unlock, 'unlock').mockImplementation(() => {
+
+  vi.spyOn(unlock, 'unlock').mockImplementation(() => {
     return true
   })
-  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
-  const createDeploymentStatusSpy = jest.spyOn(
+
+  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
+  const createDeploymentStatusSpy = vi.spyOn(
     createDeploymentStatus,
     'createDeploymentStatus'
   )
@@ -292,12 +348,20 @@ test('successfully completes a production branch deployment and removes a non-st
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
+      issue: {number: 1},
       payload: {comment: {id: '1'}},
       repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     {
       rest: {
+        issues: {
+          createComment: octokit.rest.issues.createComment
+        },
+        reactions: {
+          createForIssueComment: octokit.rest.reactions.createForIssueComment,
+          deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
+        },
         repos: {
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
@@ -311,6 +375,13 @@ test('successfully completes a production branch deployment and removes a non-st
   expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
     {
       rest: {
+        issues: {
+          createComment: octokit.rest.issues.createComment
+        },
+        reactions: {
+          createForIssueComment: octokit.rest.reactions.createForIssueComment,
+          deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
+        },
         repos: {
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
@@ -319,6 +390,7 @@ test('successfully completes a production branch deployment and removes a non-st
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
+      issue: {number: 1},
       payload: {comment: {id: '1'}},
       repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
@@ -335,13 +407,15 @@ test('successfully completes a production branch deployment and removes a non-st
 })
 
 test('successfully completes a noop branch deployment and removes a non-sticky lock', async () => {
-  const lockSpy = jest.spyOn(lock, 'lock').mockImplementation(() => {
+  const lockSpy = vi.spyOn(lock, 'lock').mockImplementation(() => {
     return {lockData: {sticky: false}}
   })
-  jest.spyOn(unlock, 'unlock').mockImplementation(() => {
+
+  vi.spyOn(unlock, 'unlock').mockImplementation(() => {
     return true
   })
-  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
+
+  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
 
   data.noop = true
 
@@ -353,12 +427,20 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
+      issue: {number: 1},
       payload: {comment: {id: '1'}},
       repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     {
       rest: {
+        issues: {
+          createComment: octokit.rest.issues.createComment
+        },
+        reactions: {
+          createForIssueComment: octokit.rest.reactions.createForIssueComment,
+          deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
+        },
         repos: {
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
@@ -374,10 +456,11 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
 })
 
 test('successfully completes a noop branch deployment but does not get any lock data', async () => {
-  const lockSpy = jest.spyOn(lock, 'lock').mockImplementation(() => {
+  const lockSpy = vi.spyOn(lock, 'lock').mockImplementation(() => {
     return {lockData: null}
   })
-  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
+
+  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
 
   data.noop = true
 
@@ -389,12 +472,20 @@ test('successfully completes a noop branch deployment but does not get any lock 
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
+      issue: {number: 1},
       payload: {comment: {id: '1'}},
       repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     {
       rest: {
+        issues: {
+          createComment: octokit.rest.issues.createComment
+        },
+        reactions: {
+          createForIssueComment: octokit.rest.reactions.createForIssueComment,
+          deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
+        },
         repos: {
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
@@ -410,19 +501,27 @@ test('successfully completes a noop branch deployment but does not get any lock 
 })
 
 test('successfully completes a production branch deployment with no custom message', async () => {
-  const actionStatusSpy = jest.spyOn(actionStatus, 'actionStatus')
+  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
   expect(await postDeploy(context, octokit, data)).toBe('success')
   expect(actionStatusSpy).toHaveBeenCalled()
   expect(actionStatusSpy).toHaveBeenCalledWith(
     {
       actor: 'monalisa',
       eventName: 'issue_comment',
+      issue: {number: 1},
       payload: {comment: {id: '1'}},
       repo: {owner: 'corp', repo: 'test'},
       workflow: 'test-workflow'
     },
     {
       rest: {
+        issues: {
+          createComment: octokit.rest.issues.createComment
+        },
+        reactions: {
+          createForIssueComment: octokit.rest.reactions.createForIssueComment,
+          deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
+        },
         repos: {
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
@@ -520,7 +619,7 @@ test('fails due to no ref', async () => {
 })
 
 test('fails due to no deployment_id', async () => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
   data.deployment_id = ''
   try {
     await postDeploy(context, octokit, data)
@@ -530,7 +629,7 @@ test('fails due to no deployment_id', async () => {
 })
 
 test('fails due to no environment', async () => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
   data.environment = ''
   try {
     await postDeploy(context, octokit, data)
@@ -540,7 +639,7 @@ test('fails due to no environment', async () => {
 })
 
 test('fails due to no reaction_id', async () => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
   data.reaction_id = ''
   try {
     await postDeploy(context, octokit, data)
@@ -550,7 +649,7 @@ test('fails due to no reaction_id', async () => {
 })
 
 test('fails due to no environment (noop)', async () => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
   data.environment = ''
   data.noop = true
   try {
@@ -561,7 +660,7 @@ test('fails due to no environment (noop)', async () => {
 })
 
 test('fails due to no noop', async () => {
-  jest.resetAllMocks()
+  vi.resetAllMocks()
   data.noop = null
   try {
     await postDeploy(context, octokit, data)

@@ -1,12 +1,5 @@
 import * as core from '@actions/core'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 import {actionStatus} from '../../src/functions/action-status.js'
 import {truncateCommentBody} from '../../src/functions/truncate-comment-body.js'
 import {API_HEADERS} from '../../src/functions/api-headers.js'
@@ -14,10 +7,7 @@ import {API_HEADERS} from '../../src/functions/api-headers.js'
 var context
 var octokit
 beforeEach(() => {
-  jest.clearAllMocks()
-
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
+  vi.clearAllMocks()
 
   process.env.GITHUB_SERVER_URL = 'https://github.com'
   process.env.GITHUB_RUN_ID = '12345'
@@ -40,15 +30,15 @@ beforeEach(() => {
   octokit = {
     rest: {
       reactions: {
-        createForIssueComment: jest.fn().mockReturnValueOnce({
+        createForIssueComment: vi.fn().mockReturnValueOnce({
           data: {}
         }),
-        deleteForIssueComment: jest.fn().mockReturnValueOnce({
+        deleteForIssueComment: vi.fn().mockReturnValueOnce({
           data: {}
         })
       },
       issues: {
-        createComment: jest.fn().mockReturnValueOnce({
+        createComment: vi.fn().mockReturnValueOnce({
           data: {}
         })
       }

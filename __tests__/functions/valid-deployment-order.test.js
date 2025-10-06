@@ -1,15 +1,14 @@
 import * as core from '@actions/core'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 import {COLORS} from '../../src/functions/colors.js'
 import {validDeploymentOrder} from '../../src/functions/valid-deployment-order.js'
 import * as activeDeployment from '../../src/functions/deployment.js'
+
+const infoMock = vi.spyOn(core, 'info')
+const warningMock = vi.spyOn(core, 'warning')
+const errorMock = vi.spyOn(core, 'error')
+const setOutputMock = vi.spyOn(core, 'setOutput')
+const activeDeploymentMock = vi.spyOn(activeDeployment, 'activeDeployment')
 
 let octokit
 let context
@@ -17,17 +16,12 @@ let environment = 'production'
 let sha = 'deadbeef'
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'error').mockImplementation(() => {})
-  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
+  vi.clearAllMocks()
 
   context = {}
   octokit = {}
 
-  jest.spyOn(activeDeployment, 'activeDeployment').mockImplementation(() => {
+  activeDeploymentMock.mockImplementation(() => {
     return true
   })
 })
@@ -84,11 +78,9 @@ test('when the enforced deployment order passes for all previous environments', 
 })
 
 test('when the enforced deployment order fails because one out of two environments (the first one) is not active in the order', async () => {
-  jest
-    .spyOn(activeDeployment, 'activeDeployment')
-    .mockImplementationOnce(() => {
-      return false
-    })
+  vi.spyOn(activeDeployment, 'activeDeployment').mockImplementationOnce(() => {
+    return false
+  })
 
   expect(
     await validDeploymentOrder(
@@ -118,21 +110,17 @@ test('when the enforced deployment order fails because one out of two environmen
     )
   )
 
-  expect(core.setOutput).toHaveBeenCalledWith(
+  expect(setOutputMock).toHaveBeenCalledWith(
     'needs_to_be_deployed',
     'development'
   )
 })
 
 test('when the enforced deployment order fails because one out of two environments (the previous one) is not active in the order', async () => {
-  jest
-    .spyOn(activeDeployment, 'activeDeployment')
+  activeDeploymentMock
     .mockImplementationOnce(() => {
       return true
     })
-
-  jest
-    .spyOn(activeDeployment, 'activeDeployment')
     .mockImplementationOnce(() => {
       return false
     })
@@ -165,21 +153,17 @@ test('when the enforced deployment order fails because one out of two environmen
     )
   )
 
-  expect(core.setOutput).toHaveBeenCalledWith('needs_to_be_deployed', 'staging')
+  expect(setOutputMock).toHaveBeenCalledWith('needs_to_be_deployed', 'staging')
 })
 
 test('when the enforced deployment order fails because both of the environments are not active in the enforced order', async () => {
-  jest
-    .spyOn(activeDeployment, 'activeDeployment')
-    .mockImplementationOnce(() => {
-      return false
-    })
+  vi.spyOn(activeDeployment, 'activeDeployment').mockImplementationOnce(() => {
+    return false
+  })
 
-  jest
-    .spyOn(activeDeployment, 'activeDeployment')
-    .mockImplementationOnce(() => {
-      return false
-    })
+  vi.spyOn(activeDeployment, 'activeDeployment').mockImplementationOnce(() => {
+    return false
+  })
 
   expect(
     await validDeploymentOrder(
@@ -215,7 +199,7 @@ test('when the enforced deployment order fails because both of the environments 
     )
   )
 
-  expect(core.setOutput).toHaveBeenCalledWith(
+  expect(setOutputMock).toHaveBeenCalledWith(
     'needs_to_be_deployed',
     'development,staging'
   )

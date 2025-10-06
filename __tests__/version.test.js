@@ -1,12 +1,5 @@
 import {VERSION} from '../src/version.js'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 
 describe('VERSION constant', () => {
   const versionRegex = /^v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/

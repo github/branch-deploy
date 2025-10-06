@@ -1,12 +1,4 @@
-import * as core from '@actions/core'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {unlock} from '../../src/functions/unlock.js'
 import * as actionStatus from '../../src/functions/action-status.js'
 import {API_HEADERS} from '../../src/functions/api-headers.js'
@@ -22,14 +14,8 @@ let octokit
 let context
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
-    return undefined
-  })
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
+  vi.clearAllMocks()
+
   process.env.INPUT_ENVIRONMENT = 'production'
   process.env.INPUT_UNLOCK_TRIGGER = '.unlock'
   process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
@@ -37,7 +23,14 @@ beforeEach(() => {
   octokit = {
     rest: {
       git: {
-        deleteRef: jest.fn().mockReturnValue({status: 204})
+        deleteRef: vi.fn().mockReturnValue({status: 204})
+      },
+      issues: {
+        createComment: vi.fn().mockReturnValue({status: 201})
+      },
+      reactions: {
+        createForIssueComment: vi.fn().mockReturnValue({status: 201}),
+        deleteForIssueComment: vi.fn().mockReturnValue({status: 204})
       }
     }
   }
@@ -128,7 +121,7 @@ test('fails to release a deployment lock due to a bad HTTP code from the GitHub 
   const badHttpOctokitMock = {
     rest: {
       git: {
-        deleteRef: jest.fn().mockReturnValue({status: 500})
+        deleteRef: vi.fn().mockReturnValue({status: 500})
       }
     }
   }
@@ -141,7 +134,7 @@ test('throws an error if an unhandled exception occurs - silent mode', async () 
   const errorOctokitMock = {
     rest: {
       git: {
-        deleteRef: jest.fn().mockRejectedValue(new Error('oh no'))
+        deleteRef: vi.fn().mockRejectedValue(new Error('oh no'))
       }
     }
   }
@@ -156,7 +149,7 @@ test('Does not find a deployment lock branch so it lets the user know - silent m
   const noBranchOctokitMock = {
     rest: {
       git: {
-        deleteRef: jest
+        deleteRef: vi
           .fn()
           .mockRejectedValue(
             new NotFoundError(
@@ -175,7 +168,14 @@ test('fails to release a deployment lock due to a bad HTTP code from the GitHub 
   const badHttpOctokitMock = {
     rest: {
       git: {
-        deleteRef: jest.fn().mockReturnValue({status: 500})
+        deleteRef: vi.fn().mockReturnValue({status: 500})
+      },
+      issues: {
+        createComment: vi.fn().mockReturnValue({status: 201})
+      },
+      reactions: {
+        createForIssueComment: vi.fn().mockReturnValue({status: 201}),
+        deleteForIssueComment: vi.fn().mockReturnValue({status: 204})
       }
     }
   }
@@ -183,7 +183,7 @@ test('fails to release a deployment lock due to a bad HTTP code from the GitHub 
 })
 
 test('Does not find a deployment lock branch so it lets the user know', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -191,7 +191,7 @@ test('Does not find a deployment lock branch so it lets the user know', async ()
   const noBranchOctokitMock = {
     rest: {
       git: {
-        deleteRef: jest
+        deleteRef: vi
           .fn()
           .mockRejectedValue(
             new NotFoundError(
@@ -214,7 +214,7 @@ test('Does not find a deployment lock branch so it lets the user know', async ()
 
 test('Does not find a deployment lock branch so it lets the user know', async () => {
   context.payload.comment.body = '.unlock --global'
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -222,7 +222,7 @@ test('Does not find a deployment lock branch so it lets the user know', async ()
   const noBranchOctokitMock = {
     rest: {
       git: {
-        deleteRef: jest
+        deleteRef: vi
           .fn()
           .mockRejectedValue(
             new NotFoundError(
@@ -247,7 +247,7 @@ test('throws an error if an unhandled exception occurs', async () => {
   const errorOctokitMock = {
     rest: {
       git: {
-        deleteRef: jest.fn().mockRejectedValue(new Error('oh no'))
+        deleteRef: vi.fn().mockRejectedValue(new Error('oh no'))
       }
     }
   }

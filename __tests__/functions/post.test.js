@@ -1,12 +1,5 @@
 import * as github from '@actions/github'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
 
 import {post} from '../../src/functions/post.js'
@@ -47,30 +40,33 @@ const validStates = {
   deployment_start_time: '2024-01-01T00:00:00Z'
 }
 
-const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation(() => {})
-const setWarningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
-const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
+const setFailedMock = vi.spyOn(core, 'setFailed').mockImplementation(() => {})
+const setWarningMock = vi.spyOn(core, 'warning').mockImplementation(() => {})
+const infoMock = vi.spyOn(core, 'info').mockImplementation(() => {})
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'error').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'getBooleanInput').mockImplementation(name => {
+  vi.clearAllMocks()
+  vi.spyOn(core, 'error').mockImplementation(() => {})
+  vi.spyOn(core, 'debug').mockImplementation(() => {})
+  vi.spyOn(core, 'getBooleanInput').mockImplementation(name => {
     return validBooleanInputs[name]
   })
-  jest.spyOn(core, 'getInput').mockImplementation(name => {
+  vi.spyOn(core, 'getInput').mockImplementation(name => {
     return validInputs[name]
   })
-  jest.spyOn(core, 'getState').mockImplementation(name => {
+  vi.spyOn(core, 'getState').mockImplementation(name => {
     return validStates[name]
   })
-  jest.spyOn(postDeploy, 'postDeploy').mockImplementation(() => {
+
+  vi.spyOn(postDeploy, 'postDeploy').mockImplementation(() => {
     return undefined
   })
-  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+
+  vi.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
     return true
   })
-  jest.spyOn(github, 'getOctokit').mockImplementation(() => {
+
+  vi.spyOn(github, 'getOctokit').mockImplementation(() => {
     return true
   })
 })
@@ -87,7 +83,7 @@ test('successfully runs post() Action logic when environment_url is not defined'
     environment_url: null
   }
 
-  jest.spyOn(core, 'getState').mockImplementation(name => {
+  vi.spyOn(core, 'getState').mockImplementation(name => {
     return noEnvironmentUrl[name]
   })
 
@@ -95,9 +91,10 @@ test('successfully runs post() Action logic when environment_url is not defined'
 })
 
 test('exits due to an invalid Actions context', async () => {
-  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+  vi.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
     return false
   })
+
   expect(await post()).toBeUndefined()
 })
 
@@ -105,7 +102,7 @@ test('exits due to a bypass being set', async () => {
   const bypassed = {
     bypass: 'true'
   }
-  jest.spyOn(core, 'getState').mockImplementation(name => {
+  vi.spyOn(core, 'getState').mockImplementation(name => {
     return bypassed[name]
   })
   expect(await post()).toBeUndefined()
@@ -118,7 +115,7 @@ test('skips the process of completing a deployment', async () => {
   const skipped = {
     skip_completing: 'true'
   }
-  jest.spyOn(core, 'getBooleanInput').mockImplementation(name => {
+  vi.spyOn(core, 'getBooleanInput').mockImplementation(name => {
     return skipped[name]
   })
   expect(await post()).toBeUndefined()
@@ -129,7 +126,7 @@ test('skips the process of completing a deployment', async () => {
 
 test('throws an error', async () => {
   try {
-    jest.spyOn(github, 'getOctokit').mockImplementation(() => {
+    vi.spyOn(github, 'getOctokit').mockImplementation(() => {
       throw new Error('test error')
     })
     await post()

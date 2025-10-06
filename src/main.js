@@ -866,7 +866,7 @@ if (core.getState('isPost') === 'true') {
 } else {
   if (
     process.env.CI === 'true' &&
-    process.env.BRANCH_DEPLOY_JEST_TEST !== 'true'
+    process.env.BRANCH_DEPLOY_VITEST_TEST !== 'true'
   ) {
     run()
   }

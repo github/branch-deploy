@@ -7,8 +7,8 @@
     "format-check": "prettier --check '**/*.js'",
     "lint": "eslint src/**/*.js",
     "package": "ncc build src/main.js -o dist --source-map --license licenses.txt",
-    "test": "(BRANCH_DEPLOY_JEST_TEST=true jest && make-coverage-badge --output-path ./badges/coverage.svg) || make-coverage-badge --output-path ./badges/coverage.svg",
-    "ci-test": "BRANCH_DEPLOY_JEST_TEST=true jest",
+    "test": "(BRANCH_DEPLOY_VITEST_TEST=true vitest run && make-coverage-badge --output-path ./badges/coverage.svg) || make-coverage-badge --output-path ./badges/coverage.svg",
+    "ci-test": "BRANCH_DEPLOY_VITEST_TEST=true vitest run",
     "all": "npm run format && npm run lint && npm run package",
     "bundle": "npm run format && npm run package",
     "act": "npm run format && npm run package && act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test"
@@ -28,50 +28,22 @@
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.1",
-    "@octokit/plugin-retry": "^6.0.1",
-    "@octokit/rest": "^20.1.0",
+    "@octokit/plugin-retry": "^8.0.2",
     "@octokit/request": "^10.0.5",
+    "@octokit/rest": "^22.0.0",
     "dedent-js": "^1.0.1",
     "github-username-regex-js": "^1.0.0",
     "nunjucks": "^3.2.4",
-    "yargs-parser": "^21.1.1"
-  },
-  "jest": {
-    "testEnvironment": "node",
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "/__tests__/setup.js"
-    ],
-    "transformIgnorePatterns": [
-      "node_modules/(?!(yargs-parser)/)"
-    ],
-    "coverageReporters": [
-      "json-summary",
-      "text",
-      "lcov"
-    ],
-    "collectCoverage": true,
-    "collectCoverageFrom": [
-      "./src/**"
-    ],
-    "coverageThreshold": {
-      "global": {
-        "lines": 100,
-        "statements": 100,
-        "branches": 100,
-        "functions": 100
-      }
-    }
+    "yargs-parser": "^22.0.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.28.4",
-    "@babel/plugin-transform-modules-commonjs": "^7.27.1",
-    "@types/node": "^24.6.1",
+    "@types/node": "^24.7.0",
     "@vercel/ncc": "^0.38.4",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^8.57.0",
-    "jest": "^30.2.0",
     "js-yaml": "^4.1.0",
     "make-coverage-badge": "^1.2.0",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "vitest": "^3.2.4"
   }
 }

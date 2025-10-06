@@ -1,27 +1,17 @@
 import * as core from '@actions/core'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 import {isOutdated} from '../../src/functions/outdated-check.js'
 import {COLORS} from '../../src/functions/colors.js'
 
-const debugMock = jest.spyOn(core, 'debug')
-const warningMock = jest.spyOn(core, 'warning')
+const debugMock = vi.spyOn(core, 'debug')
+const warningMock = vi.spyOn(core, 'warning')
 
 var context
 var octokit
 var data
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
+  vi.clearAllMocks()
 
   data = {
     outdated_mode: 'strict',
@@ -64,7 +54,7 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
-        compareCommits: jest
+        compareCommits: vi
           .fn()
           .mockReturnValue({data: {behind_by: 0}, status: 200})
       }
@@ -90,7 +80,7 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
 test('checks if the branch is out-of-date via commit comparison and finds that it is, when the stable branch and base branch are the same (i.e a PR to main)', async () => {
   data.baseBranch = data.stableBaseBranch
 
-  octokit.rest.repos.compareCommits = jest
+  octokit.rest.repos.compareCommits = vi
     .fn()
     .mockReturnValue({data: {behind_by: 1}, status: 200})
 
@@ -123,7 +113,7 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
 })
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is', async () => {
-  octokit.rest.repos.compareCommits = jest
+  octokit.rest.repos.compareCommits = vi
     .fn()
     .mockReturnValue({data: {behind_by: 1}, status: 200})
   expect(await isOutdated(context, octokit, data)).toStrictEqual({
@@ -137,7 +127,7 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
 })
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is by many commits', async () => {
-  octokit.rest.repos.compareCommits = jest
+  octokit.rest.repos.compareCommits = vi
     .fn()
     .mockReturnValue({data: {behind_by: 45}, status: 200})
   expect(await isOutdated(context, octokit, data)).toStrictEqual({
@@ -151,7 +141,7 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
 })
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is only behind the stable branch', async () => {
-  octokit.rest.repos.compareCommits = jest
+  octokit.rest.repos.compareCommits = vi
     .fn()
     .mockImplementationOnce(() =>
       Promise.resolve({data: {behind_by: 0}, status: 200})

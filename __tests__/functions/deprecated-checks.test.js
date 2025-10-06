@@ -1,24 +1,16 @@
 import {isDeprecated} from '../../src/functions/deprecated-checks.js'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 import * as core from '@actions/core'
 
 const docsLink =
   'https://github.com/github/branch-deploy/blob/main/docs/deprecated.md'
-const warningMock = jest.spyOn(core, 'warning')
+const warningMock = vi.spyOn(core, 'warning')
 
 var context
 var octokit
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
+  vi.clearAllMocks()
 
   context = {
     repo: {
@@ -38,12 +30,12 @@ beforeEach(() => {
   octokit = {
     rest: {
       reactions: {
-        createForIssueComment: jest.fn().mockReturnValueOnce({
+        createForIssueComment: vi.fn().mockReturnValueOnce({
           data: {}
         })
       },
       issues: {
-        createComment: jest.fn().mockReturnValueOnce({
+        createComment: vi.fn().mockReturnValueOnce({
           data: {}
         })
       }

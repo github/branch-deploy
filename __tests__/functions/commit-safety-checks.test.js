@@ -1,18 +1,18 @@
-import {jest, expect, test, beforeEach} from '@jest/globals'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {commitSafetyChecks} from '../../src/functions/commit-safety-checks.js'
 import {COLORS} from '../../src/functions/colors.js'
 import * as core from '@actions/core'
 
-jest.mock('../../src/functions/is-timestamp-older', () => ({
-  isTimestampOlder: jest.fn()
+vi.mock('../../src/functions/is-timestamp-older', () => ({
+  isTimestampOlder: vi.fn()
 }))
 import {isTimestampOlder} from '../../src/functions/is-timestamp-older.js'
 
-const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
-const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
-const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
-const saveStateMock = jest.spyOn(core, 'saveState').mockImplementation(() => {})
-const setOutputMock = jest.spyOn(core, 'setOutput').mockImplementation(() => {})
+const debugMock = vi.spyOn(core, 'debug')
+const infoMock = vi.spyOn(core, 'info')
+const warningMock = vi.spyOn(core, 'warning')
+const saveStateMock = vi.spyOn(core, 'saveState')
+const setOutputMock = vi.spyOn(core, 'setOutput')
 
 var data
 var context
@@ -28,12 +28,12 @@ const no_verification = {
 const sha = 'abc123'
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
-  jest.spyOn(core, 'saveState').mockImplementation(() => {})
-  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
+  vi.clearAllMocks()
+  debugMock.mockClear()
+  infoMock.mockClear()
+  warningMock.mockClear()
+  saveStateMock.mockClear()
+  setOutputMock.mockClear()
 
   context = {
     payload: {

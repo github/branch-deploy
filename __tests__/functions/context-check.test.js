@@ -1,22 +1,13 @@
 import {contextCheck} from '../../src/functions/context-check.js'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 import * as core from '@actions/core'
 
-const warningMock = jest.spyOn(core, 'warning')
-const saveStateMock = jest.spyOn(core, 'saveState')
+const warningMock = vi.spyOn(core, 'warning')
+const saveStateMock = vi.spyOn(core, 'saveState')
 
 var context
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
-  jest.spyOn(core, 'saveState').mockImplementation(() => {})
+  vi.clearAllMocks()
 
   context = {
     eventName: 'issue_comment',

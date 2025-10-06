@@ -1,23 +1,11 @@
 import * as core from '@actions/core'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, test, beforeEach} from 'vitest'
 import {help} from '../../src/functions/help.js'
-import * as actionStatus from '../../src/functions/action-status.js'
 
-const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
+const debugMock = vi.spyOn(core, 'debug')
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
-    return undefined
-  })
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  vi.clearAllMocks()
 })
 
 const context = {
@@ -27,9 +15,30 @@ const context = {
   },
   issue: {
     number: 1
+  },
+  payload: {
+    comment: {
+      id: 123
+    }
   }
 }
-const octokit = {}
+const octokit = {
+  rest: {
+    issues: {
+      createComment: vi.fn().mockReturnValue({
+        data: {}
+      })
+    },
+    reactions: {
+      deleteForIssueComment: vi.fn().mockReturnValue({
+        data: {}
+      }),
+      createForIssueComment: vi.fn().mockReturnValue({
+        data: {}
+      })
+    }
+  }
+}
 
 const defaultInputs = {
   trigger: '.deploy',

@@ -1,19 +1,11 @@
 import {stringToArray} from '../../src/functions/string-to-array.js'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 import * as core from '@actions/core'
 
-const debugMock = jest.spyOn(core, 'debug')
+const debugMock = vi.spyOn(core, 'debug')
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  vi.clearAllMocks()
 })
 
 test('successfully converts a string to an array', async () => {

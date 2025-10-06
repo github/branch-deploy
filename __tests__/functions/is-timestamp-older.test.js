@@ -1,18 +1,12 @@
 import * as core from '@actions/core'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 import {isTimestampOlder} from '../../src/functions/is-timestamp-older.js'
 
+const debugMock = vi.spyOn(core, 'debug')
+const errorMock = vi.spyOn(core, 'error')
+
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'error').mockImplementation(() => {})
+  vi.clearAllMocks()
 })
 
 describe('isTimestampOlder', () => {

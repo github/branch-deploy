@@ -1,12 +1,5 @@
 import * as core from '@actions/core'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 import {lock} from '../../src/functions/lock.js'
 import {COLORS} from '../../src/functions/colors.js'
 import * as actionStatus from '../../src/functions/action-status.js'
@@ -40,11 +33,11 @@ const lockBase64OctocatNoReason =
 const lockBase64OctocatGlobal =
   'ewogICAgInJlYXNvbiI6ICJUZXN0aW5nIG15IG5ldyBmZWF0dXJlIHdpdGggbG90cyBvZiBjYXRzIiwKICAgICJicmFuY2giOiAib2N0b2NhdHMtZXZlcnl3aGVyZSIsCiAgICAiY3JlYXRlZF9hdCI6ICIyMDIyLTA2LTE0VDIxOjEyOjE0LjA0MVoiLAogICAgImNyZWF0ZWRfYnkiOiAib2N0b2NhdCIsCiAgICAic3RpY2t5IjogdHJ1ZSwKICAgICJlbnZpcm9ubWVudCI6IG51bGwsCiAgICAidW5sb2NrX2NvbW1hbmQiOiAiLnVubG9jayAtLWdsb2JhbCIsCiAgICAiZ2xvYmFsIjogdHJ1ZSwKICAgICJsaW5rIjogImh0dHBzOi8vZ2l0aHViLmNvbS90ZXN0LW9yZy90ZXN0LXJlcG8vcHVsbC8yI2lzc3VlY29tbWVudC00NTYiCn0K'
 
-const saveStateMock = jest.spyOn(core, 'saveState')
-const setFailedMock = jest.spyOn(core, 'setFailed')
-const infoMock = jest.spyOn(core, 'info')
-const debugMock = jest.spyOn(core, 'debug')
-const errorMock = jest.spyOn(core, 'error')
+const saveStateMock = vi.spyOn(core, 'saveState')
+const setFailedMock = vi.spyOn(core, 'setFailed')
+const infoMock = vi.spyOn(core, 'info')
+const debugMock = vi.spyOn(core, 'debug')
+const errorMock = vi.spyOn(core, 'error')
 
 var octokit
 var octokitOtherUserHasLock
@@ -54,13 +47,7 @@ var noLockFound
 var failedToCreateLock
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'setFailed').mockImplementation(() => {})
-  jest.spyOn(core, 'saveState').mockImplementation(() => {})
-  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'error').mockImplementation(() => {})
+  vi.clearAllMocks()
 
   process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
   process.env.INPUT_LOCK_TRIGGER = '.lock'
@@ -109,21 +96,21 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        createOrUpdateFileContents: vi.fn().mockReturnValue({}),
+        getContent: vi
           .fn()
           .mockRejectedValue(new NotFoundError('file not found'))
       },
       git: {
-        createRef: jest.fn().mockReturnValue({status: 201})
+        createRef: vi.fn().mockReturnValue({status: 201})
       },
       issues: {
-        createComment: jest.fn().mockReturnValue({})
+        createComment: vi.fn().mockReturnValue({})
       }
     }
   }
@@ -131,11 +118,11 @@ beforeEach(() => {
   octokitOtherUserHasLock = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockReturnValueOnce({data: {content: lockBase64Octocat}})
       }
@@ -176,7 +163,7 @@ test('successfully obtains a deployment lock (non-sticky) by creating the branch
 })
 
 test('Determines that another user has the lock (GLOBAL) and exits - during a lock claim on deployment', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -207,7 +194,7 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a lo
 
 test('Determines that another user has the lock (non-global) and exits - during a lock claim on deployment', async () => {
   failedToCreateLock.global = false
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -238,7 +225,7 @@ test('Determines that another user has the lock (non-global) and exits - during 
 
 test('Determines that another user has the lock (GLOBAL) and exits - during a direct lock claim with .lock --global', async () => {
   context.payload.comment.body = '.lock --global'
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -246,11 +233,11 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a di
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found'))
           .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}})
@@ -294,7 +281,7 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a di
 })
 
 test('Determines that another user has the lock (non-global) and exits - during a direct lock claim with .lock', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -302,11 +289,11 @@ test('Determines that another user has the lock (non-global) and exits - during 
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found'))
           .mockReturnValueOnce({data: {content: lockBase64Octocat}})
@@ -355,11 +342,11 @@ test('Request detailsOnly on the lock file and gets lock file data successfully'
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
           .mockReturnValueOnce({data: {content: lockBase64Octocat}}) // succeeds the second time looking for a 'local' lock for the environment
@@ -396,11 +383,11 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
           .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}}) // succeeds the second time looking for a 'local' lock for the environment
@@ -439,11 +426,11 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
           .mockReturnValueOnce({data: {content: lockBase64Octocat}}) // succeeds the second time looking for a 'local' lock for the environment
@@ -482,11 +469,11 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}}) // succeeds looking for a global lock
       }
@@ -524,11 +511,11 @@ test('Request detailsOnly on the lock file and does not find a lock --global', a
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // fails looking for a global lock
       }
@@ -556,11 +543,11 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
           .mockReturnValueOnce({data: {content: lockBase64Octocat}}) // succeeds the second time looking for a 'local' lock for the environment
@@ -597,17 +584,17 @@ test('Request detailsOnly on the lock file when the lock branch exists but no lo
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValue(new NotFoundError('file not found')),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+        createOrUpdateFileContents: vi.fn().mockReturnValue({})
       },
       issues: {
-        createComment: jest.fn().mockReturnValue({})
+        createComment: vi.fn().mockReturnValue({})
       }
     }
   }
@@ -626,21 +613,21 @@ test('Request detailsOnly on the lock file when no branch exists', async () => {
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        createOrUpdateFileContents: vi.fn().mockReturnValue({}),
+        getContent: vi
           .fn()
           .mockRejectedValue(new NotFoundError('file not found'))
       },
       git: {
-        createRef: jest.fn().mockReturnValue({status: 201})
+        createRef: vi.fn().mockReturnValue({status: 201})
       },
       issues: {
-        createComment: jest.fn().mockReturnValue({})
+        createComment: vi.fn().mockReturnValue({})
       }
     }
   }
@@ -659,12 +646,12 @@ test('Request detailsOnly on the lock file when no branch exists and hits an err
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockRejectedValueOnce(new BigBadError('oh no - 500')),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        createOrUpdateFileContents: vi.fn().mockReturnValue({}),
+        getContent: vi
           .fn()
           .mockRejectedValue(new NotFoundError('file not found'))
       }
@@ -689,11 +676,11 @@ test('Determines that the lock request is coming from current owner of the lock 
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockReturnValue({data: {content: lockBase64Monalisa}})
       }
@@ -716,11 +703,11 @@ test('Determines that the lock request is coming from current owner of the lock 
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockReturnValue({data: {content: lockBase64Monalisa}})
       }
@@ -743,11 +730,11 @@ test('checks a lock and finds that it is from another owner and that no reason w
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockReturnValue({data: {content: lockBase64OctocatNoReason}})
       }
@@ -777,11 +764,11 @@ test('checks a lock and finds that it is from another owner and that no reason w
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockReturnValue({data: {content: lockBase64OctocatNoReason}})
       }
@@ -813,11 +800,11 @@ test('Determines that the lock request is coming from current owner of the lock 
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockReturnValue({data: {content: lockBase64OctocatGlobal}})
       }
@@ -854,11 +841,11 @@ test('fails to decode the lock file contents', async () => {
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest.fn().mockReturnValue({data: {content: null}})
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi.fn().mockReturnValue({data: {content: null}})
       }
     }
   }
@@ -880,17 +867,17 @@ test('Creates a lock when the lock branch exists but no lock file exists', async
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValue(new NotFoundError('file not found')),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({})
+        createOrUpdateFileContents: vi.fn().mockReturnValue({})
       },
       issues: {
-        createComment: jest.fn().mockReturnValue({})
+        createComment: vi.fn().mockReturnValue({})
       }
     }
   }
@@ -1070,8 +1057,8 @@ test('throws an error if an unhandled exception occurs', async () => {
   const octokit = {
     rest: {
       repos: {
-        getBranch: jest.fn().mockRejectedValueOnce(new Error('oh no')),
-        getContent: jest.fn().mockRejectedValue(new Error('oh no'))
+        getBranch: vi.fn().mockRejectedValueOnce(new Error('oh no')),
+        getContent: vi.fn().mockRejectedValue(new Error('oh no'))
       }
     }
   }

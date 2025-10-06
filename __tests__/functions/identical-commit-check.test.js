@@ -1,28 +1,16 @@
 import * as core from '@actions/core'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 import {identicalCommitCheck} from '../../src/functions/identical-commit-check.js'
 import {COLORS} from '../../src/functions/colors.js'
 
-const saveStateMock = jest.spyOn(core, 'saveState')
-const setOutputMock = jest.spyOn(core, 'setOutput')
-const infoMock = jest.spyOn(core, 'info')
+const saveStateMock = vi.spyOn(core, 'saveState')
+const setOutputMock = vi.spyOn(core, 'setOutput')
+const infoMock = vi.spyOn(core, 'info')
 
 var context
 var octokit
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'setFailed').mockImplementation(() => {})
-  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'saveState').mockImplementation(() => {})
+  vi.clearAllMocks()
 
   context = {
     repo: {
@@ -39,12 +27,12 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
-        get: jest.fn().mockReturnValue({
+        get: vi.fn().mockReturnValue({
           data: {
             default_branch: 'main'
           }
         }),
-        getBranch: jest.fn().mockReturnValue({
+        getBranch: vi.fn().mockReturnValue({
           data: {
             commit: {
               sha: 'abcdef',
@@ -56,7 +44,7 @@ beforeEach(() => {
             }
           }
         }),
-        getCommit: jest.fn().mockReturnValue({
+        getCommit: vi.fn().mockReturnValue({
           data: {
             commit: {
               tree: {
@@ -65,7 +53,7 @@ beforeEach(() => {
             }
           }
         }),
-        listDeployments: jest.fn().mockReturnValue({
+        listDeployments: vi.fn().mockReturnValue({
           data: [
             {
               sha: 'deadbeef',
@@ -104,7 +92,7 @@ test('checks if the default branch sha and deployment sha are identical, and the
 })
 
 test('checks if the default branch sha and deployment sha are identical, and they are not', async () => {
-  octokit.rest.repos.getCommit = jest.fn().mockReturnValue({
+  octokit.rest.repos.getCommit = vi.fn().mockReturnValue({
     data: {
       commit: {
         tree: {

@@ -1,12 +1,5 @@
 import {checkInput} from '../../src/functions/check-input.js'
-import {
-  jest,
-  expect,
-  describe,
-  test,
-  beforeEach,
-  afterEach
-} from '@jest/globals'
+import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
 
 test('checks an input an finds that it is valid', async () => {
   expect(checkInput('production')).toStrictEqual('production')
