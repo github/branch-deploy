@@ -10,10 +10,12 @@ export default defineConfig({
       include: ['src/**/*.js'],
       exclude: ['node_modules', '__tests__'],
       all: true,
-      lines: 100,
-      functions: 100,
-      branches: 100,
-      statements: 100
+      thresholds: {
+        lines: 100,
+        functions: 100,
+        branches: 100,
+        statements: 100
+      }
     },
     globals: true,
     reporters: ['default'],
