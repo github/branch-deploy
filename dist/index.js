@@ -42811,12 +42811,13 @@ async function prechecks(context, octokit, data) {
     try {
       core.debug('raw graphql result for debugging:')
       core.debug(result)
+      /* c8 ignore start */
     } catch {
-      // istanbul ignore next
       core.debug(
         'Could not output raw graphql result for debugging - This is bad'
       )
     }
+    /* c8 ignore stop */
   }
 
   // Get admin data
@@ -47033,7 +47034,7 @@ async function run() {
   }
 }
 
-/* istanbul ignore next */
+/* c8 ignore start */
 if (core.getState('isPost') === 'true') {
   post()
 } else {
@@ -47044,6 +47045,7 @@ if (core.getState('isPost') === 'true') {
     run()
   }
 }
+/* c8 ignore stop */
 
 var __webpack_exports__run = __webpack_exports__.e;
 export { __webpack_exports__run as run };

@@ -326,12 +326,13 @@ export async function prechecks(context, octokit, data) {
     try {
       core.debug('raw graphql result for debugging:')
       core.debug(result)
+      /* c8 ignore start */
     } catch {
-      // istanbul ignore next
       core.debug(
         'Could not output raw graphql result for debugging - This is bad'
       )
     }
+    /* c8 ignore stop */
   }
 
   // Get admin data

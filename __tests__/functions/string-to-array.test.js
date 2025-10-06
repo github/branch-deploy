@@ -1,8 +1,9 @@
 import {stringToArray} from '../../src/functions/string-to-array.js'
-import {vi, expect, describe, test, beforeEach, afterEach} from 'vitest'
+import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
 
 const debugMock = vi.spyOn(core, 'debug')
+const errorMock = vi.spyOn(core, 'error')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -32,4 +33,10 @@ test('successfully converts an empty string to an empty array', async () => {
 
 test('successfully converts garbage to an empty array', async () => {
   expect(stringToArray(',,,')).toStrictEqual([])
+})
+
+test('throws an error when string processing fails', async () => {
+  // Pass a non-string value to trigger the error
+  expect(() => stringToArray(null)).toThrow('could not convert String to Array')
+  expect(errorMock).toHaveBeenCalled()
 })

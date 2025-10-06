@@ -860,7 +860,7 @@ export async function run() {
   }
 }
 
-/* istanbul ignore next */
+/* c8 ignore start */
 if (core.getState('isPost') === 'true') {
   post()
 } else {
@@ -871,3 +871,4 @@ if (core.getState('isPost') === 'true') {
     run()
   }
 }
+/* c8 ignore stop */
