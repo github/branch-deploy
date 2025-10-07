@@ -31,4 +31,3 @@ test('should validate v15.19.4-rc.35', () => {
   const version = 'v15.19.4-rc.35'
   expect(version).toMatch(versionRegex)
 })
-
