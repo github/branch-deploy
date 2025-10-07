@@ -53,6 +53,7 @@ export function getInputs() {
   const skipReviews = core.getInput('skip_reviews')
   const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
   const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
+  const unlockOnCloseMode = core.getBooleanInput('unlock_on_close_mode')
   const admins = core.getInput('admins')
   const environment_urls = core.getInput('environment_urls')
   const param_separator = core.getInput('param_separator')
@@ -76,6 +77,7 @@ export function getInputs() {
   const deployment_confirmation_timeout = getIntInput(
     'deployment_confirmation_timeout'
   )
+  var deployment_task = core.getInput('deployment_task')
 
   // validate inputs
   validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
@@ -89,6 +91,14 @@ export function getInputs() {
     validateInput('checks', checks, ['all', 'required'])
   } else {
     checks = stringToArray(checks)
+  }
+
+  // Parse deployment_task - can be 'all', a comma-separated list, or empty
+  if (deployment_task === 'all' || deployment_task === '') {
+    // Keep as-is for 'all' or empty string
+  } else {
+    // Convert to array for list of allowed tasks
+    deployment_task = stringToArray(deployment_task)
   }
 
   // rollup all the inputs into a single object
@@ -119,6 +129,7 @@ export function getInputs() {
     disable_naked_commands: disable_naked_commands,
     mergeDeployMode: mergeDeployMode,
     unlockOnMergeMode: unlockOnMergeMode,
+    unlockOnCloseMode: unlockOnCloseMode,
     environment_urls: environment_urls,
     param_separator: param_separator,
     sticky_locks: sticky_locks,
@@ -130,6 +141,7 @@ export function getInputs() {
     deployment_confirmation_timeout: deployment_confirmation_timeout,
     use_security_warnings: use_security_warnings,
     allow_non_default_target_branch_deployments:
-      allow_non_default_target_branch_deployments
+      allow_non_default_target_branch_deployments,
+    deployment_task: deployment_task
   }
 }

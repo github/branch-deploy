@@ -2,8 +2,8 @@ name: "branch-deploy"
 description: "Enabling Branch Deployments through IssueOps with GitHub Actions"
 author: "Grant Birkinbine"
 branding:
-  icon: 'git-branch'
-  color: 'gray-dark'
+  icon: "git-branch"
+  color: "gray-dark"
 inputs:
   github_token:
     description: The GitHub token used to create an authenticated client - Provided for you by default!
@@ -74,7 +74,7 @@ inputs:
     required: false
     default: "false"
   param_separator:
-    description: 'The separator to use for parsing parameters in comments in deployment requests. Parameters will are saved as outputs and can be used in subsequent steps'
+    description: "The separator to use for parsing parameters in comments in deployment requests. Parameters will are saved as outputs and can be used in subsequent steps"
     required: false
     default: "|"
   global_lock_flag:
@@ -131,6 +131,10 @@ inputs:
     default: "false"
   unlock_on_merge_mode:
     description: This is an advanced option that is an alternate workflow bundled into this Action. You can optionally use this mode in a custom workflow to automatically release all locks that came from a pull request when the pull request is merged. This is useful if you want to ensure that locks are not left behind when a pull request is merged.
+    required: false
+    default: "false"
+  unlock_on_close_mode:
+    description: This is an advanced option that is an alternate workflow bundled into this Action. You can optionally use this mode in a custom workflow to automatically release all locks that came from a pull request when the pull request is closed. This is useful if you want to ensure that locks are not left behind when a pull request is closed.
     required: false
     default: "false"
   skip_completing:
@@ -201,6 +205,10 @@ inputs:
     description: 'The number of seconds to wait for a deployment confirmation before timing out. Default is "60" seconds (1 minute).'
     required: false
     default: "60"
+  deployment_task:
+    description: 'Controls task-based concurrent deployments to the same environment. Set to "all" to allow any task via --task flag in comments, or provide a comma-separated list of allowed tasks (e.g., "frontend,backend,api"). Tasks are specified in PR comments using --task <name>. Leave empty to disable task support.'
+    required: false
+    default: ""
 outputs:
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
@@ -235,11 +243,11 @@ outputs:
   fork:
     description: 'The string "true" if the pull request is a fork, otherwise "false"'
   fork_ref:
-    description: 'The true ref of the fork'
+    description: "The true ref of the fork"
   fork_label:
-    description: 'The API label field returned for the fork'
+    description: "The API label field returned for the fork"
   fork_checkout:
-    description: 'The console command presented in the GitHub UI to checkout a given fork locally'
+    description: "The console command presented in the GitHub UI to checkout a given fork locally"
   fork_full_name:
     description: 'The full name of the fork in "org/repo" format'
   deployment_id:
@@ -261,7 +269,7 @@ outputs:
   sha_deployment:
     description: 'If "allow_sha_deployments" is enabled, and a sha deployment is performed instead of a branch deployment, this output variable will contain the sha that was deployed. Otherwise, this output variable will be empty'
   review_decision:
-    description: 'The pull request review status. Can be one of a few values - examples: APPROVED, REVIEW_REQUIRED, CHANGES_REQUESTED, skip_reviews,, null'
+    description: "The pull request review status. Can be one of a few values - examples: APPROVED, REVIEW_REQUIRED, CHANGES_REQUESTED, skip_reviews,, null"
   is_outdated:
     description: 'The string "true" if the branch is outdated, otherwise "false"'
   merge_state_status:
@@ -269,15 +277,17 @@ outputs:
   commit_status:
     description: 'The status of the commit. Can be one of a few values - examples: "SUCCESS", null, "skip_ci", "PENDING", "FAILURE" etc'
   approved_reviews_count:
-    description: 'The number of approved reviews on the pull request'
+    description: "The number of approved reviews on the pull request"
   needs_to_be_deployed:
     description: 'A comma separated list of environments that need successful and active deployments before the current environment (that was requested) can be deployed. This output is tied to the "enforced_deployment_order" input option.'
   commit_verified:
     description: 'The string "true" if the commit has a verified signature, otherwise "false"'
   total_seconds:
-    description: 'The total number of seconds that the deployment took to complete (Integer)'
+    description: "The total number of seconds that the deployment took to complete (Integer)"
   non_default_target_branch_used:
     description: 'The string "true" if the pull request is targeting a branch other than the default branch (aka stable branch) for the merge, otherwise unset'
+  deployment_task:
+    description: "The task identifier used for the deployment, enabling concurrent deployments to the same environment"
 runs:
   using: "node24"
   main: "dist/index.js"
