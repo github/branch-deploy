@@ -2,9 +2,6 @@ import * as core from '@actions/core'
 import {vi, expect, describe, test, beforeEach} from 'vitest'
 import {isTimestampOlder} from '../../src/functions/is-timestamp-older.js'
 
-const debugMock = vi.spyOn(core, 'debug')
-const errorMock = vi.spyOn(core, 'error')
-
 beforeEach(() => {
   vi.clearAllMocks()
 })

@@ -1,5 +1,5 @@
 import {timeDiff} from '../../src/functions/time-diff.js'
-import {vi, expect, test, beforeEach} from 'vitest'
+import {expect, test} from 'vitest'
 
 test('checks the time elapsed between two dates - days apart', async () => {
   expect(

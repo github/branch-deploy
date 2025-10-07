@@ -4,9 +4,6 @@ import {COLORS} from '../../src/functions/colors.js'
 import {validDeploymentOrder} from '../../src/functions/valid-deployment-order.js'
 import * as activeDeployment from '../../src/functions/deployment.js'
 
-const infoMock = vi.spyOn(core, 'info')
-const warningMock = vi.spyOn(core, 'warning')
-const errorMock = vi.spyOn(core, 'error')
 const setOutputMock = vi.spyOn(core, 'setOutput')
 const activeDeploymentMock = vi.spyOn(activeDeployment, 'activeDeployment')
 
