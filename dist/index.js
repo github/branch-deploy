@@ -46088,7 +46088,7 @@ async function deploymentConfirmation(context, octokit, data) {
   core.debug(`deployment confirmation comment id: ${commentId}`)
 
   core.info(
-    `🕒 waiting ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds for deployment confirmation`
+    `⏰ waiting ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds for deployment confirmation`
   )
 
   // Convert timeout to milliseconds for setTimeout

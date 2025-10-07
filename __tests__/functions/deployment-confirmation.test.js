@@ -4,11 +4,7 @@ import {COLORS} from '../../src/functions/colors.js'
 import {deploymentConfirmation} from '../../src/functions/deployment-confirmation.js'
 import {API_HEADERS} from '../../src/functions/api-headers.js'
 
-const debugMock = vi.spyOn(core, 'debug')
-const infoMock = vi.spyOn(core, 'info')
 const warningMock = vi.spyOn(core, 'warning')
-const setFailedMock = vi.spyOn(core, 'setFailed')
-const setOutputMock = vi.spyOn(core, 'setOutput')
 
 var context
 var octokit
@@ -121,7 +117,7 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
     'deployment confirmation comment id: 124'
   )
   expect(core.info).toHaveBeenCalledWith(
-    `🕒 waiting ${COLORS.highlight}60${COLORS.reset} seconds for deployment confirmation`
+    `⏰ waiting ${COLORS.highlight}60${COLORS.reset} seconds for deployment confirmation`
   )
   expect(core.info).toHaveBeenCalledWith(
     `✅ deployment confirmed by ${COLORS.highlight}monalisa${COLORS.reset} - sha: ${COLORS.highlight}abc123${COLORS.reset}`
@@ -173,7 +169,7 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
     'deployment confirmation comment id: 124'
   )
   expect(core.info).toHaveBeenCalledWith(
-    `🕒 waiting ${COLORS.highlight}60${COLORS.reset} seconds for deployment confirmation`
+    `⏰ waiting ${COLORS.highlight}60${COLORS.reset} seconds for deployment confirmation`
   )
   expect(core.info).toHaveBeenCalledWith(
     `✅ deployment confirmed by ${COLORS.highlight}monalisa${COLORS.reset} - sha: ${COLORS.highlight}abc123${COLORS.reset}`
