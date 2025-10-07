@@ -1,12 +1,12 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
-import {checkLockFile} from './check-lock-file'
-import {actionStatus} from './action-status'
-import {constructValidBranchName} from './valid-branch-name'
-import {timeDiff} from './time-diff'
-import {LOCK_METADATA} from './lock-metadata'
-import {COLORS} from './colors'
-import {API_HEADERS} from './api-headers'
+import {checkLockFile} from './check-lock-file.js'
+import {actionStatus} from './action-status.js'
+import {constructValidBranchName} from './valid-branch-name.js'
+import {timeDiff} from './time-diff.js'
+import {LOCK_METADATA} from './lock-metadata.js'
+import {COLORS} from './colors.js'
+import {API_HEADERS} from './api-headers.js'
 
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix

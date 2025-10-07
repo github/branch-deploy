@@ -1,8 +1,8 @@
 import * as core from '@actions/core'
-import {COLORS} from './colors'
-import {API_HEADERS} from './api-headers'
-import {SUGGESTED_RULESETS} from './suggested-rulesets'
-import {ERROR} from './templates/error'
+import {COLORS} from './colors.js'
+import {API_HEADERS} from './api-headers.js'
+import {SUGGESTED_RULESETS} from './suggested-rulesets.js'
+import {ERROR} from './templates/error.js'
 
 export async function branchRulesetChecks(context, octokit, data) {
   const branch = data.branch

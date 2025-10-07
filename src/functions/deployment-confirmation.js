@@ -1,8 +1,8 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
-import {COLORS} from './colors'
-import {API_HEADERS} from './api-headers'
-import {timestamp} from './timestamp'
+import {COLORS} from './colors.js'
+import {API_HEADERS} from './api-headers.js'
+import {timestamp} from './timestamp.js'
 
 const thumbsUp = '+1'
 const thumbsDown = '-1'
@@ -80,7 +80,7 @@ export async function deploymentConfirmation(context, octokit, data) {
   core.debug(`deployment confirmation comment id: ${commentId}`)
 
   core.info(
-    `🕒 waiting ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds for deployment confirmation`
+    `⏰ waiting ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds for deployment confirmation`
   )
 
   // Convert timeout to milliseconds for setTimeout

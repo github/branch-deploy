@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {API_HEADERS} from './api-headers'
+import {API_HEADERS} from './api-headers.js'
 
 // Helper function to check if an actor has permissions to use this Action in a given repository
 // :param octokit: The octokit client

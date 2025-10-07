@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
-import {COLORS} from './colors'
-import {API_HEADERS} from './api-headers'
+import {COLORS} from './colors.js'
+import {API_HEADERS} from './api-headers.js'
 
 // Helper function to check to see if the PR branch is outdated in anyway based on the Action's configuration
 //

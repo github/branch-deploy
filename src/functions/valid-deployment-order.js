@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
-import {COLORS} from './colors'
-import {activeDeployment} from './deployment'
+import {COLORS} from './colors.js'
+import {activeDeployment} from './deployment.js'
 
 // Helper function to ensure the deployment order is enforced (if any)
 // :param octokit: The octokit client

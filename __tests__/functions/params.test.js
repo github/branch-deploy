@@ -1,9 +1,8 @@
-import * as core from '@actions/core'
-import {parseParams} from '../../src/functions/params'
+import {vi, expect, test, beforeEach} from 'vitest'
+import {parseParams} from '../../src/functions/params.js'
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  vi.clearAllMocks()
 })
 
 test('with empty param object', async () => {

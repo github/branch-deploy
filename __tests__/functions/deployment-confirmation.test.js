@@ -1,26 +1,24 @@
 import * as core from '@actions/core'
-import {COLORS} from '../../src/functions/colors'
-import {deploymentConfirmation} from '../../src/functions/deployment-confirmation'
-import {API_HEADERS} from '../../src/functions/api-headers'
+import {vi, expect, test, beforeEach} from 'vitest'
+import {COLORS} from '../../src/functions/colors.js'
+import {deploymentConfirmation} from '../../src/functions/deployment-confirmation.js'
+import {API_HEADERS} from '../../src/functions/api-headers.js'
+
+const warningMock = vi.spyOn(core, 'warning')
 
 var context
 var octokit
 var data
 
 beforeEach(() => {
-  jest.clearAllMocks()
-
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
-  jest.spyOn(core, 'setFailed').mockImplementation(() => {})
+  vi.clearAllMocks()
 
   // Mock setTimeout to execute immediately
-  jest.spyOn(global, 'setTimeout').mockImplementation(fn => fn())
+  vi.spyOn(global, 'setTimeout').mockImplementation(fn => fn())
 
   // Mock Date.now to control time progression
   const mockDate = new Date('2024-10-21T19:11:18Z').getTime()
-  jest.spyOn(Date, 'now').mockReturnValue(mockDate)
+  vi.spyOn(Date, 'now').mockReturnValue(mockDate)
 
   process.env.GITHUB_SERVER_URL = 'https://github.com'
   process.env.GITHUB_RUN_ID = '12345'
@@ -52,20 +50,20 @@ beforeEach(() => {
   octokit = {
     rest: {
       reactions: {
-        createForIssueComment: jest.fn().mockResolvedValue({
+        createForIssueComment: vi.fn().mockResolvedValue({
           data: {}
         }),
-        listForIssueComment: jest.fn().mockResolvedValue({
+        listForIssueComment: vi.fn().mockResolvedValue({
           data: []
         })
       },
       issues: {
-        createComment: jest.fn().mockResolvedValue({
+        createComment: vi.fn().mockResolvedValue({
           data: {
             id: 124
           }
         }),
-        updateComment: jest.fn().mockResolvedValue({
+        updateComment: vi.fn().mockResolvedValue({
           data: {}
         })
       }
@@ -119,7 +117,7 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
     'deployment confirmation comment id: 124'
   )
   expect(core.info).toHaveBeenCalledWith(
-    `🕒 waiting ${COLORS.highlight}60${COLORS.reset} seconds for deployment confirmation`
+    `⏰ waiting ${COLORS.highlight}60${COLORS.reset} seconds for deployment confirmation`
   )
   expect(core.info).toHaveBeenCalledWith(
     `✅ deployment confirmed by ${COLORS.highlight}monalisa${COLORS.reset} - sha: ${COLORS.highlight}abc123${COLORS.reset}`
@@ -171,7 +169,7 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
     'deployment confirmation comment id: 124'
   )
   expect(core.info).toHaveBeenCalledWith(
-    `🕒 waiting ${COLORS.highlight}60${COLORS.reset} seconds for deployment confirmation`
+    `⏰ waiting ${COLORS.highlight}60${COLORS.reset} seconds for deployment confirmation`
   )
   expect(core.info).toHaveBeenCalledWith(
     `✅ deployment confirmed by ${COLORS.highlight}monalisa${COLORS.reset} - sha: ${COLORS.highlight}abc123${COLORS.reset}`
@@ -376,7 +374,7 @@ test('handles API errors gracefully', async () => {
   const result = await deploymentConfirmation(context, octokit, data)
 
   expect(result).toBe(true)
-  expect(core.warning).toHaveBeenCalledWith(
+  expect(warningMock).toHaveBeenCalledWith(
     'temporary failure when checking for reactions on the deployment confirmation comment: API error'
   )
   expect(octokit.rest.reactions.listForIssueComment).toHaveBeenCalledTimes(2)

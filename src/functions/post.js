@@ -1,14 +1,14 @@
 import * as core from '@actions/core'
-import {octokitRetry} from '@octokit/plugin-retry'
+import {retry} from '@octokit/plugin-retry'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 
-import {stringToArray} from './string-to-array'
-import {contextCheck} from './context-check'
-import {checkInput} from './check-input'
-import {postDeploy} from './post-deploy'
-import {COLORS} from './colors'
-import {VERSION} from '../version'
+import {stringToArray} from './string-to-array.js'
+import {contextCheck} from './context-check.js'
+import {checkInput} from './check-input.js'
+import {postDeploy} from './post-deploy.js'
+import {COLORS} from './colors.js'
+import {VERSION} from '../version.js'
 
 export async function post() {
   try {
@@ -71,7 +71,7 @@ export async function post() {
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
       userAgent: `github/branch-deploy@${VERSION}`,
-      additionalPlugins: [octokitRetry]
+      additionalPlugins: [retry]
     })
 
     core.info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`)

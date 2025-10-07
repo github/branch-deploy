@@ -1,13 +1,13 @@
-import {constructValidBranchName} from '../../src/functions/valid-branch-name'
+import {constructValidBranchName} from '../../src/functions/valid-branch-name.js'
+import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
 
-const debugMock = jest.spyOn(core, 'debug')
+const debugMock = vi.spyOn(core, 'debug')
 
 const branchName = 'production'
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  vi.clearAllMocks()
 })
 
 test('does not make any modifications to a valid branch name', async () => {

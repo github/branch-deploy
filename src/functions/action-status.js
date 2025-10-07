@@ -1,5 +1,5 @@
-import {truncateCommentBody} from './truncate-comment-body'
-import {API_HEADERS} from './api-headers'
+import {truncateCommentBody} from './truncate-comment-body.js'
+import {API_HEADERS} from './api-headers.js'
 
 // Default failure reaction
 const thumbsDown = '-1'

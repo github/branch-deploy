@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
-import {COLORS} from './colors'
-import {isTimestampOlder} from './is-timestamp-older'
+import {COLORS} from './colors.js'
+import {isTimestampOlder} from './is-timestamp-older.js'
 
 // A helper method to ensure that the commit being used is safe for deployment
 // These safety checks are supplemental to the checks found in `src/functions/prechecks.js`

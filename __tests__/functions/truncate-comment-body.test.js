@@ -1,10 +1,8 @@
-import * as core from '@actions/core'
-import {truncateCommentBody} from '../../src/functions/truncate-comment-body'
+import {vi, expect, test, beforeEach} from 'vitest'
+import {truncateCommentBody} from '../../src/functions/truncate-comment-body.js'
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
+  vi.clearAllMocks()
 })
 
 test('truncates a long message', () => {

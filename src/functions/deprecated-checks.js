@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
-import {API_HEADERS} from './api-headers'
+import {API_HEADERS} from './api-headers.js'
 
 // The old and common trigger for noop style deployments
 const oldNoopInput = '.deploy noop'

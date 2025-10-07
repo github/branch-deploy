@@ -1,20 +1,18 @@
-import {environmentTargets} from '../../src/functions/environment-targets'
-import * as actionStatus from '../../src/functions/action-status'
+import {environmentTargets} from '../../src/functions/environment-targets.js'
+import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
-import {COLORS} from '../../src/functions/colors'
+import {COLORS} from '../../src/functions/colors.js'
 
-const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
-const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
-const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
-const saveStateMock = jest.spyOn(core, 'saveState').mockImplementation(() => {})
-const setOutputMock = jest.spyOn(core, 'setOutput').mockImplementation(() => {})
+const debugMock = vi.spyOn(core, 'debug')
+const infoMock = vi.spyOn(core, 'info')
+const setOutputMock = vi.spyOn(core, 'setOutput')
+const saveStateMock = vi.spyOn(core, 'saveState')
+const warningMock = vi.spyOn(core, 'warning')
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
-    return undefined
-  })
+  vi.clearAllMocks()
+
   process.env.INPUT_ENVIRONMENT_TARGETS = 'production,development,staging'
   process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
   process.env.INPUT_LOCK_INFO_ALIAS = '.wcid'
@@ -49,6 +47,7 @@ test('checks the comment body and does not find an explicit environment target',
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'using default environment for branch deployment'
   )
@@ -75,6 +74,7 @@ test('checks the comment body and finds an explicit environment target for devel
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for branch deploy: development'
   )
@@ -101,6 +101,7 @@ test('checks the comment body and finds an explicit environment target for devel
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for branch deploy: development'
   )
@@ -134,6 +135,7 @@ test('checks the comment body and finds an explicit environment target and an ex
       sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for branch deploy: development'
   )
@@ -167,6 +169,7 @@ test('checks the comment body and finds an explicit environment target and an ex
       sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for noop trigger: development'
   )
@@ -209,6 +212,7 @@ test('checks the comment body and finds an explicit environment target and an ex
       sha: '82c238c277ca3df56fe9418a5913d9188eafe3bc'
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for noop trigger: development'
   )
@@ -242,6 +246,7 @@ test('checks the comment body and finds an explicit environment target and an ex
       sha: 'f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b'
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for noop trigger: development'
   )
@@ -309,6 +314,7 @@ test('checks the comment body and finds an explicit environment target for devel
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for stable branch deploy: development'
   )
@@ -342,6 +348,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for noop trigger: staging'
   )
@@ -368,6 +375,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for stable branch noop trigger: staging'
   )
@@ -399,6 +407,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       sha: null
     }
   })
+
   expect(infoMock).toHaveBeenCalledWith(
     `🔗 environment url detected: ${COLORS.highlight}http://staging.example.com`
   )
@@ -443,6 +452,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       sha: null
     }
   })
+
   expect(infoMock).toHaveBeenCalledWith(
     `🔗 environment url detected: ${COLORS.highlight}http://staging.example.com`
   )
@@ -460,6 +470,7 @@ test('checks the comment body and finds an explicit environment target for stagi
   expect(saveStateMock).toHaveBeenCalledWith('parsed_params', {
     _: ['something1', 'something2', 'something3']
   })
+
   expect(setOutputMock).toHaveBeenCalledWith(
     'environment_url',
     'http://staging.example.com'
@@ -492,6 +503,7 @@ test('checks the comment body and uses the default production environment target
       sha: null
     }
   })
+
   expect(infoMock).toHaveBeenCalledWith(
     `🔗 environment url detected: ${COLORS.highlight}https://example.com`
   )
@@ -534,6 +546,7 @@ test('checks the comment body and finds an explicit environment target for a pro
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for branch deploy: production'
   )
@@ -570,6 +583,7 @@ test('checks the comment body and finds an explicit environment target for a pro
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for branch deploy: production'
   )
@@ -609,6 +623,7 @@ test('checks the comment body and finds an explicit environment target for a pro
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for branch deploy: production'
   )
@@ -640,6 +655,7 @@ test('checks the comment body and finds an explicit environment target for stagi
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     "found environment target for noop trigger (with 'to'): staging"
   )
@@ -666,6 +682,7 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'using default environment for stable branch noop trigger'
   )
@@ -692,6 +709,7 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'using default environment for stable branch noop trigger'
   )
@@ -718,6 +736,7 @@ test('checks the comment body and finds an explicit environment target for produ
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     "found environment target for branch deploy (with 'to'): production"
   )
@@ -744,19 +763,38 @@ test('checks the comment body on a noop deploy and does not find an explicit env
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'using default environment for noop trigger'
   )
 })
 
 test('checks the comment body on a deployment and does not find any matching environment target (fails)', async () => {
+  const mockContext = {
+    repo: {owner: 'test', repo: 'test'},
+    issue: {number: 1},
+    payload: {comment: {id: 1}}
+  }
+  const mockOctokit = {
+    rest: {
+      issues: {createComment: vi.fn()},
+      reactions: {
+        createForIssueComment: vi.fn(),
+        deleteForIssueComment: vi.fn()
+      }
+    }
+  }
+
   expect(
     await environmentTargets(
       environment,
       '.deploy to chaos',
       trigger,
       noop_trigger,
-      stable_branch
+      stable_branch,
+      mockContext,
+      mockOctokit,
+      123
     )
   ).toStrictEqual({
     environment: false,
@@ -802,6 +840,7 @@ test('checks the comment body on a stable branch deployment and finds a matching
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     "found environment target for stable branch deploy (with 'to'): production"
   )
@@ -828,6 +867,7 @@ test('checks the comment body on a stable branch deployment and finds a matching
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for stable branch deploy: production'
   )
@@ -854,19 +894,38 @@ test('checks the comment body on a stable branch deployment and uses the default
       sha: null
     }
   })
+
   expect(debugMock).toHaveBeenCalledWith(
     'using default environment for stable branch deployment'
   )
 })
 
 test('checks the comment body on a stable branch deployment and does not find a matching environment', async () => {
+  const mockContext = {
+    repo: {owner: 'test', repo: 'test'},
+    issue: {number: 1},
+    payload: {comment: {id: 1}}
+  }
+  const mockOctokit = {
+    rest: {
+      issues: {createComment: vi.fn()},
+      reactions: {
+        createForIssueComment: vi.fn(),
+        deleteForIssueComment: vi.fn()
+      }
+    }
+  }
+
   expect(
     await environmentTargets(
       environment,
       '.deploy main chaos',
       trigger,
       noop_trigger,
-      stable_branch
+      stable_branch,
+      mockContext,
+      mockOctokit,
+      123
     )
   ).toStrictEqual({
     environment: false,

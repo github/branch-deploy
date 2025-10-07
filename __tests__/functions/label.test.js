@@ -1,12 +1,10 @@
-import {label} from '../../src/functions/label'
-import * as core from '@actions/core'
+import {label} from '../../src/functions/label.js'
+import {vi, expect, test, beforeEach} from 'vitest'
 
 var context
 var octokit
 beforeEach(() => {
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.clearAllMocks()
+  vi.clearAllMocks()
 
   context = {
     repo: {
@@ -21,13 +19,13 @@ beforeEach(() => {
   octokit = {
     rest: {
       issues: {
-        addLabels: jest.fn().mockReturnValueOnce({
+        addLabels: vi.fn().mockReturnValueOnce({
           data: {}
         }),
-        removeLabel: jest.fn().mockReturnValueOnce({
+        removeLabel: vi.fn().mockReturnValueOnce({
           data: {}
         }),
-        listLabelsOnIssue: jest.fn().mockReturnValueOnce({
+        listLabelsOnIssue: vi.fn().mockReturnValueOnce({
           data: [
             {
               name: 'deploy-failed'

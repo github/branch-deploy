@@ -1,17 +1,18 @@
-import {branchRulesetChecks} from '../../src/functions/branch-ruleset-checks'
+import {branchRulesetChecks} from '../../src/functions/branch-ruleset-checks.js'
+import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
-import {COLORS} from '../../src/functions/colors'
-import {SUGGESTED_RULESETS} from '../../src/functions/suggested-rulesets'
-import {ERROR} from '../../src/functions/templates/error'
+import {COLORS} from '../../src/functions/colors.js'
+import {SUGGESTED_RULESETS} from '../../src/functions/suggested-rulesets.js'
+import {ERROR} from '../../src/functions/templates/error.js'
+
+const debugMock = vi.spyOn(core, 'debug')
+const infoMock = vi.spyOn(core, 'info')
+const warningMock = vi.spyOn(core, 'warning')
 
 var context
 var octokit
 var data
 var rulesets
-
-const debugMock = jest.spyOn(core, 'debug').mockImplementation(() => {})
-const warningMock = jest.spyOn(core, 'warning').mockImplementation(() => {})
-const infoMock = jest.spyOn(core, 'info').mockImplementation(() => {})
 
 class ForbiddenError extends Error {
   constructor(message) {
@@ -21,10 +22,7 @@ class ForbiddenError extends Error {
 }
 
 beforeEach(() => {
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
-  jest.clearAllMocks()
+  vi.clearAllMocks()
 
   data = {
     branch: 'main'
@@ -79,7 +77,7 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
-        getBranchRules: jest.fn().mockReturnValueOnce({data: rulesets})
+        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
       }
     }
   }
@@ -89,7 +87,7 @@ test('finds that no branch protections or rulesets are defined', async () => {
   octokit = {
     rest: {
       repos: {
-        getBranchRules: jest.fn().mockReturnValueOnce({data: []})
+        getBranchRules: vi.fn().mockReturnValueOnce({data: []})
       }
     }
   }
@@ -119,7 +117,7 @@ test('finds that the branch ruleset is missing the deletion rule', async () => {
   octokit = {
     rest: {
       repos: {
-        getBranchRules: jest.fn().mockReturnValueOnce({data: rulesets})
+        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
       }
     }
   }
@@ -150,7 +148,7 @@ test('finds that the branch ruleset is missing the dismiss_stale_reviews_on_push
   octokit = {
     rest: {
       repos: {
-        getBranchRules: jest.fn().mockReturnValueOnce({data: rulesets})
+        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
       }
     }
   }
@@ -175,7 +173,7 @@ test('finds that all suggested branch rulesets are defined', async () => {
   octokit = {
     rest: {
       repos: {
-        getBranchRules: jest.fn().mockReturnValueOnce({data: rulesets})
+        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
       }
     }
   }
@@ -214,7 +212,7 @@ test('finds that all suggested branch rulesets are defined but required reviews 
   octokit = {
     rest: {
       repos: {
-        getBranchRules: jest.fn().mockReturnValueOnce({data: rulesets})
+        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
       }
     }
   }
@@ -252,7 +250,7 @@ test('should still pass even with many required reviewers', async () => {
   octokit = {
     rest: {
       repos: {
-        getBranchRules: jest.fn().mockReturnValueOnce({data: rulesets})
+        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
       }
     }
   }
@@ -271,7 +269,7 @@ test('fails due to a 403 from the GitHub API due to a repository being private o
   octokit = {
     rest: {
       repos: {
-        getBranchRules: jest
+        getBranchRules: vi
           .fn()
           .mockRejectedValueOnce(
             new ForbiddenError(ERROR.messages.upgrade_or_public.message)
@@ -293,7 +291,7 @@ test('fails due to an unknown 403 from the GitHub API', async () => {
   octokit = {
     rest: {
       repos: {
-        getBranchRules: jest
+        getBranchRules: vi
           .fn()
           .mockRejectedValueOnce(new ForbiddenError(errorMessage))
       }

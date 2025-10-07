@@ -1,17 +1,15 @@
-import {triggerCheck} from '../../src/functions/trigger-check'
+import {triggerCheck} from '../../src/functions/trigger-check.js'
+import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
-import {COLORS} from '../../src/functions/colors'
+import {COLORS} from '../../src/functions/colors.js'
 
 const color = COLORS.highlight
 const colorReset = COLORS.reset
-const infoMock = jest.spyOn(core, 'info')
-const debugMock = jest.spyOn(core, 'debug')
+const infoMock = vi.spyOn(core, 'info')
+const debugMock = vi.spyOn(core, 'debug')
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'saveState').mockImplementation(() => {})
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
+  vi.clearAllMocks()
 })
 
 test('checks a message and finds a standard trigger', async () => {

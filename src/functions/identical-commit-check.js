@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
-import {COLORS} from './colors'
-import {API_HEADERS} from './api-headers'
+import {COLORS} from './colors.js'
+import {API_HEADERS} from './api-headers.js'
 
 // Helper function to check if the current deployment's ref is identical to the merge commit
 // :param octokit: the authenticated octokit instance

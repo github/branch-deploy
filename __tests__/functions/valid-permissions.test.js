@@ -1,15 +1,15 @@
 import * as core from '@actions/core'
-import {validPermissions} from '../../src/functions/valid-permissions'
+import {vi, expect, test, beforeEach} from 'vitest'
+import {validPermissions} from '../../src/functions/valid-permissions.js'
 
-const setOutputMock = jest.spyOn(core, 'setOutput')
+const setOutputMock = vi.spyOn(core, 'setOutput')
 
 var octokit
 var context
 var permissions = ['write', 'admin']
 
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
+  vi.clearAllMocks()
   process.env.INPUT_PERMISSIONS = 'write,admin'
 
   context = {
@@ -19,7 +19,7 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
-        getCollaboratorPermissionLevel: jest.fn().mockReturnValueOnce({
+        getCollaboratorPermissionLevel: vi.fn().mockReturnValueOnce({
           status: 200,
           data: {
             permission: 'write'
@@ -36,14 +36,12 @@ test('determines that a user has valid permissions to invoke the Action', async 
 })
 
 test('determines that a user has does not valid permissions to invoke the Action', async () => {
-  octokit.rest.repos.getCollaboratorPermissionLevel = jest
-    .fn()
-    .mockReturnValue({
-      status: 200,
-      data: {
-        permission: 'read'
-      }
-    })
+  octokit.rest.repos.getCollaboratorPermissionLevel = vi.fn().mockReturnValue({
+    status: 200,
+    data: {
+      permission: 'read'
+    }
+  })
 
   expect(await validPermissions(octokit, context, permissions)).toEqual(
     '👋 @monalisa, that command requires the following permission(s): `write/admin`\n\nYour current permissions: `read`'
@@ -52,11 +50,9 @@ test('determines that a user has does not valid permissions to invoke the Action
 })
 
 test('fails to get actor permissions due to a bad status code', async () => {
-  octokit.rest.repos.getCollaboratorPermissionLevel = jest
-    .fn()
-    .mockReturnValue({
-      status: 500
-    })
+  octokit.rest.repos.getCollaboratorPermissionLevel = vi.fn().mockReturnValue({
+    status: 500
+  })
 
   expect(await validPermissions(octokit, context, permissions)).toEqual(
     'Permission check returns non-200 status: 500'

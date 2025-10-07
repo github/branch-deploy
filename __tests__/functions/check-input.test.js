@@ -1,4 +1,5 @@
-import {checkInput} from '../../src/functions/check-input'
+import {checkInput} from '../../src/functions/check-input.js'
+import {expect, test} from 'vitest'
 
 test('checks an input an finds that it is valid', async () => {
   expect(checkInput('production')).toStrictEqual('production')

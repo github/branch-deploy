@@ -1,37 +1,37 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
-import {octokitRetry} from '@octokit/plugin-retry'
+import {retry} from '@octokit/plugin-retry'
 import dedent from 'dedent-js'
 
-import {VERSION} from './version'
-import {triggerCheck} from './functions/trigger-check'
-import {contextCheck} from './functions/context-check'
-import {nakedCommandCheck} from './functions/naked-command-check'
-import {reactEmote} from './functions/react-emote'
-import {environmentTargets} from './functions/environment-targets'
-import {actionStatus} from './functions/action-status'
-import {createDeploymentStatus} from './functions/deployment'
-import {isDeprecated} from './functions/deprecated-checks'
-import {prechecks} from './functions/prechecks'
-import {branchRulesetChecks} from './functions/branch-ruleset-checks'
-import {validPermissions} from './functions/valid-permissions'
-import {lock} from './functions/lock'
-import {unlock} from './functions/unlock'
-import {post} from './functions/post'
-import {timeDiff} from './functions/time-diff'
-import {identicalCommitCheck} from './functions/identical-commit-check'
-import {unlockOnMerge} from './functions/unlock-on-merge'
-import {help} from './functions/help'
-import {LOCK_METADATA} from './functions/lock-metadata'
-import {COLORS} from './functions/colors'
-import {getInputs} from './functions/inputs'
-import {constructValidBranchName} from './functions/valid-branch-name'
-import {validDeploymentOrder} from './functions/valid-deployment-order'
-import {commitSafetyChecks} from './functions/commit-safety-checks'
-import {API_HEADERS} from './functions/api-headers'
-import {timestamp} from './functions/timestamp'
-import {deploymentConfirmation} from './functions/deployment-confirmation'
+import {VERSION} from './version.js'
+import {triggerCheck} from './functions/trigger-check.js'
+import {contextCheck} from './functions/context-check.js'
+import {nakedCommandCheck} from './functions/naked-command-check.js'
+import {reactEmote} from './functions/react-emote.js'
+import {environmentTargets} from './functions/environment-targets.js'
+import {actionStatus} from './functions/action-status.js'
+import {createDeploymentStatus} from './functions/deployment.js'
+import {isDeprecated} from './functions/deprecated-checks.js'
+import {prechecks} from './functions/prechecks.js'
+import {branchRulesetChecks} from './functions/branch-ruleset-checks.js'
+import {validPermissions} from './functions/valid-permissions.js'
+import {lock} from './functions/lock.js'
+import {unlock} from './functions/unlock.js'
+import {post} from './functions/post.js'
+import {timeDiff} from './functions/time-diff.js'
+import {identicalCommitCheck} from './functions/identical-commit-check.js'
+import {unlockOnMerge} from './functions/unlock-on-merge.js'
+import {help} from './functions/help.js'
+import {LOCK_METADATA} from './functions/lock-metadata.js'
+import {COLORS} from './functions/colors.js'
+import {getInputs} from './functions/inputs.js'
+import {constructValidBranchName} from './functions/valid-branch-name.js'
+import {validDeploymentOrder} from './functions/valid-deployment-order.js'
+import {commitSafetyChecks} from './functions/commit-safety-checks.js'
+import {API_HEADERS} from './functions/api-headers.js'
+import {timestamp} from './functions/timestamp.js'
+import {deploymentConfirmation} from './functions/deployment-confirmation.js'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -48,7 +48,7 @@ export async function run() {
     // Create an octokit client with the retry plugin
     const octokit = github.getOctokit(token, {
       userAgent: `github/branch-deploy@${VERSION}`,
-      additionalPlugins: [octokitRetry]
+      additionalPlugins: [retry]
     })
 
     // Set the state so that the post run logic will trigger
@@ -860,14 +860,15 @@ export async function run() {
   }
 }
 
-/* istanbul ignore next */
+/* c8 ignore start */
 if (core.getState('isPost') === 'true') {
   post()
 } else {
   if (
     process.env.CI === 'true' &&
-    process.env.BRANCH_DEPLOY_JEST_TEST !== 'true'
+    process.env.BRANCH_DEPLOY_VITEST_TEST !== 'true'
   ) {
     run()
   }
 }
+/* c8 ignore stop */

@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {COLORS} from './colors'
+import {COLORS} from './colors.js'
 
 // A simple function that checks the body of the message against the trigger
 // :param body: The content body of the message being checked (String)

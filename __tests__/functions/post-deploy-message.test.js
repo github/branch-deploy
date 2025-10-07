@@ -1,8 +1,9 @@
-import {postDeployMessage} from '../../src/functions/post-deploy-message'
+import {postDeployMessage} from '../../src/functions/post-deploy-message.js'
+import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 
-const debugMock = jest.spyOn(core, 'debug')
+const debugMock = vi.spyOn(core, 'debug')
 
 var context
 var environment
@@ -71,13 +72,10 @@ function renderDeploymentMetadata(data) {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks()
+  vi.clearAllMocks()
 
   process.env.GITHUB_SERVER_URL = 'https://github.com'
   process.env.GITHUB_RUN_ID = '12345'
-
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
 
   process.env.DEPLOY_MESSAGE = null
   process.env.INPUT_ENVIRONMENT_URL_IN_COMMENT = 'true'
