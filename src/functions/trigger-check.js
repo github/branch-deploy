@@ -15,7 +15,7 @@ export async function triggerCheck(body, trigger) {
   }
 
   // Ensure the trigger match is complete: either end-of-string or followed by whitespace
-  const nextChar = body.slice(trigger.length, trigger.length + 1)
+  const nextChar = body[trigger.length]
   if (nextChar && !/\s/.test(nextChar)) {
     core.debug(
       `comment body starts with trigger but is not complete: ${COLORS.highlight}${trigger}${COLORS.reset}`
