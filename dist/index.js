@@ -39814,6 +39814,15 @@ async function triggerCheck(body, trigger) {
     return false
   }
 
+  // Ensure the trigger match is complete: either end-of-string or followed by whitespace
+  const nextChar = body[trigger.length]
+  if (nextChar && !/\s/.test(nextChar)) {
+    core.debug(
+      `comment body starts with trigger but is not complete: ${COLORS.highlight}${trigger}${COLORS.reset}`
+    )
+    return false
+  }
+
   core.info(
     `✅ comment body starts with trigger: ${COLORS.highlight}${trigger}${COLORS.reset}`
   )
