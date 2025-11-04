@@ -14,7 +14,9 @@ All contributions are welcome and greatly appreciated!
 5. Notify the maintainers of this repository for peer review and approval
 6. Merge!
 
-The maintainers of this repository will create a new release with your changes so that everyone can use the new release and enjoy the awesome features of branch deployments
+The maintainers of this repository will create a new release with your changes so that everyone can use the new release and enjoy the awesome features of branch deployments.
+
+> For maintainers, see the [Maintainer Guide](./docs/maintainer-guide.md) for more information on how to create a new release.
 
 ## Testing 🧪
 
