@@ -221,9 +221,7 @@ test('successfully unlocks all environments when deployment_task is set to "all"
   expect(octokit.rest.repos.listBranches).toHaveBeenCalledTimes(3)
 
   // Verify the matching branches were found and logged (lines 67-69)
-  expect(infoMock).toHaveBeenCalledWith(
-    expect.stringContaining('🔍 found')
-  )
+  expect(infoMock).toHaveBeenCalledWith(expect.stringContaining('🔍 found'))
   expect(infoMock).toHaveBeenCalledWith(
     expect.stringContaining('matching lock branches for environment')
   )

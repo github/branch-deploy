@@ -1,6 +1,7 @@
 import {environmentTargets} from '../../src/functions/environment-targets.js'
 import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
+import * as actionStatus from '../../src/functions/action-status.js'
 import dedent from 'dedent-js'
 import {COLORS} from '../../src/functions/colors.js'
 
@@ -12,6 +13,9 @@ const warningMock = vi.spyOn(core, 'warning')
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+    return true
+  })
 
   process.env.INPUT_ENVIRONMENT_TARGETS = 'production,development,staging'
   process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'

@@ -1375,7 +1375,7 @@ test('successfully runs in unlockOnMergeMode', async () => {
 
 test('successfully runs in unlockOnCloseMode', async () => {
   process.env.INPUT_UNLOCK_ON_CLOSE_MODE = 'true'
-  jest.spyOn(unlockOnClose, 'unlockOnClose').mockImplementation(() => {
+  vi.spyOn(unlockOnClose, 'unlockOnClose').mockImplementation(() => {
     return true
   })
   expect(await run()).toBe('success - unlock on close mode')
@@ -1507,19 +1507,19 @@ test('fails when task is specified but task support is disabled', async () => {
     }
   }
 
-  jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
+  vi.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
     return {data: {id: 123}}
   })
-  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+  vi.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
     return true
   })
-  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+  vi.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
     return false
   })
-  jest.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
+  vi.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
     return false
   })
-  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+  vi.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return true
   })
 
@@ -1547,19 +1547,19 @@ test('fails when task is not in the allowed list', async () => {
     }
   }
 
-  jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
+  vi.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
     return {data: {id: 123}}
   })
-  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+  vi.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
     return true
   })
-  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+  vi.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
     return false
   })
-  jest.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
+  vi.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
     return false
   })
-  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+  vi.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return true
   })
 
@@ -1589,19 +1589,19 @@ test('fails when task is not in the allowed list - deployment_task as array (cov
     }
   }
 
-  jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
+  vi.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
     return {data: {id: 123}}
   })
-  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+  vi.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
     return true
   })
-  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+  vi.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
     return false
   })
-  jest.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
+  vi.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
     return false
   })
-  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+  vi.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return true
   })
 
@@ -1630,22 +1630,22 @@ test.skip('succeeds when task is in the allowed list', async () => {
   }
   github.context.actor = 'monalisa'
 
-  jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
+  vi.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
     return {data: {id: 123}}
   })
-  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+  vi.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
     return true
   })
-  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+  vi.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
     return false
   })
-  jest.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
+  vi.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
     return false
   })
-  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+  vi.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
     return true
   })
-  jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
+  vi.spyOn(prechecks, 'prechecks').mockImplementation(() => {
     return {
       status: true,
       ref: 'test-ref',
@@ -1654,41 +1654,41 @@ test.skip('succeeds when task is in the allowed list', async () => {
       isFork: false
     }
   })
-  jest.spyOn(branchRulesetChecks, 'branchRulesetChecks').mockImplementation(
-    () => {
+  jest
+    .spyOn(branchRulesetChecks, 'branchRulesetChecks')
+    .mockImplementation(() => {
       return true
-    }
-  )
-  jest.spyOn(commitSafetyChecks, 'commitSafetyChecks').mockImplementation(
-    () => {
+    })
+  jest
+    .spyOn(commitSafetyChecks, 'commitSafetyChecks')
+    .mockImplementation(() => {
       return {
         status: true,
         isVerified: true
       }
-    }
-  )
-  jest.spyOn(validDeploymentOrder, 'validDeploymentOrder').mockImplementation(
-    () => {
+    })
+  jest
+    .spyOn(validDeploymentOrder, 'validDeploymentOrder')
+    .mockImplementation(() => {
       return {valid: true}
-    }
-  )
-  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    })
+  vi.spyOn(lock, 'lock').mockImplementation(() => {
     return {status: true, lockData: null}
   })
-  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+  vi.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return true
   })
-  jest.spyOn(timestamp, 'timestamp').mockImplementation(() => {
+  vi.spyOn(timestamp, 'timestamp').mockImplementation(() => {
     return '2025-01-01T00:00:00.000Z'
   })
 
   const octokit = {
     rest: {
       repos: {
-        get: jest.fn().mockReturnValue({
+        get: vi.fn().mockReturnValue({
           data: {default_branch: 'main'}
         }),
-        getCommit: jest.fn().mockReturnValue({
+        getCommit: vi.fn().mockReturnValue({
           data: {
             sha: 'deadbeef',
             commit: {verification: no_verification},
@@ -1699,12 +1699,12 @@ test.skip('succeeds when task is in the allowed list', async () => {
         createDeployment: createDeploymentMock
       },
       issues: {
-        createComment: jest.fn().mockReturnValue({
+        createComment: vi.fn().mockReturnValue({
           data: {id: 123456}
         })
       },
       pulls: {
-        get: jest.fn().mockReturnValue({
+        get: vi.fn().mockReturnValue({
           data: {head: {ref: 'test-ref'}},
           status: 200
         })
@@ -1712,7 +1712,7 @@ test.skip('succeeds when task is in the allowed list', async () => {
     }
   }
 
-  jest.spyOn(github, 'getOctokit').mockImplementation(() => {
+  vi.spyOn(github, 'getOctokit').mockImplementation(() => {
     return octokit
   })
 
@@ -1747,22 +1747,22 @@ test.skip('succeeds when task support is set to "all"', async () => {
   }
   github.context.actor = 'monalisa'
 
-  jest.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
+  vi.spyOn(reactEmote, 'reactEmote').mockImplementation(() => {
     return {data: {id: 123}}
   })
-  jest.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
+  vi.spyOn(contextCheck, 'contextCheck').mockImplementation(() => {
     return true
   })
-  jest.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
+  vi.spyOn(isDeprecated, 'isDeprecated').mockImplementation(() => {
     return false
   })
-  jest.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
+  vi.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockImplementation(() => {
     return false
   })
-  jest.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+  vi.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
     return true
   })
-  jest.spyOn(prechecks, 'prechecks').mockImplementation(() => {
+  vi.spyOn(prechecks, 'prechecks').mockImplementation(() => {
     return {
       status: true,
       ref: 'test-ref',
@@ -1771,41 +1771,41 @@ test.skip('succeeds when task support is set to "all"', async () => {
       isFork: false
     }
   })
-  jest.spyOn(branchRulesetChecks, 'branchRulesetChecks').mockImplementation(
-    () => {
+  jest
+    .spyOn(branchRulesetChecks, 'branchRulesetChecks')
+    .mockImplementation(() => {
       return true
-    }
-  )
-  jest.spyOn(commitSafetyChecks, 'commitSafetyChecks').mockImplementation(
-    () => {
+    })
+  jest
+    .spyOn(commitSafetyChecks, 'commitSafetyChecks')
+    .mockImplementation(() => {
       return {
         status: true,
         isVerified: true
       }
-    }
-  )
-  jest.spyOn(validDeploymentOrder, 'validDeploymentOrder').mockImplementation(
-    () => {
+    })
+  jest
+    .spyOn(validDeploymentOrder, 'validDeploymentOrder')
+    .mockImplementation(() => {
       return {valid: true}
-    }
-  )
-  jest.spyOn(lock, 'lock').mockImplementation(() => {
+    })
+  vi.spyOn(lock, 'lock').mockImplementation(() => {
     return {status: true, lockData: null}
   })
-  jest.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
+  vi.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
     return true
   })
-  jest.spyOn(timestamp, 'timestamp').mockImplementation(() => {
+  vi.spyOn(timestamp, 'timestamp').mockImplementation(() => {
     return '2025-01-01T00:00:00.000Z'
   })
 
   const octokit = {
     rest: {
       repos: {
-        get: jest.fn().mockReturnValue({
+        get: vi.fn().mockReturnValue({
           data: {default_branch: 'main'}
         }),
-        getCommit: jest.fn().mockReturnValue({
+        getCommit: vi.fn().mockReturnValue({
           data: {
             sha: 'deadbeef',
             commit: {verification: no_verification},
@@ -1816,12 +1816,12 @@ test.skip('succeeds when task support is set to "all"', async () => {
         createDeployment: createDeploymentMock
       },
       issues: {
-        createComment: jest.fn().mockReturnValue({
+        createComment: vi.fn().mockReturnValue({
           data: {id: 123456}
         })
       },
       pulls: {
-        get: jest.fn().mockReturnValue({
+        get: vi.fn().mockReturnValue({
           data: {head: {ref: 'test-ref'}},
           status: 200
         })
@@ -1829,7 +1829,7 @@ test.skip('succeeds when task support is set to "all"', async () => {
     }
   }
 
-  jest.spyOn(github, 'getOctokit').mockImplementation(() => {
+  vi.spyOn(github, 'getOctokit').mockImplementation(() => {
     return octokit
   })
 

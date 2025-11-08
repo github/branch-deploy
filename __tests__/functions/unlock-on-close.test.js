@@ -1,41 +1,42 @@
 import * as core from '@actions/core'
-import * as unlock from '../../src/functions/unlock'
-import * as checkLockFile from '../../src/functions/check-lock-file'
-import * as checkBranch from '../../src/functions/lock'
-import {unlockOnClose} from '../../src/functions/unlock-on-close'
-import {COLORS} from '../../src/functions/colors'
+import {vi, expect, test, beforeEach} from 'vitest'
+import * as unlock from '../../src/functions/unlock.js'
+import * as checkLockFile from '../../src/functions/check-lock-file.js'
+import * as checkBranch from '../../src/functions/lock.js'
+import {unlockOnClose} from '../../src/functions/unlock-on-close.js'
+import {COLORS} from '../../src/functions/colors.js'
 
-const setOutputMock = jest.spyOn(core, 'setOutput')
-const infoMock = jest.spyOn(core, 'info')
-const warningMock = jest.spyOn(core, 'warning')
-const debugMock = jest.spyOn(core, 'debug')
+const setOutputMock = vi.spyOn(core, 'setOutput')
+const infoMock = vi.spyOn(core, 'info')
+const warningMock = vi.spyOn(core, 'warning')
+const debugMock = vi.spyOn(core, 'debug')
 
 const environment_targets = 'production,development,staging'
 
 var context
 var octokit
 beforeEach(() => {
-  jest.clearAllMocks()
-  jest.spyOn(core, 'warning').mockImplementation(() => {})
-  jest.spyOn(core, 'setOutput').mockImplementation(() => {})
-  jest.spyOn(core, 'info').mockImplementation(() => {})
-  jest.spyOn(core, 'debug').mockImplementation(() => {})
-  jest.spyOn(core, 'error').mockImplementation(() => {})
-  jest.spyOn(core, 'getInput').mockImplementation(name => {
+  vi.clearAllMocks()
+  vi.spyOn(core, 'warning').mockImplementation(() => {})
+  vi.spyOn(core, 'setOutput').mockImplementation(() => {})
+  vi.spyOn(core, 'info').mockImplementation(() => {})
+  vi.spyOn(core, 'debug').mockImplementation(() => {})
+  vi.spyOn(core, 'error').mockImplementation(() => {})
+  vi.spyOn(core, 'getInput').mockImplementation(name => {
     if (name === 'deployment_task') {
       return ''
     }
     return ''
   })
-  jest.spyOn(unlock, 'unlock').mockImplementation(() => {
+  vi.spyOn(unlock, 'unlock').mockImplementation(() => {
     return 'removed lock - silent'
   })
-  jest.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
+  vi.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
     return {
       link: 'https://github.com/corp/test/pull/123#issuecomment-123456789'
     }
   })
-  jest.spyOn(checkBranch, 'checkBranch').mockImplementation(() => {
+  vi.spyOn(checkBranch, 'checkBranch').mockImplementation(() => {
     return true
   })
 
@@ -60,7 +61,7 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
-        listBranches: jest.fn().mockReturnValue({
+        listBranches: vi.fn().mockReturnValue({
           data: [
             {name: 'production-branch-deploy-lock'},
             {name: 'development-branch-deploy-lock'},
@@ -82,9 +83,7 @@ test('successfully unlocks when PR is closed (not merged)', async () => {
 
 test('returns false when event is not pull_request', async () => {
   context.eventName = 'push'
-  expect(await unlockOnClose(octokit, context, environment_targets)).toBe(
-    false
-  )
+  expect(await unlockOnClose(octokit, context, environment_targets)).toBe(false)
   expect(warningMock).toHaveBeenCalledWith(
     `this workflow can only run in the context of a ${COLORS.highlight}closed${COLORS.reset} pull request`
   )
@@ -92,9 +91,7 @@ test('returns false when event is not pull_request', async () => {
 
 test('returns false when action is not closed', async () => {
   context.payload.action = 'opened'
-  expect(await unlockOnClose(octokit, context, environment_targets)).toBe(
-    false
-  )
+  expect(await unlockOnClose(octokit, context, environment_targets)).toBe(false)
   expect(warningMock).toHaveBeenCalledWith(
     `this workflow can only run in the context of a ${COLORS.highlight}closed${COLORS.reset} pull request`
   )
@@ -103,9 +100,7 @@ test('returns false when action is not closed', async () => {
 test('returns false and logs unlock-on-merge message when wrong event but PR is merged', async () => {
   context.eventName = 'push'
   context.payload.pull_request.merged = true
-  expect(await unlockOnClose(octokit, context, environment_targets)).toBe(
-    false
-  )
+  expect(await unlockOnClose(octokit, context, environment_targets)).toBe(false)
   expect(warningMock).toHaveBeenCalledWith(
     `this workflow can only run in the context of a ${COLORS.highlight}closed${COLORS.reset} pull request`
   )
@@ -116,9 +111,7 @@ test('returns false and logs unlock-on-merge message when wrong event but PR is 
 
 test('successfully unlocks even when PR is merged', async () => {
   context.payload.pull_request.merged = true
-  expect(await unlockOnClose(octokit, context, environment_targets)).toBe(
-    true
-  )
+  expect(await unlockOnClose(octokit, context, environment_targets)).toBe(true)
   expect(setOutputMock).toHaveBeenCalledWith(
     'unlocked_environments',
     'production,development,staging'
@@ -126,7 +119,7 @@ test('successfully unlocks even when PR is merged', async () => {
 })
 
 test('skips when lock branch does not exist', async () => {
-  jest.spyOn(checkBranch, 'checkBranch').mockImplementation(() => {
+  vi.spyOn(checkBranch, 'checkBranch').mockImplementation(() => {
     return false
   })
   expect(await unlockOnClose(octokit, context, environment_targets)).toBe(true)
@@ -136,7 +129,7 @@ test('skips when lock branch does not exist', async () => {
 })
 
 test('skips when no lock file found', async () => {
-  jest.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
+  vi.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
     return null
   })
   expect(await unlockOnClose(octokit, context, environment_targets)).toBe(true)
@@ -146,7 +139,7 @@ test('skips when no lock file found', async () => {
 })
 
 test('skips when lock file has no link property', async () => {
-  jest.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
+  vi.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
     return {}
   })
   expect(await unlockOnClose(octokit, context, environment_targets)).toBe(true)
@@ -156,7 +149,7 @@ test('skips when lock file has no link property', async () => {
 })
 
 test('skips when lock is for a different PR', async () => {
-  jest.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
+  vi.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
     return {
       link: 'https://github.com/corp/test/pull/999#issuecomment-123456789'
     }
@@ -169,7 +162,7 @@ test('skips when lock is for a different PR', async () => {
 })
 
 test('handles unlock failure gracefully', async () => {
-  jest.spyOn(unlock, 'unlock').mockImplementation(() => {
+  vi.spyOn(unlock, 'unlock').mockImplementation(() => {
     return 'lock not found - silent'
   })
   expect(await unlockOnClose(octokit, context, environment_targets)).toBe(true)
@@ -179,14 +172,14 @@ test('handles unlock failure gracefully', async () => {
 })
 
 test('handles deployment_task set to "all"', async () => {
-  jest.spyOn(core, 'getInput').mockImplementation(name => {
+  vi.spyOn(core, 'getInput').mockImplementation(name => {
     if (name === 'deployment_task') {
       return 'all'
     }
     return ''
   })
 
-  octokit.rest.repos.listBranches = jest.fn().mockReturnValue({
+  octokit.rest.repos.listBranches = vi.fn().mockReturnValue({
     data: [
       {name: 'production-branch-deploy-lock'},
       {name: 'production-backend-branch-deploy-lock'},
@@ -202,7 +195,7 @@ test('handles deployment_task set to "all"', async () => {
 })
 
 test('handles lock with task property', async () => {
-  jest.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
+  vi.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
     return {
       link: 'https://github.com/corp/test/pull/123#issuecomment-123456789',
       task: 'backend'
@@ -225,7 +218,7 @@ test('handles lock with task property', async () => {
 })
 
 test('handles lock without task property', async () => {
-  jest.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
+  vi.spyOn(checkLockFile, 'checkLockFile').mockImplementation(() => {
     return {
       link: 'https://github.com/corp/test/pull/123#issuecomment-123456789'
     }

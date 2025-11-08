@@ -1,3 +1,4 @@
+import * as core from '@actions/core'
 import {vi, expect, test, beforeEach} from 'vitest'
 import {
   createDeploymentStatus,
@@ -418,7 +419,7 @@ test('returns active deployment with matching task on first page', async () => {
 })
 
 test('returns active deployment with matching task during pagination', async () => {
-  octokit.graphql = jest
+  octokit.graphql = vi
     .fn()
     .mockReturnValueOnce({
       repository: {
@@ -480,7 +481,7 @@ test('returns active deployment with matching task during pagination', async () 
 })
 
 test('returns null when no active deployment found after pagination with task filter', async () => {
-  octokit.graphql = jest
+  octokit.graphql = vi
     .fn()
     .mockReturnValueOnce({
       repository: {

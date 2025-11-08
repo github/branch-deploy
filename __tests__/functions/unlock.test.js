@@ -304,9 +304,9 @@ test('successfully releases a deployment lock with --task flag combined with --r
 })
 
 test('successfully releases a deployment lock with task passed as parameter', async () => {
-  expect(await unlock(octokit, context, 123, 'production', false, 'worker')).toBe(
-    true
-  )
+  expect(
+    await unlock(octokit, context, 123, 'production', false, 'worker')
+  ).toBe(true)
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',
@@ -328,7 +328,9 @@ test('handles malformed --task flag with no value (line 50 else branch)', async 
 
 test('uses task parameter when provided, ignoring task from comment (line 99 else branch)', async () => {
   context.payload.comment.body = '.unlock production --task backend'
-  expect(await unlock(octokit, context, 123, null, false, 'frontend')).toBe(true)
+  expect(await unlock(octokit, context, 123, null, false, 'frontend')).toBe(
+    true
+  )
   expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
     owner: 'corp',
     repo: 'test',

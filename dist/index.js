@@ -37742,6 +37742,54 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
+/***/ 4899:
+/***/ ((module) => {
+
+module.exports = eval("require")("./check-lock-file");
+
+
+/***/ }),
+
+/***/ 2964:
+/***/ ((module) => {
+
+module.exports = eval("require")("./colors");
+
+
+/***/ }),
+
+/***/ 9029:
+/***/ ((module) => {
+
+module.exports = eval("require")("./lock");
+
+
+/***/ }),
+
+/***/ 3953:
+/***/ ((module) => {
+
+module.exports = eval("require")("./lock-metadata");
+
+
+/***/ }),
+
+/***/ 4740:
+/***/ ((module) => {
+
+module.exports = eval("require")("./unlock");
+
+
+/***/ }),
+
+/***/ 9145:
+/***/ ((module) => {
+
+module.exports = eval("require")("./valid-branch-name");
+
+
+/***/ }),
+
 /***/ 568:
 /***/ ((module) => {
 
@@ -44033,7 +44081,7 @@ async function checkLockOwner(
           lockMsg = `\`${lockData.environment}\` environment`
         }
 
-        const youOwnItComment = lib_default()(`
+        const youOwnItComment = lib(`
           ### 🔒 Deployment Lock Information
 
           __${context.actor}__, you are already the owner of the current ${lockMsg} deployment lock
@@ -45471,6 +45519,18 @@ async function identicalCommitCheck(octokit, context, environment) {
   return result
 }
 
+// EXTERNAL MODULE: ./node_modules/@vercel/ncc/dist/ncc/@@notfound.js?./unlock
+var _notfoundunlock = __nccwpck_require__(4740);
+// EXTERNAL MODULE: ./node_modules/@vercel/ncc/dist/ncc/@@notfound.js?./lock-metadata
+var _notfoundlock_metadata = __nccwpck_require__(3953);
+// EXTERNAL MODULE: ./node_modules/@vercel/ncc/dist/ncc/@@notfound.js?./check-lock-file
+var _notfoundcheck_lock_file = __nccwpck_require__(4899);
+// EXTERNAL MODULE: ./node_modules/@vercel/ncc/dist/ncc/@@notfound.js?./lock
+var _notfoundlock = __nccwpck_require__(9029);
+// EXTERNAL MODULE: ./node_modules/@vercel/ncc/dist/ncc/@@notfound.js?./valid-branch-name
+var _notfoundvalid_branch_name = __nccwpck_require__(9145);
+// EXTERNAL MODULE: ./node_modules/@vercel/ncc/dist/ncc/@@notfound.js?./colors
+var _notfoundcolors = __nccwpck_require__(2964);
 ;// CONCATENATED MODULE: ./src/functions/unlock-on-close.js
 
 
@@ -45492,7 +45552,7 @@ async function unlockOnClose(octokit, context, environment_targets) {
     context?.payload?.action !== 'closed'
   ) {
     core.warning(
-      `this workflow can only run in the context of a ${COLORS.highlight}closed${COLORS.reset} pull request`
+      `this workflow can only run in the context of a ${_notfoundcolors.COLORS.highlight}closed${_notfoundcolors.COLORS.reset} pull request`
     )
     core.info(
       `event name: ${context?.eventName}, action: ${context?.payload?.action}, merged: ${context?.payload?.pull_request?.merged}`
@@ -45514,7 +45574,7 @@ async function unlockOnClose(octokit, context, environment_targets) {
   const deployment_task = core.getInput('deployment_task')
   if (deployment_task === 'all') {
     core.info(
-      `ℹ️ ${COLORS.highlight}deployment_task${COLORS.reset} is set to 'all', look for all related branches to unlock`
+      `ℹ️ ${_notfoundcolors.COLORS.highlight}deployment_task${_notfoundcolors.COLORS.reset} is set to 'all', look for all related branches to unlock`
     )
   }
 
@@ -45528,43 +45588,43 @@ async function unlockOnClose(octokit, context, environment_targets) {
         repo: context.repo.repo
       })
 
-      const branchPattern = `${constructValidBranchName(environment)}-`
+      const branchPattern = `${(0,_notfoundvalid_branch_name.constructValidBranchName)(environment)}-`
       matchingBranches = branches.data
         .map(branch => branch.name)
         .filter(
           branchName =>
             branchName.startsWith(branchPattern) &&
-            branchName.endsWith(LOCK_METADATA.lockBranchSuffix)
+            branchName.endsWith(_notfoundlock_metadata.LOCK_METADATA.lockBranchSuffix)
         )
 
       core.info(
-        `🔍 found ${matchingBranches.length} matching lock branches for environment ${COLORS.highlight}${environment}${COLORS.reset}: ${matchingBranches.join(', ')}`
+        `🔍 found ${matchingBranches.length} matching lock branches for environment ${_notfoundcolors.COLORS.highlight}${environment}${_notfoundcolors.COLORS.reset}: ${matchingBranches.join(', ')}`
       )
     } else {
       core.info(
-        `ℹ️ ${COLORS.highlight}deployment_task${COLORS.reset} is set to '${deployment_task}', only look for the specific branch to unlock`
+        `ℹ️ ${_notfoundcolors.COLORS.highlight}deployment_task${_notfoundcolors.COLORS.reset} is set to '${deployment_task}', only look for the specific branch to unlock`
       )
       // construct the lock branch name for this environment
       matchingBranches = [
-        `${constructValidBranchName(environment)}-${LOCK_METADATA.lockBranchSuffix}`
+        `${(0,_notfoundvalid_branch_name.constructValidBranchName)(environment)}-${_notfoundlock_metadata.LOCK_METADATA.lockBranchSuffix}`
       ]
     }
 
     // Process each matching branch
     for (const lockBranch of matchingBranches) {
       // Check if the lock branch exists
-      const branchExists = await checkBranch(octokit, context, lockBranch)
+      const branchExists = await (0,_notfoundlock.checkBranch)(octokit, context, lockBranch)
 
       // if the lock branch does not exist at all, then there is no lock to release
       if (!branchExists) {
         core.info(
-          `⏩ lock branch ${COLORS.highlight}${lockBranch}${COLORS.reset} no longer exists - skipping...`
+          `⏩ lock branch ${_notfoundcolors.COLORS.highlight}${lockBranch}${_notfoundcolors.COLORS.reset} no longer exists - skipping...`
         )
         continue
       }
 
       // attempt to fetch the lockFile for this branch
-      const lockFile = await checkLockFile(octokit, context, lockBranch)
+      const lockFile = await (0,_notfoundcheck_lock_file.checkLockFile)(octokit, context, lockBranch)
 
       // check to see if the lockFile exists and if it does, check to see if it has a link property
       if (lockFile && lockFile?.link) {
@@ -45573,13 +45633,13 @@ async function unlockOnClose(octokit, context, environment_targets) {
           .split('/pull/')[1]
           .split('#issuecomment')[0]
         core.info(
-          `🔍 checking lock for PR ${COLORS.info}${prNumber}${COLORS.reset} on branch ${COLORS.highlight}${lockBranch}${COLORS.reset}`
+          `🔍 checking lock for PR ${_notfoundcolors.COLORS.info}${prNumber}${_notfoundcolors.COLORS.reset} on branch ${_notfoundcolors.COLORS.highlight}${lockBranch}${_notfoundcolors.COLORS.reset}`
         )
 
         // if the PR number matches the PR number of the closed pull request, then this lock is associated with the closed pull request
         if (prNumber === context.payload.pull_request.number.toString()) {
           // release the lock
-          const result = await unlock(
+          const result = await (0,_notfoundunlock.unlock)(
             octokit,
             context,
             null, // reactionId
@@ -45602,16 +45662,16 @@ async function unlockOnClose(octokit, context, environment_targets) {
           // log the result and format the output as it will always be a string ending with '- silent'
           const resultFmt = result.replace('- silent', '')
           core.info(
-            `🔓 ${resultFmt.trim()} - branch: ${COLORS.highlight}${lockBranch}${COLORS.reset}`
+            `🔓 ${resultFmt.trim()} - branch: ${_notfoundcolors.COLORS.highlight}${lockBranch}${_notfoundcolors.COLORS.reset}`
           )
         } else {
           core.info(
-            `⏩ lock for PR ${COLORS.info}${prNumber}${COLORS.reset} on branch ${COLORS.highlight}${lockBranch}${COLORS.reset} is not associated with PR ${COLORS.info}${context.payload.pull_request.number}${COLORS.reset} - skipping...`
+            `⏩ lock for PR ${_notfoundcolors.COLORS.info}${prNumber}${_notfoundcolors.COLORS.reset} on branch ${_notfoundcolors.COLORS.highlight}${lockBranch}${_notfoundcolors.COLORS.reset} is not associated with PR ${_notfoundcolors.COLORS.info}${context.payload.pull_request.number}${_notfoundcolors.COLORS.reset} - skipping...`
           )
         }
       } else {
         core.info(
-          `⏩ no lock file found for branch ${COLORS.highlight}${lockBranch}${COLORS.reset} - skipping...`
+          `⏩ no lock file found for branch ${_notfoundcolors.COLORS.highlight}${lockBranch}${_notfoundcolors.COLORS.reset} - skipping...`
         )
         continue
       }
@@ -47066,7 +47126,7 @@ async function run() {
     if (task !== null && task !== undefined) {
       if (inputs.deployment_task === '') {
         // Task support is disabled
-        const message = lib_default()(`
+        const message = lib(`
           ### ⚠️ Task Support Not Enabled
 
           You specified \`--task ${task}\` but task support is not enabled.
@@ -47087,7 +47147,7 @@ async function run() {
       ) {
         // Task is not in the allowed list
         const allowedTasks = inputs.deployment_task.join(', ')
-        const message = lib_default()(`
+        const message = lib(`
           ### ⚠️ Invalid Task
 
           The task \`${task}\` is not in the list of allowed tasks.

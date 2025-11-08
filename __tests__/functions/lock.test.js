@@ -1070,7 +1070,7 @@ test('throws an error if an unhandled exception occurs', async () => {
 })
 
 test('successfully obtains a deployment lock (sticky) with a task and creates a lock comment with task information', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -1086,21 +1086,21 @@ test('successfully obtains a deployment lock (sticky) with a task and creates a 
   const octokitWithTask = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: jest.fn().mockReturnValue({}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        createOrUpdateFileContents: vi.fn().mockReturnValue({}),
+        getContent: vi
           .fn()
           .mockRejectedValue(new NotFoundError('file not found'))
       },
       git: {
-        createRef: jest.fn().mockReturnValue({status: 201})
+        createRef: vi.fn().mockReturnValue({status: 201})
       },
       issues: {
-        createComment: jest.fn().mockReturnValue({})
+        createComment: vi.fn().mockReturnValue({})
       }
     }
   }
@@ -1155,8 +1155,8 @@ test('successfully obtains a deployment lock (sticky) with a task and creates a 
 
 // Tests for enhanced ownership checks with branch comparison (lines 424-573)
 test('Enhanced ownership check: same user, same branch - owner already has lock (sticky=true, leaveComment=true) with task', async () => {
-  const warningMock = jest.spyOn(core, 'warning')
-  const actionStatusSpy = jest
+  const warningMock = vi.spyOn(core, 'warning')
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -1190,11 +1190,11 @@ test('Enhanced ownership check: same user, same branch - owner already has lock 
   const octokitOwnerLock = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // global lock check
           .mockReturnValueOnce({data: {content: lockBase64MonalisaWithTask}})
@@ -1267,7 +1267,7 @@ test('Enhanced ownership check: same user, same branch - owner already has lock 
 })
 
 test('Enhanced ownership check: same user, same branch - global lock with task (sticky=true, leaveComment=true)', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -1301,11 +1301,11 @@ test('Enhanced ownership check: same user, same branch - global lock with task (
   const octokitOwnerLock = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockReturnValueOnce({
             data: {content: lockBase64OctocatGlobalWithTask}
@@ -1380,8 +1380,8 @@ test('Enhanced ownership check: same user, same branch - global lock with task (
 })
 
 test('Enhanced ownership check: same user, different branch - denies lock access', async () => {
-  const warningMock = jest.spyOn(core, 'warning')
-  const actionStatusSpy = jest
+  const warningMock = vi.spyOn(core, 'warning')
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -1417,11 +1417,11 @@ test('Enhanced ownership check: same user, different branch - denies lock access
   const octokitDifferentBranch = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // global lock check
           .mockReturnValueOnce({
@@ -1488,7 +1488,7 @@ test('Enhanced ownership check: same user, different branch - denies lock access
 })
 
 test('Enhanced ownership check: different user trying to claim lock - shows detailed error with task', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -1524,11 +1524,11 @@ test('Enhanced ownership check: different user trying to claim lock - shows deta
   const octokitDifferentUser = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // global lock check
           .mockReturnValueOnce({data: {content: lockBase64MonalisaWithTask}})
@@ -1604,7 +1604,7 @@ test('Enhanced ownership check: different user trying to claim lock - shows deta
 })
 
 test('Enhanced ownership check: different user trying to claim lock WITHOUT task - shows detailed error', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -1640,11 +1640,11 @@ test('Enhanced ownership check: different user trying to claim lock WITHOUT task
   const octokitDifferentUser = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // global lock check
           .mockReturnValueOnce({data: {content: lockBase64MonalisaNoTask}})
@@ -1720,7 +1720,7 @@ test('Enhanced ownership check: different user trying to claim lock WITHOUT task
 })
 
 test('Enhanced ownership check: different user trying to claim global lock - shows detailed error', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -1756,15 +1756,13 @@ test('Enhanced ownership check: different user trying to claim global lock - sho
   const octokitGlobalLock = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
-          .fn()
-          .mockReturnValueOnce({
-            data: {content: lockBase64OctocatGlobalWithTask}
-          })
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi.fn().mockReturnValueOnce({
+          data: {content: lockBase64OctocatGlobalWithTask}
+        })
       }
     }
   }
@@ -1809,7 +1807,7 @@ test('Enhanced ownership check: different user trying to claim global lock - sho
 })
 
 test('Enhanced ownership check: same user, same branch - sticky=false, leaveComment=false (with task)', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -1843,11 +1841,11 @@ test('Enhanced ownership check: same user, same branch - sticky=false, leaveComm
   const octokitOwnerLock = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // global lock check
           .mockReturnValueOnce({data: {content: lockBase64MonalisaWithTask}})
@@ -1902,7 +1900,7 @@ test('Enhanced ownership check: same user, same branch - sticky=false, leaveComm
 })
 
 test('Enhanced ownership check: different user with reason in lock - shows reason in error', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -1938,11 +1936,11 @@ test('Enhanced ownership check: different user with reason in lock - shows reaso
   const octokitWithReason = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // global lock check
           .mockReturnValueOnce({
@@ -1992,7 +1990,7 @@ test('Enhanced ownership check: different user with reason in lock - shows reaso
 })
 
 test('Enhanced ownership check: different user with lock WITHOUT task - shows detailed error (covers line 528 else branch)', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -2028,11 +2026,11 @@ test('Enhanced ownership check: different user with lock WITHOUT task - shows de
   const octokitNoTask = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // global lock check
           .mockReturnValueOnce({data: {content: lockBase64OctocatNoTask}})
@@ -2079,7 +2077,7 @@ test('Enhanced ownership check: different user with lock WITHOUT task - shows de
 })
 
 test('Enhanced ownership check: different user with lock WITH task but WITHOUT pr_number - covers all branch combinations', async () => {
-  const actionStatusSpy = jest
+  const actionStatusSpy = vi
     .spyOn(actionStatus, 'actionStatus')
     .mockImplementation(() => {
       return undefined
@@ -2115,11 +2113,11 @@ test('Enhanced ownership check: different user with lock WITH task but WITHOUT p
   const octokitWithTaskNoPR = {
     rest: {
       repos: {
-        getBranch: jest
+        getBranch: vi
           .fn()
           .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: jest.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: jest
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
           .fn()
           .mockRejectedValueOnce(new NotFoundError('file not found')) // global lock check
           .mockReturnValueOnce({data: {content: lockBase64WithTaskNoPR}})
