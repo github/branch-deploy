@@ -109,7 +109,7 @@ jobs:
 
       # Checkout your project's repository based on the commit SHA provided by the branch-deploy step
       # It is important to only ever operate on the commit SHA (where possible) as commit SHA's are immutable and you know exactly what you are deploying
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
 
@@ -205,7 +205,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checkout your projects repository
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 ```
 
 Sets up your `demo` job, uses an ubuntu runner, and checks out your repo - Just some standard setup for a general Action. We also add an `if:` statement here to only run this workflow on pull request comments to make it a little cleaner

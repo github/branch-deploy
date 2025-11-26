@@ -63,7 +63,7 @@ jobs:
       # Otherwise, all subsequent steps will be skipped
 
       # Check out the repository
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: ${{ steps.deployment-check.outputs.continue == 'true' }} # only run if the Action returned 'true' for the 'continue' output
         with:
           ref: ${{ steps.deployment-check.outputs.sha }} # checkout the EXACT sha of the default branch for deployment (latest commit on the default branch)

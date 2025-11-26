@@ -11,7 +11,7 @@ Instead of this:
 
 - name: checkout
   if: steps.branch-deploy.outputs.continue == 'true'
-  uses: actions/checkout@v4
+  uses: actions/checkout@v6
   with:
     ref: ${{ steps.branch-deploy.outputs.ref }} # <-- This is the branch name, can be risky
 ```
@@ -25,7 +25,7 @@ Do this:
 
 - name: checkout
   if: steps.branch-deploy.outputs.continue == 'true'
-  uses: actions/checkout@v4
+  uses: actions/checkout@v6
   with:
     ref: ${{ steps.branch-deploy.outputs.sha }} # <-- uses an exact commit SHA - safe!
 ```
