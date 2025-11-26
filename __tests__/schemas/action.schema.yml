@@ -520,6 +520,26 @@ inputs:
     default:
       type: string
       required: false
+  unlock_on_close_mode:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
+  deployment_task:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
 
 # outputs section
 outputs:
@@ -672,6 +692,10 @@ outputs:
       type: string
       required: true
   non_default_target_branch_used:
+    description:
+      type: string
+      required: true
+  deployment_task:
     description:
       type: string
       required: true
