@@ -3674,3 +3674,210 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
     'beefdead'
   )
 })
+
+// Tests for branch existence checks
+class NotFoundError extends Error {
+  constructor(message) {
+    super(message)
+    this.status = 404
+  }
+}
+
+class UnexpectedError extends Error {
+  constructor(message) {
+    super(message)
+    this.status = 500
+  }
+}
+
+test('fails prechecks when the branch does not exist (deleted branch)', async () => {
+  // Mock getBranch to throw a 404 error for the PR branch check
+  octokit.rest.repos.getBranch = vi
+    .fn()
+    // First call: stable branch check (succeeds)
+    .mockReturnValueOnce({
+      data: {
+        commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
+        name: 'main'
+      },
+      status: 200
+    })
+    // Second call: base branch check (succeeds)
+    .mockReturnValueOnce({
+      data: {commit: {sha: 'deadbeef'}, name: 'main'},
+      status: 200
+    })
+    // Third call: PR branch check (fails with 404)
+    .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
+
+  const result = await prechecks(context, octokit, data)
+
+  expect(result.status).toBe(false)
+  expect(result.message).toContain('Cannot proceed with deployment')
+  expect(result.message).toContain('ref: `test-ref`')
+  expect(result.message).toContain(
+    'The branch for this pull request no longer exists'
+  )
+  expect(warningMock).toHaveBeenCalledWith('branch does not exist: test-ref')
+})
+
+test('passes prechecks when branch exists (normal deployment)', async () => {
+  // Mock getBranch to succeed for all calls
+  octokit.rest.repos.getBranch = vi
+    .fn()
+    // First call: stable branch check
+    .mockReturnValueOnce({
+      data: {
+        commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
+        name: 'main'
+      },
+      status: 200
+    })
+    // Second call: base branch check
+    .mockReturnValueOnce({
+      data: {commit: {sha: 'deadbeef'}, name: 'main'},
+      status: 200
+    })
+    // Third call: PR branch check (succeeds)
+    .mockReturnValueOnce({
+      data: {commit: {sha: 'abc123'}, name: 'test-ref'},
+      status: 200
+    })
+
+  const result = await prechecks(context, octokit, data)
+
+  expect(result.status).toBe(true)
+  expect(result.ref).toBe('test-ref')
+  expect(debugMock).toHaveBeenCalledWith('checking if branch exists: test-ref')
+  expect(debugMock).toHaveBeenCalledWith('✅ branch exists: test-ref')
+})
+
+test('skips branch existence check when deploying to stable branch', async () => {
+  data.environmentObj.stable_branch_used = true
+
+  // Mock getBranch - should only be called twice (not three times)
+  octokit.rest.repos.getBranch = vi
+    .fn()
+    .mockReturnValueOnce({
+      data: {
+        commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
+        name: 'main'
+      },
+      status: 200
+    })
+    .mockReturnValueOnce({
+      data: {commit: {sha: 'deadbeef'}, name: 'main'},
+      status: 200
+    })
+
+  const result = await prechecks(context, octokit, data)
+
+  expect(result.status).toBe(true)
+  // Verify the branch existence check was skipped (only 2 getBranch calls, not 3)
+  expect(octokit.rest.repos.getBranch).toHaveBeenCalledTimes(2)
+  expect(debugMock).not.toHaveBeenCalledWith(
+    'checking if branch exists: test-ref'
+  )
+})
+
+test('skips branch existence check when deploying an exact SHA', async () => {
+  data.environmentObj.sha = 'abc123def456'
+  data.inputs.allow_sha_deployments = true
+
+  octokit.rest.repos.getBranch = vi
+    .fn()
+    .mockReturnValueOnce({
+      data: {
+        commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
+        name: 'main'
+      },
+      status: 200
+    })
+    .mockReturnValueOnce({
+      data: {commit: {sha: 'deadbeef'}, name: 'main'},
+      status: 200
+    })
+
+  const result = await prechecks(context, octokit, data)
+
+  expect(result.status).toBe(true)
+  // Verify the branch existence check was skipped
+  expect(octokit.rest.repos.getBranch).toHaveBeenCalledTimes(2)
+  expect(debugMock).not.toHaveBeenCalledWith(
+    'checking if branch exists: test-ref'
+  )
+})
+
+test('skips branch existence check when PR is from a fork', async () => {
+  // Mock the PR as a fork
+  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+    data: {
+      head: {
+        ref: 'test-ref',
+        sha: 'abc123',
+        repo: {
+          fork: true
+        },
+        label: 'fork:test-ref'
+      },
+      base: {
+        ref: 'main'
+      },
+      draft: false
+    },
+    status: 200
+  })
+
+  octokit.rest.repos.getBranch = vi
+    .fn()
+    .mockReturnValueOnce({
+      data: {
+        commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
+        name: 'main'
+      },
+      status: 200
+    })
+    .mockReturnValueOnce({
+      data: {commit: {sha: 'deadbeef'}, name: 'main'},
+      status: 200
+    })
+
+  const result = await prechecks(context, octokit, data)
+
+  expect(result.status).toBe(true)
+  expect(result.isFork).toBe(true)
+  // Verify the branch existence check was skipped for forks
+  expect(octokit.rest.repos.getBranch).toHaveBeenCalledTimes(2)
+  expect(debugMock).not.toHaveBeenCalledWith(
+    'checking if branch exists: abc123'
+  )
+})
+
+test('fails prechecks when branch check encounters unexpected error', async () => {
+  // Mock getBranch to throw a non-404 error
+  octokit.rest.repos.getBranch = vi
+    .fn()
+    .mockReturnValueOnce({
+      data: {
+        commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
+        name: 'main'
+      },
+      status: 200
+    })
+    .mockReturnValueOnce({
+      data: {commit: {sha: 'deadbeef'}, name: 'main'},
+      status: 200
+    })
+    .mockRejectedValueOnce(new UnexpectedError('Internal server error'))
+
+  const result = await prechecks(context, octokit, data)
+
+  // Should fail and not continue
+  expect(result.status).toBe(false)
+  expect(result.message).toContain('Cannot proceed with deployment')
+  expect(result.message).toContain('ref: `test-ref`')
+  expect(result.message).toContain(
+    'An unexpected error occurred while checking if the branch exists'
+  )
+  expect(result.message).toContain('Internal server error')
+})
