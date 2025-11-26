@@ -381,6 +381,37 @@ export async function prechecks(context, octokit, data) {
   core.saveState('review_decision', reviewDecision)
   core.saveState('approved_reviews_count', approvedReviewsCount)
 
+  // Check if the branch exists before proceeding with deployment
+  // Skip this check if:
+  // 1. We're deploying to the stable branch (e.g., `.deploy main`)
+  // 2. We're deploying an exact SHA (allow_sha_deployments is enabled and a SHA was provided)
+  // 3. The PR is from a fork (we use SHA for forks, not branch names)
+  if (
+    data.environmentObj.stable_branch_used !== true &&
+    data.environmentObj.sha === null &&
+    isFork === false
+  ) {
+    core.debug(`checking if branch exists: ${ref}`)
+    try {
+      await octokit.rest.repos.getBranch({
+        ...context.repo,
+        branch: ref,
+        headers: API_HEADERS
+      })
+      core.info(`✅ branch exists: ${ref}`)
+    } catch (error) {
+      if (error.status === 404) {
+        message = `### ⚠️ Cannot proceed with deployment\n\n- ref: \`${ref}\`\n\nThe branch for this pull request no longer exists. This can happen if the branch was deleted after the PR was merged or closed. If you need to deploy, you can:\n- Use the stable branch deployment (e.g., \`${data.inputs.trigger} ${data.inputs.stable_branch}\`)\n- Use an exact SHA deployment if enabled (e.g., \`${data.inputs.trigger} ${sha}\`)\n\n> If you are running this command on a closed pull request, you can also try reopening the pull request to restore the branch for a deployment.`
+        core.warning(`branch does not exist: ${ref}`)
+        return {message: message, status: false}
+      }
+      // If it's not a 404 error, it's unexpected - hard stop
+      message = `### ⚠️ Cannot proceed with deployment\n\n- ref: \`${ref}\`\n\n> An unexpected error occurred while checking if the branch exists: \`${error.message}\``
+      core.error(`unexpected error checking if branch exists: ${error.message}`)
+      return {message: message, status: false}
+    }
+  }
+
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
   if (data.environmentObj.stable_branch_used === true) {
     message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`
