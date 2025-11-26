@@ -3749,7 +3749,7 @@ test('passes prechecks when branch exists (normal deployment)', async () => {
   expect(result.status).toBe(true)
   expect(result.ref).toBe('test-ref')
   expect(debugMock).toHaveBeenCalledWith('checking if branch exists: test-ref')
-  expect(debugMock).toHaveBeenCalledWith('✅ branch exists: test-ref')
+  expect(infoMock).toHaveBeenCalledWith('✅ branch exists: test-ref')
 })
 
 test('skips branch existence check when deploying to stable branch', async () => {

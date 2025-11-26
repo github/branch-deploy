@@ -42890,7 +42890,7 @@ async function prechecks(context, octokit, data) {
         branch: ref,
         headers: API_HEADERS
       })
-      core.debug(`✅ branch exists: ${ref}`)
+      core.info(`✅ branch exists: ${ref}`)
     } catch (error) {
       if (error.status === 404) {
         message = `### ⚠️ Cannot proceed with deployment\n\n- ref: \`${ref}\`\n\nThe branch for this pull request no longer exists. This can happen if the branch was deleted after the PR was merged or closed. If you need to deploy, you can:\n- Use the stable branch deployment (e.g., \`${data.inputs.trigger} ${data.inputs.stable_branch}\`)\n- Use an exact SHA deployment if enabled (e.g., \`${data.inputs.trigger} ${sha}\`)\n\n> If you are running this command on a closed pull request, you can also try reopening the pull request to restore the branch for a deployment.`
