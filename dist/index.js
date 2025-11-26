@@ -39671,12 +39671,13 @@ class RequestError extends Error {
    */
   response;
   constructor(message, statusCode, options) {
-    super(message);
+    super(message, { cause: options.cause });
     this.name = "HttpError";
     this.status = Number.parseInt(statusCode);
     if (Number.isNaN(this.status)) {
       this.status = 0;
     }
+    /* v8 ignore else -- @preserve -- Bug with vitest coverage where it sees an else branch that doesn't exist */
     if ("response" in options) {
       this.response = options.response;
     }
@@ -39785,7 +39786,7 @@ var lib = __nccwpck_require__(958);
 // - v1.1.1-rc.1
 // - etc
 
-const version_VERSION = 'v11.1.1'
+const version_VERSION = 'v11.1.2'
 
 ;// CONCATENATED MODULE: ./src/functions/colors.js
 const COLORS = {
