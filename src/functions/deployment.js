@@ -45,21 +45,9 @@ export async function createDeploymentStatus(
 // :param context: The GitHub Actions event context
 // :param environment: The environment to check for (ex: production)
 // :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
-// :param task: The task to filter deployments for (ex: backend, frontend) - optional
 // :returns: true if the deployment is active for the given environment at the given commit sha, false otherwise
-export async function activeDeployment(
-  octokit,
-  context,
-  environment,
-  sha,
-  task = null
-) {
-  const deployment = await latestActiveDeployment(
-    octokit,
-    context,
-    environment,
-    task
-  )
+export async function activeDeployment(octokit, context, environment, sha) {
+  const deployment = await latestActiveDeployment(octokit, context, environment)
 
   // If no deployment was found, return false
   if (deployment === null) {
@@ -74,7 +62,6 @@ export async function activeDeployment(
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
 // :param environment: The environment to get the latest deployment for (ex: production)
-// :param task: The task to filter deployments for (ex: backend, frontend) - optional
 // :returns: The result of the deployment (Object)
 // 'nodes' may look like this:
 // otherwise, nodes may look like this:
@@ -97,12 +84,7 @@ export async function activeDeployment(
 //       }
 //   }
 // ]
-export async function latestActiveDeployment(
-  octokit,
-  context,
-  environment,
-  task = null
-) {
+export async function latestActiveDeployment(octokit, context, environment) {
   const {owner, repo} = context.repo
 
   const variables = {
@@ -118,20 +100,15 @@ export async function latestActiveDeployment(
 
   // If no deployments were found, return null
   if (nodes.length === 0) {
-    core.debug(
-      `no deployments found for ${environment}${task ? ` with task ${task}` : ''}`
-    )
+    core.debug(`no deployments found for ${environment}`)
     return null
   }
 
   // Check for an active deployment in the first page of deployments
-  let activeDeployment = nodes.find(deployment => {
-    const matchesTask = !task || deployment.task === task
-    return deployment.state === 'ACTIVE' && matchesTask
-  })
+  let activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
   if (activeDeployment) {
     core.debug(
-      `found active deployment for ${environment}${task ? ` with task ${task}` : ''} in page ${queryNumber}`
+      `found active deployment for ${environment} in page ${queryNumber}`
     )
     return activeDeployment
   }
@@ -145,19 +122,16 @@ export async function latestActiveDeployment(
     data = await octokit.graphql(buildQuery(endCursor), variables)
 
     nodes = data.repository.deployments.nodes
-    activeDeployment = nodes.find(deployment => {
-      const matchesTask = !task || deployment.task === task
-      return deployment.state === 'ACTIVE' && matchesTask
-    })
+    activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
 
     if (activeDeployment) {
       core.debug(
-        `found active deployment for ${environment}${task ? ` with task ${task}` : ''} in page ${queryNumber}`
+        `found active deployment for ${environment} in page ${queryNumber}`
       )
       return activeDeployment
     } else {
       core.debug(
-        `no active deployment found for ${environment}${task ? ` with task ${task}` : ''} in page ${queryNumber}`
+        `no active deployment found for ${environment} in page ${queryNumber}`
       )
     }
 
@@ -166,7 +140,7 @@ export async function latestActiveDeployment(
   }
 
   core.debug(
-    `no active deployment found for ${environment}${task ? ` with task ${task}` : ''} after ${queryNumber} pages`
+    `no active deployment found for ${environment} after ${queryNumber} pages`
   )
 
   // If no active deployment was found, return null
@@ -185,7 +159,6 @@ function buildQuery(page = null) {
             id
             payload
             state
-            task
             ref {
               name
             }

@@ -14,7 +14,7 @@ const GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
 // This function will also check if the global lock flag was provided
 // If the global lock flag was provided, the environment will be set to null
 // :param context: The GitHub Actions event context
-// :returns: An object - EX: {environment: 'staging', global: false, task: 'backend'}
+// :returns: An object - EX: {environment: 'staging', global: false}
 async function findEnvironment(context) {
   // Get the body of the comment
   var body = context.payload.comment.body.trim()
@@ -43,29 +43,17 @@ async function findEnvironment(context) {
   const unlockTrigger = core.getInput('unlock_trigger').trim()
   body = body.replace(unlockTrigger, '').trim()
 
-  // Parse task parameter if present (e.g., "--task backend")
-  let task = null
-  if (body.includes('--task')) {
-    const taskMatch = body.match(/--task\s+(\S+)/)
-    if (taskMatch) {
-      task = taskMatch[1]
-      body = body.replace(/--task\s+\S+/, '').trim()
-    }
-  }
-
   // If the body is empty, return the default environment
   if (body === '') {
     return {
       environment: core.getInput('environment').trim(),
-      global: false,
-      task: task
+      global: false
     }
   } else {
     // If there is anything left in the body, return that as the environment
     return {
       environment: body,
-      global: false,
-      task: task
+      global: false
     }
   }
 }
@@ -76,15 +64,13 @@ async function findEnvironment(context) {
 // :param reactionId: The ID of the reaction to add to the issue comment (only used if the lock is successfully released) (Integer)
 // :param environment: The environment to remove the lock from (String) - can be null and if so, the environment will be determined from the context
 // :param silent: A bool indicating whether to add a comment to the issue or not (Boolean)
-// :param task: The task to remove the lock for (String) - optional for concurrent deployments
 // :returns: true if the lock was successfully released, a string with some details if silent was used, false otherwise
 export async function unlock(
   octokit,
   context,
   reactionId,
   environment = null,
-  silent = false,
-  task = null
+  silent = false
 ) {
   try {
     var branchName
@@ -95,10 +81,6 @@ export async function unlock(
       const envObject = await findEnvironment(context)
       environment = envObject.environment
       global = envObject.global
-      // Use task from comment if not provided as parameter
-      if (task === null) {
-        task = envObject.task
-      }
     } else {
       // if the environment was passed in, we can assume it is not a global lock
       global = false
@@ -110,10 +92,8 @@ export async function unlock(
       branchName = GLOBAL_LOCK_BRANCH
       successText = '`global`'
     } else {
-      // Include task in the branch name if provided to support concurrent deployments
-      const taskSuffix = task ? `-${constructValidBranchName(task)}` : ''
-      branchName = `${constructValidBranchName(environment)}${taskSuffix}-${LOCK_BRANCH_SUFFIX}`
-      successText = `\`${environment}${task ? ` (task: ${task})` : ''}\``
+      branchName = `${constructValidBranchName(environment)}-${LOCK_BRANCH_SUFFIX}`
+      successText = `\`${environment}\``
     }
 
     // Delete the lock branch

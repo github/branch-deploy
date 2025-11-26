@@ -21,7 +21,6 @@ import {unlock} from './functions/unlock.js'
 import {post} from './functions/post.js'
 import {timeDiff} from './functions/time-diff.js'
 import {identicalCommitCheck} from './functions/identical-commit-check.js'
-import {unlockOnClose} from './functions/unlock-on-close.js'
 import {unlockOnMerge} from './functions/unlock-on-merge.js'
 import {help} from './functions/help.js'
 import {LOCK_METADATA} from './functions/lock-metadata.js'
@@ -65,14 +64,6 @@ export async function run() {
       await unlockOnMerge(octokit, context, inputs.environment_targets)
       core.saveState('bypass', 'true')
       return 'success - unlock on merge mode'
-    }
-
-    // If we are running in the 'unlock on close' mode, run auto-unlock logic
-    if (inputs.unlockOnCloseMode) {
-      core.info(`🏃 running in 'unlock on close' mode`)
-      await unlockOnClose(octokit, context, inputs.environment_targets)
-      core.saveState('bypass', 'true')
-      return 'success - unlock on close mode'
     }
 
     // If we are running in the merge deploy mode, run commit checks
@@ -239,7 +230,7 @@ export async function run() {
         return 'safe-exit'
       }
 
-      // If it is a lock or lock info related request
+      // If it is a lock or lock info releated request
       if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
         if (
@@ -259,8 +250,7 @@ export async function run() {
             null, // environment (we will find this in the lock function - important)
             true, // details only flag
             false, // postDeployStep
-            true, // leaveComment
-            null // task (not applicable for details only)
+            true // leaveComment
           )
           // extract values from the lock response
           const lockData = lockResponse.lockData
@@ -381,8 +371,7 @@ export async function run() {
           null, // environment (we will find this in the lock function)
           false, // details only flag
           false, // postDeployStep
-          true, // leaveComment
-          null // task (not applicable for sticky locks)
+          true // leaveComment
         )
         core.saveState('bypass', 'true')
         return 'safe-exit'
@@ -395,7 +384,6 @@ export async function run() {
       }
     }
 
-    // At this point, it must be a 'deploy' or 'noopDeploy' request
     // Check if the default environment is being overwritten by an explicit environment
     const environmentObj = await environmentTargets(
       environment, // environment
@@ -423,50 +411,6 @@ export async function run() {
     // Final params computed by environment
     const params = environmentObj.environmentObj.params
     const parsed_params = environmentObj.environmentObj.parsed_params
-
-    // Extract task from parsed environment object
-    const task = environmentObj.environmentObj.task
-
-    // Validate task against allowed tasks if task support is enabled
-    if (task !== null && task !== undefined) {
-      if (inputs.deployment_task === '') {
-        // Task support is disabled
-        const message = dedent(`
-          ### ⚠️ Task Support Not Enabled
-
-          You specified \`--task ${task}\` but task support is not enabled.
-
-          To enable task support, set the \`deployment_task\` input to either:
-          - \`"all"\` to allow any task name
-          - A comma-separated list of allowed tasks (e.g., \`"frontend,backend,api"\`)
-        `)
-        await actionStatus(context, octokit, reactRes.data.id, message)
-        core.saveState('bypass', 'true')
-        core.setFailed(
-          `Task support not enabled but --task ${task} was specified`
-        )
-        return 'failure'
-      } else if (
-        inputs.deployment_task !== 'all' &&
-        !inputs.deployment_task.includes(task)
-      ) {
-        // Task is not in the allowed list
-        const allowedTasks = inputs.deployment_task.join(', ')
-        const message = dedent(`
-          ### ⚠️ Invalid Task
-
-          The task \`${task}\` is not in the list of allowed tasks.
-
-          Allowed tasks: \`${allowedTasks}\`
-        `)
-        await actionStatus(context, octokit, reactRes.data.id, message)
-        core.saveState('bypass', 'true')
-        core.setFailed(
-          `Task ${task} is not in the allowed list: ${allowedTasks}`
-        )
-        return 'failure'
-      }
-    }
 
     // If the environment targets are not valid, then exit
     if (!environment) {
@@ -567,8 +511,7 @@ export async function run() {
         context,
         inputs.enforced_deployment_order,
         environment,
-        precheckResults.sha,
-        task || null
+        precheckResults.sha
       )
 
       if (!deploymentOrderResults.valid) {
@@ -652,9 +595,7 @@ export async function run() {
       environment, // environment
       null, // details only flag
       false, // postDeployStep
-      leaveComment, // leaveComment - true/false depending on the input
-      task || null, // task for concurrent deployments
-      issue_number
+      leaveComment // leaveComment - true/false depending on the input
     )
 
     // If the lock request fails, exit the Action
@@ -848,20 +789,14 @@ export async function run() {
       stable_branch_used: stableBranchUsed
     }
 
-    // Determine task parameter for concurrent deployments
-    const deployment_task = task || 'deploy' // Default to 'deploy' for backwards compatibility
-    const auto_inactive = task ? false : true // Don't auto-inactive when using tasks
-
     // Create a new deployment
     const {data: createDeploy} = await octokit.rest.repos.createDeployment({
       owner: owner,
       repo: repo,
       ref: precheckResults.ref,
       auto_merge: auto_merge,
-      auto_inactive: auto_inactive,
       required_contexts: requiredContexts,
       environment: environment,
-      task: deployment_task,
       // description: "",
       // :description note: Short description of the deployment.
       production_environment: isProductionEnvironment,
@@ -871,8 +806,6 @@ export async function run() {
     })
     core.setOutput('deployment_id', createDeploy.id)
     core.saveState('deployment_id', createDeploy.id)
-    core.setOutput('deployment_task', deployment_task)
-    core.saveState('deployment_task', deployment_task)
 
     // If a merge to the base branch is required, let the user know and exit
     if (

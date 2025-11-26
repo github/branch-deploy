@@ -26,28 +26,15 @@ async function onDeploymentChecks(
 ) {
   var bodyFmt = body
 
-  // Parse --task parameter if present (e.g., "--task backend")
-  let task = null
-  if (bodyFmt.includes('--task')) {
-    const taskMatch = bodyFmt.match(/--task\s+(\S+)/)
-    if (taskMatch) {
-      task = taskMatch[1]
-      bodyFmt = bodyFmt.replace(/--task\s+\S+/, '').trim()
-      core.info(
-        `📋 detected task in command: ${COLORS.highlight}${task}${COLORS.reset}`
-      )
-    }
-  }
-
   // Seperate the issueops command on the 'param_separator'
-  var paramCheck = bodyFmt.split(param_separator)
+  var paramCheck = body.split(param_separator)
   paramCheck.shift() // remove everything before the 'param_separator'
   const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
   // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
   var paramsTrim = null
   var parsed_params = null
   if (params !== '') {
-    bodyFmt = bodyFmt.split(`${param_separator}${params}`)[0].trim()
+    bodyFmt = body.split(`${param_separator}${params}`)[0].trim()
     paramsTrim = params.trim()
     core.info(
       `🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`
@@ -114,8 +101,7 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
     // If the body on a noop trigger contains the target
@@ -127,8 +113,7 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a branch deploy
@@ -142,8 +127,7 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a noop trigger
@@ -157,8 +141,7 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a stable branch deploy
@@ -175,8 +158,7 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
     // If the body with 'to <target>' contains the target on a stable branch noop trigger
@@ -193,8 +175,7 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
     // If the body on a stable branch deploy contains the target
@@ -208,8 +189,7 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
     // If the body on a stable branch noop trigger contains the target
@@ -225,8 +205,7 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
     // If the body matches the trigger phrase exactly, just use the default environment
@@ -238,8 +217,7 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
     // If the body matches the noop_trigger phrase exactly, just use the default environment
@@ -251,8 +229,7 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
@@ -264,8 +241,7 @@ async function onDeploymentChecks(
         noop: false,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
     // If the body matches the stable branch phrase exactly on a noop trigger, just use the default environment
@@ -277,8 +253,7 @@ async function onDeploymentChecks(
         noop: true,
         params: paramsTrim,
         parsed_params: parsed_params,
-        sha: sha,
-        task: task
+        sha: sha
       }
     }
   }
@@ -290,8 +265,7 @@ async function onDeploymentChecks(
     noop: null,
     params: null,
     parsed_params: null,
-    sha: null,
-    task: null
+    sha: null
   }
 }
 
