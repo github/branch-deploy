@@ -23,4 +23,4 @@ jobs:
           cache: 'npm'
 
       - name: install dependencies
-        run: npm install
+        run: npm ci
