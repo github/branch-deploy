@@ -257,3 +257,84 @@ test('throws an error if an unhandled exception occurs', async () => {
     expect(e.message).toBe('Error: oh no')
   }
 })
+
+test('successfully releases a deployment lock with --task flag', async () => {
+  context.payload.comment.body = '.unlock production --task backend'
+  expect(await unlock(octokit, context, 123)).toBe(true)
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/production-backend-branch-deploy-lock',
+    headers: API_HEADERS
+  })
+})
+
+test('successfully releases a deployment lock with --task flag and different environment', async () => {
+  context.payload.comment.body = '.unlock staging --task frontend'
+  expect(await unlock(octokit, context, 123)).toBe(true)
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/staging-frontend-branch-deploy-lock',
+    headers: API_HEADERS
+  })
+})
+
+test('successfully releases a deployment lock with --task flag on default environment', async () => {
+  context.payload.comment.body = '.unlock --task api'
+  expect(await unlock(octokit, context, 123)).toBe(true)
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/production-api-branch-deploy-lock',
+    headers: API_HEADERS
+  })
+})
+
+test('successfully releases a deployment lock with --task flag combined with --reason', async () => {
+  context.payload.comment.body =
+    '.unlock production --task database --reason maintenance complete'
+  expect(await unlock(octokit, context, 123)).toBe(true)
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/production-database-branch-deploy-lock',
+    headers: API_HEADERS
+  })
+})
+
+test('successfully releases a deployment lock with task passed as parameter', async () => {
+  expect(
+    await unlock(octokit, context, 123, 'production', false, 'worker')
+  ).toBe(true)
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/production-worker-branch-deploy-lock',
+    headers: API_HEADERS
+  })
+})
+
+test('handles malformed --task flag with no value (line 50 else branch)', async () => {
+  context.payload.comment.body = '.unlock production --task'
+  expect(await unlock(octokit, context, 123)).toBe(true)
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/production---task-branch-deploy-lock',
+    headers: API_HEADERS
+  })
+})
+
+test('uses task parameter when provided, ignoring task from comment (line 99 else branch)', async () => {
+  context.payload.comment.body = '.unlock production --task backend'
+  expect(await unlock(octokit, context, 123, null, false, 'frontend')).toBe(
+    true
+  )
+  expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    ref: 'heads/production-frontend-branch-deploy-lock',
+    headers: API_HEADERS
+  })
+})

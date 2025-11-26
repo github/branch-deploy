@@ -127,7 +127,10 @@ export async function postDeploy(context, octokit, data) {
       null, // reaction_id
       false, // sticky
       data.environment, // environment
-      true // detailsOnly set to true
+      true, // detailsOnly set to true
+      false, // postDeployStep
+      true, // leaveComment
+      null // task (not available in post-deploy context)
     )
 
     // obtain the lockData from the lock response
@@ -151,7 +154,8 @@ export async function postDeploy(context, octokit, data) {
         context,
         null, // reaction_id
         data.environment, // environment
-        true // silent mode
+        true, // silent mode
+        null // task (not available in post-deploy context)
       )
     }
 
@@ -195,7 +199,8 @@ export async function postDeploy(context, octokit, data) {
     data.environment, // environment
     true, // detailsOnly set to true
     true, // postDeployStep set to true - this means we will not exit early if a global lock exists
-    false // leaveComment
+    false, // leaveComment
+    null // task (not available in post-deploy context)
   )
 
   // obtain the lockData from the lock response
@@ -215,7 +220,8 @@ export async function postDeploy(context, octokit, data) {
       context,
       null, // reaction_id
       data.environment, // environment
-      true // silent mode
+      true, // silent mode
+      null // task (not available in post-deploy context)
     )
   }
 
