@@ -43,7 +43,7 @@
     "eslint": "^8.57.0",
     "js-yaml": "^4.1.0",
     "make-coverage-badge": "^1.2.0",
-    "prettier": "^3.6.2",
+    "prettier": "^3.7.3",
     "vitest": "^4.0.6"
   }
 }
