@@ -44,7 +44,6 @@ beforeEach(() => {
         require_code_owner_review: true,
         require_last_push_approval: false,
         required_review_thread_resolution: false,
-        automatic_copilot_code_review_enabled: false,
         allowed_merge_methods: ['merge', 'squash', 'rebase']
       }
     },
