@@ -43936,7 +43936,7 @@ var dedent_js_lib = __nccwpck_require__(958);
 // - v1.1.1-rc.1
 // - etc
 
-const src_version_VERSION = 'v11.1.3'
+const src_version_VERSION = 'v11.1.4'
 
 ;// CONCATENATED MODULE: ./src/functions/colors.js
 const COLORS = {
