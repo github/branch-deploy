@@ -7,6 +7,8 @@ import {COLORS} from '../../src/functions/colors.js'
 import * as postDeploy from '../../src/functions/post-deploy.js'
 import * as contextCheck from '../../src/functions/context-check.js'
 
+vi.mock('@actions/github', {spy: true})
+
 const validBooleanInputs = {
   skip_completing: false
 }
