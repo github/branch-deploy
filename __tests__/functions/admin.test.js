@@ -4,6 +4,8 @@ import {COLORS} from '../../src/functions/colors.js'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
 
+vi.mock('@actions/github', { spy: true })
+
 const debugMock = vi.spyOn(core, 'debug')
 const warningMock = vi.spyOn(core, 'warning')
 

@@ -21,6 +21,8 @@ import * as timestamp from '../src/functions/timestamp.js'
 import * as deploymentConfirmation from '../src/functions/deployment-confirmation.js'
 import {COLORS} from '../src/functions/colors.js'
 
+vi.mock('@actions/github', { spy: true })
+
 const setOutputMock = vi.spyOn(core, 'setOutput')
 const saveStateMock = vi.spyOn(core, 'saveState')
 const setFailedMock = vi.spyOn(core, 'setFailed')
