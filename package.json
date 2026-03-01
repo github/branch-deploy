@@ -29,7 +29,7 @@
     "@actions/core": "^3.0.0",
     "@actions/github": "^9.0.0",
     "@octokit/plugin-retry": "^8.0.3",
-    "@octokit/request": "^10.0.7",
+    "@octokit/request": "^10.0.8",
     "@octokit/rest": "^22.0.1",
     "dedent-js": "^1.0.1",
     "github-username-regex-js": "^1.0.0",
@@ -37,7 +37,7 @@
     "yargs-parser": "^22.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.1.0",
+    "@types/node": "^25.3.3",
     "@vercel/ncc": "^0.38.4",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9.39.2",
