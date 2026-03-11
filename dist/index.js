@@ -49100,38 +49100,40 @@ async function postDeploy(context, octokit, data) {
     data.environment_url // can be null
   )
 
-  // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
-  const lockResponse = await lock(
-    octokit,
-    context,
-    null, // ref
-    null, // reaction_id
-    false, // sticky
-    data.environment, // environment
-    true, // detailsOnly set to true
-    true, // postDeployStep set to true - this means we will not exit early if a global lock exists
-    false // leaveComment
-  )
-
-  // obtain the lockData from the lock response
-  const lockData = lockResponse.lockData
-  core_debug(JSON.stringify(lockData))
-
-  // if the lock is sticky, we will NOT remove it
-  if (lockData?.sticky === true) {
-    info(stickyMsg)
-  } else {
-    info(nonStickyMsg)
-    core_debug(`lockData.sticky: ${lockData?.sticky}`)
-
-    // remove the lock - use silent mode
-    await unlock(
+  // obtain the lock data and conditionally release it (skipped when disable_lock is true)
+  if (!data.disable_lock) {
+    const lockResponse = await lock(
       octokit,
       context,
+      null, // ref
       null, // reaction_id
+      false, // sticky
       data.environment, // environment
-      true // silent mode
+      true, // detailsOnly set to true
+      true, // postDeployStep set to true - this means we will not exit early if a global lock exists
+      false // leaveComment
     )
+
+    // obtain the lockData from the lock response
+    const lockData = lockResponse.lockData
+    core_debug(JSON.stringify(lockData))
+
+    // if the lock is sticky, we will NOT remove it
+    if (lockData?.sticky === true) {
+      info(stickyMsg)
+    } else {
+      info(nonStickyMsg)
+      core_debug(`lockData.sticky: ${lockData?.sticky}`)
+
+      // remove the lock - use silent mode
+      await unlock(
+        octokit,
+        context,
+        null, // reaction_id
+        data.environment, // environment
+        true // silent mode
+      )
+    }
   }
 
   // check to see if the pull request labels should be applied or not
@@ -49240,7 +49242,8 @@ async function post() {
         )
       },
       commit_verified: getState('commit_verified') === 'true',
-      deployment_start_time: getState('deployment_start_time')
+      deployment_start_time: getState('deployment_start_time'),
+      disable_lock: getState('disable_lock') === 'true'
     }
 
     // If bypass is set, exit the workflow
@@ -49848,6 +49851,7 @@ function getInputs() {
   const permissions = stringToArray(getInput('permissions'))
   const sticky_locks = getBooleanInput('sticky_locks')
   const sticky_locks_for_noop = getBooleanInput('sticky_locks_for_noop')
+  const disable_lock = getBooleanInput('disable_lock')
   const allow_sha_deployments = getBooleanInput('allow_sha_deployments')
   const disable_naked_commands = getBooleanInput('disable_naked_commands')
   const enforced_deployment_order = stringToArray(
@@ -49912,6 +49916,7 @@ function getInputs() {
     param_separator: param_separator,
     sticky_locks: sticky_locks,
     sticky_locks_for_noop: sticky_locks_for_noop,
+    disable_lock: disable_lock,
     enforced_deployment_order: enforced_deployment_order,
     commit_verification: commit_verification,
     ignored_checks: ignored_checks,
@@ -50587,6 +50592,19 @@ async function run() {
         return 'safe-exit'
       }
 
+      // If disable_lock is set, inform the user and exit without modifying lock state
+      if (inputs.disable_lock) {
+        await actionStatus(
+          github_context,
+          octokit,
+          reactRes.data.id,
+          '🔓 Deployment locking is disabled for this Action — lock/unlock commands have no effect.',
+          true
+        )
+        saveState('bypass', 'true')
+        return 'safe-exit'
+      }
+
       // If it is a lock or lock info releated request
       if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
@@ -50778,6 +50796,7 @@ async function run() {
     info(`🌍 environment: ${COLORS.highlight}${environment}`)
     saveState('environment', environment)
     setOutput('environment', environment)
+    saveState('disable_lock', inputs.disable_lock)
 
     const data = {
       environment: environment,
@@ -50942,22 +50961,24 @@ async function run() {
     core_debug(`🔒 stickyLocks: ${stickyLocks}`)
     core_debug(`💬 leaveComment: ${leaveComment}`)
 
-    // Aquire the branch-deploy lock
-    const lockResponse = await lock(
-      octokit,
-      github_context,
-      precheckResults.ref,
-      reactRes.data.id,
-      stickyLocks, // sticky / hubot style locks - true/false depending on the input
-      environment, // environment
-      null, // details only flag
-      false, // postDeployStep
-      leaveComment // leaveComment - true/false depending on the input
-    )
+    // Aquire the branch-deploy lock (skipped when disable_lock is true)
+    if (!inputs.disable_lock) {
+      const lockResponse = await lock(
+        octokit,
+        github_context,
+        precheckResults.ref,
+        reactRes.data.id,
+        stickyLocks, // sticky / hubot style locks - true/false depending on the input
+        environment, // environment
+        null, // details only flag
+        false, // postDeployStep
+        leaveComment // leaveComment - true/false depending on the input
+      )
 
-    // If the lock request fails, exit the Action
-    if (lockResponse.status === false) {
-      return 'safe-exit'
+      // If the lock request fails, exit the Action
+      if (lockResponse.status === false) {
+        return 'safe-exit'
+      }
     }
 
     const github_run_id = parseInt(process.env.GITHUB_RUN_ID)
