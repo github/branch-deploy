@@ -185,38 +185,40 @@ export async function postDeploy(context, octokit, data) {
     data.environment_url // can be null
   )
 
-  // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
-  const lockResponse = await lock(
-    octokit,
-    context,
-    null, // ref
-    null, // reaction_id
-    false, // sticky
-    data.environment, // environment
-    true, // detailsOnly set to true
-    true, // postDeployStep set to true - this means we will not exit early if a global lock exists
-    false // leaveComment
-  )
-
-  // obtain the lockData from the lock response
-  const lockData = lockResponse.lockData
-  core.debug(JSON.stringify(lockData))
-
-  // if the lock is sticky, we will NOT remove it
-  if (lockData?.sticky === true) {
-    core.info(stickyMsg)
-  } else {
-    core.info(nonStickyMsg)
-    core.debug(`lockData.sticky: ${lockData?.sticky}`)
-
-    // remove the lock - use silent mode
-    await unlock(
+  // obtain the lock data and conditionally release it (skipped when disable_lock is true)
+  if (!data.disable_lock) {
+    const lockResponse = await lock(
       octokit,
       context,
+      null, // ref
       null, // reaction_id
+      false, // sticky
       data.environment, // environment
-      true // silent mode
+      true, // detailsOnly set to true
+      true, // postDeployStep set to true - this means we will not exit early if a global lock exists
+      false // leaveComment
     )
+
+    // obtain the lockData from the lock response
+    const lockData = lockResponse.lockData
+    core.debug(JSON.stringify(lockData))
+
+    // if the lock is sticky, we will NOT remove it
+    if (lockData?.sticky === true) {
+      core.info(stickyMsg)
+    } else {
+      core.info(nonStickyMsg)
+      core.debug(`lockData.sticky: ${lockData?.sticky}`)
+
+      // remove the lock - use silent mode
+      await unlock(
+        octokit,
+        context,
+        null, // reaction_id
+        data.environment, // environment
+        true // silent mode
+      )
+    }
   }
 
   // check to see if the pull request labels should be applied or not

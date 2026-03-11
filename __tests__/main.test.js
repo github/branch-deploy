@@ -89,6 +89,7 @@ beforeEach(() => {
   process.env.INPUT_UNLOCK_ON_MERGE_MODE = 'false'
   process.env.INPUT_STICKY_LOCKS = 'false'
   process.env.INPUT_STICKY_LOCKS_FOR_NOOP = 'false'
+  process.env.INPUT_DISABLE_LOCK = 'false'
   process.env.INPUT_ALLOW_SHA_DEPLOYMENTS = 'false'
   process.env.INPUT_DISABLE_NAKED_COMMANDS = 'false'
   process.env.INPUT_OUTDATED_MODE = 'default_branch'
