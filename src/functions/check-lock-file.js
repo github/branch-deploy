@@ -46,6 +46,6 @@ export async function checkLockFile(octokit, context, branchName) {
     }
 
     // If some other error occurred, throw it
-    throw new Error(error)
+    throw new Error(String(error), {cause: error})
   }
 }

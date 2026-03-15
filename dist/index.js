@@ -44153,7 +44153,7 @@ async function contextCheck(context) {
   try {
     pr = context.payload.issue.pull_request
   } catch (error) {
-    throw new Error(`Could not get PR event context: ${error}`)
+    throw new Error(`Could not get PR event context: ${error}`, {cause: error})
   }
 
   // If the context is not valid, return false
@@ -46793,7 +46793,9 @@ function stringToArray(string) {
     return results
   } catch (error) {
     core_error(`failed string for debugging purposes: ${string}`)
-    throw new Error(`could not convert String to Array - error: ${error}`)
+    throw new Error(`could not convert String to Array - error: ${error}`, {
+      cause: error
+    })
   }
 }
 
@@ -47920,7 +47922,7 @@ async function checkLockFile(octokit, context, branchName) {
     }
 
     // If some other error occurred, throw it
-    throw new Error(error)
+    throw new Error(String(error), {cause: error})
   }
 }
 
@@ -48215,7 +48217,7 @@ async function checkBranch(octokit, context, branchName) {
       core_error(
         'an unexpected status code was returned while checking for the lock branch'
       )
-      throw new Error(error)
+      throw new Error(String(error), {cause: error})
     }
   }
 }
@@ -48322,7 +48324,7 @@ async function checkLockOwner(
   )
 
   // Set the header if it is sticky or not (aka a deployment or a direct invoke of .lock)
-  var header = ''
+  let header
   if (sticky === true) {
     header = 'claim deployment lock'
   } else {
@@ -48338,9 +48340,9 @@ async function checkLockOwner(
   }
 
   // dynamic lock text
-  let lockText = ''
+  let lockText
   let environmentText = ''
-  var lockBranchForLink
+  let lockBranchForLink
   if (lockData.global === true) {
     lockText = dedent_js_lib(
       `the \`global\` deployment lock is currently claimed by __${lockData.created_by}__
@@ -48800,13 +48802,13 @@ async function unlock(
 
     // If silent, exit here
     if (silent) {
-      throw new Error(error)
+      throw new Error(String(error), {cause: error})
     }
 
     // Update the PR with the error
     await actionStatus(context, octokit, reactionId, error.message, false)
 
-    throw new Error(error)
+    throw new Error(String(error), {cause: error})
   }
 }
 
@@ -49679,12 +49681,11 @@ async function unlockOnMerge(octokit, context, environment_targets) {
 
 
 
-const defaultSpecificMessage = '<something went wrong - please report this>'
 const usageGuideLink =
   'https://github.com/github/branch-deploy/blob/main/docs/usage.md'
 
 async function help(octokit, context, reactionId, inputs) {
-  var update_branch_message = defaultSpecificMessage
+  let update_branch_message
   if (inputs.update_branch.trim() === 'warn') {
     update_branch_message =
       'This Action will warn if the branch is out of date with the base branch'
@@ -49696,7 +49697,7 @@ async function help(octokit, context, reactionId, inputs) {
       'This Action will not update the branch to the base branch before deployment'
   } else update_branch_message = 'Unknown value for update_branch'
 
-  var required_contexts_message = defaultSpecificMessage
+  let required_contexts_message
   if (inputs.required_contexts.trim() === 'false') {
     required_contexts_message =
       'There are no designated required contexts for this Action (default and suggested)'
@@ -49704,14 +49705,14 @@ async function help(octokit, context, reactionId, inputs) {
     required_contexts_message = `There are required contexts designated for this Action`
   }
 
-  var commit_verification_message = defaultSpecificMessage
+  let commit_verification_message
   if (inputs.commit_verification === true) {
     commit_verification_message = `This Action will require that commits have a verified signature before they can be deployed`
   } else {
     commit_verification_message = `This Action will not require commits to have a verified signature before they can be deployed`
   }
 
-  var checks_message = defaultSpecificMessage
+  let checks_message
   if (
     typeof inputs.checks === 'string' &&
     inputs.checks.trim() === 'required'
@@ -49726,14 +49727,14 @@ async function help(octokit, context, reactionId, inputs) {
     checks_message = `The following CI checks must pass before a deployment can be requested: \`${inputs.checks.join(`,`)}\``
   }
 
-  var ignored_checks_message = defaultSpecificMessage
+  let ignored_checks_message
   if (inputs.ignored_checks.length > 0) {
     ignored_checks_message = `The following CI checks will be ignored when determining if a deployment can be requested: \`${inputs.ignored_checks.join(`,`)}\``
   } else {
     ignored_checks_message = `No CI checks will be ignored when determining if a deployment can be requested`
   }
 
-  var skip_ci_message = defaultSpecificMessage
+  let skip_ci_message
   if (inputs.skipCi.trim() !== '') {
     skip_ci_message = `This Action will not require passing CI for the environments specified`
   } else {
@@ -49741,7 +49742,7 @@ async function help(octokit, context, reactionId, inputs) {
     skip_ci_message = `This Action will require passing CI for all environments`
   }
 
-  var skip_reviews_message = defaultSpecificMessage
+  let skip_reviews_message
   if (inputs.skipReviews.trim() !== '') {
     skip_reviews_message = `This Action will not require passing reviews for the environments specified`
   } else {
@@ -49749,7 +49750,7 @@ async function help(octokit, context, reactionId, inputs) {
     skip_reviews_message = `This Action will require passing reviews for all environments`
   }
 
-  var draft_permitted_targets_message = defaultSpecificMessage
+  let draft_permitted_targets_message
   if (inputs.draft_permitted_targets.trim() !== '') {
     draft_permitted_targets_message = `This Action will allow draft pull requests to request deployments to the listed environments`
   } else {
@@ -49757,21 +49758,21 @@ async function help(octokit, context, reactionId, inputs) {
     draft_permitted_targets_message = `This Action will not draft pull requests to be deployed to any environment`
   }
 
-  var admins_message = defaultSpecificMessage
+  let admins_message
   if (inputs.admins.trim() === 'false') {
     admins_message = `This Action has no designated admins (default)`
   } else {
     admins_message = `This Action will allow the listed admins to bypass pull request reviews before deployment`
   }
 
-  var sha_deployment_message = defaultSpecificMessage
+  let sha_deployment_message
   if (inputs.allow_sha_deployments === true) {
     sha_deployment_message = `This Action will allow deployments to an exact SHA (potentially dangerous/unsafe)`
   } else {
     sha_deployment_message = `This Action will not allow deployments to an exact SHA (recommended)`
   }
 
-  var enforced_deployment_order_message = defaultSpecificMessage
+  let enforced_deployment_order_message
   if (inputs.enforced_deployment_order.length > 0) {
     enforced_deployment_order_message = `Deployments are required to follow a specific deployment order by environment before the next one can proceed: ${inputs.enforced_deployment_order.join(
       ', '

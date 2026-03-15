@@ -9,7 +9,7 @@ export async function contextCheck(context) {
   try {
     pr = context.payload.issue.pull_request
   } catch (error) {
-    throw new Error(`Could not get PR event context: ${error}`)
+    throw new Error(`Could not get PR event context: ${error}`, {cause: error})
   }
 
   // If the context is not valid, return false
