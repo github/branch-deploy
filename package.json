@@ -28,8 +28,8 @@
   "dependencies": {
     "@actions/core": "^3.0.0",
     "@actions/github": "^9.0.0",
-    "@octokit/plugin-retry": "^8.0.3",
-    "@octokit/request": "^10.0.7",
+    "@octokit/plugin-retry": "^8.1.0",
+    "@octokit/request": "^10.0.8",
     "@octokit/rest": "^22.0.1",
     "dedent-js": "^1.0.1",
     "github-username-regex-js": "^1.0.0",
@@ -37,13 +37,13 @@
     "yargs-parser": "^22.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.1.0",
+    "@types/node": "^25.5.0",
     "@vercel/ncc": "^0.38.4",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^4.1.0",
     "eslint": "^9.39.2",
     "js-yaml": "^4.1.1",
     "make-coverage-badge": "^1.2.0",
     "prettier": "^3.8.1",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.0"
   }
 }
