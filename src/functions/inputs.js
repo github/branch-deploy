@@ -59,6 +59,7 @@ export function getInputs() {
   const permissions = stringToArray(core.getInput('permissions'))
   const sticky_locks = core.getBooleanInput('sticky_locks')
   const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
+  const disable_lock = core.getBooleanInput('disable_lock')
   const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
   const disable_naked_commands = core.getBooleanInput('disable_naked_commands')
   const enforced_deployment_order = stringToArray(
@@ -123,6 +124,7 @@ export function getInputs() {
     param_separator: param_separator,
     sticky_locks: sticky_locks,
     sticky_locks_for_noop: sticky_locks_for_noop,
+    disable_lock: disable_lock,
     enforced_deployment_order: enforced_deployment_order,
     commit_verification: commit_verification,
     ignored_checks: ignored_checks,

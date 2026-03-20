@@ -89,6 +89,7 @@ beforeEach(() => {
   process.env.INPUT_UNLOCK_ON_MERGE_MODE = 'false'
   process.env.INPUT_STICKY_LOCKS = 'false'
   process.env.INPUT_STICKY_LOCKS_FOR_NOOP = 'false'
+  process.env.INPUT_DISABLE_LOCK = 'false'
   process.env.INPUT_ALLOW_SHA_DEPLOYMENTS = 'false'
   process.env.INPUT_DISABLE_NAKED_COMMANDS = 'false'
   process.env.INPUT_OUTDATED_MODE = 'default_branch'
@@ -1475,4 +1476,69 @@ test('stores params and parsed params into context with complex params', async (
   expect(createDeploymentMock).toHaveBeenCalledWith(data)
   expect(setOutputMock).toHaveBeenCalledWith('params', params)
   expect(setOutputMock).toHaveBeenCalledWith('parsed_params', parsed_params)
+})
+
+test('successfully runs the action with disable_lock enabled - skips lock acquisition on deploy', async () => {
+  process.env.INPUT_DISABLE_LOCK = 'true'
+
+  // clear the mock set up in beforeEach so we can assert it was not called
+  const lockSpy = vi.spyOn(lock, 'lock').mockClear()
+
+  expect(await run()).toBe('success')
+  expect(lockSpy).not.toHaveBeenCalled()
+  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+  expect(saveStateMock).toHaveBeenCalledWith('disable_lock', true)
+})
+
+test('returns safe-exit and posts informational comment when disable_lock is set and .lock is triggered', async () => {
+  process.env.INPUT_DISABLE_LOCK = 'true'
+
+  github.context.payload.comment.body = '.lock'
+
+  vi.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  const actionStatusSpy = vi
+    .spyOn(actionStatus, 'actionStatus')
+    .mockImplementation(() => {
+      return undefined
+    })
+
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.anything(),
+    123,
+    '🔓 Deployment locking is disabled for this Action — lock/unlock commands have no effect.',
+    true
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
+test('returns safe-exit and posts informational comment when disable_lock is set and .unlock is triggered', async () => {
+  process.env.INPUT_DISABLE_LOCK = 'true'
+
+  github.context.payload.comment.body = '.unlock'
+
+  vi.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
+    return true
+  })
+  const actionStatusSpy = vi
+    .spyOn(actionStatus, 'actionStatus')
+    .mockImplementation(() => {
+      return undefined
+    })
+
+  expect(await run()).toBe('safe-exit')
+  expect(setOutputMock).toHaveBeenCalledWith('type', 'unlock')
+  expect(actionStatusSpy).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.anything(),
+    123,
+    '🔓 Deployment locking is disabled for this Action — lock/unlock commands have no effect.',
+    true
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
 })

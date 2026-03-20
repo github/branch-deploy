@@ -230,6 +230,19 @@ export async function run() {
         return 'safe-exit'
       }
 
+      // If disable_lock is set, inform the user and exit without modifying lock state
+      if (inputs.disable_lock) {
+        await actionStatus(
+          context,
+          octokit,
+          reactRes.data.id,
+          '🔓 Deployment locking is disabled for this Action — lock/unlock commands have no effect.',
+          true
+        )
+        core.saveState('bypass', 'true')
+        return 'safe-exit'
+      }
+
       // If it is a lock or lock info releated request
       if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
@@ -421,6 +434,7 @@ export async function run() {
     core.info(`🌍 environment: ${COLORS.highlight}${environment}`)
     core.saveState('environment', environment)
     core.setOutput('environment', environment)
+    core.saveState('disable_lock', inputs.disable_lock)
 
     const data = {
       environment: environment,
@@ -585,22 +599,24 @@ export async function run() {
     core.debug(`🔒 stickyLocks: ${stickyLocks}`)
     core.debug(`💬 leaveComment: ${leaveComment}`)
 
-    // Aquire the branch-deploy lock
-    const lockResponse = await lock(
-      octokit,
-      context,
-      precheckResults.ref,
-      reactRes.data.id,
-      stickyLocks, // sticky / hubot style locks - true/false depending on the input
-      environment, // environment
-      null, // details only flag
-      false, // postDeployStep
-      leaveComment // leaveComment - true/false depending on the input
-    )
+    // Aquire the branch-deploy lock (skipped when disable_lock is true)
+    if (!inputs.disable_lock) {
+      const lockResponse = await lock(
+        octokit,
+        context,
+        precheckResults.ref,
+        reactRes.data.id,
+        stickyLocks, // sticky / hubot style locks - true/false depending on the input
+        environment, // environment
+        null, // details only flag
+        false, // postDeployStep
+        leaveComment // leaveComment - true/false depending on the input
+      )
 
-    // If the lock request fails, exit the Action
-    if (lockResponse.status === false) {
-      return 'safe-exit'
+      // If the lock request fails, exit the Action
+      if (lockResponse.status === false) {
+        return 'safe-exit'
+      }
     }
 
     const github_run_id = parseInt(process.env.GITHUB_RUN_ID)
