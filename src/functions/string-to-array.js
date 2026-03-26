@@ -28,6 +28,8 @@ export function stringToArray(string) {
     return results
   } catch (error) {
     core.error(`failed string for debugging purposes: ${string}`)
-    throw new Error(`could not convert String to Array - error: ${error}`)
+    throw new Error(`could not convert String to Array - error: ${error}`, {
+      cause: error
+    })
   }
 }

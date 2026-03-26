@@ -186,12 +186,12 @@ export async function unlock(
 
     // If silent, exit here
     if (silent) {
-      throw new Error(error)
+      throw new Error(String(error), {cause: error})
     }
 
     // Update the PR with the error
     await actionStatus(context, octokit, reactionId, error.message, false)
 
-    throw new Error(error)
+    throw new Error(String(error), {cause: error})
   }
 }

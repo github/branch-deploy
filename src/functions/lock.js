@@ -267,7 +267,7 @@ export async function checkBranch(octokit, context, branchName) {
       core.error(
         'an unexpected status code was returned while checking for the lock branch'
       )
-      throw new Error(error)
+      throw new Error(String(error), {cause: error})
     }
   }
 }
@@ -374,7 +374,7 @@ async function checkLockOwner(
   )
 
   // Set the header if it is sticky or not (aka a deployment or a direct invoke of .lock)
-  var header = ''
+  let header
   if (sticky === true) {
     header = 'claim deployment lock'
   } else {
@@ -390,9 +390,9 @@ async function checkLockOwner(
   }
 
   // dynamic lock text
-  let lockText = ''
+  let lockText
   let environmentText = ''
-  var lockBranchForLink
+  let lockBranchForLink
   if (lockData.global === true) {
     lockText = dedent(
       `the \`global\` deployment lock is currently claimed by __${lockData.created_by}__
