@@ -3,6 +3,8 @@ version: 2
 updates:
   - package-ecosystem: github-actions
     directory: "/"
+    cooldown:
+      default-days: 45
     groups:
       github-actions:
         patterns:
@@ -11,6 +13,8 @@ updates:
       interval: monthly
   - package-ecosystem: npm
     directory: "/"
+    cooldown:
+      default-days: 90
     groups:
       npm-dependencies:
         patterns:
