@@ -186,6 +186,11 @@ export async function prechecks(context, octokit, data) {
                                     conclusion
                                     name
                                   }
+                                  ... on StatusContext {
+                                    isRequired(pullRequestNumber:$number)
+                                    state
+                                    context
+                                  }
                                 }
                               }
                             }
@@ -798,7 +803,7 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
   // Example: if `checks` is set to `['test', 'lint', 'build']`, ensure that all of those checks exist in checkResults
   if (checksProvided) {
     const missingChecks = checks.filter(
-      ch => !checkResults.some(cr => cr.name === ch)
+      ch => !checkResults.some(cr => (cr.name || cr.context) === ch)
     )
     if (missingChecks.length > 0) {
       core.warning(
@@ -817,15 +822,16 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
     .filter(check => {
       if (checksProvided) {
         // check if the `checks` input option explicitly includes the name of the check that was found
-        const isIncluded = checks.includes(check.name)
+        const checkName = check.name || check.context
+        const isIncluded = checks.includes(checkName)
 
         if (isIncluded) {
           core.debug(
-            `filterChecks() - explicitly including ci check: ${check.name}`
+            `filterChecks() - explicitly including ci check: ${checkName}`
           )
         } else {
           core.debug(
-            `filterChecks() - ${check.name} is not in the explicit list of checks to include (${checks})`
+            `filterChecks() - ${checkName} is not in the explicit list of checks to include (${checks})`
           )
         }
 
@@ -840,9 +846,10 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
 
     .filter(check => {
       // Filter out ignored checks
-      const isIgnored = ignoredChecks.includes(check.name)
+      const checkName = check.name || check.context
+      const isIgnored = ignoredChecks.includes(checkName)
       if (isIgnored) {
-        core.debug(`filterChecks() - ignoring ci check: ${check.name}`)
+        core.debug(`filterChecks() - ignoring ci check: ${checkName}`)
       }
       // If required is true, only keep checks that are required
       return !isIgnored && (required ? check.isRequired : true)
@@ -850,15 +857,16 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
 
   // Determine if all remaining checks are in a healthy state
   const allHealthy = filteredChecks.every(check =>
-    healthyCheckStatuses.includes(check.conclusion)
+    healthyCheckStatuses.includes(check.conclusion || check.state)
   )
 
   // If no checks remain after filtering, default to SUCCESS
   if (filteredChecks.length === 0) {
-    const message =
-      'filterChecks() - after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined'
+    const message = required
+      ? 'filterChecks() - after filtering, no checks remain - this will result in a FAILURE state when checks=required to prevent bypasses'
+      : 'filterChecks() - after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined'
     core.debug(message)
-    return {message: message, status: 'SUCCESS'}
+    return {message: message, status: required ? 'FAILURE' : 'SUCCESS'}
   }
 
   return {
