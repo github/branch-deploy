@@ -49218,7 +49218,37 @@ async function postDeployMessage(context, data) {
   return message_fmt
 }
 
+;// CONCATENATED MODULE: ./src/functions/github-run-attempt.js
+function githubRunAttempt(value) {
+  if (value === undefined || value === '') {
+    return 1
+  }
+
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error('GITHUB_RUN_ATTEMPT must be a positive integer')
+  }
+
+  const attempt = Number(value)
+  if (!Number.isSafeInteger(attempt)) {
+    throw new Error('GITHUB_RUN_ATTEMPT must be a safe integer')
+  }
+
+  return attempt
+}
+
+;// CONCATENATED MODULE: ./src/functions/github-job.js
+function githubJob(value) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error('GITHUB_JOB must not be empty')
+  }
+
+  return value
+}
+
 ;// CONCATENATED MODULE: ./src/functions/post-deploy.js
+
+
+
 
 
 
@@ -49253,6 +49283,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 //   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
 //   - attribute: deployment_start_time: The timestamp of when the deployment started (String)
+//   - attribute: stable_branch_used: Indicates whether the stable branch was used (Boolean)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 async function postDeploy(context, octokit, data) {
   // check the inputs to ensure they are valid
@@ -49264,6 +49295,21 @@ async function postDeploy(context, octokit, data) {
     success = true
   } else {
     success = false
+  }
+
+  const branchDeployStatus = {
+    schema_version: 1,
+    operation: {
+      pr_number: context.issue.number,
+      expected_head_sha: data.sha,
+      transition: data.noop ? 'noop' : 'deploy',
+      operation_result: success ? 'success' : 'failure',
+      github_run_id: parseInt(process.env.GITHUB_RUN_ID),
+      github_run_attempt: githubRunAttempt(process.env.GITHUB_RUN_ATTEMPT),
+      github_job: githubJob(process.env.GITHUB_JOB),
+      command_comment_id: parseInt(data.comment_id),
+      status_comment_id: parseInt(data.initial_comment_id)
+    }
   }
 
   // this is the timestamp that we consider the deployment to have ended at for logging and auditing purposes
@@ -49389,6 +49435,9 @@ async function postDeploy(context, octokit, data) {
       await label(context, octokit, labelsToAdd, labelsToRemove)
     }
 
+    if (!data.stable_branch_used) {
+      await dispatchBranchDeployStatus(octokit, context, branchDeployStatus)
+    }
     info(
       `✅ ${COLORS.success}post deploy completed! (noop)${COLORS.reset}`
     )
@@ -49453,9 +49502,21 @@ async function postDeploy(context, octokit, data) {
     await label(context, octokit, labelsToAdd, labelsToRemove)
   }
 
+  if (!data.stable_branch_used) {
+    await dispatchBranchDeployStatus(octokit, context, branchDeployStatus)
+  }
   // if the post deploy comment logic completes successfully, return
   info(`✅ ${COLORS.success}post deploy completed!${COLORS.reset}`)
   return 'success'
+}
+
+async function dispatchBranchDeployStatus(octokit, context, client_payload) {
+  await octokit.rest.repos.createDispatchEvent({
+    ...context.repo,
+    event_type: 'branch-deploy-status',
+    client_payload: client_payload,
+    headers: API_HEADERS
+  })
 }
 
 function validateInput(input, name) {
@@ -49467,12 +49528,14 @@ function validateInput(input, name) {
 function validateInputs(data) {
   const requiredInputs = [
     'comment_id',
+    'initial_comment_id',
     'status',
     'ref',
     'environment',
     'reaction_id',
     'sha',
-    'commit_verified'
+    'commit_verified',
+    'deployment_start_time'
   ]
   requiredInputs.forEach(input => validateInput(data[input], input))
 
@@ -49520,6 +49583,7 @@ async function post() {
       sha: getState('sha'),
       ref: getState('ref'),
       comment_id: getState('comment_id'),
+      initial_comment_id: getState('initial_comment_id'),
       reaction_id: getState('reaction_id'),
       noop: getState('noop') === 'true',
       deployment_id: getState('deployment_id'),
@@ -49531,6 +49595,7 @@ async function post() {
       fork: getState('fork') === 'true',
       params: getState('params'),
       parsed_params: getState('parsed_params'),
+      stable_branch_used: getState('stable_branch_used') === 'true',
       labels: {
         successful_deploy: stringToArray(
           getInput('successful_deploy_labels')
@@ -50696,6 +50761,8 @@ async function deploymentConfirmation(context, octokit, data) {
 
 
 
+
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
   try {
@@ -51083,6 +51150,7 @@ async function run() {
 
     info(`🌍 environment: ${COLORS.highlight}${environment}`)
     saveState('environment', environment)
+    saveState('stable_branch_used', stableBranchUsed)
     setOutput('environment', environment)
 
     const data = {
@@ -51267,6 +51335,8 @@ async function run() {
     }
 
     const github_run_id = parseInt(process.env.GITHUB_RUN_ID)
+    const github_run_attempt = githubRunAttempt(process.env.GITHUB_RUN_ATTEMPT)
+    const github_job = githubJob(process.env.GITHUB_JOB)
 
     // Add a comment to the PR letting the user know that a deployment has been started
     // Format the success message
@@ -51322,6 +51392,17 @@ async function run() {
     core_debug(`deployment_start_time: ${deployment_start_time}`)
     saveState('deployment_start_time', deployment_start_time)
 
+    const branchDeployStatus = {
+      pr_number: github_context.issue.number,
+      expected_head_sha: precheckResults.sha,
+      transition: precheckResults.noopMode ? 'noop' : 'deploy',
+      github_run_id: github_run_id,
+      github_run_attempt: github_run_attempt,
+      github_job: github_job,
+      command_comment_id: github_context.payload.comment.id,
+      stable_branch_used: stableBranchUsed
+    }
+
     const commentBody = dedent_js_lib(`
       ### Deployment Triggered 🚀
 
@@ -51374,6 +51455,8 @@ async function run() {
       <!--- pre-deploy-metadata-end -->
 
       </details>
+
+      <!-- branch-deploy-status:${JSON.stringify(branchDeployStatus)} -->
     `)
 
     // Make a comment on the PR
@@ -51388,22 +51471,16 @@ async function run() {
     setOutput('initial_comment_id', deploymentStartedComment.data.id)
     saveState('initial_comment_id', deploymentStartedComment.data.id)
 
-    // Set outputs for noopMode
-    if (precheckResults.noopMode) {
-      setOutput('noop', precheckResults.noopMode)
-      setOutput('continue', 'true')
-      saveState('noop', precheckResults.noopMode)
+    setOutput('noop', precheckResults.noopMode)
+    saveState('noop', precheckResults.noopMode)
 
+    if (precheckResults.noopMode) {
+      setOutput('continue', 'true')
       info(
         `🧑‍🚀 commit sha to noop: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`
       )
       info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`)
-
-      // If noop mode is enabled, return here
       return 'success - noop'
-    } else {
-      setOutput('noop', precheckResults.noopMode)
-      saveState('noop', precheckResults.noopMode)
     }
 
     // Get required_contexts for the deployment
@@ -51443,6 +51520,9 @@ async function run() {
       params: params,
       parsed_params: parsed_params,
       github_run_id: github_run_id,
+      github_run_attempt: github_run_attempt,
+      pr_number: github_context.issue.number,
+      noop: false,
       initial_comment_id: github_context.payload.comment.id,
       initial_reaction_id: reactRes.data.id,
       deployment_started_comment_id: deploymentStartedComment.data.id,

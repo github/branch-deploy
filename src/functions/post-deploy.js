@@ -7,6 +7,9 @@ import {unlock} from './unlock.js'
 import {lock} from './lock.js'
 import {postDeployMessage} from './post-deploy-message.js'
 import {COLORS} from './colors.js'
+import {API_HEADERS} from './api-headers.js'
+import {githubRunAttempt} from './github-run-attempt.js'
+import {githubJob} from './github-job.js'
 
 const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`
 const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
@@ -32,6 +35,7 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 //   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
 //   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
 //   - attribute: deployment_start_time: The timestamp of when the deployment started (String)
+//   - attribute: stable_branch_used: Indicates whether the stable branch was used (Boolean)
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(context, octokit, data) {
   // check the inputs to ensure they are valid
@@ -43,6 +47,21 @@ export async function postDeploy(context, octokit, data) {
     success = true
   } else {
     success = false
+  }
+
+  const branchDeployStatus = {
+    schema_version: 1,
+    operation: {
+      pr_number: context.issue.number,
+      expected_head_sha: data.sha,
+      transition: data.noop ? 'noop' : 'deploy',
+      operation_result: success ? 'success' : 'failure',
+      github_run_id: parseInt(process.env.GITHUB_RUN_ID),
+      github_run_attempt: githubRunAttempt(process.env.GITHUB_RUN_ATTEMPT),
+      github_job: githubJob(process.env.GITHUB_JOB),
+      command_comment_id: parseInt(data.comment_id),
+      status_comment_id: parseInt(data.initial_comment_id)
+    }
   }
 
   // this is the timestamp that we consider the deployment to have ended at for logging and auditing purposes
@@ -168,6 +187,9 @@ export async function postDeploy(context, octokit, data) {
       await label(context, octokit, labelsToAdd, labelsToRemove)
     }
 
+    if (!data.stable_branch_used) {
+      await dispatchBranchDeployStatus(octokit, context, branchDeployStatus)
+    }
     core.info(
       `✅ ${COLORS.success}post deploy completed! (noop)${COLORS.reset}`
     )
@@ -232,9 +254,21 @@ export async function postDeploy(context, octokit, data) {
     await label(context, octokit, labelsToAdd, labelsToRemove)
   }
 
+  if (!data.stable_branch_used) {
+    await dispatchBranchDeployStatus(octokit, context, branchDeployStatus)
+  }
   // if the post deploy comment logic completes successfully, return
   core.info(`✅ ${COLORS.success}post deploy completed!${COLORS.reset}`)
   return 'success'
+}
+
+async function dispatchBranchDeployStatus(octokit, context, client_payload) {
+  await octokit.rest.repos.createDispatchEvent({
+    ...context.repo,
+    event_type: 'branch-deploy-status',
+    client_payload: client_payload,
+    headers: API_HEADERS
+  })
 }
 
 function validateInput(input, name) {
@@ -246,12 +280,14 @@ function validateInput(input, name) {
 function validateInputs(data) {
   const requiredInputs = [
     'comment_id',
+    'initial_comment_id',
     'status',
     'ref',
     'environment',
     'reaction_id',
     'sha',
-    'commit_verified'
+    'commit_verified',
+    'deployment_start_time'
   ]
   requiredInputs.forEach(input => validateInput(data[input], input))
 

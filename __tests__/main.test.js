@@ -39,6 +39,9 @@ const createDeploymentMock = vi.fn().mockImplementation(() => {
     data: {id: 123}
   }
 })
+const createCommentMock = vi.fn().mockReturnValue({
+  data: {id: 123456}
+})
 
 const permissionsMsg =
   '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
@@ -64,8 +67,11 @@ beforeEach(() => {
   errorMock.mockClear()
   validDeploymentOrderMock.mockClear()
   createDeploymentMock.mockClear()
+  createCommentMock.mockClear()
   process.env.GITHUB_SERVER_URL = 'https://github.com'
   process.env.GITHUB_RUN_ID = '12345'
+  process.env.GITHUB_RUN_ATTEMPT = '1'
+  process.env.GITHUB_JOB = 'branch-deploy'
   process.env.INPUT_GITHUB_TOKEN = 'faketoken'
   process.env.INPUT_TRIGGER = '.deploy'
   process.env.INPUT_REACTION = 'eyes'
@@ -123,9 +129,7 @@ beforeEach(() => {
     return {
       rest: {
         issues: {
-          createComment: vi.fn().mockReturnValueOnce({
-            data: {id: 123456}
-          })
+          createComment: createCommentMock
         },
         repos: {
           createDeployment: createDeploymentMock,
@@ -217,6 +221,7 @@ test('successfully runs the action', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('stable_branch_used', false)
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
   expect(saveStateMock).toHaveBeenCalledWith('noop', false)
@@ -231,6 +236,13 @@ test('successfully runs the action', async () => {
   )
   expect(infoMock).toHaveBeenCalledWith(
     `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
+  )
+  expect(createCommentMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      body: expect.stringContaining(
+        '<!-- branch-deploy-status:{"pr_number":123,"expected_head_sha":"abc123","transition":"deploy","github_run_id":12345,"github_run_attempt":1,"github_job":"branch-deploy","command_comment_id":123,"stable_branch_used":false} -->'
+      )
+    })
   )
 })
 
@@ -454,17 +466,28 @@ test('successfully runs the action in noop mode', async () => {
   expect(setOutputMock).toHaveBeenCalledWith('noop', true)
   expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
   expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
+  expect(setOutputMock).not.toHaveBeenCalledWith('deployment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
+  expect(saveStateMock).toHaveBeenCalledWith('stable_branch_used', false)
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
   expect(saveStateMock).toHaveBeenCalledWith('noop', true)
+  expect(saveStateMock).not.toHaveBeenCalledWith('deployment_id', 123)
+  expect(createDeploymentMock).not.toHaveBeenCalled()
   expect(infoMock).toHaveBeenCalledWith(
     `🧑‍🚀 commit sha to noop: ${COLORS.highlight}deadbeef${COLORS.reset}`
   )
   expect(infoMock).toHaveBeenCalledWith(
     `🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`
+  )
+  expect(createCommentMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      body: expect.stringContaining(
+        '<!-- branch-deploy-status:{"pr_number":123,"expected_head_sha":"deadbeef","transition":"noop","github_run_id":12345,"github_run_attempt":1,"github_job":"branch-deploy","command_comment_id":123,"stable_branch_used":false} -->'
+      )
+    })
   )
 })
 
@@ -1287,6 +1310,7 @@ test('fails commitSafetyChecks but proceeds because the operation is on the stab
   expect(warningMock).toHaveBeenCalledWith(
     'commit safety checks failed but the stable branch is being used so the workflow will continue - you should inspect recent commits on this branch as a precaution'
   )
+  expect(saveStateMock).toHaveBeenCalledWith('stable_branch_used', true)
 })
 
 test('runs the .help command successfully', async () => {
@@ -1409,13 +1433,48 @@ test('stores params and parsed params into context', async () => {
       parsed_params,
       sha: 'abc123',
       type: 'branch-deploy',
-      github_run_id: 12345
+      github_run_id: 12345,
+      github_run_attempt: 1,
+      pr_number: 123,
+      noop: false
     })
   })
   expect(await run()).toBe('success')
   expect(createDeploymentMock).toHaveBeenCalledWith(data)
   expect(setOutputMock).toHaveBeenCalledWith('params', params)
   expect(setOutputMock).toHaveBeenCalledWith('parsed_params', parsed_params)
+})
+
+test('stores the current workflow run attempt in the deployment payload', async () => {
+  process.env.GITHUB_RUN_ATTEMPT = '7'
+
+  expect(await run()).toBe('success')
+  expect(createDeploymentMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      payload: expect.objectContaining({github_run_attempt: 7})
+    })
+  )
+})
+
+test('defaults a missing workflow run attempt to one', async () => {
+  delete process.env.GITHUB_RUN_ATTEMPT
+
+  expect(await run()).toBe('success')
+  expect(createDeploymentMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      payload: expect.objectContaining({github_run_attempt: 1})
+    })
+  )
+})
+
+test('rejects an invalid workflow run attempt', async () => {
+  process.env.GITHUB_RUN_ATTEMPT = '1x'
+
+  expect(await run()).toBe(undefined)
+  expect(setFailedMock).toHaveBeenCalledWith(
+    'GITHUB_RUN_ATTEMPT must be a positive integer'
+  )
+  expect(createDeploymentMock).not.toHaveBeenCalled()
 })
 
 test('stores params and parsed params into context with complex params', async () => {
@@ -1462,6 +1521,9 @@ test('stores params and parsed params into context with complex params', async (
       sha: 'deadbeef',
       type: 'branch-deploy',
       github_run_id: 12345,
+      github_run_attempt: 1,
+      pr_number: 123,
+      noop: false,
       initial_comment_id: 123,
       initial_reaction_id: 123,
       deployment_started_comment_id: 123456,

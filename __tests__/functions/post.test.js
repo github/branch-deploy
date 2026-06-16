@@ -26,6 +26,7 @@ const validStates = {
   sha: 'abc123',
   ref: 'test-ref',
   comment_id: '123',
+  initial_comment_id: '789',
   noop: 'false',
   deployment_id: '456',
   environment: 'production',
@@ -39,6 +40,7 @@ const validStates = {
     config: {db: {host: 'localhost', port: 5432}},
     _: ['LOG_LEVEL=debug']
   }),
+  stable_branch_used: 'false',
   deployment_start_time: '2024-01-01T00:00:00Z'
 }
 
@@ -77,6 +79,14 @@ test('successfully runs post() Action logic', async () => {
   expect(await post()).toBeUndefined()
   expect(infoMock).toHaveBeenCalledWith(
     `🧑‍🚀 commit SHA: ${COLORS.highlight}${validStates.sha}${COLORS.reset}`
+  )
+  expect(postDeploy.postDeploy).toHaveBeenCalledWith(
+    expect.anything(),
+    true,
+    expect.objectContaining({
+      initial_comment_id: '789',
+      stable_branch_used: false
+    })
   )
 })
 

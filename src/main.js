@@ -32,6 +32,8 @@ import {commitSafetyChecks} from './functions/commit-safety-checks.js'
 import {API_HEADERS} from './functions/api-headers.js'
 import {timestamp} from './functions/timestamp.js'
 import {deploymentConfirmation} from './functions/deployment-confirmation.js'
+import {githubRunAttempt} from './functions/github-run-attempt.js'
+import {githubJob} from './functions/github-job.js'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -420,6 +422,7 @@ export async function run() {
 
     core.info(`🌍 environment: ${COLORS.highlight}${environment}`)
     core.saveState('environment', environment)
+    core.saveState('stable_branch_used', stableBranchUsed)
     core.setOutput('environment', environment)
 
     const data = {
@@ -604,6 +607,8 @@ export async function run() {
     }
 
     const github_run_id = parseInt(process.env.GITHUB_RUN_ID)
+    const github_run_attempt = githubRunAttempt(process.env.GITHUB_RUN_ATTEMPT)
+    const github_job = githubJob(process.env.GITHUB_JOB)
 
     // Add a comment to the PR letting the user know that a deployment has been started
     // Format the success message
@@ -659,6 +664,17 @@ export async function run() {
     core.debug(`deployment_start_time: ${deployment_start_time}`)
     core.saveState('deployment_start_time', deployment_start_time)
 
+    const branchDeployStatus = {
+      pr_number: context.issue.number,
+      expected_head_sha: precheckResults.sha,
+      transition: precheckResults.noopMode ? 'noop' : 'deploy',
+      github_run_id: github_run_id,
+      github_run_attempt: github_run_attempt,
+      github_job: github_job,
+      command_comment_id: context.payload.comment.id,
+      stable_branch_used: stableBranchUsed
+    }
+
     const commentBody = dedent(`
       ### Deployment Triggered 🚀
 
@@ -711,6 +727,8 @@ export async function run() {
       <!--- pre-deploy-metadata-end -->
 
       </details>
+
+      <!-- branch-deploy-status:${JSON.stringify(branchDeployStatus)} -->
     `)
 
     // Make a comment on the PR
@@ -725,22 +743,16 @@ export async function run() {
     core.setOutput('initial_comment_id', deploymentStartedComment.data.id)
     core.saveState('initial_comment_id', deploymentStartedComment.data.id)
 
-    // Set outputs for noopMode
-    if (precheckResults.noopMode) {
-      core.setOutput('noop', precheckResults.noopMode)
-      core.setOutput('continue', 'true')
-      core.saveState('noop', precheckResults.noopMode)
+    core.setOutput('noop', precheckResults.noopMode)
+    core.saveState('noop', precheckResults.noopMode)
 
+    if (precheckResults.noopMode) {
+      core.setOutput('continue', 'true')
       core.info(
         `🧑‍🚀 commit sha to noop: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`
       )
       core.info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`)
-
-      // If noop mode is enabled, return here
       return 'success - noop'
-    } else {
-      core.setOutput('noop', precheckResults.noopMode)
-      core.saveState('noop', precheckResults.noopMode)
     }
 
     // Get required_contexts for the deployment
@@ -780,6 +792,9 @@ export async function run() {
       params: params,
       parsed_params: parsed_params,
       github_run_id: github_run_id,
+      github_run_attempt: github_run_attempt,
+      pr_number: context.issue.number,
+      noop: false,
       initial_comment_id: context.payload.comment.id,
       initial_reaction_id: reactRes.data.id,
       deployment_started_comment_id: deploymentStartedComment.data.id,

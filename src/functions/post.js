@@ -20,6 +20,7 @@ export async function post() {
       sha: core.getState('sha'),
       ref: core.getState('ref'),
       comment_id: core.getState('comment_id'),
+      initial_comment_id: core.getState('initial_comment_id'),
       reaction_id: core.getState('reaction_id'),
       noop: core.getState('noop') === 'true',
       deployment_id: core.getState('deployment_id'),
@@ -31,6 +32,7 @@ export async function post() {
       fork: core.getState('fork') === 'true',
       params: core.getState('params'),
       parsed_params: core.getState('parsed_params'),
+      stable_branch_used: core.getState('stable_branch_used') === 'true',
       labels: {
         successful_deploy: stringToArray(
           core.getInput('successful_deploy_labels')

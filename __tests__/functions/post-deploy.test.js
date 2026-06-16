@@ -8,6 +8,7 @@ import * as createDeploymentStatus from '../../src/functions/deployment.js'
 import * as postDeployMessage from '../../src/functions/post-deploy-message.js'
 import * as core from '@actions/core'
 import * as label from '../../src/functions/label.js'
+import {API_HEADERS} from '../../src/functions/api-headers.js'
 
 const infoMock = vi.spyOn(core, 'info')
 const debugMock = vi.spyOn(core, 'debug')
@@ -19,9 +20,13 @@ var octokit
 var context
 var labels
 var data
+var createDispatchEventMock
 
 beforeEach(() => {
   vi.clearAllMocks()
+  process.env.GITHUB_RUN_ID = '12345'
+  process.env.GITHUB_RUN_ATTEMPT = '2'
+  process.env.GITHUB_JOB = 'branch-deploy'
 
   vi.spyOn(label, 'label').mockImplementation(() => {
     return undefined
@@ -59,9 +64,12 @@ beforeEach(() => {
     }
   }
 
+  createDispatchEventMock = vi.fn().mockResolvedValue({data: {}})
+
   octokit = {
     rest: {
       repos: {
+        createDispatchEvent: createDispatchEventMock,
         createDeploymentStatus: vi.fn().mockReturnValue({
           data: {}
         })
@@ -95,6 +103,7 @@ beforeEach(() => {
     sha: 'abc123',
     ref: 'test-ref',
     comment_id: 123,
+    initial_comment_id: 789,
     reaction_id: 12345,
     status: 'success',
     message: 'test-message',
@@ -112,6 +121,7 @@ beforeEach(() => {
       _: ['LOG_LEVEL=debug']
     }),
     commit_verified: false,
+    stable_branch_used: false,
     deployment_start_time: '2024-01-01T00:00:00Z'
   }
 })
@@ -144,6 +154,7 @@ test('successfully completes a production branch deployment', async () => {
           deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
         },
         repos: {
+          createDispatchEvent: octokit.rest.repos.createDispatchEvent,
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
       }
@@ -164,6 +175,7 @@ test('successfully completes a production branch deployment', async () => {
           deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
         },
         repos: {
+          createDispatchEvent: octokit.rest.repos.createDispatchEvent,
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
       }
@@ -181,6 +193,32 @@ test('successfully completes a production branch deployment', async () => {
     456,
     'production',
     null // environment_url
+  )
+  expect(createDispatchEventMock).toHaveBeenCalledWith({
+    owner: 'corp',
+    repo: 'test',
+    event_type: 'branch-deploy-status',
+    client_payload: {
+      schema_version: 1,
+      operation: {
+        pr_number: 1,
+        expected_head_sha: 'abc123',
+        transition: 'deploy',
+        operation_result: 'success',
+        github_run_id: 12345,
+        github_run_attempt: 2,
+        github_job: 'branch-deploy',
+        command_comment_id: 123,
+        status_comment_id: 789
+      }
+    },
+    headers: API_HEADERS
+  })
+  expect(createDeploymentStatusSpy.mock.invocationCallOrder[0]).toBeLessThan(
+    createDispatchEventMock.mock.invocationCallOrder[0]
+  )
+  expect(label.label.mock.invocationCallOrder[0]).toBeLessThan(
+    createDispatchEventMock.mock.invocationCallOrder[0]
   )
 })
 
@@ -215,6 +253,7 @@ test('successfully completes a production branch deployment that fails', async (
           deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
         },
         repos: {
+          createDispatchEvent: octokit.rest.repos.createDispatchEvent,
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
       }
@@ -235,6 +274,7 @@ test('successfully completes a production branch deployment that fails', async (
           deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
         },
         repos: {
+          createDispatchEvent: octokit.rest.repos.createDispatchEvent,
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
       }
@@ -253,6 +293,13 @@ test('successfully completes a production branch deployment that fails', async (
     'production',
     null // environment_url
   )
+})
+
+test('does not dispatch status events for stable branch deployments', async () => {
+  data.stable_branch_used = true
+
+  expect(await postDeploy(context, octokit, data)).toBe('success')
+  expect(createDispatchEventMock).not.toHaveBeenCalled()
 })
 
 test('successfully completes a production branch deployment with an environment url', async () => {
@@ -286,6 +333,7 @@ test('successfully completes a production branch deployment with an environment 
           deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
         },
         repos: {
+          createDispatchEvent: octokit.rest.repos.createDispatchEvent,
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
       }
@@ -306,6 +354,7 @@ test('successfully completes a production branch deployment with an environment 
           deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
         },
         repos: {
+          createDispatchEvent: octokit.rest.repos.createDispatchEvent,
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
       }
@@ -363,6 +412,7 @@ test('successfully completes a production branch deployment and removes a non-st
           deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
         },
         repos: {
+          createDispatchEvent: octokit.rest.repos.createDispatchEvent,
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
       }
@@ -383,6 +433,7 @@ test('successfully completes a production branch deployment and removes a non-st
           deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
         },
         repos: {
+          createDispatchEvent: octokit.rest.repos.createDispatchEvent,
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
       }
@@ -418,6 +469,7 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
   const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
 
   data.noop = true
+  data.stable_branch_used = true
 
   expect(await postDeploy(context, octokit, data)).toBe('success - noop')
 
@@ -442,6 +494,7 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
           deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
         },
         repos: {
+          createDispatchEvent: octokit.rest.repos.createDispatchEvent,
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
       }
@@ -450,6 +503,8 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
     'Updated 1 server',
     true
   )
+  expect(createDeploymentStatus.createDeploymentStatus).not.toHaveBeenCalled()
+  expect(createDispatchEventMock).not.toHaveBeenCalled()
   expect(infoMock).toHaveBeenCalledWith(
     `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
   )
@@ -487,6 +542,7 @@ test('successfully completes a noop branch deployment but does not get any lock 
           deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
         },
         repos: {
+          createDispatchEvent: octokit.rest.repos.createDispatchEvent,
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
       }
@@ -523,6 +579,7 @@ test('successfully completes a production branch deployment with no custom messa
           deleteForIssueComment: octokit.rest.reactions.deleteForIssueComment
         },
         repos: {
+          createDispatchEvent: octokit.rest.repos.createDispatchEvent,
           createDeploymentStatus: octokit.rest.repos.createDeploymentStatus
         }
       }
@@ -576,6 +633,50 @@ test('successfully completes a noop branch deployment that fails and applies fai
 
   expect(debugMock).toHaveBeenCalledWith('deploymentStatus: failure')
   expect(debugMock).toHaveBeenCalledWith('deployment mode: noop')
+  expect(createDeploymentStatus.createDeploymentStatus).not.toHaveBeenCalled()
+  expect(createDispatchEventMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      client_payload: expect.objectContaining({
+        operation: expect.objectContaining({
+          transition: 'noop',
+          operation_result: 'failure'
+        })
+      })
+    })
+  )
+})
+
+test('does not require a deployment id for a noop branch deployment', async () => {
+  data.noop = true
+  data.deployment_id = ''
+
+  await expect(postDeploy(context, octokit, data)).resolves.toBe(
+    'success - noop'
+  )
+  expect(createDeploymentStatus.createDeploymentStatus).not.toHaveBeenCalled()
+})
+
+test('rejects a malformed run attempt before dispatch or cleanup', async () => {
+  process.env.GITHUB_RUN_ATTEMPT = '2x'
+
+  await expect(postDeploy(context, octokit, data)).rejects.toThrow(
+    'GITHUB_RUN_ATTEMPT must be a positive integer'
+  )
+  expect(createDispatchEventMock).not.toHaveBeenCalled()
+  expect(postDeployMessage.postDeployMessage).not.toHaveBeenCalled()
+  expect(createDeploymentStatus.createDeploymentStatus).not.toHaveBeenCalled()
+})
+
+test('does not dispatch when post-deploy processing fails', async () => {
+  vi.spyOn(postDeployMessage, 'postDeployMessage').mockRejectedValue(
+    new Error('message failed')
+  )
+
+  await expect(postDeploy(context, octokit, data)).rejects.toThrow(
+    'message failed'
+  )
+  expect(createDispatchEventMock).not.toHaveBeenCalled()
+  expect(createDeploymentStatus.createDeploymentStatus).not.toHaveBeenCalled()
 })
 
 test('updates with a failure for a production branch deployment', async () => {
@@ -598,6 +699,14 @@ test('fails due to no comment_id', async () => {
   } catch (e) {
     expect(e.message).toBe('no comment_id provided')
   }
+})
+
+test('fails due to no initial_comment_id', async () => {
+  data.initial_comment_id = ''
+
+  await expect(postDeploy(context, octokit, data)).rejects.toThrow(
+    'no initial_comment_id provided'
+  )
 })
 
 test('fails due to no status', async () => {
