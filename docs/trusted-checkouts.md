@@ -169,7 +169,7 @@ Trusted checkouts work well with other branch-deploy safety settings:
 - Set `allow_forks: "false"` if your project does not need fork deployments.
 - Use branch protection, pull request reviews, and required status checks.
 - Use `commit_verification: "true"` if your project requires verified commits.
-- You should always, and only use the `sha` output for deployment checkouts.
+- Always use the `sha` output for deployment checkouts.
 
 For Terraform or other tools with shared remote state, use GitHub Actions
 concurrency to avoid state-lock races. For example:
