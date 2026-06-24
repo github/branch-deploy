@@ -12,6 +12,7 @@ Quick links below to jump to a specific branch-deploy example:
   - [Table of Contents](#table-of-contents)
   - [Simple Example](#simple-example)
   - [Terraform](#terraform)
+  - [Terraform with Trusted Checkouts](#terraform-with-trusted-checkouts)
   - [Heroku](#heroku)
   - [Railway](#railway)
   - [SSH](#ssh)
@@ -179,6 +180,408 @@ jobs:
       - name: Check Terraform apply output
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' && steps.apply.outcome == 'failure' }}
         run: exit 1
+```
+
+## Terraform with Trusted Checkouts
+
+This example shows a hardened Terraform setup that separates trusted deployment
+helper code from the working pull request code selected by branch-deploy.
+
+- `.noop` runs `terraform plan` from the exact working commit SHA selected by branch-deploy
+- `.deploy` runs `terraform apply` from that same working commit SHA
+- deployment helper scripts and deployment message templates run from the trusted default-branch checkout
+- Terraform output is captured in `RUNNER_TEMP` and inserted into a trusted deployment message template
+- merge deploy mode avoids redeploying a merge commit when the latest deployment already matches the default branch tree
+- unlock-on-merge mode cleans up sticky locks after the pull request merges
+
+For the general security model behind this pattern, see the
+[trusted checkout hardening guide](trusted-checkouts.md).
+
+### `.github/workflows/branch-deploy.yml`
+
+```yaml
+name: branch-deploy
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  pull-requests: write
+  deployments: write
+  contents: write
+  checks: read
+  statuses: read
+
+env:
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  branch-deploy:
+    if:
+      ${{ github.event.issue.pull_request &&
+      (startsWith(github.event.comment.body, '.deploy') ||
+      startsWith(github.event.comment.body, '.noop') ||
+      startsWith(github.event.comment.body, '.lock') ||
+      startsWith(github.event.comment.body, '.help') ||
+      startsWith(github.event.comment.body, '.wcid') ||
+      startsWith(github.event.comment.body, '.unlock')) }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      deployment: false
+    concurrency:
+      group: ${{ (startsWith(github.event.comment.body, '.deploy') || startsWith(github.event.comment.body, '.noop')) && 'terraform-production' || format('branch-deploy-support-{0}', github.run_id) }}
+      cancel-in-progress: false
+      queue: max
+
+    steps:
+      - name: derive trusted checkout path
+        id: trusted-path
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          echo "DEFAULT_BRANCH=${DEFAULT_BRANCH}"
+
+          trusted_dir="$(printf '%s' "${DEFAULT_BRANCH}" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//')"
+
+          if [[ -z "${trusted_dir}" || "${trusted_dir}" == "." || "${trusted_dir}" == ".." ]]; then
+            echo "invalid trusted checkout directory derived from default branch: ${DEFAULT_BRANCH}" >&2
+            exit 1
+          fi
+
+          if [[ ! "${trusted_dir}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "trusted checkout directory contains unsafe characters: ${trusted_dir}" >&2
+            exit 1
+          fi
+
+          echo "trusted_dir=${trusted_dir}" >> "${GITHUB_OUTPUT}"
+          echo "trusted checkout directory: ${trusted_dir}"
+
+      - name: branch-deploy
+        id: branch-deploy
+        uses: github/branch-deploy@vX.X.X
+        with:
+          trigger: ".deploy"
+          sticky_locks: "true"
+          deployment_confirmation: "true"
+          deploy_message_path: ${{ steps.trusted-path.outputs.trusted_dir }}/.github/deployment_message.md
+          allow_forks: "false"
+
+      - name: derive working checkout path
+        id: working-path
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        env:
+          DEPLOY_SHA: ${{ steps.branch-deploy.outputs.sha }}
+          TRUSTED_DIR: ${{ steps.trusted-path.outputs.trusted_dir }}
+        run: |
+          set -euo pipefail
+          echo "DEPLOY_SHA=${DEPLOY_SHA} - TRUSTED_DIR=${TRUSTED_DIR}"
+
+          if [[ ! "${DEPLOY_SHA}" =~ ^[0-9a-fA-F]{40}([0-9a-fA-F]{24})?$ ]]; then
+            echo "invalid branch-deploy sha output: ${DEPLOY_SHA}" >&2
+            exit 1
+          fi
+
+          working_dir="deployment-${DEPLOY_SHA}"
+
+          if [[ "${working_dir}" == "${TRUSTED_DIR}" ]]; then
+            echo "working checkout directory collides with trusted checkout directory: ${working_dir}" >&2
+            exit 1
+          fi
+
+          echo "working_dir=${working_dir}" >> "${GITHUB_OUTPUT}"
+          echo "working checkout directory: ${working_dir}"
+
+      - name: checkout trusted
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }} # for issue_comment, github.sha is the last commit on the default branch
+          path: ${{ steps.trusted-path.outputs.trusted_dir }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: checkout working deployment sha
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.branch-deploy.outputs.sha }}
+          path: ${{ steps.working-path.outputs.working_dir }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: verify checkout provenance
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        env:
+          TRUSTED_DIR: ${{ steps.trusted-path.outputs.trusted_dir }}
+          TRUSTED_SHA: ${{ github.sha }}
+          WORKING_DIR: ${{ steps.working-path.outputs.working_dir }}
+          WORKING_SHA: ${{ steps.branch-deploy.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          trusted_head="$(git -C "${TRUSTED_DIR}" rev-parse HEAD)"
+          working_head="$(git -C "${WORKING_DIR}" rev-parse HEAD)"
+
+          if [[ "${trusted_head}" != "${TRUSTED_SHA}" ]]; then
+            echo "trusted checkout HEAD mismatch: expected ${TRUSTED_SHA}, got ${trusted_head}" >&2
+            exit 1
+          fi
+
+          if [[ "${working_head}" != "${WORKING_SHA}" ]]; then
+            echo "working checkout HEAD mismatch: expected ${WORKING_SHA}, got ${working_head}" >&2
+            exit 1
+          fi
+
+          echo "trusted checkout: ${TRUSTED_DIR}@${trusted_head}"
+          echo "working checkout: ${WORKING_DIR}@${working_head}"
+
+      - name: prepare terraform output path
+        id: terraform-output
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        run: |
+          set -euo pipefail
+
+          output_dir="$(mktemp -d "${RUNNER_TEMP}/branch-deploy-output.XXXXXX")"
+          output_path="${output_dir}/terraform-output.txt"
+          : > "${output_path}"
+
+          if [[ -L "${output_path}" || ! -f "${output_path}" ]]; then
+            echo "terraform output path is not a regular file: ${output_path}" >&2
+            exit 1
+          fi
+
+          echo "path=${output_path}" >> "${GITHUB_OUTPUT}"
+          echo "terraform output path: ${output_path}"
+
+      - name: read terraform version
+        id: terraform-version
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        working-directory: ${{ steps.working-path.outputs.working_dir }}/terraform
+        run: echo "version=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - name: setup terraform
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ steps.terraform-version.outputs.version }}
+
+      - name: terraform init
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        working-directory: ${{ steps.working-path.outputs.working_dir }}/terraform
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: terraform init
+
+      - name: terraform plan
+        id: plan
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
+        continue-on-error: true
+        working-directory: ${{ steps.working-path.outputs.working_dir }}/terraform
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: |
+          set -o pipefail
+          terraform plan -no-color -compact-warnings | tee "${{ steps.terraform-output.outputs.path }}"
+
+      - name: terraform apply
+        id: apply
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
+        continue-on-error: true
+        working-directory: ${{ steps.working-path.outputs.working_dir }}/terraform
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: |
+          set -o pipefail
+          terraform apply -auto-approve -no-color -compact-warnings | tee "${{ steps.terraform-output.outputs.path }}"
+
+      - name: verify terraform output capture
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        env:
+          TERRAFORM_OUTPUT_PATH: ${{ steps.terraform-output.outputs.path }}
+        run: |
+          set -euo pipefail
+
+          if [[ -L "${TERRAFORM_OUTPUT_PATH}" || ! -f "${TERRAFORM_OUTPUT_PATH}" ]]; then
+            echo "terraform output path is not a regular file: ${TERRAFORM_OUTPUT_PATH}" >&2
+            exit 1
+          fi
+
+      - name: update deploy comment
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        working-directory: ${{ steps.trusted-path.outputs.trusted_dir }}
+        env:
+          RESULTS_PATH: ${{ steps.terraform-output.outputs.path }}
+        run: python3 script/ci/update_deploy_msg.py
+
+      - name: check terraform plan
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' && steps.plan.outcome == 'failure' }}
+        run: exit 1
+
+      - name: check terraform apply
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' && steps.apply.outcome == 'failure' }}
+        run: exit 1
+```
+
+### `.github/workflows/deploy.yml`
+
+```yaml
+name: deploy
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deployment-check:
+    runs-on: ubuntu-latest
+    outputs:
+      continue: ${{ steps.deployment-check.outputs.continue }}
+      sha: ${{ steps.deployment-check.outputs.sha }}
+
+    steps:
+      - name: deployment check
+        id: deployment-check
+        uses: github/branch-deploy@vX.X.X
+        with:
+          merge_deploy_mode: "true"
+          environment: production
+
+  deploy:
+    if: ${{ needs.deployment-check.outputs.continue == 'true' }}
+    needs: deployment-check
+    runs-on: ubuntu-latest
+    concurrency:
+      group: terraform-production
+      cancel-in-progress: false
+      queue: max
+    environment: production
+    defaults:
+      run:
+        working-directory: terraform/
+    env:
+      TF_IN_AUTOMATION: "true"
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.deployment-check.outputs.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: read terraform version
+        id: terraform-version
+        working-directory: .
+        run: echo "version=$(cat terraform/.terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - name: setup terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ steps.terraform-version.outputs.version }}
+
+      - name: terraform init
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: terraform init
+
+      - name: terraform apply
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+        run: terraform apply -auto-approve -no-color -compact-warnings
+```
+
+### `.github/workflows/unlock-on-merge.yml`
+
+```yaml
+name: Unlock On Merge
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  unlock-on-merge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+
+    steps:
+      - name: unlock on merge
+        id: unlock-on-merge
+        uses: github/branch-deploy@vX.X.X
+        with:
+          unlock_on_merge_mode: "true"
+          environment_targets: production
+```
+
+### `.github/deployment_message.md`
+
+````markdown
+### Deployment Results {{ ":white_check_mark:" if status === "success" else ":x:" }}
+
+{% if status === "success" %}**{{ actor }}** successfully **{{ "noop" if noop else "branch" }}** deployed branch `{{ ref }}` to **{{ environment }}**{% endif %}{% if status === "failure" %}**{{ actor }}** your **{{ "noop" if noop else "branch" }}** deployment of `{{ ref }}` failed to deploy to the **{{ environment }}** environment{% endif %}
+
+<details><summary>Show Results</summary>
+
+```terraform
+[[ results ]]
+```
+
+</details>
+````
+
+### `script/ci/update_deploy_msg.py`
+
+```python
+from pathlib import Path
+import os
+
+
+TEMPLATE_FILE = Path(".github/deployment_message.md")
+RESULTS_PLACEHOLDER = "[[ results ]]"
+DEFAULT_RESULTS = "No deployment results were captured."
+
+
+def read_results() -> str:
+    results_path = os.environ.get("RESULTS_PATH")
+    if results_path:
+        path = Path(results_path)
+        if path.exists():
+            return path.read_text()
+
+    return os.environ.get("MSG", DEFAULT_RESULTS)
+
+
+def escape_nunjucks_opening_delimiters(results: str) -> str:
+    escaped = []
+    for index, char in enumerate(results):
+        if char == "{" and index + 1 < len(results) and results[index + 1] in "{%#":
+            escaped.append("{ ")
+        else:
+            escaped.append(char)
+
+    return "".join(escaped)
+
+
+def main() -> None:
+    template = TEMPLATE_FILE.read_text()
+    results = escape_nunjucks_opening_delimiters(read_results().strip() or DEFAULT_RESULTS)
+    rendered = template.replace(RESULTS_PLACEHOLDER, results)
+    TEMPLATE_FILE.write_text(rendered)
+    print(rendered)
+
+
+if __name__ == "__main__":
+    main()
 ```
 
 ## Heroku

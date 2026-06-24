@@ -477,6 +477,8 @@ on:
 
 Unlike the `on: pull_request` trigger, the `on: issue_comment` trigger only uses Actions workflow files from the default branch in GitHub. This means that a bad actor cannot open a PR with a malicious workflow edit and dump secrets, trigger bad deployments, or cause other issues. This means that any changes to the workflow files can be protected with branch protection rules to ensure only verified changes make it into your default branch.
 
+If your workflow checks out pull request code and then runs deployment helper scripts, templates, or other orchestration code from that checkout, review the [trusted checkout hardening guide](docs/trusted-checkouts.md). It explains how to run trusted helper code from your default branch while still deploying the exact working commit selected by branch-deploy.
+
 To further harden your workflow files, it is strongly suggested to include the base permissions that this Action needs to run:
 
 ```yaml
@@ -505,6 +507,7 @@ Here are some additional security best practices to consider:
 - Ensure that your branch protection settings require that PRs have approvals before. This prevents users from deploying changes that have not been reviewed.
 - Ensure that your branch protection settings require that PRs have some CI checks defined, and that those CI checks are required. This ensure that the code being deployed has passing CI checks.
 - Set the [`deployment_confirmation: true`](./docs/deployment-confirmation.md) input option to require a final safety check of human approval before each deployment can continue. Ensure that you review the sha being used in the deployment confirmation comment with the sha that you expect to be deployed.
+- Use a [trusted checkout](docs/trusted-checkouts.md) for deployment helper code and templates when your workflow also checks out pull request code for deployment.
 
 ### Admins 👩‍🔬
 
@@ -626,6 +629,7 @@ jobs:
 This section contains real world examples of how this Action can be used
 
 - [Terraform](docs/examples.md#terraform)
+- [Terraform with Trusted Checkouts](docs/examples.md#terraform-with-trusted-checkouts)
 - [Heroku](docs/examples.md#heroku)
 - [Railway](docs/examples.md#railway)
 - [SSH](docs/examples.md#ssh)
@@ -666,6 +670,7 @@ This section will cover a few suggestions and best practices that will help you 
       ![use-status-checks](./docs/assets/required-ci-checks.png)
 3. If you don't need to deploy PR forks (perhaps your project is internal and not open source), you can set the `allow_forks` input to `"false"` to prevent deployments from running on forks.
 4. You should **always** (unless you have a certain restriction) use the `sha` output variable over the `ref` output variable when deploying. It is more reliable for deployments, and safer from a security perspective. More details about using commit SHAs for deployments can be found [here](./docs/deploying-commit-SHAs.md).
+5. If your deployment workflow runs helper scripts or deployment message templates, consider using [trusted checkouts](docs/trusted-checkouts.md) so those helpers come from the protected default branch instead of the pull request checkout.
 
 ## Alternate Command Syntax
 
