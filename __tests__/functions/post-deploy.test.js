@@ -668,3 +668,14 @@ test('fails due to no noop', async () => {
     expect(e.message).toBe('no noop value provided')
   }
 })
+
+test('skips lock check and release when disable_lock is true', async () => {
+  const lockSpy = vi.spyOn(lock, 'lock')
+  const unlockSpy = vi.spyOn(unlock, 'unlock')
+
+  data.disable_lock = true
+
+  expect(await postDeploy(context, octokit, data)).toBe('success')
+  expect(lockSpy).not.toHaveBeenCalled()
+  expect(unlockSpy).not.toHaveBeenCalled()
+})
