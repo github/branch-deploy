@@ -45,5 +45,8 @@
     "make-coverage-badge": "^1.2.0",
     "prettier": "^3.8.1",
     "vitest": "^4.0.16"
+  },
+  "overrides": {
+    "vite": "8.0.16"
   }
 }
