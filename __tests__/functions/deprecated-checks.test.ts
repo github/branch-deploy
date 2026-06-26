@@ -1,46 +1,41 @@
-import {isDeprecated} from '../../src/functions/deprecated-checks.ts'
+import {
+  isDeprecated,
+  type DeprecatedChecksOctokit
+} from '../../src/functions/deprecated-checks.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
+import {createIssueCommentContext} from '../test-helpers.ts'
 
 const docsLink =
   'https://github.com/github/branch-deploy/blob/main/docs/deprecated.md'
 const warningMock = vi.spyOn(core, 'warning')
 
-var context: Parameters<typeof isDeprecated>[2]
-var octokit: Parameters<typeof isDeprecated>[1]
+let context: Parameters<typeof isDeprecated>[2]
+let octokit: Parameters<typeof isDeprecated>[1]
 
 beforeEach(() => {
   vi.clearAllMocks()
 
-  context = {
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        id: '1'
-      }
-    }
-  } as unknown as typeof context
+  context = createIssueCommentContext({
+    repo: {owner: 'corp', repo: 'test'},
+    issue: {number: 1},
+    payload: {comment: {id: 1}}
+  })
 
   octokit = {
     rest: {
       reactions: {
-        createForIssueComment: vi.fn().mockReturnValueOnce({
-          data: {}
-        })
+        createForIssueComment:
+          vi.fn<
+            DeprecatedChecksOctokit['rest']['reactions']['createForIssueComment']
+          >()
       },
       issues: {
-        createComment: vi.fn().mockReturnValueOnce({
-          data: {}
-        })
+        createComment:
+          vi.fn<DeprecatedChecksOctokit['rest']['issues']['createComment']>()
       }
     }
-  } as unknown as typeof octokit
+  } satisfies DeprecatedChecksOctokit
 })
 
 test('checks a deployment message and does not find anything that is deprecated', async () => {

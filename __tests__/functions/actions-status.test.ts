@@ -1,54 +1,57 @@
 import {vi, expect, test, beforeEach} from 'vitest'
-import {actionStatus} from '../../src/functions/action-status.ts'
+import {
+  actionStatus,
+  type ActionStatusOctokit,
+  type ActionStatusRequest
+} from '../../src/functions/action-status.ts'
 import {truncateCommentBody} from '../../src/functions/truncate-comment-body.ts'
 import {API_HEADERS} from '../../src/functions/api-headers.ts'
+import {createIssueCommentContext} from '../test-helpers.ts'
 
-var context: Parameters<typeof actionStatus>[0]
-var octokit: Parameters<typeof actionStatus>[1]
+let context: ActionStatusRequest['context']
+let octokit: ActionStatusRequest['octokit']
 beforeEach(() => {
   vi.clearAllMocks()
 
-  process.env.GITHUB_SERVER_URL = 'https://github.com'
-  process.env.GITHUB_RUN_ID = '12345'
+  vi.stubEnv('GITHUB_SERVER_URL', 'https://github.com')
+  vi.stubEnv('GITHUB_RUN_ID', '12345')
 
-  context = {
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        id: '1'
-      }
-    }
-  } as unknown as typeof context
+  context = createIssueCommentContext({
+    repo: {owner: 'corp', repo: 'test'},
+    issue: {number: 1},
+    payload: {comment: {id: 1}}
+  })
 
   octokit = {
     rest: {
       reactions: {
-        createForIssueComment: vi.fn().mockReturnValueOnce({
-          data: {}
-        }),
-        deleteForIssueComment: vi.fn().mockReturnValueOnce({
-          data: {}
-        })
+        createForIssueComment:
+          vi.fn<
+            ActionStatusOctokit['rest']['reactions']['createForIssueComment']
+          >(),
+        deleteForIssueComment:
+          vi.fn<
+            ActionStatusOctokit['rest']['reactions']['deleteForIssueComment']
+          >()
       },
       issues: {
-        createComment: vi.fn().mockReturnValueOnce({
-          data: {}
-        })
+        createComment:
+          vi.fn<ActionStatusOctokit['rest']['issues']['createComment']>()
       }
     }
-  } as unknown as typeof octokit
+  } satisfies ActionStatusOctokit
 })
 
 test('adds a successful status message for a deployment', async () => {
-  expect(
-    await actionStatus(context, octokit, 123, 'Everything worked!', true)
-  ).toBe(undefined)
+  await expect(
+    actionStatus({
+      context,
+      octokit,
+      reactionId: 123,
+      message: 'Everything worked!',
+      result: 'success'
+    })
+  ).resolves.toBeUndefined()
   expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
     body: 'Everything worked!',
     issue_number: 1,
@@ -57,14 +60,14 @@ test('adds a successful status message for a deployment', async () => {
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     content: 'rocket',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     owner: 'corp',
     reaction_id: 123,
     repo: 'test',
@@ -73,9 +76,15 @@ test('adds a successful status message for a deployment', async () => {
 })
 
 test('adds a successful status message for a deployment (with alt message)', async () => {
-  expect(
-    await actionStatus(context, octokit, 123, 'Everything worked!', true, true)
-  ).toBe(undefined)
+  await expect(
+    actionStatus({
+      context,
+      octokit,
+      reactionId: 123,
+      message: 'Everything worked!',
+      result: 'alternate-success'
+    })
+  ).resolves.toBeUndefined()
   expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
     body: 'Everything worked!',
     issue_number: 1,
@@ -84,14 +93,14 @@ test('adds a successful status message for a deployment (with alt message)', asy
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     content: '+1',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     owner: 'corp',
     reaction_id: 123,
     repo: 'test',
@@ -100,9 +109,15 @@ test('adds a successful status message for a deployment (with alt message)', asy
 })
 
 test('adds a failure status message for a deployment', async () => {
-  expect(
-    await actionStatus(context, octokit, 123, 'Everything failed!', false)
-  ).toBe(undefined)
+  await expect(
+    actionStatus({
+      context,
+      octokit,
+      reactionId: 123,
+      message: 'Everything failed!',
+      result: 'failure'
+    })
+  ).resolves.toBeUndefined()
   expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
     body: 'Everything failed!',
     issue_number: 1,
@@ -111,14 +126,14 @@ test('adds a failure status message for a deployment', async () => {
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     content: '-1',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     owner: 'corp',
     reaction_id: 123,
     repo: 'test',
@@ -127,7 +142,9 @@ test('adds a failure status message for a deployment', async () => {
 })
 
 test('uses default log url when the "message" variable is empty for failures', async () => {
-  expect(await actionStatus(context, octokit, 123, '', false)).toBe(undefined)
+  await expect(
+    actionStatus({context, octokit, reactionId: 123, message: ''})
+  ).resolves.toBeUndefined()
   expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
     body: 'Unknown error, [check logs](https://github.com/corp/test/actions/runs/12345) for more details.',
     issue_number: 1,
@@ -136,14 +153,14 @@ test('uses default log url when the "message" variable is empty for failures', a
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     content: '-1',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     owner: 'corp',
     reaction_id: 123,
     repo: 'test',
@@ -152,7 +169,15 @@ test('uses default log url when the "message" variable is empty for failures', a
 })
 
 test('uses default log url when the "message" variable is empty for a success', async () => {
-  expect(await actionStatus(context, octokit, 123, '', true)).toBe(undefined)
+  await expect(
+    actionStatus({
+      context,
+      octokit,
+      reactionId: 123,
+      message: '',
+      result: 'success'
+    })
+  ).resolves.toBeUndefined()
   expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
     body: 'Unknown error, [check logs](https://github.com/corp/test/actions/runs/12345) for more details.',
     issue_number: 1,
@@ -161,14 +186,14 @@ test('uses default log url when the "message" variable is empty for a success', 
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     content: 'rocket',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     owner: 'corp',
     reaction_id: 123,
     repo: 'test',
@@ -178,9 +203,15 @@ test('uses default log url when the "message" variable is empty for a success', 
 
 test('truncates the message when it is too large for an issue comment', async () => {
   const message = 'a'.repeat(65538)
-  expect(await actionStatus(context, octokit, 123, message, true)).toBe(
-    undefined
-  )
+  await expect(
+    actionStatus({
+      context,
+      octokit,
+      reactionId: 123,
+      message,
+      result: 'success'
+    })
+  ).resolves.toBeUndefined()
   expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
     body: truncateCommentBody(message),
     issue_number: 1,
@@ -189,14 +220,14 @@ test('truncates the message when it is too large for an issue comment', async ()
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     content: 'rocket',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
   expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
-    comment_id: '1',
+    comment_id: 1,
     owner: 'corp',
     reaction_id: 123,
     repo: 'test',

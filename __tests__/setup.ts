@@ -1,23 +1,26 @@
-import {vi} from 'vitest'
+import {afterEach, vi} from 'vitest'
 
-// Mock @actions/core module globally to suppress output
-// Individual tests can still spy on these mocked functions
-vi.mock('@actions/core', async () => {
-  const actual = await vi.importActual('@actions/core')
+vi.mock(import('@actions/core'), async importOriginal => {
+  const actual = await importOriginal()
+
   return {
     ...actual,
-    debug: vi.fn(),
-    info: vi.fn(),
-    warning: vi.fn(),
-    error: vi.fn(),
-    setOutput: vi.fn(),
-    saveState: vi.fn(),
-    setFailed: vi.fn(),
-    setSecret: vi.fn(),
-    exportVariable: vi.fn(),
-    addPath: vi.fn(),
-    notice: vi.fn(),
-    startGroup: vi.fn(),
-    endGroup: vi.fn()
-  }
+    addPath: vi.fn<typeof actual.addPath>(),
+    debug: vi.fn<typeof actual.debug>(),
+    endGroup: vi.fn<typeof actual.endGroup>(),
+    error: vi.fn<typeof actual.error>(),
+    exportVariable: vi.fn<typeof actual.exportVariable>(),
+    info: vi.fn<typeof actual.info>(),
+    notice: vi.fn<typeof actual.notice>(),
+    saveState: vi.fn<typeof actual.saveState>(),
+    setFailed: vi.fn<typeof actual.setFailed>(),
+    setOutput: vi.fn<typeof actual.setOutput>(),
+    setSecret: vi.fn<typeof actual.setSecret>(),
+    startGroup: vi.fn<typeof actual.startGroup>(),
+    warning: vi.fn<typeof actual.warning>()
+  } satisfies typeof actual
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
 })

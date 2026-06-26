@@ -1,31 +1,23 @@
-import {label} from '../../src/functions/label.ts'
+import {label, type LabelOctokit} from '../../src/functions/label.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
+import {createContext} from '../test-helpers.ts'
 
-var context: Parameters<typeof label>[0]
-var octokit: Parameters<typeof label>[1]
+let context: Parameters<typeof label>[0]
+let octokit: Parameters<typeof label>[1]
 beforeEach(() => {
   vi.clearAllMocks()
 
-  context = {
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    }
-  } as unknown as typeof context
+  context = createContext({
+    repo: {owner: 'corp', repo: 'test'},
+    issue: {number: 1}
+  })
 
   octokit = {
     rest: {
       issues: {
-        addLabels: vi.fn().mockReturnValueOnce({
-          data: {}
-        }),
-        removeLabel: vi.fn().mockReturnValueOnce({
-          data: {}
-        }),
-        listLabelsOnIssue: vi.fn().mockReturnValueOnce({
+        addLabels: vi.fn<LabelOctokit['rest']['issues']['addLabels']>(),
+        removeLabel: vi.fn<LabelOctokit['rest']['issues']['removeLabel']>(),
+        listLabelsOnIssue: vi.fn().mockResolvedValue({
           data: [
             {
               name: 'deploy-failed'
@@ -37,7 +29,7 @@ beforeEach(() => {
         })
       }
     }
-  } as unknown as typeof octokit
+  } satisfies LabelOctokit
 })
 
 test('adds a single label to a pull request and removes none', async () => {

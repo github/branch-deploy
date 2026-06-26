@@ -12,70 +12,70 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-test('checks a message and finds a standard trigger', async () => {
+test('checks a message and finds a standard trigger', () => {
   const body = '.deploy'
   const trigger = '.deploy'
-  expect(await triggerCheck(body, trigger)).toBe(true)
+  expect(triggerCheck(body, trigger)).toBe(true)
   expect(infoMock).toHaveBeenCalledWith(
     `✅ comment body starts with trigger: ${color}.deploy${colorReset}`
   )
 })
 
-test('checks a message and does not find trigger', async () => {
+test('checks a message and does not find trigger', () => {
   const body = '.bad'
   const trigger = '.deploy'
-  expect(await triggerCheck(body, trigger)).toBe(false)
+  expect(triggerCheck(body, trigger)).toBe(false)
   expect(debugMock).toHaveBeenCalledWith(
     `comment body does not start with trigger: ${color}.deploy${colorReset}`
   )
 })
 
-test('checks a message and finds a global trigger', async () => {
+test('checks a message and finds a global trigger', () => {
   const body = 'I want to .deploy'
   const trigger = '.deploy'
-  expect(await triggerCheck(body, trigger)).toBe(false)
+  expect(triggerCheck(body, trigger)).toBe(false)
   expect(debugMock).toHaveBeenCalledWith(
     `comment body does not start with trigger: ${color}.deploy${colorReset}`
   )
 })
 
-test('checks a message and finds a trigger with an environment and a variable', async () => {
+test('checks a message and finds a trigger with an environment and a variable', () => {
   const trigger = '.deploy'
-  expect(await triggerCheck('.deploy dev something', trigger)).toBe(true)
-  expect(await triggerCheck('.deploy something', trigger)).toBe(true)
-  expect(await triggerCheck('.deploy dev something', trigger)).toBe(true)
-  expect(await triggerCheck('.deploy dev something', trigger)).toBe(true)
+  expect(triggerCheck('.deploy dev something', trigger)).toBe(true)
+  expect(triggerCheck('.deploy something', trigger)).toBe(true)
+  expect(triggerCheck('.deploy dev something', trigger)).toBe(true)
+  expect(triggerCheck('.deploy dev something', trigger)).toBe(true)
 })
 
-test('checks a message and does not find global trigger', async () => {
+test('checks a message and does not find global trigger', () => {
   const body = 'I want to .ping a website'
   const trigger = '.deploy'
-  expect(await triggerCheck(body, trigger)).toBe(false)
+  expect(triggerCheck(body, trigger)).toBe(false)
   expect(debugMock).toHaveBeenCalledWith(
     `comment body does not start with trigger: ${color}.deploy${colorReset}`
   )
 })
 
-test('does not match when body starts with a longer command sharing prefix', async () => {
+test('does not match when body starts with a longer command sharing prefix', () => {
   const body = '.deploy-two to prod'
   const trigger = '.deploy'
-  expect(await triggerCheck(body, trigger)).toBe(false)
+  expect(triggerCheck(body, trigger)).toBe(false)
   expect(debugMock).toHaveBeenCalledWith(
     `comment body starts with trigger but is not complete: ${color}.deploy${colorReset}`
   )
 })
 
-test('does not match when immediately followed by alphanumeric', async () => {
+test('does not match when immediately followed by alphanumeric', () => {
   const body = '.deploy1'
   const trigger = '.deploy'
-  expect(await triggerCheck(body, trigger)).toBe(false)
+  expect(triggerCheck(body, trigger)).toBe(false)
   expect(debugMock).toHaveBeenCalledWith(
     `comment body starts with trigger but is not complete: ${color}.deploy${colorReset}`
   )
 })
 
-test('matches when followed by a newline (whitespace)', async () => {
+test('matches when followed by a newline (whitespace)', () => {
   const body = `.deploy\ndev`
   const trigger = '.deploy'
-  expect(await triggerCheck(body, trigger)).toBe(true)
+  expect(triggerCheck(body, trigger)).toBe(true)
 })

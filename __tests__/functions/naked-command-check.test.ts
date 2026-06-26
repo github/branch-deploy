@@ -1,54 +1,49 @@
 import * as core from '@actions/core'
 import {vi, expect, test, beforeEach} from 'vitest'
-import {nakedCommandCheck} from '../../src/functions/naked-command-check.ts'
+import {
+  nakedCommandCheck,
+  type NakedCommandOctokit
+} from '../../src/functions/naked-command-check.ts'
 import {COLORS} from '../../src/functions/colors.ts'
+import {createIssueCommentContext} from '../test-helpers.ts'
 
 const docs =
   'https://github.com/github/branch-deploy/blob/main/docs/naked-commands.md'
 const warningMock = vi.spyOn(core, 'warning')
 
-var context: Parameters<typeof nakedCommandCheck>[4]
-var octokit: Parameters<typeof nakedCommandCheck>[3]
-var triggers: Parameters<typeof nakedCommandCheck>[2]
-var param_separator: Parameters<typeof nakedCommandCheck>[1]
+let context: Parameters<typeof nakedCommandCheck>[4]
+let octokit: Parameters<typeof nakedCommandCheck>[3]
+let triggers: Parameters<typeof nakedCommandCheck>[2]
+let param_separator: Parameters<typeof nakedCommandCheck>[1]
 
 beforeEach(() => {
   vi.clearAllMocks()
 
-  process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
+  vi.stubEnv('INPUT_GLOBAL_LOCK_FLAG', '--global')
 
   triggers = ['.deploy', '.noop', '.lock', '.unlock', '.wcid']
   param_separator = '|'
 
-  context = {
-    repo: {
-      owner: 'corp',
-      repo: 'test'
-    },
-    issue: {
-      number: 1
-    },
-    payload: {
-      comment: {
-        id: '1'
-      }
-    }
-  } as unknown as typeof context
+  context = createIssueCommentContext({
+    repo: {owner: 'corp', repo: 'test'},
+    issue: {number: 1},
+    payload: {comment: {id: 1}}
+  })
 
   octokit = {
     rest: {
       reactions: {
-        createForIssueComment: vi.fn().mockReturnValueOnce({
-          data: {}
-        })
+        createForIssueComment:
+          vi.fn<
+            NakedCommandOctokit['rest']['reactions']['createForIssueComment']
+          >()
       },
       issues: {
-        createComment: vi.fn().mockReturnValueOnce({
-          data: {}
-        })
+        createComment:
+          vi.fn<NakedCommandOctokit['rest']['issues']['createComment']>()
       }
     }
-  } as unknown as typeof octokit
+  } satisfies NakedCommandOctokit
 })
 
 test('checks the command and finds that it is naked', async () => {

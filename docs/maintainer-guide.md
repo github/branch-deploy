@@ -24,7 +24,16 @@ Creating a release is a rather straight forward process.
 
 First, you must edit the [`src/version.ts`](../src/version.ts) file to bump the version number.
 
-Second, you simply run the following script to push a new release tag using the version number in `src/version.ts` as a default:
+Second, install the exact locked dependencies, run the complete project check, regenerate the committed GitHub Action bundle, and commit the resulting version and `dist/` changes:
+
+```bash
+npm ci
+npm run all
+```
+
+The project is distributed as the action metadata plus the committed ES module bundle in `dist/`; it is not released as an npm library.
+
+Finally, run the following script to push a new release tag using the version exported by `src/version.ts` as a default:
 
 ```bash
 script/release

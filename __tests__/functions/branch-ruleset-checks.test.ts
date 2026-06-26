@@ -2,37 +2,23 @@ import {branchRulesetChecks} from '../../src/functions/branch-ruleset-checks.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
 import {COLORS} from '../../src/functions/colors.ts'
-import {SUGGESTED_RULESETS} from '../../src/functions/suggested-rulesets.ts'
 import {ERROR} from '../../src/functions/templates/error.ts'
-import {asPartialOctokit} from '../test-helpers.ts'
+import type {BranchRule} from '../../src/types.ts'
+import {createContext} from '../test-helpers.ts'
 
 const debugMock = vi.spyOn(core, 'debug')
 const infoMock = vi.spyOn(core, 'info')
 const warningMock = vi.spyOn(core, 'warning')
 
-interface TestRuleset {
-  parameters?:
-    | {
-        allowed_merge_methods?: string[]
-        dismiss_stale_reviews_on_push?: boolean
-        do_not_enforce_on_create?: boolean
-        require_code_owner_review?: boolean
-        require_last_push_approval?: boolean
-        required_approving_review_count?: number
-        required_deployment_environments?: string[]
-        required_review_thread_resolution?: boolean
-        required_reviewers?: unknown[]
-        required_status_checks?: unknown[]
-        strict_required_status_checks_policy?: boolean
-      }
-    | undefined
-  type: string
-}
-
-var context: Parameters<typeof branchRulesetChecks>[0]
-var octokit: Parameters<typeof branchRulesetChecks>[1]
-var data: Parameters<typeof branchRulesetChecks>[2]
-var rulesets: TestRuleset[]
+let context: Parameters<typeof branchRulesetChecks>[0]
+let octokit: Parameters<typeof branchRulesetChecks>[1]
+let data: Parameters<typeof branchRulesetChecks>[2]
+let rulesets: BranchRule[]
+const getBranchRulesMock =
+  vi.fn<
+    Parameters<typeof branchRulesetChecks>[1]['rest']['repos']['getBranchRules']
+  >()
+type PullRequestRule = Extract<BranchRule, {type: 'pull_request'}>
 
 class ForbiddenError extends Error {
   declare status: number
@@ -43,32 +29,28 @@ class ForbiddenError extends Error {
   }
 }
 
-beforeEach(() => {
-  vi.clearAllMocks()
+function pullRequestRule(
+  overrides: Partial<PullRequestRule['parameters']> = {}
+): PullRequestRule {
+  return {
+    type: 'pull_request',
+    parameters: {
+      required_approving_review_count: 1,
+      dismiss_stale_reviews_on_push: true,
+      require_code_owner_review: true,
+      require_last_push_approval: false,
+      required_review_thread_resolution: false,
+      allowed_merge_methods: ['merge', 'squash', 'rebase'],
+      ...overrides
+    }
+  }
+}
 
-  data = {
-    branch: 'main'
-  } as unknown as typeof data
-
-  rulesets = [
-    {
-      type: 'deletion'
-    },
-    {
-      type: 'non_fast_forward'
-    },
-    {
-      type: 'pull_request',
-      parameters: {
-        required_approving_review_count: 1,
-        dismiss_stale_reviews_on_push: true,
-        required_reviewers: [],
-        require_code_owner_review: true,
-        require_last_push_approval: false,
-        required_review_thread_resolution: false,
-        allowed_merge_methods: ['merge', 'squash', 'rebase']
-      }
-    },
+function validRulesets(): BranchRule[] {
+  return [
+    {type: 'deletion'},
+    {type: 'non_fast_forward'},
+    pullRequestRule(),
     {
       type: 'required_status_checks',
       parameters: {
@@ -79,13 +61,21 @@ beforeEach(() => {
     },
     {
       type: 'required_deployments',
-      parameters: {
-        required_deployment_environments: []
-      }
+      parameters: {required_deployment_environments: []}
     }
   ]
+}
 
-  context = {
+beforeEach(() => {
+  vi.clearAllMocks()
+
+  data = {
+    branch: 'main'
+  }
+
+  rulesets = validRulesets()
+
+  context = createContext({
     repo: {
       owner: 'corp',
       repo: 'test'
@@ -93,25 +83,20 @@ beforeEach(() => {
     issue: {
       number: 1
     }
-  } as unknown as typeof context
+  })
 
-  octokit = asPartialOctokit({
+  getBranchRulesMock.mockResolvedValue({data: rulesets})
+  octokit = {
     rest: {
       repos: {
-        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
+        getBranchRules: getBranchRulesMock
       }
     }
-  }) as unknown as typeof octokit
+  }
 })
 
 test('finds that no branch protections or rulesets are defined', async () => {
-  octokit = asPartialOctokit({
-    rest: {
-      repos: {
-        getBranchRules: vi.fn().mockReturnValueOnce({data: []})
-      }
-    }
-  })
+  getBranchRulesMock.mockResolvedValue({data: []})
   expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: false,
     failed_checks: ['missing_branch_rulesets']
@@ -122,7 +107,7 @@ test('finds that no branch protections or rulesets are defined', async () => {
 })
 
 test('exits early if the user has disabled security warnings', async () => {
-  data.use_security_warnings = false
+  data = {...data, use_security_warnings: false}
   expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: true
   })
@@ -135,13 +120,7 @@ test('exits early if the user has disabled security warnings', async () => {
 test('finds that the branch ruleset is missing the deletion rule', async () => {
   rulesets = rulesets.filter(rule => rule.type !== 'deletion')
 
-  octokit = asPartialOctokit({
-    rest: {
-      repos: {
-        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
-      }
-    }
-  })
+  getBranchRulesMock.mockResolvedValue({data: rulesets})
 
   expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: false,
@@ -153,26 +132,14 @@ test('finds that the branch ruleset is missing the deletion rule', async () => {
 })
 
 test('finds that the branch ruleset is missing the dismiss_stale_reviews_on_push parameter on the pull_request rule', async () => {
-  rulesets = rulesets.map(rule => {
+  rulesets = rulesets.map((rule): BranchRule => {
     if (rule.type === 'pull_request') {
-      return {
-        type: 'pull_request',
-        parameters: {
-          ...rule.parameters,
-          dismiss_stale_reviews_on_push: false
-        }
-      }
+      return pullRequestRule({dismiss_stale_reviews_on_push: false})
     }
     return rule
   })
 
-  octokit = asPartialOctokit({
-    rest: {
-      repos: {
-        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
-      }
-    }
-  })
+  getBranchRulesMock.mockResolvedValue({data: rulesets})
 
   expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: false,
@@ -184,20 +151,8 @@ test('finds that the branch ruleset is missing the dismiss_stale_reviews_on_push
 })
 
 test('finds that all suggested branch rulesets are defined', async () => {
-  rulesets = SUGGESTED_RULESETS.map(suggested_rule => {
-    return {
-      type: suggested_rule.type,
-      parameters: (suggested_rule as TestRuleset).parameters
-    }
-  })
-
-  octokit = asPartialOctokit({
-    rest: {
-      repos: {
-        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
-      }
-    }
-  })
+  rulesets = validRulesets()
+  getBranchRulesMock.mockResolvedValue({data: rulesets})
 
   expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: true,
@@ -210,33 +165,16 @@ test('finds that all suggested branch rulesets are defined', async () => {
 })
 
 test('finds that all suggested branch rulesets are defined but required reviews is set to 0', async () => {
-  rulesets = SUGGESTED_RULESETS.map(suggested_rule => {
-    return {
-      type: suggested_rule.type,
-      parameters: (suggested_rule as TestRuleset).parameters
-    }
-  })
+  rulesets = validRulesets()
 
-  rulesets = rulesets.map(rule => {
+  rulesets = rulesets.map((rule): BranchRule => {
     if (rule.type === 'pull_request') {
-      return {
-        type: 'pull_request',
-        parameters: {
-          ...rule.parameters,
-          required_approving_review_count: 0
-        }
-      }
+      return pullRequestRule({required_approving_review_count: 0})
     }
     return rule
   })
 
-  octokit = asPartialOctokit({
-    rest: {
-      repos: {
-        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
-      }
-    }
-  })
+  getBranchRulesMock.mockResolvedValue({data: rulesets})
 
   expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: false,
@@ -248,33 +186,16 @@ test('finds that all suggested branch rulesets are defined but required reviews 
 })
 
 test('should still pass even with many required reviewers', async () => {
-  rulesets = SUGGESTED_RULESETS.map(suggested_rule => {
-    return {
-      type: suggested_rule.type,
-      parameters: (suggested_rule as TestRuleset).parameters
-    }
-  })
+  rulesets = validRulesets()
 
-  rulesets = rulesets.map(rule => {
+  rulesets = rulesets.map((rule): BranchRule => {
     if (rule.type === 'pull_request') {
-      return {
-        type: 'pull_request',
-        parameters: {
-          ...rule.parameters,
-          required_approving_review_count: 4
-        }
-      }
+      return pullRequestRule({required_approving_review_count: 4})
     }
     return rule
   })
 
-  octokit = asPartialOctokit({
-    rest: {
-      repos: {
-        getBranchRules: vi.fn().mockReturnValueOnce({data: rulesets})
-      }
-    }
-  })
+  getBranchRulesMock.mockResolvedValue({data: rulesets})
 
   expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: true,
@@ -287,17 +208,9 @@ test('should still pass even with many required reviewers', async () => {
 })
 
 test('fails due to a 403 from the GitHub API due to a repository being private on the free tier without access to repo rulesets', async () => {
-  octokit = asPartialOctokit({
-    rest: {
-      repos: {
-        getBranchRules: vi
-          .fn()
-          .mockRejectedValueOnce(
-            new ForbiddenError(ERROR.messages.upgrade_or_public.message)
-          )
-      }
-    }
-  })
+  getBranchRulesMock.mockRejectedValueOnce(
+    new ForbiddenError(ERROR.messages.upgrade_or_public.message)
+  )
   expect(await branchRulesetChecks(context, octokit, data)).toStrictEqual({
     success: false,
     failed_checks: ['upgrade_or_public_required']
@@ -309,15 +222,7 @@ test('fails due to a 403 from the GitHub API due to a repository being private o
 
 test('fails due to an unknown 403 from the GitHub API', async () => {
   const errorMessage = 'oh no, something went wrong - forbidden'
-  octokit = asPartialOctokit({
-    rest: {
-      repos: {
-        getBranchRules: vi
-          .fn()
-          .mockRejectedValueOnce(new ForbiddenError(errorMessage))
-      }
-    }
-  })
+  getBranchRulesMock.mockRejectedValueOnce(new ForbiddenError(errorMessage))
 
   await expect(branchRulesetChecks(context, octokit, data)).rejects.toThrow(
     errorMessage

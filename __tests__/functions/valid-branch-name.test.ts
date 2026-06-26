@@ -10,7 +10,7 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-test('does not make any modifications to a valid branch name', async () => {
+test('does not make any modifications to a valid branch name', () => {
   expect(constructValidBranchName(branchName)).toBe(branchName)
   expect(debugMock).toHaveBeenCalledWith(
     `constructing valid branch name: ${branchName}`
@@ -20,7 +20,7 @@ test('does not make any modifications to a valid branch name', async () => {
   )
 })
 
-test('replaces spaces with hyphens', async () => {
+test('replaces spaces with hyphens', () => {
   expect(constructValidBranchName(`super ${branchName}`)).toBe(
     `super-${branchName}`
   )
@@ -32,7 +32,7 @@ test('replaces spaces with hyphens', async () => {
   )
 })
 
-test('replaces multiple spaces with hyphens', async () => {
+test('replaces multiple spaces with hyphens', () => {
   expect(constructValidBranchName(`super duper ${branchName}`)).toBe(
     `super-duper-${branchName}`
   )
@@ -44,10 +44,13 @@ test('replaces multiple spaces with hyphens', async () => {
   )
 })
 
-test('returns null if the branch is null', async () => {
+test('returns null if the branch is null', () => {
   expect(constructValidBranchName(null)).toBe(null)
 })
 
-test('returns undefined if the branch is undefined', async () => {
-  expect(constructValidBranchName(undefined)).toBe(undefined)
+test('returns undefined if the branch is undefined', () => {
+  constructValidBranchName(undefined)
+  expect(debugMock).toHaveBeenCalledWith(
+    'constructing valid branch name: undefined'
+  )
 })

@@ -10,7 +10,7 @@ All contributions are welcome and greatly appreciated!
 2. Commit your changes
 3. Test your changes (learn how to test below)
 4. Open a pull request back to this repository
-    > Make sure to run `npm run all` as your final commit!
+   > Make sure to run `npm run all` and commit the regenerated `dist/` artifacts as your final commit!
 5. Notify the maintainers of this repository for peer review and approval
 6. Merge!
 
@@ -32,7 +32,15 @@ Simply run the following command to execute the entire test suite:
 npm run test
 ```
 
-> Note: this requires that you have already run `npm install`
+Run the complete non-mutating formatting, typecheck, lint, and test suite with:
+
+```bash
+npm run check
+```
+
+> Note: these commands require that you have already run `npm ci`
+
+`npm run test` does not update the tracked coverage badge. Maintainers can refresh it explicitly with `npm run test:update-badge` when needed.
 
 ### Testing directly with IssueOps
 
@@ -53,6 +61,6 @@ Q: Why do I have to commit my changes to `main`?
 
 A: The `on: issue_comment` workflow only uses workflow files from the `main` branch by design - [learn more](https://github.com/github/branch-deploy#security-)
 
-Q: How can I test my changes once my PR is merged and *before* a new release is created?
+Q: How can I test my changes once my PR is merged and _before_ a new release is created?
 
 A: You should create a repo like [this one](https://github.com/GrantBirki/actions-sandbox) that uses `github/branch-deploy@main` as the Action version and test your changes there

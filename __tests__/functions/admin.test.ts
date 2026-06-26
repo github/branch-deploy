@@ -1,14 +1,27 @@
-import {isAdmin} from '../../src/functions/admin.ts'
+import {defaultAdminOctokitFactory, isAdmin} from '../../src/functions/admin.ts'
+import type {
+  AdminOctokit,
+  AdminOctokitFactory
+} from '../../src/functions/admin.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
 import {COLORS} from '../../src/functions/colors.ts'
-import * as github from '@actions/github'
 import * as core from '@actions/core'
-import {asPartialContext, asPartialOctokit} from '../test-helpers.ts'
-
-vi.mock('@actions/github', {spy: true})
+import {createContext} from '../test-helpers.ts'
 
 const debugMock = vi.spyOn(core, 'debug')
 const warningMock = vi.spyOn(core, 'warning')
+const requestMock = vi.fn<AdminOctokit['request']>()
+const getOrganizationMock = vi.fn<AdminOctokit['rest']['orgs']['get']>()
+const getTeamMock = vi.fn<AdminOctokit['rest']['teams']['getByName']>()
+const createClientMock = vi.fn<AdminOctokitFactory>()
+
+const adminClient: AdminOctokit = {
+  request: requestMock,
+  rest: {
+    orgs: {get: getOrganizationMock},
+    teams: {getByName: getTeamMock}
+  }
+}
 
 class NotFoundError extends Error {
   declare status: number
@@ -28,39 +41,28 @@ class WildError extends Error {
   }
 }
 
-var context: Parameters<typeof isAdmin>[0]
-var octokit: ReturnType<typeof github.getOctokit>
+let context: Parameters<typeof isAdmin>[0]
+
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INPUT_ADMINS_PAT = 'faketoken'
-  process.env.INPUT_ADMINS =
+  vi.stubEnv('INPUT_ADMINS_PAT', 'faketoken')
+  vi.stubEnv(
+    'INPUT_ADMINS',
     'MoNaLiSa,@lisamona,octoawesome/octo-awEsome-team,bad$user'
+  )
 
-  context = {
-    actor: 'monalisa'
-  } as unknown as typeof context
+  context = createContext({actor: 'monalisa'})
+  requestMock.mockResolvedValue({status: 204})
+  getOrganizationMock.mockResolvedValue({data: {id: 12345}})
+  getTeamMock.mockResolvedValue({data: {id: 567890}})
+  createClientMock.mockReturnValue(adminClient)
+})
 
-  octokit = {
-    request: vi.fn().mockReturnValueOnce({
-      status: 204
-    }),
-    rest: {
-      orgs: {
-        get: vi.fn().mockReturnValueOnce({
-          data: {id: '12345'}
-        })
-      },
-      teams: {
-        getByName: vi.fn().mockReturnValueOnce({
-          data: {id: '567890'}
-        })
-      }
-    }
-  } as unknown as typeof octokit
-
-  vi.spyOn(github, 'getOctokit').mockImplementation(() => {
-    return octokit
-  })
+test('creates the default narrow admin client without making a request', () => {
+  const client = defaultAdminOctokitFactory('faketoken')
+  expect(typeof client.request).toBe('function')
+  expect(typeof client.rest.orgs.get).toBe('function')
+  expect(typeof client.rest.teams.getByName).toBe('function')
 })
 
 test('runs isAdmin checks and finds a valid admin via handle reference', async () => {
@@ -71,10 +73,8 @@ test('runs isAdmin checks and finds a valid admin via handle reference', async (
 })
 
 test('runs isAdmin checks and finds a valid handle that is a GitHub EMU', async () => {
-  process.env.INPUT_ADMINS = 'username_company'
-  const contextNoAdmin = asPartialContext({
-    actor: 'username_company'
-  })
+  vi.stubEnv('INPUT_ADMINS', 'username_company')
+  const contextNoAdmin = createContext({actor: 'username_company'})
   expect(await isAdmin(contextNoAdmin)).toStrictEqual(true)
   expect(debugMock).toHaveBeenCalledWith(
     'username_company is an admin via handle reference'
@@ -82,10 +82,8 @@ test('runs isAdmin checks and finds a valid handle that is a GitHub EMU', async 
 })
 
 test('runs isAdmin checks and does not find a valid admin due to a bad GitHub handle', async () => {
-  process.env.INPUT_ADMINS = 'mona%lisa-'
-  const contextNoAdmin = asPartialContext({
-    actor: 'mona%lisa-'
-  })
+  vi.stubEnv('INPUT_ADMINS', 'mona%lisa-')
+  const contextNoAdmin = createContext({actor: 'mona%lisa-'})
   expect(await isAdmin(contextNoAdmin)).toStrictEqual(false)
   expect(debugMock).toHaveBeenCalledWith(
     'mona%lisa- is not a valid GitHub username... skipping admin check'
@@ -93,26 +91,24 @@ test('runs isAdmin checks and does not find a valid admin due to a bad GitHub ha
 })
 
 test('runs isAdmin checks and does not find a valid admin', async () => {
-  process.env.INPUT_ADMINS = 'monalisa'
-  const contextNoAdmin = asPartialContext({
-    actor: 'eviluser'
-  })
+  vi.stubEnv('INPUT_ADMINS', 'monalisa')
+  const contextNoAdmin = createContext({actor: 'eviluser'})
   expect(await isAdmin(contextNoAdmin)).toStrictEqual(false)
   expect(debugMock).toHaveBeenCalledWith('eviluser is not an admin')
 })
 
 test('runs isAdmin checks for an org team and fails due to no admins_pat', async () => {
-  process.env.INPUT_ADMINS_PAT = 'false'
-  process.env.INPUT_ADMINS = 'octoawesome/octo-awesome'
-  expect(await isAdmin(context)).toStrictEqual(false)
+  vi.stubEnv('INPUT_ADMINS_PAT', 'false')
+  vi.stubEnv('INPUT_ADMINS', 'octoawesome/octo-awesome')
+  expect(await isAdmin(context, createClientMock)).toStrictEqual(false)
   expect(warningMock).toHaveBeenCalledWith(
     `🚨 no ${COLORS.highlight}admins_pat${COLORS.reset} provided, skipping admin check for org team membership`
   )
 })
 
 test('runs isAdmin checks for an org team and finds a valid user', async () => {
-  process.env.INPUT_ADMINS = 'octoawesome/octo-awesome-team'
-  expect(await isAdmin(context)).toStrictEqual(true)
+  vi.stubEnv('INPUT_ADMINS', 'octoawesome/octo-awesome-team')
+  expect(await isAdmin(context, createClientMock)).toStrictEqual(true)
   expect(debugMock).toHaveBeenCalledWith(
     'monalisa is in octoawesome/octo-awesome-team'
   )
@@ -121,105 +117,43 @@ test('runs isAdmin checks for an org team and finds a valid user', async () => {
   )
 })
 
-// This only handles the global failure case of any 404 in the admin.js file
 test('runs isAdmin checks for an org team and does not find the org', async () => {
-  vi.spyOn(github, 'getOctokit').mockImplementation(() => {
-    return asPartialOctokit({
-      rest: {
-        orgs: {
-          get: vi
-            .fn()
-            .mockRejectedValueOnce(
-              new NotFoundError('Reference does not exist')
-            )
-        }
-      }
-    })
-  })
-  process.env.INPUT_ADMINS = 'octoawesome/octo-awesome-team'
-  expect(await isAdmin(context)).toStrictEqual(false)
+  getOrganizationMock.mockRejectedValueOnce(
+    new NotFoundError('Reference does not exist')
+  )
+  vi.stubEnv('INPUT_ADMINS', 'octoawesome/octo-awesome-team')
+  expect(await isAdmin(context, createClientMock)).toStrictEqual(false)
   expect(debugMock).toHaveBeenCalledWith(
     'monalisa is not a member of the octoawesome/octo-awesome-team team'
   )
 })
 
-// This only handles the global failure case of any 404 in the admin.js file
 test('runs isAdmin checks for an org team and does not find the team', async () => {
-  vi.spyOn(github, 'getOctokit').mockImplementation(() => {
-    return asPartialOctokit({
-      rest: {
-        orgs: {
-          get: vi.fn().mockReturnValueOnce({
-            data: {id: '12345'}
-          })
-        },
-        teams: {
-          getByName: vi
-            .fn()
-            .mockRejectedValueOnce(
-              new NotFoundError('Reference does not exist')
-            )
-        }
-      }
-    })
-  })
-  process.env.INPUT_ADMINS = 'octoawesome/octo-awesome-team'
-  expect(await isAdmin(context)).toStrictEqual(false)
+  getTeamMock.mockRejectedValueOnce(
+    new NotFoundError('Reference does not exist')
+  )
+  vi.stubEnv('INPUT_ADMINS', 'octoawesome/octo-awesome-team')
+  expect(await isAdmin(context, createClientMock)).toStrictEqual(false)
   expect(debugMock).toHaveBeenCalledWith(
     'monalisa is not a member of the octoawesome/octo-awesome-team team'
   )
 })
 
-// This test correctly tests if a user is a member of a team or not. If they are in a team a 204 is returned. If they are not a 404 is returned like in this test example
 test('runs isAdmin checks for an org team and does not find the user in the team', async () => {
-  vi.spyOn(github, 'getOctokit').mockImplementation(() => {
-    return asPartialOctokit({
-      request: vi
-        .fn()
-        .mockRejectedValueOnce(new NotFoundError('Reference does not exist')),
-      rest: {
-        orgs: {
-          get: vi.fn().mockReturnValueOnce({
-            data: {id: '12345'}
-          })
-        },
-        teams: {
-          getByName: vi.fn().mockReturnValueOnce({
-            data: {id: '567890'}
-          })
-        }
-      }
-    })
-  })
-  process.env.INPUT_ADMINS = 'octoawesome/octo-awesome-team'
-  expect(await isAdmin(context)).toStrictEqual(false)
+  requestMock.mockRejectedValueOnce(
+    new NotFoundError('Reference does not exist')
+  )
+  vi.stubEnv('INPUT_ADMINS', 'octoawesome/octo-awesome-team')
+  expect(await isAdmin(context, createClientMock)).toStrictEqual(false)
   expect(debugMock).toHaveBeenCalledWith(
     'monalisa is not a member of the octoawesome/octo-awesome-team team'
   )
 })
 
 test('runs isAdmin checks for an org team and an unexpected status code is received from the request method with octokit', async () => {
-  vi.spyOn(github, 'getOctokit').mockImplementation(() => {
-    return asPartialOctokit({
-      request: vi.fn().mockReturnValueOnce({
-        status: 500
-      }),
-      rest: {
-        orgs: {
-          get: vi.fn().mockReturnValueOnce({
-            data: {id: '12345'}
-          })
-        },
-        teams: {
-          getByName: vi.fn().mockReturnValueOnce({
-            data: {id: '567890'}
-          })
-        }
-      }
-    })
-  })
-  process.env.INPUT_ADMINS = 'octoawesome/octo-awesome-team'
-  expect(await isAdmin(context)).toStrictEqual(false)
+  requestMock.mockResolvedValueOnce({status: 500})
+  vi.stubEnv('INPUT_ADMINS', 'octoawesome/octo-awesome-team')
+  expect(await isAdmin(context, createClientMock)).toStrictEqual(false)
   expect(debugMock).toHaveBeenCalledWith('monalisa is not an admin')
   expect(warningMock).toHaveBeenCalledWith(
     'non 204 response from org team check: 500'
@@ -227,27 +161,9 @@ test('runs isAdmin checks for an org team and an unexpected status code is recei
 })
 
 test('runs isAdmin checks for an org team and an unexpected error is thrown from any API call', async () => {
-  vi.spyOn(github, 'getOctokit').mockImplementation(() => {
-    return asPartialOctokit({
-      request: vi
-        .fn()
-        .mockRejectedValueOnce(new WildError('something went boom')),
-      rest: {
-        orgs: {
-          get: vi.fn().mockReturnValueOnce({
-            data: {id: '12345'}
-          })
-        },
-        teams: {
-          getByName: vi.fn().mockReturnValueOnce({
-            data: {id: '567890'}
-          })
-        }
-      }
-    })
-  })
-  process.env.INPUT_ADMINS = 'octoawesome/octo-awesome-team'
-  expect(await isAdmin(context)).toStrictEqual(false)
+  requestMock.mockRejectedValueOnce(new WildError('something went boom'))
+  vi.stubEnv('INPUT_ADMINS', 'octoawesome/octo-awesome-team')
+  expect(await isAdmin(context, createClientMock)).toStrictEqual(false)
   expect(debugMock).toHaveBeenCalledWith('monalisa is not an admin')
   expect(warningMock).toHaveBeenCalledWith(
     'error checking org team membership: Error: something went boom'
