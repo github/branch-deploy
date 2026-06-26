@@ -112,6 +112,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
       # Do some fake "noop" deployment logic here
       # conditionally run a noop deployment
@@ -206,6 +207,8 @@ jobs:
     steps:
       # Checkout your projects repository
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 ```
 
 Sets up your `demo` job, uses an ubuntu runner, and checks out your repo - Just some standard setup for a general Action. We also add an `if:` statement here to only run this workflow on pull request comments to make it a little cleaner
