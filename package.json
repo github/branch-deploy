@@ -47,6 +47,8 @@
     "vitest": "^4.0.16"
   },
   "overrides": {
+    "flatted": "3.4.2",
+    "undici": "6.27.0",
     "vite": "8.0.16"
   }
 }
