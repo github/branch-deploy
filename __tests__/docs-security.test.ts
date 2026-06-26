@@ -16,17 +16,21 @@ function checkoutSteps(path: string) {
   for (const [index, line] of lines.entries()) {
     if (!line.includes('uses: actions/checkout@')) continue
 
-    const indentation = line.match(/^\s*/)![0]!.length
+    const indentation = /^\s*/.exec(line)?.[0].length ?? 0
     const stepIndentation = line.trimStart().startsWith('- uses:')
       ? indentation
       : Math.max(0, indentation - 2)
     let end = index + 1
 
     while (end < lines.length) {
-      const nextLine = lines[end]!
-      const nextStep = nextLine.match(/^(\s*)-\s/)
+      const nextLine = lines[end]
+      if (nextLine === undefined) break
+      const nextStep = /^(\s*)-\s/.exec(nextLine)
       if (nextLine.trim() === '```') break
-      if (nextStep && nextStep[1]!.length <= stepIndentation) break
+      if (
+        (nextStep?.[1]?.length ?? Number.POSITIVE_INFINITY) <= stepIndentation
+      )
+        break
       end += 1
     }
 

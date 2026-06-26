@@ -1,272 +1,342 @@
 import type {getOctokit} from '@actions/github'
+import type {RestEndpointMethodTypes} from '@octokit/rest'
 
 export type BranchDeployOctokit = ReturnType<typeof getOctokit>
 
-export interface ApiError {
-  message: string
-  stack: string
-  status?: number
+export interface LegacyApiError {
+  readonly message: string
+  readonly stack: string
+  readonly status?: number
 }
 
+/** @deprecated Use the named conversion in trust-boundaries.ts. */
+export type ApiError = LegacyApiError
+
 export interface RepositoryCoordinates {
-  owner: string
-  repo: string
+  readonly owner: string
+  readonly repo: string
 }
 
 export interface IssueCommentPayload {
-  body: string
-  created_at: string
-  html_url: string
-  id: number
-  updated_at: string
-  user: {
-    login: string
+  readonly body: string
+  readonly created_at: string
+  readonly html_url: string
+  readonly id: number
+  readonly updated_at: string
+  readonly user: {
+    readonly login: string
   }
 }
 
 export interface IssuePayload {
-  number: number
-  pull_request?: unknown
+  readonly number: number
+  readonly pull_request?: unknown
 }
 
 export interface PullRequestPayload {
-  merged?: boolean
-  number: number
+  readonly merged?: boolean
+  readonly number: number
 }
 
 export interface BranchDeployContext {
-  actor: string
-  eventName: string
-  issue: {
-    number: number
+  readonly actor: string
+  readonly eventName: string
+  readonly issue: {
+    readonly number: number
   }
-  payload: {
-    action?: string
-    comment?: unknown
-    issue?: unknown
-    pull_request?: unknown
-    [key: string]: unknown
+  readonly payload: {
+    readonly action?: string
+    readonly comment?: unknown
+    readonly issue?: unknown
+    readonly pull_request?: unknown
+    readonly [key: string]: unknown
   }
-  repo: RepositoryCoordinates
-  runId: number
+  readonly repo: RepositoryCoordinates
+  readonly runId: number
 }
 
 export interface IssueCommentContext extends BranchDeployContext {
-  payload: BranchDeployContext['payload'] & {
-    comment: IssueCommentPayload
-    issue: IssuePayload
+  readonly payload: BranchDeployContext['payload'] & {
+    readonly comment: IssueCommentPayload
+    readonly issue: IssuePayload
   }
 }
 
 export interface PullRequestContext extends BranchDeployContext {
-  payload: BranchDeployContext['payload'] & {
-    action?: string
-    pull_request: PullRequestPayload
+  readonly payload: BranchDeployContext['payload'] & {
+    readonly action?: string
+    readonly pull_request: PullRequestPayload
   }
 }
 
+export type UpdateBranchMode = 'disabled' | 'force' | 'warn'
+export type OutdatedMode = 'default_branch' | 'pr_base' | 'strict'
+export type ChecksInput = 'all' | 'required' | readonly string[]
+
 export interface ActionInputs {
-  admins: string
-  allowForks: boolean
-  allow_non_default_target_branch_deployments: boolean
-  allow_sha_deployments: boolean
-  checks: 'all' | 'required' | string[]
-  commit_verification: boolean
-  deployment_confirmation: boolean
-  deployment_confirmation_timeout: number
-  disable_naked_commands: boolean
-  draft_permitted_targets: string
-  enforced_deployment_order: string[]
-  environment: string
-  environment_targets: string
-  environment_urls: string
-  global_lock_flag: string
-  help_trigger: string
-  ignored_checks: string[]
-  lock_info_alias: string
-  lock_trigger: string
-  mergeDeployMode: boolean
-  noop_trigger: string
-  outdated_mode: 'pr_base' | 'default_branch' | 'strict'
-  param_separator: string
-  permissions: string[]
-  production_environments: string[]
-  reaction: string
-  required_contexts: string
-  skipCi: string
-  skipReviews: string
-  stable_branch: string
-  sticky_locks: boolean
-  sticky_locks_for_noop: boolean
-  trigger: string
-  unlockOnMergeMode: boolean
-  unlock_trigger: string
-  update_branch: 'disabled' | 'force' | 'warn'
-  use_security_warnings: boolean
+  readonly admins: string
+  readonly allowForks: boolean
+  readonly allow_non_default_target_branch_deployments: boolean
+  readonly allow_sha_deployments: boolean
+  readonly checks: ChecksInput
+  readonly commit_verification: boolean
+  readonly deployment_confirmation: boolean
+  readonly deployment_confirmation_timeout: number
+  readonly disable_naked_commands: boolean
+  readonly draft_permitted_targets: string
+  readonly enforced_deployment_order: readonly string[]
+  readonly environment: string
+  readonly environment_targets: string
+  readonly environment_urls: string
+  readonly global_lock_flag: string
+  readonly help_trigger: string
+  readonly ignored_checks: readonly string[]
+  readonly lock_info_alias: string
+  readonly lock_trigger: string
+  readonly mergeDeployMode: boolean
+  readonly noop_trigger: string
+  readonly outdated_mode: OutdatedMode
+  readonly param_separator: string
+  readonly permissions: readonly string[]
+  readonly production_environments: readonly string[]
+  readonly reaction: string
+  readonly required_contexts: string
+  readonly skipCi: string
+  readonly skipReviews: string
+  readonly stable_branch: string
+  readonly sticky_locks: boolean
+  readonly sticky_locks_for_noop: boolean
+  readonly trigger: string
+  readonly unlockOnMergeMode: boolean
+  readonly unlock_trigger: string
+  readonly update_branch: UpdateBranchMode
+  readonly use_security_warnings: boolean
 }
 
 export interface ParsedParams extends Record<string, unknown> {
-  _: Array<number | string>
+  readonly _: (number | string)[]
 }
 
-export interface EnvironmentTarget {
-  noop: boolean | null
-  params: string | null
-  parsed_params: ParsedParams | null
-  sha: string | null
-  stable_branch_used: boolean | null
-  target: false | string
+export interface ValidEnvironmentTarget {
+  readonly noop: boolean
+  readonly params: string | null
+  readonly parsed_params: ParsedParams | null
+  readonly sha: string | null
+  readonly stable_branch_used: boolean
+  readonly target: string
 }
 
-export interface DeploymentEnvironmentResult {
-  environment: false | string
-  environmentObj: EnvironmentTarget
-  environmentUrl: string | null
+export interface InvalidEnvironmentTarget {
+  readonly noop: null
+  readonly params: null
+  readonly parsed_params: null
+  readonly sha: null
+  readonly stable_branch_used: null
+  readonly target: false
 }
 
-export interface LockEnvironmentResult {
-  environment: false | string
-  environmentUrl: null
+export type EnvironmentTarget =
+  | InvalidEnvironmentTarget
+  | ValidEnvironmentTarget
+
+export interface ValidDeploymentEnvironmentResult {
+  readonly environment: string
+  readonly environmentObj: ValidEnvironmentTarget
+  readonly environmentUrl: string | null
 }
+
+export interface InvalidDeploymentEnvironmentResult {
+  readonly environment: false
+  readonly environmentObj: InvalidEnvironmentTarget
+  readonly environmentUrl: null
+}
+
+export type DeploymentEnvironmentResult =
+  | InvalidDeploymentEnvironmentResult
+  | ValidDeploymentEnvironmentResult
+
+export type LockEnvironmentResult =
+  | {readonly environment: false; readonly environmentUrl: null}
+  | {readonly environment: string; readonly environmentUrl: null}
 
 export interface LockData {
-  branch: string | null
-  created_at: string
-  created_by: string
-  environment: string | null
-  global: boolean
-  link: string
-  reason: unknown
-  sticky: boolean | null
-  unlock_command: string
+  readonly branch: string | null
+  readonly created_at: string
+  readonly created_by: string
+  readonly environment: string | null
+  readonly global: boolean
+  readonly link: string
+  readonly reason: unknown
+  readonly sticky: boolean | null
+  readonly unlock_command: string
 }
 
-export type LockStatus = 'details-only' | 'owner' | boolean | null
-
-export interface LockResponse {
-  environment: string | null
-  global: boolean
-  globalFlag: string
-  lockData: LockData | null
-  status: LockStatus
+interface LockResponseBase {
+  readonly environment: string | null
+  readonly global: boolean
+  readonly globalFlag: string
 }
 
-export interface CommitData {
-  author?: {
-    date?: string | null
+export type LockResponse =
+  | (LockResponseBase & {
+      readonly lockData: LockData
+      readonly status: 'details-only' | 'owner'
+    })
+  | (LockResponseBase & {
+      readonly lockData: LockData | null
+      readonly status: false
+    })
+  | (LockResponseBase & {
+      readonly lockData: null
+      readonly status: null | true
+    })
+
+type RestRepositoryCommit =
+  RestEndpointMethodTypes['repos']['getCommit']['response']['data']['commit']
+
+export interface RepositoryCommit {
+  readonly author?: {
+    readonly date?: NonNullable<RestRepositoryCommit['author']>['date'] | null
   } | null
-  verification?: {
-    reason?: string | null
-    verified?: boolean
-    verified_at?: string | null
+  readonly verification?: {
+    readonly reason?: NonNullable<
+      RestRepositoryCommit['verification']
+    >['reason']
+    readonly verified?: NonNullable<
+      RestRepositoryCommit['verification']
+    >['verified']
+    readonly verified_at?: NonNullable<
+      RestRepositoryCommit['verification']
+    >['verified_at']
   } | null
 }
 
 export interface CommitSafetyData {
-  commit: CommitData
-  inputs: ActionInputs
-  sha: string
+  readonly commit: RepositoryCommit | null | undefined
+  readonly inputs: ActionInputs
+  readonly sha: string
 }
 
 export interface CommitSafetyResult {
-  isVerified: boolean
-  message: string
-  status: boolean
+  readonly isVerified: boolean
+  readonly message: string
+  readonly status: boolean
 }
 
 export interface PrecheckData {
-  environment: string
-  environmentObj: EnvironmentTarget
-  inputs: ActionInputs
-  issue_number: number | string
+  readonly environment: string
+  readonly environmentObj: ValidEnvironmentTarget
+  readonly inputs: Omit<ActionInputs, 'ignored_checks'> & {
+    readonly ignored_checks: readonly string[] | null
+  }
+  readonly issue_number: number | string
 }
 
 export interface PrecheckFailure {
-  message: string
-  ref?: undefined
-  sha?: undefined
-  status: false
+  readonly message: string
+  readonly ref?: undefined
+  readonly sha?: undefined
+  readonly status: false
 }
 
 export interface PrecheckSuccess {
-  isFork: boolean
-  message: string
-  noopMode: boolean | null
-  ref: string
-  sha: string
-  status: true
+  readonly isFork: boolean
+  readonly message: string
+  readonly noopMode: boolean
+  readonly ref: string
+  readonly sha: string
+  readonly status: true
 }
 
 export type PrecheckResult = PrecheckFailure | PrecheckSuccess
 
-export interface CheckResult {
-  conclusion?: string | null
-  context?: string
-  isRequired?: boolean
-  name?: string
-  state?: string
+export interface CheckRunResult {
+  readonly conclusion: string | null
+  readonly isRequired: boolean
+  readonly name: string
 }
 
+export interface LegacyIncompleteCheckRunResult {
+  readonly conclusion: string | null
+  readonly isRequired: boolean
+  readonly name?: undefined
+}
+
+export interface StatusContextResult {
+  readonly context: string
+  readonly isRequired: boolean
+  readonly state: string
+}
+
+export type CheckResult = CheckRunResult | StatusContextResult
+export type RawCheckResult = CheckResult | LegacyIncompleteCheckRunResult
+
 export interface PrechecksGraphqlResult {
-  repository: {
-    pullRequest: {
-      commits: {
-        nodes: Array<{
-          commit: {
-            oid: string
-            statusCheckRollup: null | {
-              contexts: {
-                nodes: CheckResult[]
+  readonly repository: {
+    readonly pullRequest: {
+      readonly commits?: {
+        readonly nodes?: readonly {
+          readonly commit: {
+            readonly oid: string
+            readonly statusCheckRollup?: null | {
+              readonly contexts?: {
+                readonly nodes: readonly RawCheckResult[]
               }
-              state: string
+              readonly state: string
             }
           }
-        }>
+        }[]
       }
-      mergeStateStatus: string
-      reviewDecision: string | null
-      reviews: {
-        totalCount: number
+      readonly mergeStateStatus?: string
+      readonly reviewDecision?: string | null
+      readonly reviews?: {
+        readonly totalCount?: number
       }
     }
   }
 }
 
+export type PrechecksGraphqlCommitNode = NonNullable<
+  PrechecksGraphqlResult['repository']['pullRequest']['commits']
+>['nodes'] extends readonly (infer Node)[] | undefined
+  ? Node
+  : never
+
 export interface DeploymentGraphqlNode {
-  commit: {
-    oid: string
+  readonly commit: {
+    readonly oid: string
   }
-  state: string
+  readonly state: string
 }
 
 export interface DeploymentGraphqlResult {
-  repository: {
-    deployments: {
-      nodes: DeploymentGraphqlNode[]
-      pageInfo: {
-        endCursor: string | null
-        hasNextPage: boolean
+  readonly repository: {
+    readonly deployments: {
+      readonly nodes: readonly DeploymentGraphqlNode[]
+      readonly pageInfo: {
+        readonly endCursor: string | null
+        readonly hasNextPage: boolean
       }
     }
   }
 }
 
 export interface CreatedDeploymentSuccess {
-  created_at: string
-  id: number
-  message?: never
-  statuses_url: string
-  updated_at: string
-  url: string
+  readonly created_at: string
+  readonly id: number
+  readonly message?: never
+  readonly statuses_url: string
+  readonly updated_at: string
+  readonly url: string
 }
 
 export interface CreatedDeploymentAcceptedMessage {
-  created_at?: string
-  id?: undefined
-  message: string
-  statuses_url?: string
-  updated_at?: string
-  url?: string
+  readonly created_at?: string
+  readonly id?: undefined
+  readonly message: string
+  readonly statuses_url?: string
+  readonly updated_at?: string
+  readonly url?: string
 }
 
 export type CreatedDeployment =
@@ -274,74 +344,111 @@ export type CreatedDeployment =
   | CreatedDeploymentSuccess
 
 export interface DeploymentConfirmationData {
-  body: string
-  commit_html_url: string
-  committer: string | null | undefined
-  deployment_confirmation_timeout: number
-  deploymentType: string
-  environment: string
-  environmentUrl: string | null
-  github_run_id: number
-  isFork: boolean
-  isVerified: boolean
-  log_url: string
-  noopMode: boolean | null
-  params: string | null
-  parsed_params: ParsedParams | null
-  ref: string
-  sha: string
+  readonly body: string
+  readonly commit_html_url: string
+  readonly committer: string | null | undefined
+  readonly deployment_confirmation_timeout: number
+  readonly deploymentType: string
+  readonly environment: string
+  readonly environmentUrl: string | null
+  readonly github_run_id: number
+  readonly isFork: boolean
+  readonly isVerified: boolean
+  readonly log_url: string
+  readonly noopMode: boolean
+  readonly params: string | null
+  readonly parsed_params: ParsedParams | null
+  readonly ref: string
+  readonly sha: string
 }
 
 export interface PostDeployLabels {
-  failed_deploy: string[]
-  failed_noop: string[]
-  skip_successful_deploy_labels_if_approved: boolean
-  skip_successful_noop_labels_if_approved: boolean
-  successful_deploy: string[]
-  successful_noop: string[]
+  readonly failed_deploy: readonly string[]
+  readonly failed_noop: readonly string[]
+  readonly skip_successful_deploy_labels_if_approved: boolean
+  readonly skip_successful_noop_labels_if_approved: boolean
+  readonly successful_deploy: readonly string[]
+  readonly successful_noop: readonly string[]
 }
 
+export interface RawPostDeployData {
+  readonly approved_reviews_count: string | null | undefined
+  readonly comment_id: string | null | undefined
+  readonly commit_verified: boolean | undefined
+  readonly deployment_id: string | null | undefined
+  readonly deployment_start_time: string | null | undefined
+  readonly environment: string | null | undefined
+  readonly environment_url: string | null
+  readonly fork: boolean
+  readonly labels: PostDeployLabels
+  readonly noop: boolean | null | undefined
+  readonly params: string | null | undefined
+  readonly parsed_params: string | null | undefined
+  readonly reaction_id: string | null | undefined
+  readonly ref: string | null | undefined
+  readonly review_decision: string | null | undefined
+  readonly sha: string | null | undefined
+  readonly status: string | null | undefined
+}
+
+declare const validatedPostDeployData: unique symbol
+
 export interface PostDeployData {
-  approved_reviews_count: string
-  comment_id: string
-  commit_verified: boolean
-  deployment_id: string
-  deployment_start_time: string
-  environment: string
-  environment_url: string | null
-  fork: boolean
-  labels: PostDeployLabels
-  noop: boolean
-  params: string
-  parsed_params: string
-  reaction_id: string
-  ref: string
-  review_decision: string
-  sha: string
-  status: string
+  readonly approved_reviews_count: string
+  readonly comment_id: string
+  readonly commit_verified: boolean
+  readonly deployment_id: string
+  readonly deployment_start_time: string
+  readonly environment: string
+  readonly environment_url: string | null
+  readonly fork: boolean
+  readonly labels: PostDeployLabels
+  readonly noop: boolean
+  readonly params: string
+  readonly parsed_params: string
+  readonly reaction_id: string
+  readonly ref: string
+  readonly review_decision: string
+  readonly sha: string
+  readonly status: string
+  readonly [validatedPostDeployData]: true
 }
 
 export interface PostDeployMessageData {
-  approved_reviews_count: string
-  commit_verified: boolean
-  deployment_end_time: string
-  deployment_id: string
-  environment: string
-  environment_url: string | null
-  fork: boolean
-  noop: boolean
-  params: string
-  parsed_params: string
-  ref: string
-  review_decision: string
-  sha: string
-  status: string
-  total_seconds: number
+  readonly approved_reviews_count: string
+  readonly commit_verified: boolean
+  readonly deployment_end_time: string
+  readonly deployment_id: string
+  readonly environment: string
+  readonly environment_url: string | null
+  readonly fork: boolean
+  readonly noop: boolean
+  readonly params: string
+  readonly parsed_params: string
+  readonly ref: string
+  readonly review_decision: string
+  readonly sha: string
+  readonly status: string
+  readonly total_seconds: number
 }
+
+export type BranchRule =
+  RestEndpointMethodTypes['repos']['getBranchRules']['response']['data'][number]
+
+export type BranchRuleWithParameters = Extract<
+  BranchRule,
+  {parameters: unknown}
+>
 
 export type RuleParameters = Record<string, boolean | number>
 
-export interface BranchRule {
-  parameters: RuleParameters
-  type: string
-}
+export type RunResult =
+  | 'failure'
+  | 'safe-exit'
+  | 'success - merge deploy mode'
+  | 'success - noop'
+  | 'success - unlock on merge mode'
+  | 'success'
+  | undefined
+
+export type PostResult = 'success - noop' | 'success' | undefined

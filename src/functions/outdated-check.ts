@@ -3,19 +3,44 @@ import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
 import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
 
-type BranchResponse = Awaited<
-  ReturnType<BranchDeployOctokit['rest']['repos']['getBranch']>
->
-type PullResponse = Awaited<
-  ReturnType<BranchDeployOctokit['rest']['pulls']['get']>
->
+type BranchMethod = BranchDeployOctokit['rest']['repos']['getBranch']
+type FullBranchResponse = Awaited<ReturnType<BranchMethod>>
+type PullMethod = BranchDeployOctokit['rest']['pulls']['get']
+type FullPullResponse = Awaited<ReturnType<PullMethod>>
+type CompareMethod = BranchDeployOctokit['rest']['repos']['compareCommits']
+type CompareParameters = Parameters<CompareMethod>[0]
+type FullCompareResponse = Awaited<ReturnType<CompareMethod>>
+
+export interface OutdatedBranchResponse {
+  readonly data: {
+    readonly commit: Pick<FullBranchResponse['data']['commit'], 'sha'>
+    readonly name?: FullBranchResponse['data']['name']
+  }
+}
+
+export interface OutdatedPullResponse {
+  readonly data: {
+    readonly head: Pick<FullPullResponse['data']['head'], 'sha'>
+  }
+}
 
 interface OutdatedData {
-  baseBranch: BranchResponse
-  mergeStateStatus: string
+  baseBranch: OutdatedBranchResponse
+  mergeStateStatus: string | undefined
   outdated_mode: 'default_branch' | 'pr_base' | 'strict'
-  pr: PullResponse
-  stableBaseBranch: BranchResponse
+  pr: OutdatedPullResponse
+  stableBaseBranch: OutdatedBranchResponse
+}
+
+export interface OutdatedCheckOctokit {
+  readonly rest: {
+    readonly repos: {
+      readonly compareCommits: (parameters?: CompareParameters) => Promise<{
+        readonly data: Pick<FullCompareResponse['data'], 'behind_by'>
+        readonly status?: number
+      }>
+    }
+  }
 }
 
 // Helper function to check to see if the PR branch is outdated in anyway based on the Action's configuration
@@ -28,9 +53,9 @@ interface OutdatedData {
 // :return: A boolean value indicating if the PR branch is outdated or not
 export async function isOutdated(
   context: BranchDeployContext,
-  octokit: BranchDeployOctokit,
+  octokit: OutdatedCheckOctokit,
   data: OutdatedData
-): Promise<{branch: string; outdated: boolean}> {
+): Promise<{branch: string | undefined; outdated: boolean}> {
   core.debug(`outdated_mode: ${data.outdated_mode}`)
 
   // Helper function to compare two branches
@@ -38,9 +63,12 @@ export async function isOutdated(
   // :param prBranch: The PR branch to compare
   // :return: An object containing a boolean value indicating if the PR branch is behind the base branch or not, and a string containing the name of the branch that is behind
   async function compareBranches(
-    baseBranch: BranchResponse,
-    prBranch: PullResponse
-  ) {
+    baseBranch: OutdatedBranchResponse,
+    prBranch: OutdatedPullResponse
+  ): Promise<{
+    readonly branch: string | undefined
+    readonly outdated: boolean
+  }> {
     // if the mergeStateStatus is BEHIND, then we know the PR is behind the base branch
     // in this case we can skip the commit comparison
     if (data.mergeStateStatus === 'BEHIND') {
@@ -87,15 +115,15 @@ export async function isOutdated(
       )
 
       // Return the first branch that is behind (if any)
-      if (isBehindBaseBranch.outdated === true) {
+      if (isBehindBaseBranch.outdated) {
         return isBehindBaseBranch
-      } else if (isBehindStableBaseBranch.outdated === true) {
+      } else if (isBehindStableBaseBranch.outdated) {
         return isBehindStableBaseBranch
       } else {
         // If neither branch is behind, then the PR is not outdated
         return {
           outdated: false,
-          branch: `${data.baseBranch.data.name}|${data.stableBaseBranch.data.name}`
+          branch: `${String(data.baseBranch.data.name)}|${String(data.stableBaseBranch.data.name)}`
         }
       }
     }

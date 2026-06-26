@@ -7,11 +7,31 @@ import {unlock} from './unlock.ts'
 import {lock} from './lock.ts'
 import {postDeployMessage} from './post-deploy-message.ts'
 import {COLORS} from './colors.ts'
+import {setActionOutput} from '../action-io.ts'
+import {legacyLength} from '../trust-boundaries.ts'
+import type {ActionStatusOctokit} from './action-status.ts'
+import type {DeploymentStatusOctokit} from './deployment.ts'
+import type {LabelOctokit} from './label.ts'
+import type {LockOctokit} from './lock.ts'
+import type {UnlockOctokit} from './unlock.ts'
 import type {
   BranchDeployContext,
-  BranchDeployOctokit,
-  PostDeployData
+  PostDeployData,
+  PostResult,
+  RawPostDeployData
 } from '../types.ts'
+
+export type PostDeployOctokit = ActionStatusOctokit &
+  DeploymentStatusOctokit &
+  LabelOctokit &
+  LockOctokit &
+  UnlockOctokit
+
+export interface PostDeployRequest {
+  readonly context: BranchDeployContext
+  readonly data: RawPostDeployData
+  readonly octokit: PostDeployOctokit
+}
 
 const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`
 const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
@@ -40,19 +60,14 @@ const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock det
 // :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
 export async function postDeploy(
   context: BranchDeployContext,
-  octokit: BranchDeployOctokit,
-  data: PostDeployData
-) {
+  octokit: PostDeployOctokit,
+  data: RawPostDeployData
+): Promise<PostResult> {
   // check the inputs to ensure they are valid
   validateInputs(data)
 
   // check the deployment status
-  var success
-  if (data.status === 'success') {
-    success = true
-  } else {
-    success = false
-  }
+  const success = data.status === 'success'
 
   // this is the timestamp that we consider the deployment to have ended at for logging and auditing purposes
   // it is not the exact time the deployment ended, but it is very close
@@ -68,9 +83,9 @@ export async function postDeploy(
   core.info(
     `🕒 deployment completed in ${COLORS.highlight}${total_seconds}${COLORS.reset} seconds`
   )
-  core.setOutput('total_seconds', total_seconds)
+  setActionOutput('total_seconds', total_seconds)
 
-  const message = await postDeployMessage(context, {
+  const message = postDeployMessage(context, {
     environment: data.environment,
     environment_url: data.environment_url,
     status: data.status,
@@ -89,22 +104,22 @@ export async function postDeploy(
   })
 
   // update the action status to indicate the result of the deployment as a comment
-  await actionStatus(
+  await actionStatus({
     context,
     octokit,
-    parseInt(data.reaction_id),
+    reactionId: parseInt(data.reaction_id),
     message,
-    success
-  )
+    result: success ? 'success' : 'failure'
+  })
 
   // Update the deployment status of the branch-deploy
-  var deploymentStatus: 'failure' | 'success'
-  var labelsToAdd
-  var labelsToRemove
+  let deploymentStatus: 'failure' | 'success'
+  let labelsToAdd: readonly string[]
+  let labelsToRemove: readonly string[]
   if (success) {
     deploymentStatus = 'success'
 
-    if (data.noop === true) {
+    if (data.noop) {
       labelsToAdd = data.labels.successful_noop
       labelsToRemove = data.labels.failed_noop
     } else {
@@ -114,7 +129,7 @@ export async function postDeploy(
   } else {
     deploymentStatus = 'failure'
 
-    if (data.noop === true) {
+    if (data.noop) {
       labelsToAdd = data.labels.failed_noop
       labelsToRemove = data.labels.successful_noop
     } else {
@@ -126,18 +141,19 @@ export async function postDeploy(
   core.debug(`deploymentStatus: ${deploymentStatus}`)
 
   // if the deployment mode is noop, return here
-  if (data.noop === true) {
+  if (data.noop) {
     core.debug('deployment mode: noop')
     // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
-    const lockResponse = await lock(
+    const lockResponse = await lock({
       octokit,
       context,
-      null, // ref
-      null, // reaction_id
-      false, // sticky
-      data.environment, // environment
-      true // detailsOnly set to true
-    )
+      ref: null,
+      reactionId: null,
+      sticky: false,
+      environment: data.environment,
+      mode: {type: 'details', postDeployStep: false},
+      leaveComment: true
+    })
 
     // obtain the lockData from the lock response
     const lockData = lockResponse.lockData
@@ -146,27 +162,27 @@ export async function postDeploy(
     // if the lock is sticky, we will NOT remove it
     if (lockData?.sticky === true) {
       core.info(stickyMsg)
-    } else if (lockData === null || lockData === undefined) {
+    } else if (lockData === null) {
       core.warning(
         '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
       )
     } else {
       core.info(nonStickyMsg)
-      core.debug(`lockData.sticky: ${lockData?.sticky}`)
+      core.debug(`lockData.sticky: ${String(lockData.sticky)}`)
 
       // remove the lock - use silent mode
-      await unlock(
+      await unlock({
         octokit,
         context,
-        null, // reaction_id
-        data.environment, // environment
-        true // silent mode
-      )
+        reactionId: null,
+        target: {type: 'environment', environment: data.environment},
+        mode: 'silent'
+      })
     }
 
     // check to see if the pull request labels should be applied or not
     if (
-      data.labels.skip_successful_noop_labels_if_approved === true &&
+      data.labels.skip_successful_noop_labels_if_approved &&
       data.review_decision === 'APPROVED'
     ) {
       core.info(
@@ -195,17 +211,16 @@ export async function postDeploy(
   )
 
   // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
-  const lockResponse = await lock(
+  const lockResponse = await lock({
     octokit,
     context,
-    null, // ref
-    null, // reaction_id
-    false, // sticky
-    data.environment, // environment
-    true, // detailsOnly set to true
-    true, // postDeployStep set to true - this means we will not exit early if a global lock exists
-    false // leaveComment
-  )
+    ref: null,
+    reactionId: null,
+    sticky: false,
+    environment: data.environment,
+    mode: {type: 'details', postDeployStep: true},
+    leaveComment: false
+  })
 
   // obtain the lockData from the lock response
   const lockData = lockResponse.lockData
@@ -216,21 +231,21 @@ export async function postDeploy(
     core.info(stickyMsg)
   } else {
     core.info(nonStickyMsg)
-    core.debug(`lockData.sticky: ${lockData?.sticky}`)
+    core.debug(`lockData.sticky: ${String(lockData?.sticky)}`)
 
     // remove the lock - use silent mode
-    await unlock(
+    await unlock({
       octokit,
       context,
-      null, // reaction_id
-      data.environment, // environment
-      true // silent mode
-    )
+      reactionId: null,
+      target: {type: 'environment', environment: data.environment},
+      mode: 'silent'
+    })
   }
 
   // check to see if the pull request labels should be applied or not
   if (
-    data.labels.skip_successful_deploy_labels_if_approved === true &&
+    data.labels.skip_successful_deploy_labels_if_approved &&
     data.review_decision === 'APPROVED'
   ) {
     core.info(
@@ -247,17 +262,15 @@ export async function postDeploy(
 }
 
 function validateInput(input: unknown, name: string) {
-  if (
-    input === null ||
-    input === undefined ||
-    (input as {length?: number}).length === 0
-  ) {
+  if (input === null || input === undefined || legacyLength(input) === 0) {
     throw new Error(`no ${name} provided`)
   }
 }
 
-function validateInputs(data: PostDeployData) {
-  const requiredInputs: Array<keyof PostDeployData> = [
+function validateInputs(
+  data: RawPostDeployData
+): asserts data is PostDeployData {
+  const requiredInputs: (keyof RawPostDeployData)[] = [
     'comment_id',
     'status',
     'ref',
@@ -266,16 +279,20 @@ function validateInputs(data: PostDeployData) {
     'sha',
     'commit_verified'
   ]
-  requiredInputs.forEach(input => validateInput(data[input], input))
+  requiredInputs.forEach(input => {
+    validateInput(data[input], input)
+  })
 
   if (data.noop === null || data.noop === undefined) {
     throw new Error('no noop value provided')
   }
 
-  if (data.noop !== true) {
+  if (!data.noop) {
     // if the deployment is not a noop (e.g. a `.deploy`) then we need to validate a few extra inputs
-    const additionalInputs: Array<keyof PostDeployData> = ['deployment_id']
-    additionalInputs.forEach(input => validateInput(data[input], input))
+    const additionalInputs: (keyof RawPostDeployData)[] = ['deployment_id']
+    additionalInputs.forEach(input => {
+      validateInput(data[input], input)
+    })
   }
 }
 
@@ -283,10 +300,8 @@ function validateInputs(data: PostDeployData) {
 // :param start_time: The timestamp of when the deployment started (String)
 // :param end_time: The timestamp of when the deployment ended (String)
 // :returns: The total amount of seconds that the deployment took (Integer) - rounded to the nearest second
-function calculateDeploymentTime(start_time: string, end_time: string) {
+function calculateDeploymentTime(start_time: string, end_time: string): number {
   const start = new Date(start_time)
   const end = new Date(end_time)
-  return Math.round(
-    ((end as unknown as number) - (start as unknown as number)) / 1000
-  )
+  return Math.round((end.getTime() - start.getTime()) / 1000)
 }

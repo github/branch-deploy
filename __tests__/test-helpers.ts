@@ -1,44 +1,135 @@
-import type {Mock, MockInstance} from 'vitest'
-import type {BranchDeployContext, BranchDeployOctokit} from '../src/types.ts'
+import * as github from '@actions/github'
+import type {
+  ActionInputs,
+  BranchDeployContext,
+  BranchDeployOctokit,
+  IssueCommentContext,
+  IssueCommentPayload,
+  IssuePayload
+} from '../src/types.ts'
 
-type FunctionLike = (...args: never[]) => unknown
-type DeepPartial<T> = T extends readonly (infer Item)[]
-  ? DeepPartial<Item>[]
-  : T extends object
-    ? {[Key in keyof T]?: DeepPartial<T[Key]>}
-    : T
+const DEFAULT_INPUTS = {
+  admins: 'false',
+  allowForks: true,
+  allow_non_default_target_branch_deployments: false,
+  allow_sha_deployments: false,
+  checks: 'all',
+  commit_verification: false,
+  deployment_confirmation: false,
+  deployment_confirmation_timeout: 60,
+  disable_naked_commands: false,
+  draft_permitted_targets: '',
+  enforced_deployment_order: [],
+  environment: 'production',
+  environment_targets: 'production,staging,development',
+  environment_urls: '',
+  global_lock_flag: '--global',
+  help_trigger: '.help',
+  ignored_checks: [],
+  lock_info_alias: '.wcid',
+  lock_trigger: '.lock',
+  mergeDeployMode: false,
+  noop_trigger: '.noop',
+  outdated_mode: 'default_branch',
+  param_separator: '|',
+  permissions: ['write', 'admin'],
+  production_environments: ['production'],
+  reaction: 'eyes',
+  required_contexts: 'false',
+  skipCi: '',
+  skipReviews: '',
+  stable_branch: 'main',
+  sticky_locks: false,
+  sticky_locks_for_noop: false,
+  trigger: '.deploy',
+  unlockOnMergeMode: false,
+  unlock_trigger: '.unlock',
+  update_branch: 'warn',
+  use_security_warnings: true
+} satisfies ActionInputs
 
-type ExistingMockReturn<T extends FunctionLike> =
-  ReturnType<T> extends Promise<unknown>
-    ?
-        | ReturnType<T>
-        | DeepPartial<Awaited<ReturnType<T>>>
-        | Promise<DeepPartial<Awaited<ReturnType<T>>>>
-    : ReturnType<T>
+export type DeepMutable<T> = T extends (...args: infer Args) => infer Result
+  ? (...args: Args) => Result
+  : T extends readonly (infer Item)[]
+    ? DeepMutable<Item>[]
+    : T extends object
+      ? {-readonly [Key in keyof T]: DeepMutable<T[Key]>}
+      : T
 
-/**
- * Treat an already-spied function as a Vitest mock while allowing the existing
- * tests to preserve synchronous and intentionally partial implementations for
- * async production functions.
- */
-type ExistingBehaviorMock<T extends FunctionLike> = Mock<
-  (...args: Parameters<T>) => ExistingMockReturn<T>
->
+const DEFAULT_COMMENT = {
+  body: '.deploy',
+  created_at: '2025-01-01T00:00:00Z',
+  html_url: 'https://github.com/octo-org/octo-repo/pull/1#issuecomment-1',
+  id: 1,
+  updated_at: '2025-01-01T00:00:00Z',
+  user: {login: 'octocat'}
+} satisfies IssueCommentPayload
 
-export function asMock<T extends FunctionLike>(
-  fn: MockInstance<T>
-): ExistingBehaviorMock<T>
-export function asMock<T extends FunctionLike>(fn: T): ExistingBehaviorMock<T>
-export function asMock(fn: unknown) {
-  return fn as never
+const DEFAULT_ISSUE = {
+  number: 1,
+  pull_request: {}
+} satisfies IssuePayload
+
+export function createContext(
+  overrides: Partial<BranchDeployContext> = {}
+): BranchDeployContext {
+  return {
+    actor: 'octocat',
+    eventName: 'issue_comment',
+    issue: {number: 1},
+    payload: {},
+    repo: {owner: 'octo-org', repo: 'octo-repo'},
+    runId: 1,
+    ...overrides
+  }
 }
 
-/** Cast an intentionally partial GitHub event fixture at the test boundary. */
-export function asPartialContext(value: unknown): BranchDeployContext {
-  return value as BranchDeployContext
+export function createActionInputs(
+  overrides: Partial<ActionInputs> = {}
+): DeepMutable<ActionInputs> {
+  const checks = overrides.checks ?? DEFAULT_INPUTS.checks
+  return {
+    ...DEFAULT_INPUTS,
+    ...overrides,
+    checks: typeof checks === 'string' ? checks : [...checks],
+    enforced_deployment_order: [
+      ...(overrides.enforced_deployment_order ??
+        DEFAULT_INPUTS.enforced_deployment_order)
+    ],
+    ignored_checks: [
+      ...(overrides.ignored_checks ?? DEFAULT_INPUTS.ignored_checks)
+    ],
+    permissions: [...(overrides.permissions ?? DEFAULT_INPUTS.permissions)],
+    production_environments: [
+      ...(overrides.production_environments ??
+        DEFAULT_INPUTS.production_environments)
+    ]
+  }
 }
 
-/** Cast an intentionally partial Octokit fixture at the test boundary. */
-export function asPartialOctokit(value: unknown): BranchDeployOctokit {
-  return value as BranchDeployOctokit
+export function createIssueCommentContext(
+  overrides: Partial<Omit<IssueCommentContext, 'payload'>> & {
+    payload?: Omit<
+      Partial<IssueCommentContext['payload']>,
+      'comment' | 'issue'
+    > & {
+      comment?: Partial<IssueCommentPayload>
+      issue?: Partial<IssuePayload>
+    }
+  } = {}
+): IssueCommentContext {
+  const {payload = {}, ...contextOverrides} = overrides
+
+  return {
+    ...createContext(contextOverrides),
+    payload: {
+      ...payload,
+      comment: {...DEFAULT_COMMENT, ...payload.comment},
+      issue: {...DEFAULT_ISSUE, ...payload.issue}
+    }
+  }
+}
+
+export function createOctokit(): BranchDeployOctokit {
+  return github.getOctokit('test-token')
 }

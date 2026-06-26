@@ -1,34 +1,37 @@
 import * as core from '@actions/core'
 import {vi, expect, test, beforeEach} from 'vitest'
 import {validPermissions} from '../../src/functions/valid-permissions.ts'
-import {asPartialOctokit} from '../test-helpers.ts'
+import {createContext} from '../test-helpers.ts'
 
 const setOutputMock = vi.spyOn(core, 'setOutput')
 
-var octokit: Parameters<typeof validPermissions>[0]
-var context: Parameters<typeof validPermissions>[1]
-var permissions: Parameters<typeof validPermissions>[2] = ['write', 'admin']
+let octokit: Parameters<typeof validPermissions>[0]
+let context: Parameters<typeof validPermissions>[1]
+const permissions: Parameters<typeof validPermissions>[2] = ['write', 'admin']
+const getPermissionMock =
+  vi.fn<
+    Parameters<
+      typeof validPermissions
+    >[0]['rest']['repos']['getCollaboratorPermissionLevel']
+  >()
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INPUT_PERMISSIONS = 'write,admin'
+  vi.stubEnv('INPUT_PERMISSIONS', 'write,admin')
 
-  context = {
-    actor: 'monalisa'
-  } as unknown as typeof context
+  context = createContext({actor: 'monalisa'})
 
-  octokit = asPartialOctokit({
+  getPermissionMock.mockResolvedValue({
+    status: 200,
+    data: {permission: 'write'}
+  })
+  octokit = {
     rest: {
       repos: {
-        getCollaboratorPermissionLevel: vi.fn().mockReturnValueOnce({
-          status: 200,
-          data: {
-            permission: 'write'
-          }
-        })
+        getCollaboratorPermissionLevel: getPermissionMock
       }
     }
-  }) as unknown as typeof octokit
+  }
 })
 
 test('determines that a user has valid permissions to invoke the Action', async () => {
@@ -37,12 +40,10 @@ test('determines that a user has valid permissions to invoke the Action', async 
 })
 
 test('determines that a user has does not valid permissions to invoke the Action', async () => {
-  octokit.rest.repos.getCollaboratorPermissionLevel = vi.fn().mockReturnValue({
+  getPermissionMock.mockResolvedValue({
     status: 200,
-    data: {
-      permission: 'read'
-    }
-  }) as unknown as typeof octokit.rest.repos.getCollaboratorPermissionLevel
+    data: {permission: 'read'}
+  })
 
   expect(await validPermissions(octokit, context, permissions)).toEqual(
     '👋 @monalisa, that command requires the following permission(s): `write/admin`\n\nYour current permissions: `read`'
@@ -51,9 +52,7 @@ test('determines that a user has does not valid permissions to invoke the Action
 })
 
 test('fails to get actor permissions due to a bad status code', async () => {
-  octokit.rest.repos.getCollaboratorPermissionLevel = vi.fn().mockReturnValue({
-    status: 500
-  }) as unknown as typeof octokit.rest.repos.getCollaboratorPermissionLevel
+  getPermissionMock.mockResolvedValue({status: 500, data: {permission: 'none'}})
 
   expect(await validPermissions(octokit, context, permissions)).toEqual(
     'Permission check returns non-200 status: 500'

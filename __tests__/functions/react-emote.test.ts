@@ -1,33 +1,27 @@
-import {reactEmote} from '../../src/functions/react-emote.ts'
+import {
+  reactEmote,
+  type ReactEmoteOctokit
+} from '../../src/functions/react-emote.ts'
 import {vi, expect, test} from 'vitest'
+import {unsafeInvalidValue} from '../unsafe-fixtures.ts'
+import {createIssueCommentContext} from '../test-helpers.ts'
 
-const context = {
-  repo: {
-    owner: 'corp',
-    repo: 'test'
-  },
-  payload: {
-    comment: {
-      id: '1'
-    }
-  }
-} as unknown as Parameters<typeof reactEmote>[1]
+const context = createIssueCommentContext({
+  repo: {owner: 'corp', repo: 'test'},
+  payload: {comment: {id: 1}}
+})
 
 const octokit = {
   rest: {
     reactions: {
-      createForIssueComment: vi.fn().mockReturnValueOnce({
-        data: {
-          id: '1'
-        }
-      })
+      createForIssueComment: vi.fn().mockResolvedValue({data: {id: 1}})
     }
   }
-} as unknown as Parameters<typeof reactEmote>[2]
+} satisfies ReactEmoteOctokit
 
 test('adds a reaction emote to a comment', async () => {
   expect(await reactEmote('eyes', context, octokit)).toStrictEqual({
-    data: {id: '1'}
+    data: {id: 1}
   })
 })
 
@@ -35,7 +29,7 @@ test('returns if no reaction is specified', async () => {
   expect(await reactEmote('', context, octokit)).toBe(undefined)
   expect(
     await reactEmote(
-      null as unknown as Parameters<typeof reactEmote>[0],
+      unsafeInvalidValue<Parameters<typeof reactEmote>[0]>(null),
       context,
       octokit
     )
@@ -43,9 +37,7 @@ test('returns if no reaction is specified', async () => {
 })
 
 test('throws an error if a bad emote is used', async () => {
-  try {
-    await reactEmote('bad', context, octokit)
-  } catch (e) {
-    expect((e as Error).message).toBe('Reaction "bad" is not a valid preset')
-  }
+  await expect(reactEmote('bad', context, octokit)).rejects.toThrow(
+    'Reaction "bad" is not a valid preset'
+  )
 })

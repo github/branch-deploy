@@ -8,4 +8,15 @@ export const ERROR = {
         'Rulesets are available in public repositories with GitHub Free and GitHub Free for organizations, and in public and private repositories with GitHub Pro, GitHub Team, and GitHub Enterprise Cloud. For more information see https://docs.github.com/en/get-started/learning-about-github/githubs-plans or https://docs.github.com/rest/repos/rules#get-rules-for-a-branch - (Upgrade to GitHub Pro or make this repository public to enable this feature.)'
     }
   }
+} as const satisfies {
+  readonly messages: Readonly<
+    Record<
+      string,
+      {
+        readonly help_text: string
+        readonly message: string
+        readonly status: number
+      }
+    >
+  >
 }

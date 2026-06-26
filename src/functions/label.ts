@@ -2,6 +2,34 @@ import * as core from '@actions/core'
 import {API_HEADERS} from './api-headers.ts'
 import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
 
+type AddLabelsMethod = BranchDeployOctokit['rest']['issues']['addLabels']
+type AddLabelsParameters = Parameters<AddLabelsMethod>[0]
+type ListLabelsMethod =
+  BranchDeployOctokit['rest']['issues']['listLabelsOnIssue']
+type ListLabelsParameters = Parameters<ListLabelsMethod>[0]
+type FullListLabelsResponse = Awaited<ReturnType<ListLabelsMethod>>
+type RemoveLabelMethod = BranchDeployOctokit['rest']['issues']['removeLabel']
+type RemoveLabelParameters = Parameters<RemoveLabelMethod>[0]
+
+export interface LabelOctokit {
+  readonly rest: {
+    readonly issues: {
+      readonly addLabels: (parameters?: AddLabelsParameters) => Promise<unknown>
+      readonly listLabelsOnIssue: (
+        parameters?: ListLabelsParameters
+      ) => Promise<{
+        readonly data: readonly Pick<
+          FullListLabelsResponse['data'][number],
+          'name'
+        >[]
+      }>
+      readonly removeLabel: (
+        parameters?: RemoveLabelParameters
+      ) => Promise<unknown>
+    }
+  }
+}
+
 // Helper function to add labels to a pull request
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
@@ -10,15 +38,18 @@ import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
 // :returns: An object containing the labels added and removed (Object)
 export async function label(
   context: BranchDeployContext,
-  octokit: BranchDeployOctokit,
-  labelsToAdd: string[],
-  labelsToRemove: string[]
-) {
+  octokit: LabelOctokit,
+  labelsToAdd: readonly string[],
+  labelsToRemove: readonly string[]
+): Promise<{
+  readonly added: readonly string[]
+  readonly removed: readonly string[]
+}> {
   // Get the owner, repo, and issue number from the context
   const {owner, repo} = context.repo
   const issueNumber = context.issue.number
-  var addedLabels: string[] = [] // an array of labels that were actually added
-  var removedLabels: string[] = [] // an array of labels that were actually removed
+  let addedLabels: readonly string[] = [] // an array of labels that were actually added
+  const removedLabels: string[] = [] // an array of labels that were actually removed
 
   // exit early if there are no labels to add or remove
   if (labelsToAdd.length === 0 && labelsToRemove.length === 0) {
@@ -41,8 +72,8 @@ export async function label(
     })
     const currentLabels = currentLabelsResult.data.map(label => label.name)
 
-    core.debug(`current labels: ${currentLabels}`)
-    core.debug(`labels to remove: ${labelsToRemove}`)
+    core.debug(`current labels: ${currentLabels.join(',')}`)
+    core.debug(`labels to remove: ${labelsToRemove.join(',')}`)
 
     // Remove unwanted labels
     for (const label of labelsToRemove) {
@@ -64,15 +95,15 @@ export async function label(
 
   // now, add the labels if any are provided
   if (labelsToAdd.length > 0) {
-    core.debug(`attempting to apply labels: ${labelsToAdd}`)
+    core.debug(`attempting to apply labels: ${labelsToAdd.join(',')}`)
     await octokit.rest.issues.addLabels({
       owner: owner,
       repo: repo,
       issue_number: issueNumber,
-      labels: labelsToAdd,
+      labels: [...labelsToAdd],
       headers: API_HEADERS
     })
-    core.info(`🏷️ labels added: ${labelsToAdd}`)
+    core.info(`🏷️ labels added: ${labelsToAdd.join(',')}`)
 
     addedLabels = labelsToAdd
   }

@@ -1,6 +1,26 @@
-import * as core from '@actions/core'
 import {API_HEADERS} from './api-headers.ts'
+import {setActionOutput} from '../action-io.ts'
 import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
+
+type PermissionMethod =
+  BranchDeployOctokit['rest']['repos']['getCollaboratorPermissionLevel']
+type PermissionParameters = Parameters<PermissionMethod>[0]
+type PermissionResponse = Awaited<ReturnType<PermissionMethod>>
+
+export interface CollaboratorPermissionResponse {
+  readonly data: Pick<PermissionResponse['data'], 'permission'>
+  readonly status: number
+}
+
+export interface PermissionsOctokit {
+  readonly rest: {
+    readonly repos: {
+      readonly getCollaboratorPermissionLevel: (
+        parameters?: PermissionParameters
+      ) => Promise<CollaboratorPermissionResponse>
+    }
+  }
+}
 
 // Helper function to check if an actor has permissions to use this Action in a given repository
 // :param octokit: The octokit client
@@ -8,13 +28,13 @@ import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
 // :param validPermissionsArray: An array of permissions that the actor must have
 // :returns: An error string if the actor doesn't have permissions, otherwise true
 export async function validPermissions(
-  octokit: BranchDeployOctokit,
+  octokit: PermissionsOctokit,
   context: BranchDeployContext,
-  validPermissionsArray: string[]
+  validPermissionsArray: readonly string[]
 ): Promise<string | true> {
   // fetch the defined permissions from the Action input
 
-  core.setOutput('actor', context.actor)
+  setActionOutput('actor', context.actor)
 
   // Get the permissions of the user who made the comment
   const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel(

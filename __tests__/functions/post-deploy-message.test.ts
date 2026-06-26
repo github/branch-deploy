@@ -2,63 +2,47 @@ import {postDeployMessage} from '../../src/functions/post-deploy-message.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
+import type {PostDeployMessageData} from '../../src/types.ts'
+import {createContext} from '../test-helpers.ts'
+import {unsafeInvalidValue} from '../unsafe-fixtures.ts'
 
 const debugMock = vi.spyOn(core, 'debug')
 
-interface TestPostDeployMessageData {
-  actor: string
-  approved_reviews_count: string | null
-  commit_verified: boolean
-  deployment_end_time: string
-  deployment_id: number | undefined
-  environment: string
-  environment_url: string | null
-  fork: boolean
-  logs: string
-  noop: boolean
-  params: string
-  parsed_params: string
-  ref: string
-  review_decision: string | null
-  sha: string
-  status: string
-  total_seconds: number
-}
+let context: Parameters<typeof postDeployMessage>[0]
+let environment: string
+let environment_url: string
+let environment_url_simple: string
+let status: string
+let noop: boolean
+let ref: string
+let approved_reviews_count: string
+let sha: string
+let deployment_id: number
+let data: PostDeployMessageData
+let review_decision: string
+let fork: boolean
+let params: string
+let parsed_params: string
+let deployment_end_time: string
+let logs: string
+let deployment_metadata: string
+let total_seconds: number
 
-interface TestContext {
-  actor: string
-  eventName: string
-  payload: {comment: {id: string}}
-  repo: {owner: string; repo: string}
-  workflow: string
-}
+function renderDeploymentMetadata(data: PostDeployMessageData): string {
+  const environmentUrl =
+    data.environment_url !== null && data.environment_url.length > 0
+      ? `"${data.environment_url}"`
+      : null
+  const deploymentId = data.deployment_id ? parseInt(data.deployment_id) : null
+  const reviewCount = data.approved_reviews_count
+    ? parseInt(data.approved_reviews_count)
+    : null
+  const reviewDecision = data.review_decision
+    ? `"${data.review_decision}"`
+    : null
+  const rawParams = data.params ? `"${data.params}"` : null
+  const parsedParams = data.parsed_params || null
 
-type TestPostDeployMessage = (
-  context: TestContext,
-  data: TestPostDeployMessageData
-) => ReturnType<typeof postDeployMessage>
-
-var context: TestContext
-var environment: string
-var environment_url: string
-var environment_url_simple: string
-var status: string
-var noop: boolean
-var ref: string
-var approved_reviews_count: string
-var sha: string
-var deployment_id: number
-var data: TestPostDeployMessageData
-var review_decision: string
-var fork: boolean
-var params: string
-var parsed_params: string
-var deployment_end_time: string
-var logs: string
-var deployment_metadata: string
-var total_seconds: number
-
-function renderDeploymentMetadata(data: TestPostDeployMessageData) {
   return dedent(`
     <details><summary>Details</summary>
 
@@ -69,12 +53,12 @@ function renderDeploymentMetadata(data: TestPostDeployMessageData) {
     \t\t\t\t  "status": "${data.status}",
     \t\t\t\t  "environment": {
     \t\t\t\t    "name": "${data.environment}",
-    \t\t\t\t    "url": ${data.environment_url ? `"${data.environment_url}"` : null}
+    \t\t\t\t    "url": ${String(environmentUrl)}
     \t\t\t\t  },
     \t\t\t\t  "deployment": {
-    \t\t\t\t    "id": ${data.deployment_id ? parseInt(data.deployment_id as unknown as string) : null},
+    \t\t\t\t    "id": ${String(deploymentId)},
     \t\t\t\t    "timestamp": "${data.deployment_end_time}",
-    \t\t\t\t    "logs": "${data.logs}",
+    \t\t\t\t    "logs": "${logs}",
     \t\t\t\t    "duration": ${data.total_seconds}
     \t\t\t\t  },
     \t\t\t\t  "git": {
@@ -83,17 +67,17 @@ function renderDeploymentMetadata(data: TestPostDeployMessageData) {
     \t\t\t\t    "verified": ${data.commit_verified}
     \t\t\t\t  },
     \t\t\t\t  "context": {
-    \t\t\t\t    "actor": "${data.actor}",
+    \t\t\t\t    "actor": "${context.actor}",
     \t\t\t\t    "noop": ${data.noop},
     \t\t\t\t    "fork": ${data.fork}
     \t\t\t\t  },
     \t\t\t\t  "reviews": {
-    \t\t\t\t    "count": ${data.approved_reviews_count ? parseInt(data.approved_reviews_count) : null},
-    \t\t\t\t    "decision": ${data.review_decision ? `"${data.review_decision}"` : null}
+    \t\t\t\t    "count": ${String(reviewCount)},
+    \t\t\t\t    "decision": ${String(reviewDecision)}
     \t\t\t\t  },
     \t\t\t\t  "parameters": {
-    \t\t\t\t    "raw": ${data.params ? `"${data.params}"` : null},
-    \t\t\t\t    "parsed": ${data.parsed_params || null}
+    \t\t\t\t    "raw": ${String(rawParams)},
+    \t\t\t\t    "parsed": ${String(parsedParams)}
     \t\t\t\t  }
     \t\t\t\t}
     \`\`\`
@@ -107,12 +91,12 @@ function renderDeploymentMetadata(data: TestPostDeployMessageData) {
 beforeEach(() => {
   vi.clearAllMocks()
 
-  process.env.GITHUB_SERVER_URL = 'https://github.com'
-  process.env.GITHUB_RUN_ID = '12345'
+  vi.stubEnv('GITHUB_SERVER_URL', 'https://github.com')
+  vi.stubEnv('GITHUB_RUN_ID', '12345')
 
-  process.env.DEPLOY_MESSAGE = null as unknown as string
-  process.env.INPUT_ENVIRONMENT_URL_IN_COMMENT = 'true'
-  process.env.INPUT_DEPLOY_MESSAGE_PATH = '.github/deployment_message.md'
+  vi.stubEnv('DEPLOY_MESSAGE', undefined)
+  vi.stubEnv('INPUT_ENVIRONMENT_URL_IN_COMMENT', 'true')
+  vi.stubEnv('INPUT_DEPLOY_MESSAGE_PATH', '.github/deployment_message.md')
 
   environment = 'production'
   environment_url = 'https://example.com'
@@ -133,10 +117,9 @@ beforeEach(() => {
   deployment_end_time = '2024-01-01T00:00:00Z'
   total_seconds = 27
 
-  context = {
+  context = createContext({
     actor: 'monalisa',
     eventName: 'issue_comment',
-    workflow: 'test-workflow',
     repo: {
       owner: 'corp',
       repo: 'test'
@@ -146,9 +129,9 @@ beforeEach(() => {
         id: '1'
       }
     }
-  }
+  })
 
-  logs = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
+  logs = `${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/actions/runs/${String(process.env['GITHUB_RUN_ID'])}`
 
   data = {
     environment: environment,
@@ -159,13 +142,11 @@ beforeEach(() => {
     sha: sha,
     approved_reviews_count: approved_reviews_count,
     review_decision: review_decision,
-    deployment_id: deployment_id,
+    deployment_id: String(deployment_id),
     fork: fork,
     params: params,
     parsed_params: parsed_params,
     deployment_end_time: deployment_end_time,
-    actor: context.actor,
-    logs: logs,
     commit_verified: false,
     total_seconds: total_seconds
   }
@@ -173,13 +154,8 @@ beforeEach(() => {
   deployment_metadata = renderDeploymentMetadata(data)
 })
 
-test('successfully constructs a post deploy message with the defaults', async () => {
-  expect(
-    await (postDeployMessage as unknown as TestPostDeployMessage)(
-      context, // context
-      data
-    )
-  ).toStrictEqual(
+test('successfully constructs a post deploy message with the defaults', () => {
+  expect(postDeployMessage(context, data)).toStrictEqual(
     dedent(`
     ### Deployment Results ✅
 
@@ -192,15 +168,10 @@ test('successfully constructs a post deploy message with the defaults', async ()
   )
 })
 
-test('successfully constructs a post deploy message with the defaults during a "noop" deploy', async () => {
-  data.noop = true
+test('successfully constructs a post deploy message with the defaults during a "noop" deploy', () => {
+  data = {...data, noop: true}
   deployment_metadata = renderDeploymentMetadata(data)
-  expect(
-    await (postDeployMessage as unknown as TestPostDeployMessage)(
-      context, // context
-      data
-    )
-  ).toStrictEqual(
+  expect(postDeployMessage(context, data)).toStrictEqual(
     dedent(`
     ### Deployment Results ✅
 
@@ -210,15 +181,10 @@ test('successfully constructs a post deploy message with the defaults during a "
   )
 })
 
-test('successfully constructs a post deploy message with the defaults during a deployment failure', async () => {
-  data.status = 'failure'
+test('successfully constructs a post deploy message with the defaults during a deployment failure', () => {
+  data = {...data, status: 'failure'}
   deployment_metadata = renderDeploymentMetadata(data)
-  expect(
-    await (postDeployMessage as unknown as TestPostDeployMessage)(
-      context, // context
-      data
-    )
-  ).toStrictEqual(
+  expect(postDeployMessage(context, data)).toStrictEqual(
     dedent(`
     ### Deployment Results ❌
 
@@ -229,16 +195,11 @@ test('successfully constructs a post deploy message with the defaults during a d
   )
 })
 
-test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status', async () => {
-  data.status = 'unknown'
+test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status', () => {
+  data = {...data, status: 'unknown'}
   deployment_metadata = renderDeploymentMetadata(data)
 
-  expect(
-    await (postDeployMessage as unknown as TestPostDeployMessage)(
-      context, // context
-      data
-    )
-  ).toStrictEqual(
+  expect(postDeployMessage(context, data)).toStrictEqual(
     dedent(`
     ### Deployment Results ⚠️
 
@@ -248,17 +209,12 @@ test('successfully constructs a post deploy message with the defaults during a d
   )
 })
 
-test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status and the DEPLOY_MESSAGE_PATH is unset', async () => {
-  process.env.INPUT_DEPLOY_MESSAGE_PATH = ''
-  data.status = 'unknown'
+test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status and the DEPLOY_MESSAGE_PATH is unset', () => {
+  vi.stubEnv('INPUT_DEPLOY_MESSAGE_PATH', '')
+  data = {...data, status: 'unknown'}
   deployment_metadata = renderDeploymentMetadata(data)
 
-  expect(
-    await (postDeployMessage as unknown as TestPostDeployMessage)(
-      context, // context
-      data
-    )
-  ).toStrictEqual(
+  expect(postDeployMessage(context, data)).toStrictEqual(
     dedent(`
     ### Deployment Results ⚠️
 
@@ -271,15 +227,10 @@ test('successfully constructs a post deploy message with the defaults during a d
   expect(debugMock).toHaveBeenCalledWith('deployMessagePath is not set - null')
 })
 
-test('successfully constructs a post deploy message with a custom env var', async () => {
-  process.env.DEPLOY_MESSAGE = 'Deployed 1 shiny new server'
+test('successfully constructs a post deploy message with a custom env var', () => {
+  vi.stubEnv('DEPLOY_MESSAGE', 'Deployed 1 shiny new server')
 
-  expect(
-    await (postDeployMessage as unknown as TestPostDeployMessage)(
-      context, // context
-      data
-    )
-  ).toStrictEqual(
+  expect(postDeployMessage(context, data)).toStrictEqual(
     dedent(`
     ### Deployment Results ✅
 
@@ -297,24 +248,22 @@ test('successfully constructs a post deploy message with a custom env var', asyn
   )
 })
 
-test('successfully constructs a post deploy message with a custom env var when certain values are undefined', async () => {
-  process.env.DEPLOY_MESSAGE = 'Deployed 1 shiny new server'
+test('successfully constructs a post deploy message with a custom env var when certain values are undefined', () => {
+  vi.stubEnv('DEPLOY_MESSAGE', 'Deployed 1 shiny new server')
 
-  data.deployment_id = undefined
-  data.approved_reviews_count = null
-  data.parsed_params = ''
-  data.environment_url = ''
-  data.params = ''
-  data.review_decision = null
+  data = unsafeInvalidValue<PostDeployMessageData>({
+    ...data,
+    deployment_id: undefined,
+    approved_reviews_count: null,
+    parsed_params: '',
+    environment_url: '',
+    params: '',
+    review_decision: null
+  })
 
   deployment_metadata = renderDeploymentMetadata(data)
 
-  expect(
-    await (postDeployMessage as unknown as TestPostDeployMessage)(
-      context, // context
-      data
-    )
-  ).toStrictEqual(
+  expect(postDeployMessage(context, data)).toStrictEqual(
     dedent(`
     ### Deployment Results ✅
 
@@ -330,15 +279,18 @@ test('successfully constructs a post deploy message with a custom env var when c
   )
 })
 
-test('successfully constructs a post deploy message with a custom markdown file', async () => {
-  process.env.INPUT_DEPLOY_MESSAGE_PATH =
+test('renders an empty review decision as null metadata', () => {
+  data = {...data, review_decision: ''}
+
+  expect(postDeployMessage(context, data)).toContain('"decision": null')
+})
+
+test('successfully constructs a post deploy message with a custom markdown file', () => {
+  vi.stubEnv(
+    'INPUT_DEPLOY_MESSAGE_PATH',
     '__tests__/templates/test_deployment_message.md'
-  expect(
-    await (postDeployMessage as unknown as TestPostDeployMessage)(
-      context, // context
-      data
-    )
-  ).toStrictEqual(
+  )
+  expect(postDeployMessage(context, data)).toStrictEqual(
     dedent(`### Deployment Results :rocket:
 
     The following variables are available to use in this template:

@@ -15,7 +15,7 @@ export function stringToArray(string: string): string[] {
 
     // Split up the String on commas, trim each element, and return the Array
     const stringArray = string.split(',').map(target => target.trim())
-    var results: string[] = []
+    const results: string[] = []
 
     // filter out empty items
     for (const item of stringArray) {
@@ -28,6 +28,8 @@ export function stringToArray(string: string): string[] {
     return results
   } catch (error) {
     core.error(`failed string for debugging purposes: ${string}`)
-    throw new Error(`could not convert String to Array - error: ${error}`)
+    throw new Error(
+      `could not convert String to Array - error: ${String(error)}`
+    )
   }
 }

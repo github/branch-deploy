@@ -1,9 +1,14 @@
-import {environmentTargets} from '../../src/functions/environment-targets.ts'
+import {
+  environmentTargets,
+  type DeploymentEnvironmentRequest,
+  type LockEnvironmentRequest
+} from '../../src/functions/environment-targets.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {COLORS} from '../../src/functions/colors.ts'
-import {asPartialContext, asPartialOctokit} from '../test-helpers.ts'
+import * as actionStatus from '../../src/functions/action-status.ts'
+import {createIssueCommentContext, createOctokit} from '../test-helpers.ts'
 
 const debugMock = vi.spyOn(core, 'debug')
 const infoMock = vi.spyOn(core, 'info')
@@ -14,9 +19,9 @@ const warningMock = vi.spyOn(core, 'warning')
 beforeEach(() => {
   vi.clearAllMocks()
 
-  process.env.INPUT_ENVIRONMENT_TARGETS = 'production,development,staging'
-  process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
-  process.env.INPUT_LOCK_INFO_ALIAS = '.wcid'
+  vi.stubEnv('INPUT_ENVIRONMENT_TARGETS', 'production,development,staging')
+  vi.stubEnv('INPUT_GLOBAL_LOCK_FLAG', '--global')
+  vi.stubEnv('INPUT_LOCK_INFO_ALIAS', '.wcid')
 })
 
 const environment = 'production'
@@ -27,16 +32,52 @@ const stable_branch = 'main'
 const environmentUrls =
   'production|https://example.com,development|https://dev.example.com,staging|http://staging.example.com'
 
+const context = createIssueCommentContext({
+  actor: 'monalisa',
+  issue: {number: 1},
+  payload: {comment: {body, id: 1}},
+  repo: {owner: 'test', repo: 'test'}
+})
+const octokit = createOctokit()
+
+const deploymentRequestDefaults = {
+  alternateTrigger: noop_trigger,
+  context,
+  environment,
+  environmentUrls: null,
+  mode: 'deployment',
+  octokit,
+  paramSeparator: '|',
+  reactionId: 123,
+  stableBranch: stable_branch,
+  trigger
+} satisfies Omit<DeploymentEnvironmentRequest, 'body'>
+
+const lockRequestDefaults = {
+  alternateTrigger: '.unlock',
+  context,
+  environment,
+  mode: 'lock',
+  octokit,
+  reactionId: 123,
+  trigger: '.lock'
+} satisfies Omit<LockEnvironmentRequest, 'body'>
+
+function deploymentRequest(
+  requestBody: string,
+  overrides: Partial<Omit<DeploymentEnvironmentRequest, 'body' | 'mode'>> = {}
+): DeploymentEnvironmentRequest {
+  return {...deploymentRequestDefaults, body: requestBody, ...overrides}
+}
+
+function lockRequest(requestBody: string): LockEnvironmentRequest {
+  return {...lockRequestDefaults, body: requestBody}
+}
+
+vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
+
 test('checks the comment body and does not find an explicit environment target', async () => {
-  expect(
-    await environmentTargets(
-      environment,
-      body,
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
-  ).toStrictEqual({
+  expect(await environmentTargets(deploymentRequest(body))).toStrictEqual({
     environment: 'production',
     environmentUrl: null,
     environmentObj: {
@@ -56,13 +97,7 @@ test('checks the comment body and does not find an explicit environment target',
 
 test('checks the comment body and finds an explicit environment target for development', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.deploy development',
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
+    await environmentTargets(deploymentRequest('.deploy development'))
   ).toStrictEqual({
     environment: 'development',
     environmentUrl: null,
@@ -84,11 +119,9 @@ test('checks the comment body and finds an explicit environment target for devel
 test('checks the comment body and finds an explicit environment target for development with params', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.deploy development | something1 something2 something3',
-      trigger,
-      noop_trigger,
-      stable_branch
+      deploymentRequest(
+        '.deploy development | something1 something2 something3'
+      )
     )
   ).toStrictEqual({
     environment: 'development',
@@ -118,11 +151,9 @@ test('checks the comment body and finds an explicit environment target for devel
 test('checks the comment body and finds an explicit environment target and an explicit sha (sha1) for development with params', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.deploy 82c238c277ca3df56fe9418a5913d9188eafe3bc development | something1 something2 something3',
-      trigger,
-      noop_trigger,
-      stable_branch
+      deploymentRequest(
+        '.deploy 82c238c277ca3df56fe9418a5913d9188eafe3bc development | something1 something2 something3'
+      )
     )
   ).toStrictEqual({
     environment: 'development',
@@ -152,11 +183,9 @@ test('checks the comment body and finds an explicit environment target and an ex
 test('checks the comment body and finds an explicit environment target and an explicit sha (sha1) for development with params on a noop command', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.noop 82c238c277ca3df56fe9418a5913d9188eafe3bc development | something1 something2 something3',
-      trigger,
-      noop_trigger,
-      stable_branch
+      deploymentRequest(
+        '.noop 82c238c277ca3df56fe9418a5913d9188eafe3bc development | something1 something2 something3'
+      )
     )
   ).toStrictEqual({
     environment: 'development',
@@ -186,11 +215,9 @@ test('checks the comment body and finds an explicit environment target and an ex
 test('checks the comment body and finds an explicit environment target and an explicit sha (sha1) for development with parsed params style params on a noop command', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.noop 82c238c277ca3df56fe9418a5913d9188eafe3bc development | --cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue',
-      trigger,
-      noop_trigger,
-      stable_branch
+      deploymentRequest(
+        '.noop 82c238c277ca3df56fe9418a5913d9188eafe3bc development | --cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue'
+      )
     )
   ).toStrictEqual({
     environment: 'development',
@@ -229,11 +256,9 @@ test('checks the comment body and finds an explicit environment target and an ex
 test('checks the comment body and finds an explicit environment target and an explicit sha (sha1) for development with params on a noop command and the sha is a sha256 hash (64 characters)', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.noop f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b development | something1 something2 something3',
-      trigger,
-      noop_trigger,
-      stable_branch
+      deploymentRequest(
+        '.noop f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b development | something1 something2 something3'
+      )
     )
   ).toStrictEqual({
     environment: 'development',
@@ -263,11 +288,7 @@ test('checks the comment body and finds an explicit environment target and an ex
 test('checks the comment body and finds an explicit environment target and an explicit sha (sha1) on a noop command with trailing whitespace', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.noop 82c238c277ca3df56fe9418a5913d9188eafe3bc       ',
-      trigger,
-      noop_trigger,
-      stable_branch
+      deploymentRequest('.noop 82c238c277ca3df56fe9418a5913d9188eafe3bc       ')
     )
   ).toStrictEqual({
     environment: 'production',
@@ -291,17 +312,10 @@ test('checks the comment body and finds an explicit environment target and an ex
 test('checks the comment body and finds an explicit environment target for development to stable_branch with params and a custom separator', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.deploy main development + something1 | something2 something3',
-      trigger,
-      noop_trigger,
-      stable_branch,
-      null,
-      null,
-      null,
-      false, // lockChecks disabled
-      null, // environmentUrls
-      '+' // custom separator
+      deploymentRequest(
+        '.deploy main development + something1 | something2 something3',
+        {paramSeparator: '+'}
+      )
     )
   ).toStrictEqual({
     environment: 'development',
@@ -330,13 +344,7 @@ test('checks the comment body and finds an explicit environment target for devel
 
 test('checks the comment body and finds an explicit environment target for staging on a noop deploy', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.noop staging',
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
+    await environmentTargets(deploymentRequest('.noop staging'))
   ).toStrictEqual({
     environment: 'staging',
     environmentUrl: null,
@@ -357,13 +365,7 @@ test('checks the comment body and finds an explicit environment target for stagi
 
 test('checks the comment body and finds an explicit environment target for staging on a noop deploy with the stable branch', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.noop main staging',
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
+    await environmentTargets(deploymentRequest('.noop main staging'))
   ).toStrictEqual({
     environment: 'staging',
     environmentUrl: null,
@@ -385,16 +387,7 @@ test('checks the comment body and finds an explicit environment target for stagi
 test('checks the comment body and finds an explicit environment target for staging on a noop deploy with environment_urls set', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.noop staging',
-      trigger,
-      noop_trigger,
-      stable_branch,
-      null,
-      null,
-      null,
-      false, // lockChecks disabled
-      environmentUrls
+      deploymentRequest('.noop staging', {environmentUrls})
     )
   ).toStrictEqual({
     environment: 'staging',
@@ -430,16 +423,10 @@ test('checks the comment body and finds an explicit environment target for stagi
 test('checks the comment body and finds an explicit environment target for staging on a noop deploy with environment_urls set and using the stable branch with "to" - and params!', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.noop main to staging | something1 something2 something3',
-      trigger,
-      noop_trigger,
-      stable_branch,
-      null,
-      null,
-      null,
-      false, // lockChecks disabled
-      environmentUrls
+      deploymentRequest(
+        '.noop main to staging | something1 something2 something3',
+        {environmentUrls}
+      )
     )
   ).toStrictEqual({
     environment: 'staging',
@@ -480,18 +467,7 @@ test('checks the comment body and finds an explicit environment target for stagi
 
 test('checks the comment body and uses the default production environment target with environment_urls set', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.deploy',
-      trigger,
-      noop_trigger,
-      stable_branch,
-      null,
-      null,
-      null,
-      false, // lockChecks disabled
-      environmentUrls
-    )
+    await environmentTargets(deploymentRequest('.deploy', {environmentUrls}))
   ).toStrictEqual({
     environment: 'production',
     environmentUrl: 'https://example.com',
@@ -524,16 +500,10 @@ test('checks the comment body and uses the default production environment target
 test('checks the comment body and finds an explicit environment target for a production deploy with environment_urls set but no valid url', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.deploy production',
-      trigger,
-      noop_trigger,
-      stable_branch,
-      null,
-      null,
-      null,
-      false, // lockChecks disabled
-      'evil-production|example.com,development|dev.example.com,staging|'
+      deploymentRequest('.deploy production', {
+        environmentUrls:
+          'evil-production|example.com,development|dev.example.com,staging|'
+      })
     )
   ).toStrictEqual({
     environment: 'production',
@@ -561,16 +531,10 @@ test('checks the comment body and finds an explicit environment target for a pro
 test('checks the comment body and finds an explicit environment target for a production deploy with environment_urls set but a url with a non-http(s) schema is provided', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.deploy production',
-      trigger,
-      noop_trigger,
-      stable_branch,
-      null,
-      null,
-      null,
-      false, // lockChecks disabled
-      'production|example.com,development|dev.example.com,staging|'
+      deploymentRequest('.deploy production', {
+        environmentUrls:
+          'production|example.com,development|dev.example.com,staging|'
+      })
     )
   ).toStrictEqual({
     environment: 'production',
@@ -598,19 +562,23 @@ test('checks the comment body and finds an explicit environment target for a pro
   expect(setOutputMock).toHaveBeenCalledWith('environment_url', 'null')
 })
 
+test('preserves the legacy error for an environment target without a URL separator', async () => {
+  await expect(
+    environmentTargets(
+      deploymentRequest('.deploy production', {
+        environmentUrls: 'production'
+      })
+    )
+  ).rejects.toThrow(TypeError)
+})
+
 test('checks the comment body and finds an explicit environment target for a production deploy with environment_urls set but the environment url for the given environment is disabled', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.deploy production',
-      trigger,
-      noop_trigger,
-      stable_branch,
-      null,
-      null,
-      null,
-      false, // lockChecks disabled
-      'production|disabled,development|dev.example.com,staging|'
+      deploymentRequest('.deploy production', {
+        environmentUrls:
+          'production|disabled,development|dev.example.com,staging|'
+      })
     )
   ).toStrictEqual({
     environment: 'production',
@@ -637,13 +605,7 @@ test('checks the comment body and finds an explicit environment target for a pro
 
 test('checks the comment body and finds an explicit environment target for staging on a noop deploy with "to"', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.noop to staging',
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
+    await environmentTargets(deploymentRequest('.noop to staging'))
   ).toStrictEqual({
     environment: 'staging',
     environmentUrl: null,
@@ -664,13 +626,7 @@ test('checks the comment body and finds an explicit environment target for stagi
 
 test('checks the comment body and finds a noop deploy to the stable branch and default environment', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.noop main',
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
+    await environmentTargets(deploymentRequest('.noop main'))
   ).toStrictEqual({
     environment: 'production',
     environmentUrl: null,
@@ -691,13 +647,7 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
 
 test('checks the comment body and finds a noop deploy to the stable branch and default environment with params', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.noop main | foo=bar',
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
+    await environmentTargets(deploymentRequest('.noop main | foo=bar'))
   ).toStrictEqual({
     environment: 'production',
     environmentUrl: null,
@@ -718,13 +668,7 @@ test('checks the comment body and finds a noop deploy to the stable branch and d
 
 test('checks the comment body and finds an explicit environment target for production on a branch deploy with "to"', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.deploy to production',
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
+    await environmentTargets(deploymentRequest('.deploy to production'))
   ).toStrictEqual({
     environment: 'production',
     environmentUrl: null,
@@ -744,15 +688,7 @@ test('checks the comment body and finds an explicit environment target for produ
 })
 
 test('checks the comment body on a noop deploy and does not find an explicit environment target', async () => {
-  expect(
-    await environmentTargets(
-      environment,
-      '.noop', // comment body
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
-  ).toStrictEqual({
+  expect(await environmentTargets(deploymentRequest('.noop'))).toStrictEqual({
     environment: 'production',
     environmentUrl: null,
     environmentObj: {
@@ -771,32 +707,8 @@ test('checks the comment body on a noop deploy and does not find an explicit env
 })
 
 test('checks the comment body on a deployment and does not find any matching environment target (fails)', async () => {
-  const mockContext = asPartialContext({
-    repo: {owner: 'test', repo: 'test'},
-    issue: {number: 1},
-    payload: {comment: {id: 1}}
-  })
-  const mockOctokit = asPartialOctokit({
-    rest: {
-      issues: {createComment: vi.fn()},
-      reactions: {
-        createForIssueComment: vi.fn(),
-        deleteForIssueComment: vi.fn()
-      }
-    }
-  })
-
   expect(
-    await environmentTargets(
-      environment,
-      '.deploy to chaos',
-      trigger,
-      noop_trigger,
-      stable_branch,
-      mockContext,
-      mockOctokit,
-      123
-    )
+    await environmentTargets(deploymentRequest('.deploy to chaos'))
   ).toStrictEqual({
     environment: false,
     environmentUrl: null,
@@ -822,13 +734,7 @@ test('checks the comment body on a deployment and does not find any matching env
 
 test('checks the comment body on a stable branch deployment and finds a matching environment (with to)', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.deploy main to production',
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
+    await environmentTargets(deploymentRequest('.deploy main to production'))
   ).toStrictEqual({
     environment: 'production',
     environmentUrl: null,
@@ -849,13 +755,7 @@ test('checks the comment body on a stable branch deployment and finds a matching
 
 test('checks the comment body on a stable branch deployment and finds a matching environment (without to)', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.deploy main production',
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
+    await environmentTargets(deploymentRequest('.deploy main production'))
   ).toStrictEqual({
     environment: 'production',
     environmentUrl: null,
@@ -876,13 +776,7 @@ test('checks the comment body on a stable branch deployment and finds a matching
 
 test('checks the comment body on a stable branch deployment and uses the default environment', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.deploy main',
-      trigger,
-      noop_trigger,
-      stable_branch
-    )
+    await environmentTargets(deploymentRequest('.deploy main'))
   ).toStrictEqual({
     environment: 'production',
     environmentUrl: null,
@@ -902,32 +796,8 @@ test('checks the comment body on a stable branch deployment and uses the default
 })
 
 test('checks the comment body on a stable branch deployment and does not find a matching environment', async () => {
-  const mockContext = asPartialContext({
-    repo: {owner: 'test', repo: 'test'},
-    issue: {number: 1},
-    payload: {comment: {id: 1}}
-  })
-  const mockOctokit = asPartialOctokit({
-    rest: {
-      issues: {createComment: vi.fn()},
-      reactions: {
-        createForIssueComment: vi.fn(),
-        deleteForIssueComment: vi.fn()
-      }
-    }
-  })
-
   expect(
-    await environmentTargets(
-      environment,
-      '.deploy main chaos',
-      trigger,
-      noop_trigger,
-      stable_branch,
-      mockContext,
-      mockOctokit,
-      123
-    )
+    await environmentTargets(deploymentRequest('.deploy main chaos'))
   ).toStrictEqual({
     environment: false,
     environmentUrl: null,
@@ -952,19 +822,10 @@ test('checks the comment body on a stable branch deployment and does not find a 
 })
 
 test('checks the comment body on a lock request and uses the default environment', async () => {
-  expect(
-    await environmentTargets(
-      environment,
-      '.lock', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
-    )
-  ).toStrictEqual({environment: 'production', environmentUrl: null})
+  expect(await environmentTargets(lockRequest('.lock'))).toStrictEqual({
+    environment: 'production',
+    environmentUrl: null
+  })
   expect(debugMock).toHaveBeenCalledWith(
     'using default environment for lock request'
   )
@@ -973,15 +834,9 @@ test('checks the comment body on a lock request and uses the default environment
 test('checks the comment body on a lock request with a reason and uses the default environment', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.lock --reason making a small change to our api because reasons', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
+      lockRequest(
+        '.lock --reason making a small change to our api because reasons'
+      )
     )
   ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
@@ -992,15 +847,9 @@ test('checks the comment body on a lock request with a reason and uses the defau
 test('checks the comment body on a lock request with a reason and uses the explict environment with a bunch of horrible formatting', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.lock  production    --reason small change to mappings for risk rating - - 92*91-2408|  ', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
+      lockRequest(
+        '.lock  production    --reason small change to mappings for risk rating - - 92*91-2408|  '
+      )
     )
   ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
@@ -1009,19 +858,10 @@ test('checks the comment body on a lock request with a reason and uses the expli
 })
 
 test('checks the comment body on an unlock request and uses the default environment', async () => {
-  expect(
-    await environmentTargets(
-      environment,
-      '.unlock', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
-    )
-  ).toStrictEqual({environment: 'production', environmentUrl: null})
+  expect(await environmentTargets(lockRequest('.unlock'))).toStrictEqual({
+    environment: 'production',
+    environmentUrl: null
+  })
   expect(debugMock).toHaveBeenCalledWith(
     'using default environment for unlock request'
   )
@@ -1030,15 +870,9 @@ test('checks the comment body on an unlock request and uses the default environm
 test('checks the comment body on an unlock request and uses the default environment (and uses --reason) even though it does not need to', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.unlock --reason oh wait this command does not need a reason.. oops', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
+      lockRequest(
+        '.unlock --reason oh wait this command does not need a reason.. oops'
+      )
     )
   ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
@@ -1049,15 +883,9 @@ test('checks the comment body on an unlock request and uses the default environm
 test('checks the comment body on an unlock request and uses the development environment (and uses --reason) even though it does not need to', async () => {
   expect(
     await environmentTargets(
-      environment,
-      '.unlock development --reason oh wait this command does not need a reason.. oops', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
+      lockRequest(
+        '.unlock development --reason oh wait this command does not need a reason.. oops'
+      )
     )
   ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
@@ -1066,19 +894,10 @@ test('checks the comment body on an unlock request and uses the development envi
 })
 
 test('checks the comment body on a lock info alias request and uses the default environment', async () => {
-  expect(
-    await environmentTargets(
-      environment,
-      '.wcid', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
-    )
-  ).toStrictEqual({environment: 'production', environmentUrl: null})
+  expect(await environmentTargets(lockRequest('.wcid'))).toStrictEqual({
+    environment: 'production',
+    environmentUrl: null
+  })
   expect(debugMock).toHaveBeenCalledWith(
     'using default environment for lock info request'
   )
@@ -1086,17 +905,7 @@ test('checks the comment body on a lock info alias request and uses the default 
 
 test('checks the comment body on a lock request and uses the production environment', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.lock production', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
-    )
+    await environmentTargets(lockRequest('.lock production'))
   ).toStrictEqual({environment: 'production', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for lock request: production'
@@ -1105,17 +914,7 @@ test('checks the comment body on a lock request and uses the production environm
 
 test('checks the comment body on an unlock request and uses the development environment', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.unlock development', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
-    )
+    await environmentTargets(lockRequest('.unlock development'))
   ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for unlock request: development'
@@ -1124,17 +923,7 @@ test('checks the comment body on an unlock request and uses the development envi
 
 test('checks the comment body on a lock info alias request and uses the development environment', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.wcid development', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
-    )
+    await environmentTargets(lockRequest('.wcid development'))
   ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for lock info request: development'
@@ -1143,17 +932,7 @@ test('checks the comment body on a lock info alias request and uses the developm
 
 test('checks the comment body on a lock info request and uses the development environment', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.lock --info development', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
-    )
+    await environmentTargets(lockRequest('.lock --info development'))
   ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for lock request: development'
@@ -1162,17 +941,7 @@ test('checks the comment body on a lock info request and uses the development en
 
 test('checks the comment body on a lock info request and uses the development environment (using -d)', async () => {
   expect(
-    await environmentTargets(
-      environment,
-      '.lock -d development', // comment body
-      '.lock', // lock trigger
-      '.unlock', // unlock trigger
-      null, // stable_branch not used for lock/unlock requests
-      null, // context
-      null, // octokit
-      null, // reaction_id
-      true // enable lockChecks
-    )
+    await environmentTargets(lockRequest('.lock -d development'))
   ).toStrictEqual({environment: 'development', environmentUrl: null})
   expect(debugMock).toHaveBeenCalledWith(
     'found environment target for lock request: development'

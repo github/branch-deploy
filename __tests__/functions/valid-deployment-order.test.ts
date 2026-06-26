@@ -3,25 +3,28 @@ import {vi, expect, test, beforeEach} from 'vitest'
 import {COLORS} from '../../src/functions/colors.ts'
 import {validDeploymentOrder} from '../../src/functions/valid-deployment-order.ts'
 import * as activeDeployment from '../../src/functions/deployment.ts'
-import {asMock} from '../test-helpers.ts'
+import {createContext} from '../test-helpers.ts'
 
 const setOutputMock = vi.spyOn(core, 'setOutput')
+const warningMock = vi.spyOn(core, 'warning')
+const infoMock = vi.spyOn(core, 'info')
+const errorMock = vi.spyOn(core, 'error')
 const activeDeploymentMock = vi.spyOn(activeDeployment, 'activeDeployment')
 
 let octokit: Parameters<typeof validDeploymentOrder>[0]
 let context: Parameters<typeof validDeploymentOrder>[1]
-let environment: Parameters<typeof validDeploymentOrder>[3] = 'production'
-let sha: Parameters<typeof validDeploymentOrder>[4] = 'deadbeef'
+const environment: Parameters<typeof validDeploymentOrder>[3] = 'production'
+const sha: Parameters<typeof validDeploymentOrder>[4] = 'deadbeef'
+const graphqlMock =
+  vi.fn<Parameters<typeof validDeploymentOrder>[0]['graphql']>()
 
 beforeEach(() => {
   vi.clearAllMocks()
 
-  context = {} as unknown as typeof context
-  octokit = {} as unknown as typeof octokit
+  context = createContext()
+  octokit = {graphql: graphqlMock}
 
-  asMock(activeDeploymentMock).mockImplementation(() => {
-    return true
-  })
+  activeDeploymentMock.mockResolvedValue(true)
 })
 
 test('when the enforced deployment order is only one item and it is the requested environment', async () => {
@@ -38,11 +41,13 @@ test('when the enforced deployment order is only one item and it is the requeste
     results: []
   })
 
-  expect(core.warning).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /Having only one environment in the enforced deployment order will always cause the deployment order checks to pass if the environment names match/
+  expect(
+    warningMock.mock.calls.some(([message]) =>
+      String(message).includes(
+        'Having only one environment in the enforced deployment order will always cause the deployment order checks to pass if the environment names match'
+      )
     )
-  )
+  ).toBe(true)
 })
 
 test('when the enforced deployment order passes for all previous environments', async () => {
@@ -68,19 +73,17 @@ test('when the enforced deployment order passes for all previous environments', 
     ]
   })
 
-  expect(core.info).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /deployment order checks passed as all previous environments have active deployments/
+  expect(
+    infoMock.mock.calls.some(([message]) =>
+      message.includes(
+        'deployment order checks passed as all previous environments have active deployments'
+      )
     )
-  )
+  ).toBe(true)
 })
 
 test('when the enforced deployment order fails because one out of two environments (the first one) is not active in the order', async () => {
-  asMock(vi.spyOn(activeDeployment, 'activeDeployment')).mockImplementationOnce(
-    () => {
-      return false
-    }
-  )
+  activeDeploymentMock.mockResolvedValueOnce(false)
 
   expect(
     await validDeploymentOrder(
@@ -104,11 +107,13 @@ test('when the enforced deployment order fails because one out of two environmen
     ]
   })
 
-  expect(core.error).toHaveBeenCalledWith(
-    expect.stringContaining(
-      `${COLORS.highlight}development${COLORS.reset} does not have an active deployment at sha: deadbeef`
+  expect(
+    errorMock.mock.calls.some(([message]) =>
+      String(message).includes(
+        `${COLORS.highlight}development${COLORS.reset} does not have an active deployment at sha: deadbeef`
+      )
     )
-  )
+  ).toBe(true)
 
   expect(setOutputMock).toHaveBeenCalledWith(
     'needs_to_be_deployed',
@@ -117,13 +122,7 @@ test('when the enforced deployment order fails because one out of two environmen
 })
 
 test('when the enforced deployment order fails because one out of two environments (the previous one) is not active in the order', async () => {
-  asMock(activeDeploymentMock)
-    .mockImplementationOnce(() => {
-      return true
-    })
-    .mockImplementationOnce(() => {
-      return false
-    })
+  activeDeploymentMock.mockResolvedValueOnce(true).mockResolvedValueOnce(false)
 
   expect(
     await validDeploymentOrder(
@@ -147,27 +146,19 @@ test('when the enforced deployment order fails because one out of two environmen
     ]
   })
 
-  expect(core.error).toHaveBeenCalledWith(
-    expect.stringContaining(
-      `${COLORS.highlight}staging${COLORS.reset} does not have an active deployment at sha: deadbeef`
+  expect(
+    errorMock.mock.calls.some(([message]) =>
+      String(message).includes(
+        `${COLORS.highlight}staging${COLORS.reset} does not have an active deployment at sha: deadbeef`
+      )
     )
-  )
+  ).toBe(true)
 
   expect(setOutputMock).toHaveBeenCalledWith('needs_to_be_deployed', 'staging')
 })
 
 test('when the enforced deployment order fails because both of the environments are not active in the enforced order', async () => {
-  asMock(vi.spyOn(activeDeployment, 'activeDeployment')).mockImplementationOnce(
-    () => {
-      return false
-    }
-  )
-
-  asMock(vi.spyOn(activeDeployment, 'activeDeployment')).mockImplementationOnce(
-    () => {
-      return false
-    }
-  )
+  activeDeploymentMock.mockResolvedValueOnce(false).mockResolvedValueOnce(false)
 
   expect(
     await validDeploymentOrder(
@@ -191,17 +182,20 @@ test('when the enforced deployment order fails because both of the environments 
     ]
   })
 
-  expect(core.error).toHaveBeenCalledWith(
-    expect.stringContaining(
-      `${COLORS.highlight}development${COLORS.reset} does not have an active deployment at sha: deadbeef`
+  expect(
+    errorMock.mock.calls.some(([message]) =>
+      String(message).includes(
+        `${COLORS.highlight}development${COLORS.reset} does not have an active deployment at sha: deadbeef`
+      )
     )
-  )
-
-  expect(core.error).toHaveBeenCalledWith(
-    expect.stringContaining(
-      `${COLORS.highlight}staging${COLORS.reset} does not have an active deployment at sha: deadbeef`
+  ).toBe(true)
+  expect(
+    errorMock.mock.calls.some(([message]) =>
+      String(message).includes(
+        `${COLORS.highlight}staging${COLORS.reset} does not have an active deployment at sha: deadbeef`
+      )
     )
-  )
+  ).toBe(true)
 
   expect(setOutputMock).toHaveBeenCalledWith(
     'needs_to_be_deployed',
@@ -223,11 +217,11 @@ test('when the enforced deployment order passes due to the environment being the
     results: []
   })
 
-  expect(core.info).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /the first environment in the enforced deployment order/
+  expect(
+    infoMock.mock.calls.some(([message]) =>
+      message.includes('the first environment in the enforced deployment order')
     )
-  )
+  ).toBe(true)
 })
 
 test('when the enforced deployment order passes and the requested environment is the second in the order and all after that item are not checked by design', async () => {
@@ -249,9 +243,11 @@ test('when the enforced deployment order passes and the requested environment is
     ]
   })
 
-  expect(core.info).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /deployment order checks passed as all previous environments have active deployments/
+  expect(
+    infoMock.mock.calls.some(([message]) =>
+      message.includes(
+        'deployment order checks passed as all previous environments have active deployments'
+      )
     )
-  )
+  ).toBe(true)
 })

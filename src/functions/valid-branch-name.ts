@@ -3,10 +3,16 @@ import * as core from '@actions/core'
 // Helper function to create a valid branch name that will pass GitHub's API ref validation
 // :param branch: The branch name
 // :returns: A string of the branch name with proper formatting
+export function constructValidBranchName(branch: string): string
+export function constructValidBranchName(branch: null): null
+export function constructValidBranchName(branch: undefined): undefined
+export function constructValidBranchName(
+  branch: string | null | undefined
+): string | null | undefined
 export function constructValidBranchName(
   branch: string | null | undefined
 ): string | null | undefined {
-  core.debug(`constructing valid branch name: ${branch}`)
+  core.debug(`constructing valid branch name: ${String(branch)}`)
 
   if (branch === null) {
     return null

@@ -3,29 +3,61 @@ import {vi, expect, test, beforeEach} from 'vitest'
 import {COLORS} from '../../src/functions/colors.ts'
 import {deploymentConfirmation} from '../../src/functions/deployment-confirmation.ts'
 import {API_HEADERS} from '../../src/functions/api-headers.ts'
-import {asMock} from '../test-helpers.ts'
+import {createIssueCommentContext} from '../test-helpers.ts'
 
 const warningMock = vi.spyOn(core, 'warning')
 
-var context: Parameters<typeof deploymentConfirmation>[0]
-var octokit: Parameters<typeof deploymentConfirmation>[1]
-var data: Parameters<typeof deploymentConfirmation>[2]
+let context: Parameters<typeof deploymentConfirmation>[0]
+let octokit: Parameters<typeof deploymentConfirmation>[1]
+let data: Parameters<typeof deploymentConfirmation>[2]
+const originalSetTimeout = globalThis.setTimeout
+type ConfirmationOctokit = Parameters<typeof deploymentConfirmation>[1]
+const createCommentMock =
+  vi.fn<ConfirmationOctokit['rest']['issues']['createComment']>()
+const updateCommentMock =
+  vi.fn<ConfirmationOctokit['rest']['issues']['updateComment']>()
+const listReactionsMock =
+  vi.fn<ConfirmationOctokit['rest']['reactions']['listForIssueComment']>()
+
+function immediateTimeout<TArgs extends unknown[]>(
+  callback: (...args: TArgs) => void,
+  _delay?: number,
+  ...args: TArgs
+): NodeJS.Timeout {
+  callback(...args)
+  return originalSetTimeout(() => undefined, 0)
+}
+
+function latestCreateCommentRequest(): NonNullable<
+  Parameters<typeof createCommentMock>[0]
+> {
+  const request = createCommentMock.mock.calls.at(-1)?.[0]
+  if (!request) throw new Error('expected createComment to be called')
+  return request
+}
+
+function latestUpdateCommentRequest(): NonNullable<
+  Parameters<typeof updateCommentMock>[0]
+> {
+  const request = updateCommentMock.mock.calls.at(-1)?.[0]
+  if (!request) throw new Error('expected updateComment to be called')
+  return request
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
 
   // Mock setTimeout to execute immediately
-  vi.spyOn(global, 'setTimeout').mockImplementation(((fn: () => void) =>
-    fn()) as unknown as typeof setTimeout)
+  vi.spyOn(globalThis, 'setTimeout').mockImplementation(immediateTimeout)
 
   // Mock Date.now to control time progression
   const mockDate = new Date('2024-10-21T19:11:18Z').getTime()
   vi.spyOn(Date, 'now').mockReturnValue(mockDate)
 
-  process.env.GITHUB_SERVER_URL = 'https://github.com'
-  process.env.GITHUB_RUN_ID = '12345'
+  vi.stubEnv('GITHUB_SERVER_URL', 'https://github.com')
+  vi.stubEnv('GITHUB_RUN_ID', '12345')
 
-  context = {
+  context = createIssueCommentContext({
     actor: 'monalisa',
     repo: {
       owner: 'corp',
@@ -47,36 +79,29 @@ beforeEach(() => {
           'https://github.com/corp/test/pull/123#issuecomment-1231231231'
       }
     }
-  } as unknown as typeof context
+  })
 
+  createCommentMock.mockResolvedValue({data: {id: 124}})
+  updateCommentMock.mockResolvedValue({data: {}})
+  listReactionsMock.mockResolvedValue({data: []})
   octokit = {
     rest: {
       reactions: {
-        createForIssueComment: vi.fn().mockResolvedValue({
-          data: {}
-        }),
-        listForIssueComment: vi.fn().mockResolvedValue({
-          data: []
-        })
+        listForIssueComment: listReactionsMock
       },
       issues: {
-        createComment: vi.fn().mockResolvedValue({
-          data: {
-            id: 124
-          }
-        }),
-        updateComment: vi.fn().mockResolvedValue({
-          data: {}
-        })
+        createComment: createCommentMock,
+        updateComment: updateCommentMock
       }
     }
-  } as unknown as typeof octokit
+  }
 
   data = {
     deployment_confirmation_timeout: 60,
     deploymentType: 'branch',
     environment: 'production',
     environmentUrl: 'https://example.com',
+    github_run_id: 12345,
     log_url: 'https://github.com/corp/test/actions/runs/12345',
     ref: 'cool-branch',
     sha: 'abc123',
@@ -88,15 +113,16 @@ beforeEach(() => {
     body: '.deploy',
     params: 'param1=1,param2=2',
     parsed_params: {
+      _: [],
       param1: '1',
       param2: '2'
     }
-  } as unknown as typeof data
+  }
 })
 
 test('successfully prompts for deployment confirmation and gets confirmed by the original actor', async () => {
   // Mock that the user adds a +1 reaction
-  asMock(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
+  vi.mocked(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
     data: [
       {
         user: {login: 'monalisa'},
@@ -108,10 +134,10 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
   const result = await deploymentConfirmation(context, octokit, data)
 
   expect(result).toBe(true)
-  expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
-    body: expect.stringContaining(
-      'Deployment Confirmation Required'
-    ) as unknown,
+  const createRequest = latestCreateCommentRequest()
+  expect(createRequest.body).toContain('Deployment Confirmation Required')
+  expect(createRequest).toStrictEqual({
+    body: createRequest.body,
     issue_number: 1,
     owner: 'corp',
     repo: 'test',
@@ -134,10 +160,12 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
     headers: API_HEADERS
   })
 
-  expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith({
-    body: expect.stringContaining(
-      '✅ Deployment confirmed by __monalisa__'
-    ) as unknown,
+  const updateRequest = latestUpdateCommentRequest()
+  expect(updateRequest.body).toContain(
+    '✅ Deployment confirmed by __monalisa__'
+  )
+  expect(updateRequest).toStrictEqual({
+    body: updateRequest.body,
     comment_id: 124,
     owner: 'corp',
     repo: 'test',
@@ -146,13 +174,16 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
 })
 
 test('successfully prompts for deployment confirmation and gets confirmed by the original actor with some null data params in the issue comment', async () => {
-  data.params = null
-  data.parsed_params = null
-  data.environmentUrl = null
-  data.isVerified = false
+  data = {
+    ...data,
+    params: null,
+    parsed_params: null,
+    environmentUrl: null,
+    isVerified: false
+  }
 
   // Mock that the user adds a +1 reaction
-  asMock(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
+  vi.mocked(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
     data: [
       {
         user: {login: 'monalisa'},
@@ -164,8 +195,10 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
   const result = await deploymentConfirmation(context, octokit, data)
 
   expect(result).toBe(true)
-  expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
-    body: expect.stringContaining('"url": null') as unknown,
+  const createRequest = latestCreateCommentRequest()
+  expect(createRequest.body).toContain('"url": null')
+  expect(createRequest).toStrictEqual({
+    body: createRequest.body,
     issue_number: 1,
     owner: 'corp',
     repo: 'test',
@@ -188,10 +221,12 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
     headers: API_HEADERS
   })
 
-  expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith({
-    body: expect.stringContaining(
-      '✅ Deployment confirmed by __monalisa__'
-    ) as unknown,
+  const updateRequest = latestUpdateCommentRequest()
+  expect(updateRequest.body).toContain(
+    '✅ Deployment confirmed by __monalisa__'
+  )
+  expect(updateRequest).toStrictEqual({
+    body: updateRequest.body,
     comment_id: 124,
     owner: 'corp',
     repo: 'test',
@@ -201,7 +236,7 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
 
 test('user rejects the deployment with thumbs down', async () => {
   // Mock that the user adds a -1 reaction
-  asMock(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
+  vi.mocked(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
     data: [
       {
         user: {login: 'monalisa'},
@@ -216,10 +251,10 @@ test('user rejects the deployment with thumbs down', async () => {
   expect(octokit.rest.issues.createComment).toHaveBeenCalled()
   expect(octokit.rest.reactions.listForIssueComment).toHaveBeenCalled()
 
-  expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith({
-    body: expect.stringContaining(
-      '❌ Deployment rejected by __monalisa__'
-    ) as unknown,
+  const updateRequest = latestUpdateCommentRequest()
+  expect(updateRequest.body).toContain('❌ Deployment rejected by __monalisa__')
+  expect(updateRequest).toStrictEqual({
+    body: updateRequest.body,
     comment_id: 124,
     owner: 'corp',
     repo: 'test',
@@ -233,12 +268,12 @@ test('user rejects the deployment with thumbs down', async () => {
 
 test('deployment confirmation times out after no response', async () => {
   // Mock empty reactions list (no user reaction)
-  asMock(octokit.rest.reactions.listForIssueComment).mockResolvedValue({
+  vi.mocked(octokit.rest.reactions.listForIssueComment).mockResolvedValue({
     data: []
   })
 
   // Mock Date.now to first return start time, then timeout
-  asMock(Date.now)
+  vi.mocked(Date.now)
     .mockReturnValueOnce(new Date('2024-10-21T19:11:18Z').getTime()) // Start time
     .mockReturnValue(new Date('2024-10-21T19:12:30Z').getTime()) // After timeout
 
@@ -247,10 +282,10 @@ test('deployment confirmation times out after no response', async () => {
   expect(result).toBe(false)
   expect(octokit.rest.issues.createComment).toHaveBeenCalled()
 
-  expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith({
-    body: expect.stringContaining(
-      '⏱️ Deployment confirmation timed out'
-    ) as unknown,
+  const updateRequest = latestUpdateCommentRequest()
+  expect(updateRequest.body).toContain('⏱️ Deployment confirmation timed out')
+  expect(updateRequest).toStrictEqual({
+    body: updateRequest.body,
     comment_id: 124,
     owner: 'corp',
     repo: 'test',
@@ -264,7 +299,7 @@ test('deployment confirmation times out after no response', async () => {
 
 test('ignores reactions from other users', async () => {
   // First call returns reactions from other users
-  asMock(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
+  vi.mocked(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
     data: [
       {
         user: {login: 'other-user'},
@@ -274,7 +309,7 @@ test('ignores reactions from other users', async () => {
   })
 
   // Second call includes the original actor's reaction
-  asMock(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
+  vi.mocked(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
     data: [
       {
         user: {login: 'other-user'},
@@ -291,10 +326,12 @@ test('ignores reactions from other users', async () => {
 
   expect(result).toBe(true)
   expect(octokit.rest.reactions.listForIssueComment).toHaveBeenCalledTimes(2)
-  expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith({
-    body: expect.stringContaining(
-      '✅ Deployment confirmed by __monalisa__'
-    ) as unknown,
+  const updateRequest = latestUpdateCommentRequest()
+  expect(updateRequest.body).toContain(
+    '✅ Deployment confirmed by __monalisa__'
+  )
+  expect(updateRequest).toStrictEqual({
+    body: updateRequest.body,
     comment_id: 124,
     owner: 'corp',
     repo: 'test',
@@ -310,7 +347,7 @@ test('ignores reactions from other users', async () => {
 
 test('ignores non thumbsUp/thumbsDown reactions from the original actor', async () => {
   // Mock reactions list with various reaction types from original actor
-  asMock(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
+  vi.mocked(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
     data: [
       {
         user: {login: 'monalisa'},
@@ -328,7 +365,7 @@ test('ignores non thumbsUp/thumbsDown reactions from the original actor', async 
   })
 
   // Add a thumbs up in the second poll
-  asMock(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
+  vi.mocked(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
     data: [
       {
         user: {login: 'monalisa'},
@@ -360,10 +397,12 @@ test('ignores non thumbsUp/thumbsDown reactions from the original actor', async 
   expect(core.debug).toHaveBeenCalledWith('ignoring reaction: rocket')
 
   // Verify final confirmation happened
-  expect(octokit.rest.issues.updateComment).toHaveBeenCalledWith({
-    body: expect.stringContaining(
-      '✅ Deployment confirmed by __monalisa__'
-    ) as unknown,
+  const updateRequest = latestUpdateCommentRequest()
+  expect(updateRequest.body).toContain(
+    '✅ Deployment confirmed by __monalisa__'
+  )
+  expect(updateRequest).toStrictEqual({
+    body: updateRequest.body,
     comment_id: 124,
     owner: 'corp',
     repo: 'test',
@@ -373,12 +412,12 @@ test('ignores non thumbsUp/thumbsDown reactions from the original actor', async 
 
 test('handles API errors gracefully', async () => {
   // First call throws error
-  asMock(octokit.rest.reactions.listForIssueComment).mockRejectedValueOnce(
+  vi.mocked(octokit.rest.reactions.listForIssueComment).mockRejectedValueOnce(
     new Error('API error')
   )
 
   // Second call succeeds with valid reaction
-  asMock(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
+  vi.mocked(octokit.rest.reactions.listForIssueComment).mockResolvedValueOnce({
     data: [
       {
         user: {login: 'monalisa'},
@@ -397,4 +436,20 @@ test('handles API errors gracefully', async () => {
   expect(core.info).toHaveBeenCalledWith(
     `✅ deployment confirmed by ${COLORS.highlight}monalisa${COLORS.reset} - sha: ${COLORS.highlight}abc123${COLORS.reset}`
   )
+})
+
+test('preserves the temporary failure path for a null reaction user', async () => {
+  vi.mocked(octokit.rest.reactions.listForIssueComment)
+    .mockResolvedValueOnce({data: [{user: null, content: '+1'}]})
+    .mockResolvedValueOnce({
+      data: [{user: {login: 'monalisa'}, content: '+1'}]
+    })
+
+  await expect(deploymentConfirmation(context, octokit, data)).resolves.toBe(
+    true
+  )
+  expect(warningMock).toHaveBeenCalledWith(
+    "temporary failure when checking for reactions on the deployment confirmation comment: Cannot read properties of null (reading 'login')"
+  )
+  expect(octokit.rest.reactions.listForIssueComment).toHaveBeenCalledTimes(2)
 })

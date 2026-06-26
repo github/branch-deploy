@@ -29,4 +29,5 @@ jobs:
         run: |
           npm run format-check
           npm run typecheck
+          npm run typecheck:runtime
           npm run lint

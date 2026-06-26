@@ -8,7 +8,7 @@ export function checkInput(input: string | null | undefined): string | null {
   }
 
   // if the input is null, undefined, or empty, return null
-  if (input === null || input === undefined || input?.length === 0) {
+  if (input === null || input === undefined || input.length === 0) {
     return null
   }
 

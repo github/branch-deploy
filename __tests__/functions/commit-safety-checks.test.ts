@@ -2,12 +2,17 @@ import {vi, expect, test, beforeEach} from 'vitest'
 import {commitSafetyChecks} from '../../src/functions/commit-safety-checks.ts'
 import {COLORS} from '../../src/functions/colors.ts'
 import * as core from '@actions/core'
+import {
+  createActionInputs,
+  createContext,
+  createIssueCommentContext
+} from '../test-helpers.ts'
+import {unsafeInvalidValue} from '../unsafe-fixtures.ts'
 
-vi.mock('../../src/functions/is-timestamp-older.ts', () => ({
+vi.mock(import('../../src/functions/is-timestamp-older.ts'), () => ({
   isTimestampOlder: vi.fn()
 }))
 import {isTimestampOlder} from '../../src/functions/is-timestamp-older.ts'
-import {asMock} from '../test-helpers.ts'
 
 const debugMock = vi.spyOn(core, 'debug')
 const infoMock = vi.spyOn(core, 'info')
@@ -28,8 +33,8 @@ type CommitSafetyFixture = Parameters<typeof commitSafetyChecks>[1] & {
   }
 }
 
-var data: CommitSafetyFixture
-var context: Parameters<typeof commitSafetyChecks>[0]
+let data: CommitSafetyFixture
+let context: Parameters<typeof commitSafetyChecks>[0]
 
 const no_verification = {
   verified: false,
@@ -49,13 +54,9 @@ beforeEach(() => {
   saveStateMock.mockClear()
   setOutputMock.mockClear()
 
-  context = {
-    payload: {
-      comment: {
-        created_at: '2024-10-15T12:00:00Z'
-      }
-    }
-  } as unknown as typeof context
+  context = createIssueCommentContext({
+    payload: {comment: {created_at: '2024-10-15T12:00:00Z'}}
+  })
 
   data = {
     sha: sha,
@@ -65,15 +66,13 @@ beforeEach(() => {
       },
       verification: no_verification
     },
-    inputs: {
-      commit_verification: false
-    }
-  } as unknown as typeof data
+    inputs: createActionInputs({commit_verification: false})
+  }
 })
 
-test('checks a commit and finds that it is safe (date)', async () => {
-  asMock(isTimestampOlder).mockReturnValue(false)
-  expect(await commitSafetyChecks(context, data)).toStrictEqual({
+test('checks a commit and finds that it is safe (date)', () => {
+  vi.mocked(isTimestampOlder).mockReturnValue(false)
+  expect(commitSafetyChecks(context, data)).toStrictEqual({
     message: 'success',
     status: true,
     isVerified: false
@@ -86,9 +85,9 @@ test('checks a commit and finds that it is safe (date)', async () => {
   expect(setOutputMock).toHaveBeenCalledWith('commit_verified', false)
 })
 
-test('checks a commit and finds that it is safe (date + verification)', async () => {
-  asMock(isTimestampOlder).mockReturnValue(false)
-  data.inputs.commit_verification = true
+test('checks a commit and finds that it is safe (date + verification)', () => {
+  vi.mocked(isTimestampOlder).mockReturnValue(false)
+  data = {...data, inputs: createActionInputs({commit_verification: true})}
   data.commit.verification = {
     verified: true,
     reason: 'valid',
@@ -96,7 +95,7 @@ test('checks a commit and finds that it is safe (date + verification)', async ()
     payload: 'SOME_PAYLOAD',
     verified_at: '2024-10-15T12:00:00Z'
   }
-  expect(await commitSafetyChecks(context, data)).toStrictEqual({
+  expect(commitSafetyChecks(context, data)).toStrictEqual({
     message: 'success',
     status: true,
     isVerified: true
@@ -107,11 +106,11 @@ test('checks a commit and finds that it is safe (date + verification)', async ()
   )
 })
 
-test('checks a commit and finds that it is not safe (date)', async () => {
-  asMock(isTimestampOlder).mockReturnValue(true)
+test('checks a commit and finds that it is not safe (date)', () => {
+  vi.mocked(isTimestampOlder).mockReturnValue(true)
   data.commit.author.date = '2024-10-15T12:00:01Z'
 
-  expect(await commitSafetyChecks(context, data)).toStrictEqual({
+  expect(commitSafetyChecks(context, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. It was authored after the trigger comment was created.',
     status: false,
@@ -120,9 +119,9 @@ test('checks a commit and finds that it is not safe (date)', async () => {
   expect(debugMock).toHaveBeenCalledWith('isVerified: false')
 })
 
-test('checks a commit and finds that it is not safe (verification)', async () => {
-  asMock(isTimestampOlder).mockReturnValue(false)
-  data.inputs.commit_verification = true
+test('checks a commit and finds that it is not safe (verification)', () => {
+  vi.mocked(isTimestampOlder).mockReturnValue(false)
+  data = {...data, inputs: createActionInputs({commit_verification: true})}
   data.commit.verification = {
     verified: false,
     reason: 'unsigned',
@@ -131,8 +130,8 @@ test('checks a commit and finds that it is not safe (verification)', async () =>
     verified_at: null
   }
 
-  expect(await commitSafetyChecks(context, data)).toStrictEqual({
-    message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`${data.commit.verification.reason}\`\n\n> The commit signature is not valid. Please ensure the commit has been properly signed and try again.`,
+  expect(commitSafetyChecks(context, data)).toStrictEqual({
+    message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`unsigned\`\n\n> The commit signature is not valid. Please ensure the commit has been properly signed and try again.`,
     status: false,
     isVerified: false
   })
@@ -144,12 +143,12 @@ test('checks a commit and finds that it is not safe (verification)', async () =>
   expect(setOutputMock).toHaveBeenCalledWith('commit_verified', false)
 })
 
-test('checks a commit and finds that it is not safe (verification time) even though it is verified - rejected due to timestamp', async () => {
+test('checks a commit and finds that it is not safe (verification time) even though it is verified - rejected due to timestamp', () => {
   // First call: commit_created_at check (should be false), second call: verified_at check (should be true)
-  asMock(isTimestampOlder)
+  vi.mocked(isTimestampOlder)
     .mockImplementationOnce(() => false)
     .mockImplementationOnce(() => true)
-  data.inputs.commit_verification = true
+  data = {...data, inputs: createActionInputs({commit_verification: true})}
   data.commit.verification = {
     verified: true,
     reason: 'valid',
@@ -158,7 +157,7 @@ test('checks a commit and finds that it is not safe (verification time) even tho
     verified_at: '2024-10-15T12:00:01Z' // occurred after the trigger comment was created
   }
 
-  expect(await commitSafetyChecks(context, data)).toStrictEqual({
+  expect(commitSafetyChecks(context, data)).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. The commit signature was verified after the trigger comment was created. Please try again if you recently pushed a new commit.`,
     status: false,
     isVerified: true
@@ -171,41 +170,93 @@ test('checks a commit and finds that it is not safe (verification time) even tho
   expect(setOutputMock).toHaveBeenCalledWith('commit_verified', true)
 })
 
-test('raises an error if the date format is invalid', async () => {
+test('raises an error if the date format is invalid', () => {
   // Simulate isTimestampOlder throwing
-  asMock(isTimestampOlder).mockImplementation(() => {
+  vi.mocked(isTimestampOlder).mockImplementation(() => {
     throw new Error(
       'Invalid date format. Please ensure the dates are valid UTC timestamps.'
     )
   })
   data.commit.author.date = '2024-10-15T12:00:uhoh'
-  await expect(commitSafetyChecks(context, data)).rejects.toThrow(
+  expect(() => commitSafetyChecks(context, data)).toThrow(
     'Invalid date format. Please ensure the dates are valid UTC timestamps.'
   )
 })
 
-test('throws if context.payload.comment.created_at is missing', async () => {
-  const brokenContext = {payload: {comment: {}}} as unknown as Parameters<
-    typeof commitSafetyChecks
-  >[0]
-  await expect(commitSafetyChecks(brokenContext, data)).rejects.toThrow(
+test('throws if context.payload.comment.created_at is missing', () => {
+  const brokenContext = createContext({payload: {comment: {}}})
+  expect(() => commitSafetyChecks(brokenContext, data)).toThrow(
     'Missing context.payload.comment.created_at'
   )
 })
 
-test('throws if commit.author.date is missing', async () => {
-  const brokenData = JSON.parse(JSON.stringify(data)) as unknown as {
-    commit: {author: {date?: string}}
+test.each([null, undefined])(
+  'preserves the missing-comment error when the webhook payload is %s',
+  payload => {
+    const brokenContext = unsafeInvalidValue<
+      Parameters<typeof commitSafetyChecks>[0]
+    >({...context, payload})
+    expect(() => commitSafetyChecks(brokenContext, data)).toThrow(
+      'Missing context.payload.comment.created_at'
+    )
   }
-  delete brokenData.commit.author.date
-  await expect(
-    commitSafetyChecks(context, brokenData as unknown as typeof data)
-  ).rejects.toThrow('Missing commit.author.date')
+)
+
+test('throws if commit.author.date is missing', () => {
+  const brokenData: Parameters<typeof commitSafetyChecks>[1] = {
+    ...data,
+    commit: {
+      ...data.commit,
+      author: {}
+    }
+  }
+  expect(() => commitSafetyChecks(context, brokenData)).toThrow(
+    'Missing commit.author.date'
+  )
 })
 
-test('rejects a deployment if commit.verification.verified_at is null and commit_verification is true', async () => {
-  asMock(isTimestampOlder).mockReturnValue(false)
-  data.inputs.commit_verification = true
+test.each([null, undefined])(
+  'preserves the missing-author error when the external commit is %s',
+  commit => {
+    expect(() => commitSafetyChecks(context, {...data, commit})).toThrow(
+      'Missing commit.author.date'
+    )
+  }
+)
+
+test.each([false, 0])(
+  'preserves the missing-comment error for the falsy external timestamp %s',
+  createdAt => {
+    const brokenContext = createIssueCommentContext({
+      payload: {
+        comment: {created_at: unsafeInvalidValue<string>(createdAt)}
+      }
+    })
+    expect(() => commitSafetyChecks(brokenContext, data)).toThrow(
+      'Missing context.payload.comment.created_at'
+    )
+  }
+)
+
+test.each([false, 0])(
+  'preserves the missing-author error for the falsy external timestamp %s',
+  date => {
+    const brokenData: Parameters<typeof commitSafetyChecks>[1] = {
+      ...data,
+      commit: {
+        ...data.commit,
+        author: {date: unsafeInvalidValue<string>(date)}
+      }
+    }
+    expect(() => commitSafetyChecks(context, brokenData)).toThrow(
+      'Missing commit.author.date'
+    )
+  }
+)
+
+test('rejects a deployment if commit.verification.verified_at is null and commit_verification is true', () => {
+  vi.mocked(isTimestampOlder).mockReturnValue(false)
+  data = {...data, inputs: createActionInputs({commit_verification: true})}
   data.commit.verification = {
     verified: true,
     reason: 'valid',
@@ -214,49 +265,68 @@ test('rejects a deployment if commit.verification.verified_at is null and commit
     verified_at: null
   }
 
-  await expect(commitSafetyChecks(context, data)).resolves.toEqual({
+  expect(commitSafetyChecks(context, data)).toEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`valid\`\n\n> The commit signature is not valid as there is no valid \`verified_at\` date. Please ensure the commit has been properly signed and try again.`,
     status: false,
     isVerified: true
   })
 })
 
-test('rejects a deployment if commit.verification.verified_at is missing and commit_verification is true', async () => {
-  asMock(isTimestampOlder).mockReturnValue(false)
-  data.inputs.commit_verification = true
-  data.commit.verification = {
+test.each([false, 0])(
+  'preserves the invalid-verification result for the falsy external timestamp %s',
+  verifiedAt => {
+    vi.mocked(isTimestampOlder).mockReturnValue(false)
+    data = {...data, inputs: createActionInputs({commit_verification: true})}
+    data.commit.verification = {
+      verified: true,
+      reason: 'valid',
+      verified_at: unsafeInvalidValue<string>(verifiedAt)
+    }
+
+    expect(commitSafetyChecks(context, data)).toEqual({
+      message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`valid\`\n\n> The commit signature is not valid as there is no valid \`verified_at\` date. Please ensure the commit has been properly signed and try again.`,
+      status: false,
+      isVerified: true
+    })
+  }
+)
+
+test('rejects a deployment if commit.verification.verified_at is missing and commit_verification is true', () => {
+  vi.mocked(isTimestampOlder).mockReturnValue(false)
+  data = {...data, inputs: createActionInputs({commit_verification: true})}
+  data.commit.verification = unsafeInvalidValue<
+    NonNullable<typeof data.commit.verification>
+  >({
     verified: true,
     reason: 'valid',
     signature: 'SOME_SIGNATURE',
     payload: 'SOME_PAYLOAD'
-  }
+  })
 
-  await expect(commitSafetyChecks(context, data)).resolves.toEqual({
+  expect(commitSafetyChecks(context, data)).toEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`valid\`\n\n> The commit signature is not valid as there is no valid \`verified_at\` date. Please ensure the commit has been properly signed and try again.`,
     status: false,
     isVerified: true
   })
 })
 
-test('isTimestampOlder covers else branch (not older)', async () => {
-  asMock(isTimestampOlder).mockReturnValue(false)
-  const context = {
+test('isTimestampOlder covers else branch (not older)', () => {
+  vi.mocked(isTimestampOlder).mockReturnValue(false)
+  const context = createIssueCommentContext({
     payload: {comment: {created_at: '2024-10-15T12:00:00Z'}}
-  } as unknown as Parameters<typeof commitSafetyChecks>[0]
-  const data = {
+  })
+  const data: Parameters<typeof commitSafetyChecks>[1] = {
     sha: 'abc123',
     commit: {
       author: {date: '2024-10-15T11:00:00Z'},
       verification: {
         verified: false,
         reason: 'unsigned',
-        signature: null,
-        payload: null,
         verified_at: null
       }
     },
-    inputs: {commit_verification: false}
-  } as unknown as Parameters<typeof commitSafetyChecks>[1]
-  await commitSafetyChecks(context, data)
+    inputs: createActionInputs({commit_verification: false})
+  }
+  commitSafetyChecks(context, data)
   expect(debugMock).toHaveBeenCalledWith('isVerified: false')
 })

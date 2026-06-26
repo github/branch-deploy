@@ -1,7 +1,9 @@
 import * as core from '@actions/core'
 import {COLORS} from './colors.ts'
 import {activeDeployment} from './deployment.ts'
-import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
+import type {DeploymentGraphqlOctokit} from './deployment.ts'
+import {setActionOutput} from '../action-io.ts'
+import type {BranchDeployContext} from '../types.ts'
 
 // Helper function to ensure the deployment order is enforced (if any)
 // :param octokit: The octokit client
@@ -11,12 +13,18 @@ import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
 // :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
 // :returns: an object with the valid: true if the deployment order is valid, false otherwise, and results: an array of the previous environments in the enforced deployment order that do not have active deployments
 export async function validDeploymentOrder(
-  octokit: BranchDeployOctokit,
+  octokit: DeploymentGraphqlOctokit,
   context: BranchDeployContext,
-  enforced_deployment_order: string[],
+  enforced_deployment_order: readonly string[],
   environment: string,
   sha: string
-) {
+): Promise<{
+  readonly results: readonly {
+    readonly active: boolean
+    readonly environment: string
+  }[]
+  readonly valid: boolean
+}> {
   core.info(`🚦 deployment order is ${COLORS.highlight}enforced${COLORS.reset}`)
 
   if (enforced_deployment_order.length === 1) {
@@ -42,11 +50,11 @@ export async function validDeploymentOrder(
   )
 
   core.debug(
-    `environments that require active deployments: ${previous_environments}`
+    `environments that require active deployments: ${previous_environments.join(',')}`
   )
 
   // iterate over the previous environments and check to see if they have an active deployment
-  let results: Array<{active: boolean; environment: string}> = []
+  const results: {active: boolean; environment: string}[] = []
   for (const previous_environment of previous_environments) {
     core.debug(`checking if ${previous_environment} has an active deployment`)
     const is_active = await activeDeployment(
@@ -71,7 +79,7 @@ export async function validDeploymentOrder(
   }
 
   // if all previous environments have active deployments, we can proceed with the deployment
-  if (results.every(result => result.active === true)) {
+  if (results.every(result => result.active)) {
     core.info(
       `🚦 deployment order checks passed as all previous environments have active deployments`
     )
@@ -83,7 +91,7 @@ export async function validDeploymentOrder(
     .filter(result => !result.active)
     .map(result => result.environment)
     .join(',')
-  core.setOutput('needs_to_be_deployed', needs_to_be_deployed)
+  setActionOutput('needs_to_be_deployed', needs_to_be_deployed)
 
   // if we made it this far, it means that not all previous environments have active deployments and we cannot proceed
   return {valid: false, results: results}

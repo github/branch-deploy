@@ -3,8 +3,12 @@ import {COLORS} from './colors.ts'
 import {constructValidBranchName} from './valid-branch-name.ts'
 import * as core from '@actions/core'
 import {API_HEADERS} from './api-headers.ts'
+import {
+  decodedLockData,
+  legacyApiError,
+  repositoryFileContent
+} from '../trust-boundaries.ts'
 import type {
-  ApiError,
   BranchDeployContext,
   BranchDeployOctokit,
   LockData
@@ -12,17 +16,30 @@ import type {
 
 const LOCK_FILE = LOCK_METADATA.lockFile
 
+type GetContentMethod = BranchDeployOctokit['rest']['repos']['getContent']
+type GetContentParameters = Parameters<GetContentMethod>[0]
+
+export interface LockFileOctokit {
+  readonly rest: {
+    readonly repos: {
+      readonly getContent: (
+        parameters?: GetContentParameters
+      ) => Promise<{readonly data: unknown}>
+    }
+  }
+}
+
 // Helper function to check if a lock file exists and decodes it if it does
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
 // :param branchName: The name of the branch to check
 // :return: The lock file contents if it exists, false if not
 export async function checkLockFile(
-  octokit: BranchDeployOctokit,
+  octokit: LockFileOctokit,
   context: BranchDeployContext,
   branchName: string
 ): Promise<false | LockData> {
-  branchName = constructValidBranchName(branchName) as string
+  branchName = constructValidBranchName(branchName)
 
   core.debug(`checking if lock file exists on branch: ${branchName}`)
   // If the lock branch exists, check if a lock file exists
@@ -36,18 +53,16 @@ export async function checkLockFile(
     })
 
     // decode the file contents to json
-    const lockData = JSON.parse(
-      Buffer.from(
-        (response.data as {content: string}).content,
-        'base64'
-      ).toString()
-    ) as LockData
+    const lockData = decodedLockData(
+      Buffer.from(repositoryFileContent(response.data), 'base64').toString()
+    )
 
     return lockData
   } catch (error) {
-    core.debug(`checkLockFile() error.status: ${(error as ApiError).status}`)
+    const apiError = legacyApiError(error)
+    core.debug(`checkLockFile() error.status: ${String(apiError.status)}`)
     // If the lock file doesn't exist, return false
-    if ((error as ApiError).status === 404) {
+    if (apiError.status === 404) {
       const lockFileNotFoundMsg = `🔍 lock file does not exist on branch: ${COLORS.highlight}${branchName}`
       if (branchName === LOCK_METADATA.globalLockBranch) {
         // since we jump out directly to the 'lock file' without checking the branch (only on global locks), we get this error often so we just want it to be a debug message
@@ -59,6 +74,6 @@ export async function checkLockFile(
     }
 
     // If some other error occurred, throw it
-    throw new Error(error as string)
+    throw new Error(String(error))
   }
 }

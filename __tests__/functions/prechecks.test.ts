@@ -1,10 +1,26 @@
-import {prechecks} from '../../src/functions/prechecks.ts'
-import {vi, expect, test, beforeEach} from 'vitest'
+import {
+  filterChecks,
+  prechecks,
+  type PrechecksBranchResponse,
+  type PrechecksOctokit
+} from '../../src/functions/prechecks.ts'
+import {vi, expect, test, beforeEach, type Mock} from 'vitest'
 import {COLORS} from '../../src/functions/colors.ts'
 import * as isAdmin from '../../src/functions/admin.ts'
 import * as isOutdated from '../../src/functions/outdated-check.ts'
 import * as core from '@actions/core'
-import {asMock} from '../test-helpers.ts'
+import type {
+  BranchDeployContext,
+  PrecheckData,
+  PrechecksGraphqlResult,
+  RawCheckResult
+} from '../../src/types.ts'
+import {
+  createActionInputs,
+  createContext,
+  type DeepMutable
+} from '../test-helpers.ts'
+import {unsafeInvalidValue} from '../unsafe-fixtures.ts'
 
 // Globals for testing
 const infoMock = vi.spyOn(core, 'info')
@@ -12,83 +28,30 @@ const warningMock = vi.spyOn(core, 'warning')
 const debugMock = vi.spyOn(core, 'debug')
 const setOutputMock = vi.spyOn(core, 'setOutput')
 
-type TestMock = ReturnType<typeof vi.fn>
+type PrechecksOctokitFixture = DeepMutable<PrechecksOctokit>
 
-interface TestContext {
-  actor: string
-  issue: {number: number}
-  repo: {owner: string; repo: string}
-}
+type TestCommitCollection = NonNullable<
+  PrechecksGraphqlResult['repository']['pullRequest']['commits']
+>
+type TestCommitNode = NonNullable<TestCommitCollection['nodes']>[number]
+type TestStatusCheckRollup = Exclude<
+  TestCommitNode['commit']['statusCheckRollup'],
+  undefined
+>
 
-interface TestPrecheckData {
-  environment: string
-  environmentObj: {
-    noop: boolean
-    params: string | null
-    sha: string | null
-    stable_branch_used: boolean
-    target: string
-  }
-  inputs: {
-    allow_non_default_target_branch_deployments: boolean
-    allow_sha_deployments: boolean
-    allowForks: boolean
-    checks: string | string[]
-    commit_verification: boolean
-    draft_permitted_targets: string
-    ignored_checks: string[] | null
-    permissions: string[]
-    skipCi: string
-    skipReviews: string
-    stable_branch: string
-    trigger: string
-    update_branch: string
-    use_security_warnings: boolean
-  }
-  issue_number: string
-}
-
-interface TestOctokit {
-  graphql: TestMock
-  rest: {
-    pulls: {
-      get: TestMock
-      updateBranch?: TestMock
-    }
-    repos: {
-      compareCommits?: TestMock
-      getBranch: TestMock
-      getCollaboratorPermissionLevel: TestMock
-    }
-  }
-}
-
-type TestPrechecks = (
-  context: TestContext,
-  octokit: TestOctokit,
-  data: TestPrecheckData
-) => ReturnType<typeof prechecks>
-
-interface TestCommitCollection {
-  nodes: Array<{
-    commit: {
-      oid: string
-      statusCheckRollup: unknown
-    }
-  }>
-}
-
-var context: TestContext
-var getCollabOK: TestMock
-var getPullsOK: TestMock
-var graphQLOK: TestMock
-var octokit: TestOctokit
-var data: TestPrecheckData
-var baseCommitWithOid: TestCommitCollection
+let context: BranchDeployContext
+let getCollabOK: Mock<
+  PrechecksOctokit['rest']['repos']['getCollaboratorPermissionLevel']
+>
+let getPullsOK: Mock<PrechecksOctokit['rest']['pulls']['get']>
+let graphQLOK: Mock<PrechecksOctokit['graphql']>
+let octokit: PrechecksOctokitFixture
+let data: DeepMutable<PrecheckData>
+let baseCommitWithOid: TestCommitCollection
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INPUT_PERMISSIONS = 'admin,write'
+  vi.stubEnv('INPUT_PERMISSIONS', 'admin,write')
 
   baseCommitWithOid = {
     nodes: [
@@ -108,10 +71,11 @@ beforeEach(() => {
       stable_branch_used: false,
       noop: false,
       params: null,
+      parsed_params: null,
       sha: null
     },
     issue_number: '123',
-    inputs: {
+    inputs: createActionInputs({
       allow_sha_deployments: false,
       update_branch: 'disabled',
       stable_branch: 'main',
@@ -126,10 +90,10 @@ beforeEach(() => {
       ignored_checks: [],
       use_security_warnings: true,
       allow_non_default_target_branch_deployments: false
-    }
+    })
   }
 
-  context = {
+  context = createContext({
     actor: 'monalisa',
     repo: {
       owner: 'corp',
@@ -138,25 +102,29 @@ beforeEach(() => {
     issue: {
       number: 123
     }
-  }
-
-  getCollabOK = vi
-    .fn()
-    .mockReturnValue({data: {permission: 'write'}, status: 200})
-  getPullsOK = vi.fn().mockReturnValue({
-    data: {
-      head: {
-        ref: 'test-ref',
-        sha: 'abc123'
-      },
-      base: {
-        ref: 'main'
-      }
-    },
-    status: 200
   })
 
-  graphQLOK = vi.fn().mockReturnValue({
+  getCollabOK = vi
+    .fn<PrechecksOctokit['rest']['repos']['getCollaboratorPermissionLevel']>()
+    .mockResolvedValue({data: {permission: 'write'}, status: 200})
+  getPullsOK = vi
+    .fn<PrechecksOctokit['rest']['pulls']['get']>()
+    .mockResolvedValue({
+      data: {
+        head: {
+          ref: 'test-ref',
+          sha: 'abc123',
+          label: 'corp:test-ref',
+          repo: {fork: false, full_name: 'corp/test'}
+        },
+        base: {
+          ref: 'main'
+        }
+      },
+      status: 200
+    })
+
+  graphQLOK = vi.fn<PrechecksOctokit['graphql']>().mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -169,10 +137,6 @@ beforeEach(() => {
             {
               commit: {
                 oid: 'abc123',
-                signature: null,
-                checkSuites: {
-                  totalCount: 3
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS',
                   contexts: {
@@ -206,47 +170,51 @@ beforeEach(() => {
   octokit = {
     rest: {
       repos: {
+        compareCommits: vi
+          .fn<PrechecksOctokit['rest']['repos']['compareCommits']>()
+          .mockResolvedValue({data: {behind_by: 0}}),
+        getBranch: vi
+          .fn<PrechecksOctokit['rest']['repos']['getBranch']>()
+          .mockResolvedValue({
+            data: {
+              commit: {
+                sha: 'deadbeef',
+                commit: {tree: {sha: 'beefdead'}}
+              },
+              name: 'test-branch'
+            }
+          }),
         getCollaboratorPermissionLevel: getCollabOK
       },
       pulls: {
-        get: getPullsOK
+        get: getPullsOK,
+        updateBranch: vi
+          .fn<PrechecksOctokit['rest']['pulls']['updateBranch']>()
+          .mockResolvedValue({status: 202})
       }
     },
     graphql: graphQLOK
-  } as unknown as TestOctokit
+  }
 
-  // mock the request for fetching the baseBranch variable
-  octokit.rest.repos.getBranch = vi.fn().mockReturnValue({
-    data: {
-      commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
-      name: 'test-branch'
-    },
-    status: 200
+  vi.spyOn(isOutdated, 'isOutdated').mockResolvedValue({
+    outdated: false,
+    branch: 'test-branch'
   })
 
-  asMock(vi.spyOn(isOutdated, 'isOutdated')).mockImplementation(() => {
-    return {outdated: false, branch: 'test-branch'}
-  })
-
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return false
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(false)
 })
 
-function mockApprovedCi(statusCheckRollup: unknown, checkSuiteCount?: number) {
-  const commit: {
-    checkSuites?: {totalCount: number}
-    oid: string
-    statusCheckRollup: unknown
-  } = {
+function mockApprovedCi(
+  statusCheckRollup: TestStatusCheckRollup,
+  checkSuiteCount?: number
+) {
+  void checkSuiteCount
+  const commit = {
     oid: 'abc123',
     statusCheckRollup
   }
-  if (checkSuiteCount !== undefined) {
-    commit.checkSuites = {totalCount: checkSuiteCount}
-  }
 
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -258,10 +226,109 @@ function mockApprovedCi(statusCheckRollup: unknown, checkSuiteCount?: number) {
   })
 }
 
-test('runs prechecks and finds that the IssueOps command is valid for a branch deployment', async () => {
+test('treats an unfinished check run without a conclusion as unhealthy', () => {
   expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
+    filterChecks(
+      'all',
+      [{conclusion: null, isRequired: true, name: 'queued-check'}],
+      [],
+      false
+    )
   ).toStrictEqual({
+    message: 'one or more checks did not pass',
+    status: 'FAILURE'
+  })
+})
+
+test('preserves nullish fallbacks for a malformed hybrid check node', () => {
+  const hybridCheck = unsafeInvalidValue<RawCheckResult>({
+    conclusion: undefined,
+    context: 'legacy-ci',
+    isRequired: true,
+    name: null,
+    state: 'SUCCESS'
+  })
+  expect(filterChecks(['legacy-ci'], [hybridCheck], [], false)).toStrictEqual({
+    message: 'all checks passed',
+    status: 'SUCCESS'
+  })
+})
+
+test('preserves the optional commit lookup for a malformed GraphQL node', async () => {
+  vi.mocked(octokit.graphql).mockResolvedValue(
+    unsafeInvalidValue<PrechecksGraphqlResult>({
+      repository: {
+        pullRequest: {
+          commits: {nodes: [{}]},
+          mergeStateStatus: 'CLEAN',
+          reviewDecision: 'APPROVED',
+          reviews: {totalCount: 1}
+        }
+      }
+    })
+  )
+
+  await expect(prechecks(context, octokit, data)).resolves.toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: `abc123`\n- commit_oid: `undefined`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.',
+    status: false
+  })
+})
+
+test('preserves the missing GraphQL nodes error', async () => {
+  vi.mocked(octokit.graphql).mockResolvedValue(
+    unsafeInvalidValue<PrechecksGraphqlResult>({
+      repository: {
+        pullRequest: {
+          commits: {},
+          mergeStateStatus: 'CLEAN',
+          reviewDecision: 'APPROVED',
+          reviews: {totalCount: 1}
+        }
+      }
+    })
+  )
+
+  await expect(prechecks(context, octokit, data)).rejects.toThrow(
+    "Cannot read properties of undefined (reading '0')"
+  )
+})
+
+test('preserves the caught error text for a missing GraphQL commit collection', async () => {
+  vi.mocked(octokit.graphql).mockResolvedValue({
+    repository: {
+      pullRequest: {
+        mergeStateStatus: 'CLEAN',
+        reviewDecision: 'APPROVED',
+        reviews: {totalCount: 1}
+      }
+    }
+  })
+
+  await expect(prechecks(context, octokit, data)).resolves.toMatchObject({
+    status: false
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: ${COLORS.success}OK`
+  )
+})
+
+test('preserves the optional default-branch tree lookup', async () => {
+  vi.mocked(octokit.rest.repos.getBranch).mockResolvedValueOnce(
+    unsafeInvalidValue<PrechecksBranchResponse>(null)
+  )
+
+  await expect(prechecks(context, octokit, data)).resolves.toMatchObject({
+    status: true
+  })
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'default_branch_tree_sha',
+    undefined
+  )
+})
+
+test('runs prechecks and finds that the IssueOps command is valid for a branch deployment', async () => {
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
     ref: 'test-ref',
@@ -272,7 +339,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with required checks', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -285,9 +352,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 3
-                },
                 statusCheckRollup: {
                   state: 'FAILURE',
                   contexts: {
@@ -320,9 +384,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 
   data.inputs.checks = 'required'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
     ref: 'test-ref',
@@ -333,7 +395,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with required checks and some ignored checks', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -346,9 +408,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 4
-                },
                 statusCheckRollup: {
                   state: 'FAILURE',
                   contexts: {
@@ -387,9 +446,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   data.inputs.checks = 'required'
   data.inputs.ignored_checks = ['markdown-lint']
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
     ref: 'test-ref',
@@ -404,7 +461,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with a few explictly requested checks and a few ignored checks', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -417,9 +474,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 5
-                },
                 statusCheckRollup: {
                   state: 'FAILURE',
                   contexts: {
@@ -463,9 +517,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   data.inputs.checks = ['test', 'acceptance-test', 'lint']
   data.inputs.ignored_checks = ['lint']
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
     ref: 'test-ref',
@@ -495,7 +547,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with a few explictly requested checks and a few ignored checks but one CI check is missing', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -508,9 +560,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 5
-                },
                 statusCheckRollup: {
                   state: 'FAILURE',
                   contexts: {
@@ -554,9 +603,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   data.inputs.checks = ['test', 'acceptance-test', 'quality-control', 'lint']
   data.inputs.ignored_checks = ['lint']
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `MISSING`\n\n> The `checks` input option requires that all of the following checks are passing: `test,acceptance-test,quality-control,lint`. However, the following checks are missing: `quality-control`',
     status: false
@@ -586,7 +633,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment but checks and ignore checks cancel eachother out', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -599,9 +646,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 5
-                },
                 statusCheckRollup: {
                   state: 'FAILURE',
                   contexts: {
@@ -657,9 +701,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     'acceptance-test'
   ]
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
     ref: 'test-ref',
@@ -704,7 +746,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with ALL checks being required but the user has provided some checks to ignore', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -717,9 +759,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 5
-                },
                 statusCheckRollup: {
                   state: 'FAILURE',
                   contexts: {
@@ -763,9 +802,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   data.inputs.checks = 'all'
   data.inputs.ignored_checks = ['markdown-lint', 'build']
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
     ref: 'test-ref',
@@ -783,7 +820,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with ALL checks being required but the user has provided some checks to ignore', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -796,9 +833,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 5
-                },
                 statusCheckRollup: {
                   state: 'FAILURE',
                   contexts: {
@@ -842,9 +876,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   data.inputs.checks = [] // if the array is empty, this essentially says "include all checks"
   data.inputs.ignored_checks = [] // if the array is empty, this essentially says "don't ignore any checks"
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
     status: false
@@ -862,7 +894,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with ALL checks being required but the user has provided some checks to ignore but none match', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -875,9 +907,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 5
-                },
                 statusCheckRollup: {
                   state: 'FAILURE',
                   contexts: {
@@ -921,9 +950,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   data.inputs.checks = 'all'
   data.inputs.ignored_checks = ['xyz', 'abc']
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
     status: false
@@ -938,7 +965,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment with ALL checks being required and the user did not provided checks to ignore and some are failing', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -951,9 +978,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 5
-                },
                 statusCheckRollup: {
                   state: 'FAILURE',
                   contexts: {
@@ -995,11 +1019,9 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   })
 
   data.inputs.checks = 'all'
-  data.inputs.ignored_checks = null
+  data.inputs.ignored_checks = unsafeInvalidValue<string[]>(null)
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
     status: false
@@ -1013,17 +1035,25 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   )
 })
 
+test.each([false, 0, ''])(
+  'preserves the empty ignored-check fallback for the malformed value %s',
+  async ignoredChecks => {
+    data.inputs.ignored_checks = unsafeInvalidValue<string[]>(ignoredChecks)
+    await expect(prechecks(context, octokit, data)).resolves.toMatchObject({
+      status: true
+    })
+  }
+)
+
 test('runs prechecks and finds that the IssueOps command is valid for a rollback deployment', async () => {
-  octokit.rest.repos.getBranch = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.repos.getBranch).mockResolvedValue({
     data: {commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}}},
     status: 200
   })
 
   data.environmentObj.stable_branch_used = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`,
     noopMode: false,
     ref: 'main',
@@ -1035,9 +1065,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a rollback
 
 test('runs prechecks and finds that the IssueOps command is valid for a noop deployment', async () => {
   data.environmentObj.noop = true
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     noopMode: true,
     ref: 'test-ref',
@@ -1048,7 +1076,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a noop dep
 })
 
 test('runs prechecks and finds the commit fetched via the rest call does not match the commit returned from the graphql call', async () => {
-  octokit.graphql = vi.fn().mockReturnValueOnce({
+  vi.mocked(octokit.graphql).mockResolvedValueOnce({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1065,9 +1093,7 @@ test('runs prechecks and finds the commit fetched via the rest call does not mat
     }
   })
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: `abc123`\n- commit_oid: `evilcommit123`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.',
     status: false
@@ -1075,7 +1101,7 @@ test('runs prechecks and finds the commit fetched via the rest call does not mat
 })
 
 test('runs prechecks and finds that the IssueOps command is valid without defined CI checks', async () => {
-  octokit.graphql = vi.fn().mockReturnValueOnce({
+  vi.mocked(octokit.graphql).mockResolvedValueOnce({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1083,9 +1109,7 @@ test('runs prechecks and finds that the IssueOps command is valid without define
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ CI checks have not been defined but the PR has been approved',
     status: true,
     noopMode: false,
@@ -1099,12 +1123,10 @@ test('runs prechecks and finds that the IssueOps command is valid without define
 })
 
 test('runs prechecks and fails due to bad user permissions', async () => {
-  octokit.rest.repos.getCollaboratorPermissionLevel = vi
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'read'}, status: 200})
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  vi.mocked(
+    octokit.rest.repos.getCollaboratorPermissionLevel
+  ).mockResolvedValueOnce({data: {permission: 'read'}, status: 200})
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '👋 @monalisa, that command requires the following permission(s): `admin/write`\n\nYour current permissions: `read`',
     status: false
@@ -1112,10 +1134,8 @@ test('runs prechecks and fails due to bad user permissions', async () => {
 })
 
 test('runs prechecks and fails due to a bad pull request', async () => {
-  octokit.rest.pulls.get = vi.fn().mockReturnValueOnce({status: 500})
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValueOnce({status: 500})
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: 'Could not retrieve PR info: 500',
     status: false
   })
@@ -1128,7 +1148,7 @@ test.each([
   [0, 'PENDING', 'all'],
   [1, 'FAILURE', 'all'],
   [0, 'FAILURE', 'required']
-])(
+] as const)(
   'rejects an approved deployment with %i CheckSuites, aggregate %s, and checks=%s',
   async (checkSuiteCount, aggregateState, checks) => {
     mockApprovedCi(
@@ -1154,13 +1174,13 @@ test.each([
         ? 'CI checks must be passing in order to continue'
         : 'Your pull request is approved but CI checks are failing'
 
-    expect(
-      await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-    ).toStrictEqual({
+    expect(await prechecks(context, octokit, data)).toStrictEqual({
       message: `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`APPROVED\`\n- commitStatus: \`${commitStatus}\`\n\n> ${detail}`,
       status: false
     })
-    expect(octokit.graphql.mock.calls[0]![0]).toContain('... on StatusContext')
+    expect(vi.mocked(octokit.graphql).mock.calls[0]?.[0]).toContain(
+      '... on StatusContext'
+    )
   }
 )
 
@@ -1183,9 +1203,7 @@ test('accepts a requested healthy legacy status context without CheckSuites', as
 
   data.inputs.checks = ['legacy-ci']
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
     ref: 'test-ref',
@@ -1214,9 +1232,7 @@ test('allows checks=required when only an optional CI check is failing', async (
 
   data.inputs.checks = 'required'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
     ref: 'test-ref',
@@ -1234,9 +1250,7 @@ test('rejects explicitly requested checks when the combined CI rollup is absent'
 
   data.inputs.checks = ['security']
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `MISSING`\n\n> The `checks` input option requires that all of the following checks are passing: `security`. However, the following checks are missing: `security`',
     status: false
@@ -1244,7 +1258,7 @@ test('rejects explicitly requested checks when the combined CI rollup is absent'
 })
 
 test('runs prechecks and finds that reviews and CI checks have not been defined', async () => {
-  octokit.graphql = vi.fn().mockReturnValueOnce({
+  vi.mocked(octokit.graphql).mockResolvedValueOnce({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -1252,9 +1266,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '🎛️ CI checks have not been defined and required reviewers have not been defined',
     status: true,
@@ -1272,7 +1284,7 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
 })
 
 test('runs prechecks and finds CI checks pass but reviews are not defined', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -1284,9 +1296,6 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1297,9 +1306,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '🎛️ CI checks have been defined but required reviewers have not been defined',
     status: true,
@@ -1314,7 +1321,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
 })
 
 test('runs prechecks and finds CI is passing and the PR has not been reviewed BUT it is a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -1326,9 +1333,6 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1342,9 +1346,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
 
   data.environmentObj.noop = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`,
     status: true,
     noopMode: true,
@@ -1355,7 +1357,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment and is from a forked repository', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1367,9 +1369,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
             {
               commit: {
                 oid: 'abcde12345',
-                checkSuites: {
-                  totalCount: 8
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1380,7 +1379,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         sha: 'abcde12345',
@@ -1396,9 +1395,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     },
     status: 200
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     status: true,
     noopMode: false,
@@ -1413,8 +1410,35 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
   )
 })
 
+test.each([1, '1'])(
+  'preserves loose fork detection for the malformed API value %s',
+  async fork => {
+    vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
+      data: {
+        head: {
+          sha: 'abc123',
+          ref: 'test-ref',
+          label: 'test-repo:test-ref',
+          repo: {
+            fork: unsafeInvalidValue<boolean>(fork),
+            full_name: 'test-repo/test'
+          }
+        },
+        base: {ref: 'main'}
+      },
+      status: 200
+    })
+
+    await expect(prechecks(context, octokit, data)).resolves.toMatchObject({
+      isFork: true,
+      ref: 'abc123',
+      status: true
+    })
+  }
+)
+
 test('runs prechecks and finds that the PR from a fork is targeting a non-default branch and rejects the deployment', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1426,9 +1450,6 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
             {
               commit: {
                 oid: 'abcde12345',
-                checkSuites: {
-                  totalCount: 8
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1439,7 +1460,7 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         sha: 'abcde12345',
@@ -1455,9 +1476,7 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
     },
     status: 200
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`some-other-branch\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
     status: false
   })
@@ -1469,7 +1488,7 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
 })
 
 test('runs prechecks and finds that the PR from a fork is targeting a non-default branch and allows it based on the action config', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1481,9 +1500,6 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
             {
               commit: {
                 oid: 'abcde12345',
-                checkSuites: {
-                  totalCount: 8
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1494,7 +1510,7 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         sha: 'abcde12345',
@@ -1513,9 +1529,7 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
 
   data.inputs.allow_non_default_target_branch_deployments = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `✅ PR is approved and all CI checks passed`,
     status: true,
     noopMode: false,
@@ -1531,7 +1545,7 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
 })
 
 test('runs prechecks and finds that the PR is targeting a non-default branch and rejects the deployment', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1543,9 +1557,6 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
             {
               commit: {
                 oid: 'abcde12345',
-                checkSuites: {
-                  totalCount: 8
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1556,14 +1567,12 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         ref: 'test-ref',
-        sha: 'abc123'
-      },
-      repo: {
-        fork: false
+        sha: 'abc123',
+        repo: {fork: false}
       },
       base: {
         ref: 'not-main'
@@ -1572,9 +1581,7 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
     status: 200
   })
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`not-main\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
     status: false
   })
@@ -1586,7 +1593,7 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
 })
 
 test('runs prechecks and finds that the PR is targeting a non-default branch and allows the deployment based on the action config and logs a warning', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1598,9 +1605,6 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
             {
               commit: {
                 oid: 'abcde12345',
-                checkSuites: {
-                  totalCount: 8
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1611,14 +1615,12 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         ref: 'test-ref',
-        sha: 'abcde12345'
-      },
-      repo: {
-        fork: false
+        sha: 'abcde12345',
+        repo: {fork: false}
       },
       base: {
         ref: 'not-main'
@@ -1629,9 +1631,7 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
 
   data.inputs.allow_non_default_target_branch_deployments = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `✅ PR is approved and all CI checks passed`,
     status: true,
     noopMode: false,
@@ -1651,7 +1651,7 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
 })
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment and is from a forked repository and the PR is approved but CI is failing and it is a noop', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1663,9 +1663,6 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
             {
               commit: {
                 oid: 'abcde12345',
-                checkSuites: {
-                  totalCount: 8
-                },
                 statusCheckRollup: {
                   state: 'FAILURE'
                 }
@@ -1676,7 +1673,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         sha: 'abcde12345',
@@ -1695,9 +1692,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 
   data.environmentObj.noop = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
     status: false
@@ -1705,7 +1700,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
 })
 
 test('runs prechecks and finds that the IssueOps command is a fork and does not require reviews so it proceeds but with a warning', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -1717,9 +1712,6 @@ test('runs prechecks and finds that the IssueOps command is a fork and does not 
             {
               commit: {
                 oid: 'abcde12345',
-                checkSuites: {
-                  totalCount: 8
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1730,7 +1722,7 @@ test('runs prechecks and finds that the IssueOps command is a fork and does not 
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         sha: 'abcde12345',
@@ -1747,9 +1739,7 @@ test('runs prechecks and finds that the IssueOps command is a fork and does not 
     status: 200
   })
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '🎛️ CI checks have been defined but required reviewers have not been defined',
     status: true,
@@ -1765,7 +1755,7 @@ test('runs prechecks and finds that the IssueOps command is a fork and does not 
 })
 
 test('runs prechecks and rejects a pull request from a forked repository because it does not have completed reviews', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -1777,9 +1767,6 @@ test('runs prechecks and rejects a pull request from a forked repository because
             {
               commit: {
                 oid: 'abcde12345',
-                checkSuites: {
-                  totalCount: 8
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1790,7 +1777,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         sha: 'abcde12345',
@@ -1808,17 +1795,13 @@ test('runs prechecks and rejects a pull request from a forked repository because
   })
 
   // Even admins cannot deploy from a forked repository without reviews
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return true
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(true)
 
   // Even with skipReviews set, the PR is from a forked repository and must have reviews out of pure safety
   data.environment = 'staging'
   data.inputs.skipReviews = 'staging'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.',
     status: false
@@ -1830,7 +1813,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
 })
 
 test('runs prechecks and rejects a pull request from a forked repository because it does not have completed reviews (noop)', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -1842,9 +1825,6 @@ test('runs prechecks and rejects a pull request from a forked repository because
             {
               commit: {
                 oid: 'abcde12345',
-                checkSuites: {
-                  totalCount: 8
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1855,7 +1835,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         sha: 'abcde12345',
@@ -1873,18 +1853,14 @@ test('runs prechecks and rejects a pull request from a forked repository because
   })
 
   // Even admins cannot deploy from a forked repository without reviews
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return true
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(true)
 
   // Even with skipReviews set, the PR is from a forked repository and must have reviews out of pure safety
   data.environment = 'staging'
   data.inputs.skipReviews = 'staging'
   data.environmentObj.noop = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.',
     status: false
@@ -1896,7 +1872,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
 })
 
 test('runs prechecks and rejects a pull request from a forked repository because it does not have completed reviews [CHANGES_REQUESTED] (noop)', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'CHANGES_REQUESTED',
@@ -1908,9 +1884,6 @@ test('runs prechecks and rejects a pull request from a forked repository because
             {
               commit: {
                 oid: 'abcde12345',
-                checkSuites: {
-                  totalCount: 8
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1921,7 +1894,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         sha: 'abcde12345',
@@ -1939,18 +1912,14 @@ test('runs prechecks and rejects a pull request from a forked repository because
   })
 
   // Even admins cannot deploy from a forked repository without reviews
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return true
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(true)
 
   // Even with skipReviews set, the PR is from a forked repository and must have reviews out of pure safety
   data.environment = 'staging'
   data.inputs.skipReviews = 'staging'
   data.environmentObj.noop = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `CHANGES_REQUESTED`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.',
     status: false
@@ -1962,7 +1931,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
 })
 
 test('runs prechecks and finds that the IssueOps command is on a PR from a forked repo and is not allowed', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -1974,9 +1943,6 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -1987,7 +1953,7 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         sha: 'abcde12345',
@@ -2005,16 +1971,14 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
 
   data.inputs.allowForks = false
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`,
     status: false
   })
 })
 
 test('runs prechecks and finds CI is pending and the PR has not been reviewed BUT it is a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -2026,9 +1990,6 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 2
-                },
                 statusCheckRollup: {
                   state: 'PENDING'
                 }
@@ -2042,9 +2003,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
 
   data.environmentObj.noop = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `PENDING`\n\n> Reviews are not required for a noop deployment but CI checks must be passing in order to continue',
     status: false
@@ -2052,7 +2011,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
 })
 
 test('runs prechecks and finds CI checks are pending, the PR has not been reviewed, and it is not a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -2064,9 +2023,6 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'PENDING'
                 }
@@ -2077,9 +2033,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `PENDING`\n\n> CI checks must be passing and the PR must be approved in order to continue',
     status: false
@@ -2087,7 +2041,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
 })
 
 test('runs prechecks and finds CI is pending and reviewers have not been defined', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -2099,9 +2053,6 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 3
-                },
                 statusCheckRollup: {
                   state: 'PENDING'
                 }
@@ -2112,9 +2063,7 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `null`\n- commitStatus: `PENDING`\n\n> CI checks must be passing in order to continue',
     status: false
@@ -2122,7 +2071,7 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
 })
 
 test('runs prechecks and finds CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -2136,9 +2085,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
 
   data.environmentObj.noop = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `✅ CI checks have not been defined and ${COLORS.highlight}noop${COLORS.reset} requested`,
     status: true,
     noopMode: true,
@@ -2149,7 +2096,7 @@ test('runs prechecks and finds CI checked have not been defined, the PR has not 
 })
 
 test('runs prechecks and deploys to the stable branch', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -2159,16 +2106,14 @@ test('runs prechecks and deploys to the stable branch', async () => {
       }
     }
   })
-  octokit.rest.repos.getBranch = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.repos.getBranch).mockResolvedValue({
     data: {commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}}},
     status: 200
   })
 
   data.environmentObj.stable_branch_used = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`,
     status: true,
     noopMode: false,
@@ -2179,7 +2124,7 @@ test('runs prechecks and deploys to the stable branch', async () => {
 })
 
 test('runs prechecks and finds the PR has been approved but CI checks are pending and it is not a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2191,9 +2136,6 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 14
-                },
                 statusCheckRollup: {
                   state: 'PENDING'
                 }
@@ -2204,9 +2146,7 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `PENDING`\n\n> CI checks must be passing in order to continue',
     status: false
@@ -2214,7 +2154,7 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
 })
 
 test('runs prechecks and finds CI is passing but the PR is missing an approval', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -2223,9 +2163,6 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -2236,9 +2173,7 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `SUCCESS`\n\n> CI checks are passing but an approval is required before you can proceed with deployment',
     status: false
@@ -2246,7 +2181,7 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
 })
 
 test('runs prechecks and finds CI is passing but the PR is in a CHANGES_REQUESTED state for reviews', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'CHANGES_REQUESTED',
@@ -2255,9 +2190,6 @@ test('runs prechecks and finds CI is passing but the PR is in a CHANGES_REQUESTE
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -2268,9 +2200,7 @@ test('runs prechecks and finds CI is passing but the PR is in a CHANGES_REQUESTE
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `CHANGES_REQUESTED`\n- commitStatus: `SUCCESS`\n\n> CI checks are passing but an approval is required before you can proceed with deployment',
     status: false
@@ -2278,9 +2208,7 @@ test('runs prechecks and finds CI is passing but the PR is in a CHANGES_REQUESTE
 
   // the same request works for a noop as changes requested is treated the same as no approval and approvals are not required for noops
   data.environmentObj.noop = true
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`,
     status: true,
     noopMode: true,
@@ -2291,7 +2219,7 @@ test('runs prechecks and finds CI is passing but the PR is in a CHANGES_REQUESTE
 })
 
 test('runs prechecks and finds the PR is approved but CI is failing', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2303,9 +2231,6 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'FAILURE'
                 }
@@ -2316,9 +2241,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
     status: false
@@ -2326,7 +2249,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
 })
 
 test('runs prechecks and finds the PR is in a changes requested state and CI is failing', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'CHANGES_REQUESTED',
@@ -2338,9 +2261,6 @@ test('runs prechecks and finds the PR is in a changes requested state and CI is 
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'FAILURE'
                 }
@@ -2351,9 +2271,7 @@ test('runs prechecks and finds the PR is in a changes requested state and CI is 
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `CHANGES_REQUESTED`\n- commitStatus: `FAILURE`\n\n> Your pull request needs to address the requested changes, get approvals, and have passing CI checks before you can proceed with deployment',
     status: false
@@ -2361,7 +2279,7 @@ test('runs prechecks and finds the PR is in a changes requested state and CI is 
 })
 
 test('runs prechecks and finds the PR is in a REVIEW_REQUIRED state and CI is failing', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -2373,9 +2291,6 @@ test('runs prechecks and finds the PR is in a REVIEW_REQUIRED state and CI is fa
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'FAILURE'
                 }
@@ -2386,9 +2301,7 @@ test('runs prechecks and finds the PR is in a REVIEW_REQUIRED state and CI is fa
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `FAILURE`\n\n> Your pull request needs to get approvals and have passing CI checks before you can proceed with deployment',
     status: false
@@ -2396,7 +2309,7 @@ test('runs prechecks and finds the PR is in a REVIEW_REQUIRED state and CI is fa
 })
 
 test('runs prechecks and finds the PR is in a changes requested state and has no CI checks defined', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'CHANGES_REQUESTED',
@@ -2408,9 +2321,7 @@ test('runs prechecks and finds the PR is in a changes requested state and has no
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 0
-                }
+                statusCheckRollup: null
               }
             }
           ]
@@ -2418,9 +2329,7 @@ test('runs prechecks and finds the PR is in a changes requested state and has no
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `CHANGES_REQUESTED`\n- commitStatus: `null`\n\n> Your pull request is missing required approvals',
     status: false
@@ -2428,7 +2337,7 @@ test('runs prechecks and finds the PR is in a changes requested state and has no
 })
 
 test('runs prechecks and finds the PR is approved but CI is failing', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2440,9 +2349,6 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 3
-                },
                 statusCheckRollup: {
                   state: 'FAILURE',
                   contexts: {
@@ -2472,9 +2378,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
 
   data.inputs.checks = 'required'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
     status: false
@@ -2482,7 +2386,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
 })
 
 test('runs prechecks and finds the PR does not require approval but CI is failing', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -2491,9 +2395,6 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'FAILURE'
                 }
@@ -2504,9 +2405,7 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `null`\n- commitStatus: `FAILURE`\n\n> Your pull request does not require approvals but CI checks are failing',
     status: false
@@ -2514,7 +2413,7 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
 })
 
 test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT been defined and NOT a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -2522,9 +2421,7 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `REVIEW_REQUIRED`\n- commitStatus: `null`\n\n> Your pull request is missing required approvals',
     status: false
@@ -2532,7 +2429,7 @@ test('runs prechecks and finds the PR is NOT reviewed and CI checks have NOT bee
 })
 
 test('runs prechecks and finds the PR is approved and CI checks have NOT been defined and NOT a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2543,9 +2440,7 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
       }
     }
   })
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ CI checks have not been defined but the PR has been approved',
     status: true,
     noopMode: false,
@@ -2556,7 +2451,7 @@ test('runs prechecks and finds the PR is approved and CI checks have NOT been de
 })
 
 test('runs prechecks and finds the PR is behind the stable branch and a noop deploy and force updates the branch', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2569,9 +2464,6 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -2582,7 +2474,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
       }
     }
   })
-  octokit.rest.pulls.updateBranch = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.updateBranch).mockResolvedValue({
     data: {
       message: 'Updating pull request branch.',
       url: 'https://api.github.com/repos/foo/bar/pulls/123'
@@ -2593,13 +2485,12 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
   data.inputs.update_branch = 'force'
   data.environmentObj.noop = true
 
-  asMock(vi.spyOn(isOutdated, 'isOutdated')).mockImplementation(() => {
-    return {outdated: true, branch: 'main'}
+  vi.spyOn(isOutdated, 'isOutdated').mockResolvedValue({
+    outdated: true,
+    branch: 'main'
   })
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `force`\n\n> I went ahead and updated your branch with `main` - Please try again once this operation is complete',
     status: false
@@ -2607,7 +2498,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
 })
 
 test('runs prechecks and finds the PR is un-mergable and a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2620,9 +2511,6 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -2637,9 +2525,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
   data.environmentObj.noop = true
   data.inputs.update_branch = 'warn'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n- mergeStateStatus: `DIRTY`\n\n> A merge commit cannot be cleanly created',
     status: false
@@ -2647,7 +2533,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
 })
 
 test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails to update the branch', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2660,9 +2546,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -2673,7 +2556,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
       }
     }
   })
-  octokit.rest.pulls.updateBranch = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.updateBranch).mockResolvedValue({
     data: {
       message: 'merge conflict between base and head',
       url: 'https://api.github.com/repos/foo/bar/pulls/123'
@@ -2681,16 +2564,15 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
     status: 422
   })
 
-  asMock(vi.spyOn(isOutdated, 'isOutdated')).mockImplementation(() => {
-    return {outdated: true, branch: 'main'}
+  vi.spyOn(isOutdated, 'isOutdated').mockResolvedValue({
+    outdated: true,
+    branch: 'main'
   })
 
   data.environmentObj.noop = true
   data.inputs.update_branch = 'force'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: `422`\n- update_branch: `force`\n\n> Failed to update pull request branch with the `main` branch',
     status: false
@@ -2698,7 +2580,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
 })
 
 test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an error when force updating the branch', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2711,9 +2593,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -2725,18 +2604,21 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
     }
   })
 
-  asMock(vi.spyOn(isOutdated, 'isOutdated')).mockImplementation(() => {
-    return {outdated: true, branch: 'main'}
+  vi.spyOn(isOutdated, 'isOutdated').mockResolvedValue({
+    outdated: true,
+    branch: 'main'
   })
 
-  octokit.rest.pulls.updateBranch = vi.fn().mockReturnValue(null)
+  vi.mocked(octokit.rest.pulls.updateBranch).mockResolvedValue(
+    unsafeInvalidValue<
+      Awaited<ReturnType<PrechecksOctokit['rest']['pulls']['updateBranch']>>
+    >(null)
+  )
 
   data.environmentObj.noop = true
   data.inputs.update_branch = 'force'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       "### ⚠️ Cannot proceed with deployment\n\n```text\nCannot read properties of null (reading 'status')\n```",
     status: false
@@ -2744,7 +2626,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
 })
 
 test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_branch is set to warn', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2757,9 +2639,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -2774,13 +2653,12 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
   data.environmentObj.noop = true
   data.inputs.update_branch = 'warn'
 
-  asMock(vi.spyOn(isOutdated, 'isOutdated')).mockImplementation(() => {
-    return {outdated: true, branch: 'main'}
+  vi.spyOn(isOutdated, 'isOutdated').mockResolvedValue({
+    outdated: true,
+    branch: 'main'
   })
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` branch and try again',
     status: false
@@ -2788,7 +2666,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
 })
 
 test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2801,9 +2679,6 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -2814,7 +2689,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         ref: 'test-ref',
@@ -2827,20 +2702,19 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
     },
     status: 200
   })
-  octokit.rest.repos.getBranch = vi.fn().mockReturnValueOnce({
+  vi.mocked(octokit.rest.repos.getBranch).mockResolvedValueOnce({
     data: {commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}}},
     status: 200
   })
-  octokit.rest.repos.compareCommits = vi
-    .fn()
-    .mockReturnValueOnce({data: {behind_by: 0}, status: 200})
+  vi.mocked(octokit.rest.repos.compareCommits).mockResolvedValueOnce({
+    data: {behind_by: 0},
+    status: 200
+  })
 
   data.environmentObj.noop = true
   data.inputs.update_branch = 'warn'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state',
     status: false
@@ -2851,7 +2725,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
 })
 
 test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environment for draft deployments', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2864,9 +2738,6 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -2877,7 +2748,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         ref: 'test-ref',
@@ -2895,9 +2766,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
   data.inputs.update_branch = 'warn'
   data.inputs.draft_permitted_targets = 'sandbox,staging'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     noopMode: false,
     ref: 'test-ref',
@@ -2907,8 +2776,30 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
   })
 })
 
+test('preserves truthy draft handling for a malformed API value', async () => {
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
+    data: {
+      head: {
+        ref: 'test-ref',
+        sha: 'abc123',
+        label: 'corp:test-ref',
+        repo: {fork: false, full_name: 'corp/test'}
+      },
+      base: {ref: 'main'},
+      draft: unsafeInvalidValue<boolean>('false')
+    },
+    status: 200
+  })
+
+  await expect(prechecks(context, octokit, data)).resolves.toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state',
+    status: false
+  })
+})
+
 test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit status is null', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2921,9 +2812,6 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'FAILED'
                 }
@@ -2938,9 +2826,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
   data.environmentObj.noop = true
   data.inputs.update_branch = 'warn'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILED`\n\n> This is usually caused by missing PR approvals or CI checks failing',
     status: false
@@ -2948,7 +2834,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
 })
 
 test('runs prechecks and finds the PR is BEHIND and a full deploy and update_branch is set to warn', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -2961,9 +2847,6 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -2977,13 +2860,12 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
 
   data.inputs.update_branch = 'warn'
 
-  asMock(vi.spyOn(isOutdated, 'isOutdated')).mockImplementation(() => {
-    return {outdated: true, branch: 'main'}
+  vi.spyOn(isOutdated, 'isOutdated').mockResolvedValue({
+    outdated: true,
+    branch: 'main'
   })
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `warn`\n\n> Please ensure your branch is up to date with the `main` branch and try again',
     status: false
@@ -2991,7 +2873,7 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
 })
 
 test('runs prechecks and finds the PR is behind the stable branch and a full deploy and force updates the branch', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -3004,9 +2886,6 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -3018,11 +2897,12 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
     }
   })
 
-  asMock(vi.spyOn(isOutdated, 'isOutdated')).mockImplementation(() => {
-    return {outdated: true, branch: 'main'}
+  vi.spyOn(isOutdated, 'isOutdated').mockResolvedValue({
+    outdated: true,
+    branch: 'main'
   })
 
-  octokit.rest.pulls.updateBranch = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.updateBranch).mockResolvedValue({
     data: {
       message: 'Updating pull request branch.',
       url: 'https://api.github.com/repos/foo/bar/pulls/123'
@@ -3032,9 +2912,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
 
   data.inputs.update_branch = 'force'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: `BEHIND`\n- update_branch: `force`\n\n> I went ahead and updated your branch with `main` - Please try again once this operation is complete',
     status: false
@@ -3042,20 +2920,18 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
 })
 
 test('runs prechecks and fails with a non 200 permissionRes.status', async () => {
-  octokit.rest.repos.getCollaboratorPermissionLevel = vi
-    .fn()
-    .mockReturnValueOnce({data: {permission: 'admin'}, status: 500})
+  vi.mocked(
+    octokit.rest.repos.getCollaboratorPermissionLevel
+  ).mockResolvedValueOnce({data: {permission: 'admin'}, status: 500})
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: 'Permission check returns non-200 status: 500',
     status: false
   })
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid and from a defined admin', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -3064,9 +2940,6 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -3078,13 +2951,9 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
     }
   })
 
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return true
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(true)
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ CI is passing and approval is bypassed due to admin rights',
     noopMode: false,
     ref: 'test-ref',
@@ -3095,7 +2964,7 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -3104,9 +2973,6 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -3118,15 +2984,11 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     }
   })
 
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return true
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(true)
 
   data.environmentObj.params = 'something something something'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ CI is passing and approval is bypassed due to admin rights',
     noopMode: false,
     ref: 'test-ref',
@@ -3137,7 +2999,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -3146,9 +3008,6 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -3159,16 +3018,12 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
       }
     }
   })
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return true
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(true)
 
   data.environmentObj.noop = true
   data.environmentObj.params = 'something something something'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`,
     noopMode: true,
     ref: 'test-ref',
@@ -3179,7 +3034,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 })
 
 test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin when CI is not defined', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -3188,11 +3043,8 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
-                  state: null
+                  state: unsafeInvalidValue<string>(null)
                 }
               }
             }
@@ -3202,13 +3054,9 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
     }
   })
 
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return true
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(true)
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '✅ CI checks have not been defined and approval is bypassed due to admin rights',
     noopMode: false,
@@ -3224,7 +3072,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 })
 
 test('runs prechecks and finds that no CI checks exist and reviews are not defined', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -3233,9 +3081,6 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 0
-                },
                 statusCheckRollup: null
               }
             }
@@ -3245,9 +3090,7 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
     }
   })
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '🎛️ CI checks have not been defined and required reviewers have not been defined',
     status: true,
@@ -3262,7 +3105,7 @@ test('runs prechecks and finds that no CI checks exist and reviews are not defin
 })
 
 test('runs prechecks and finds that no CI checks exist but reviews are defined and it is from an admin', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -3274,9 +3117,6 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 0
-                },
                 statusCheckRollup: null
               }
             }
@@ -3286,13 +3126,9 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
     }
   })
 
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return true
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(true)
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '✅ CI checks have not been defined and approval is bypassed due to admin rights',
     status: true,
@@ -3307,7 +3143,7 @@ test('runs prechecks and finds that no CI checks exist but reviews are defined a
 })
 
 test('runs prechecks and finds that no CI checks exist and the PR is not approved, but it is from an admin', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -3316,9 +3152,6 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 0
-                },
                 statusCheckRollup: null
               }
             }
@@ -3328,13 +3161,9 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
     }
   })
 
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return true
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(true)
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '✅ CI checks have not been defined and approval is bypassed due to admin rights',
     status: true,
@@ -3349,7 +3178,7 @@ test('runs prechecks and finds that no CI checks exist and the PR is not approve
 })
 
 test('runs prechecks and finds that skip_ci is set and the PR has been approved', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -3361,9 +3190,6 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 0
-                },
                 statusCheckRollup: null
               }
             }
@@ -3376,9 +3202,7 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
   data.environment = 'development'
   data.inputs.skipCi = 'development'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '✅ CI requirements have been disabled for this environment and the PR has been approved',
     status: true,
@@ -3393,7 +3217,7 @@ test('runs prechecks and finds that skip_ci is set and the PR has been approved'
 })
 
 test('runs prechecks and finds that the commit status is success and skip_reviews is set for the environment', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -3402,9 +3226,6 @@ test('runs prechecks and finds that the commit status is success and skip_review
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -3415,17 +3236,13 @@ test('runs prechecks and finds that the commit status is success and skip_review
       }
     }
   })
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return false
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(false)
 
   data.environment = 'staging'
   data.inputs.skipReviews = 'staging'
   data.inputs.skipCi = 'development'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '✅ CI checks passed and required reviewers have been disabled for this environment',
     noopMode: false,
@@ -3441,7 +3258,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
 })
 
 test('runs prechecks and finds that no ci checks are defined and skip_reviews is set for the environment', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -3450,9 +3267,6 @@ test('runs prechecks and finds that no ci checks are defined and skip_reviews is
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 0
-                },
                 statusCheckRollup: null
               }
             }
@@ -3461,18 +3275,14 @@ test('runs prechecks and finds that no ci checks are defined and skip_reviews is
       }
     }
   })
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return false
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(false)
 
   data.environment = 'staging'
   data.inputs.skipReviews = 'staging'
   data.inputs.skipCi = 'development'
   data.inputs.draft_permitted_targets = 'development'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '✅ CI checks have not been defined and required reviewers have been disabled for this environment',
     noopMode: false,
@@ -3494,7 +3304,7 @@ test('runs prechecks on a custom deploy comment with a custom variable at the en
   data.inputs.skipReviews = 'dev'
 
   expect(
-    await (prechecks as unknown as TestPrechecks)(
+    await prechecks(
       context, // event context
       octokit, // octokit instance
       data // data object
@@ -3519,7 +3329,7 @@ test('runs prechecks when an exact sha is set, but the sha deployment feature is
   data.environmentObj.sha = '82c238c277ca3df56fe9418a5913d9188eafe3bc'
 
   expect(
-    await (prechecks as unknown as TestPrechecks)(
+    await prechecks(
       context, // event context
       octokit, // octokit instance
       data // data object
@@ -3535,7 +3345,7 @@ test('runs prechecks when an exact sha is set, and the sha deployment feature is
   data.environmentObj.sha = '82c238c277ca3df56fe9418a5913d9188eafe3bc'
 
   expect(
-    await (prechecks as unknown as TestPrechecks)(
+    await prechecks(
       context, // event context
       octokit, // octokit instance
       data // data object
@@ -3564,7 +3374,7 @@ test('runs prechecks when an exact sha is set, and the sha deployment feature is
 })
 
 test('runs prechecks and finds that skip_ci is set and now reviews are defined', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -3573,9 +3383,6 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'FAILURE'
                 }
@@ -3586,17 +3393,13 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
       }
     }
   })
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return false
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(false)
 
   data.environment = 'development'
   data.inputs.skipCi = 'development'
   data.inputs.skipReviews = 'staging'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '🎛️ CI requirements have been disabled for this environment and required reviewers have not been defined',
     noopMode: false,
@@ -3612,7 +3415,7 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
 })
 
 test('runs prechecks and finds that skip_ci is set, reviews are required, and its a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -3621,9 +3424,6 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -3634,17 +3434,13 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
       }
     }
   })
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return false
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(false)
 
   data.environment = 'development'
   data.environmentObj.noop = true
   data.inputs.skipCi = 'development'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '✅ CI requirements have been disabled for this environment and **noop** requested',
     noopMode: true,
@@ -3660,7 +3456,7 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
 })
 
 test('runs prechecks and finds that skip_ci is set and skip_reviews is set', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -3669,9 +3465,6 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'FAILURE'
                 }
@@ -3682,17 +3475,13 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
       }
     }
   })
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return false
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(false)
 
   data.environment = 'development'
   data.inputs.skipCi = 'development'
   data.inputs.skipReviews = 'development'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '✅ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment',
     noopMode: false,
@@ -3708,7 +3497,7 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
 })
 
 test('runs prechecks and finds that skip_ci is set and the deployer is an admin', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -3717,9 +3506,6 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'FAILURE'
                 }
@@ -3730,16 +3516,12 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
       }
     }
   })
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return true
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(true)
 
   data.environment = 'development'
   data.inputs.skipCi = 'development'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '✅ CI requirements have been disabled for this environment and approval is bypassed due to admin rights',
     noopMode: false,
@@ -3755,7 +3537,7 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
 })
 
 test('runs prechecks and finds that CI is pending and reviewers have not been defined and it IS a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: null,
@@ -3764,9 +3546,6 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'PENDING'
                 }
@@ -3777,15 +3556,11 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
       }
     }
   })
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return false
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(false)
 
   data.environmentObj.noop = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`null\`\n- commitStatus: \`PENDING\`\n\n> CI checks must be passing in order to continue`,
     status: false
   })
@@ -3796,7 +3571,7 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
 })
 
 test('runs prechecks and finds that the PR is NOT reviewed and CI checks have been disabled and it is NOT a noop deploy', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'REVIEW_REQUIRED',
@@ -3805,9 +3580,6 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'PENDING'
                 }
@@ -3818,17 +3590,13 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
       }
     }
   })
-  asMock(vi.spyOn(isAdmin, 'isAdmin')).mockImplementation(() => {
-    return false
-  })
+  vi.spyOn(isAdmin, 'isAdmin').mockResolvedValue(false)
 
   data.environment = 'staging'
   data.inputs.skipCi = 'staging'
   data.inputs.skipReviews = 'production'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`REVIEW_REQUIRED\`\n- commitStatus: \`skip_ci\`\n\n> Your pull request is missing required approvals`,
     status: false
   })
@@ -3839,7 +3607,7 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
 })
 
 test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and a noop deploy and force updates the branch', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -3849,9 +3617,6 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -3862,7 +3627,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         ref: 'test-ref',
@@ -3875,11 +3640,12 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
     status: 200
   })
 
-  asMock(vi.spyOn(isOutdated, 'isOutdated')).mockImplementation(() => {
-    return {outdated: true, branch: 'main'}
+  vi.spyOn(isOutdated, 'isOutdated').mockResolvedValue({
+    outdated: true,
+    branch: 'main'
   })
 
-  octokit.rest.pulls.updateBranch = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.updateBranch).mockResolvedValue({
     data: {
       message: 'Updating pull request branch.',
       url: 'https://api.github.com/repos/foo/bar/pulls/123'
@@ -3890,9 +3656,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
   data.environmentObj.noop = true
   data.inputs.update_branch = 'force'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message:
       '### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: `BLOCKED`\n- update_branch: `force`\n\n> I went ahead and updated your branch with `main` - Please try again once this operation is complete',
     status: false
@@ -3900,7 +3664,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
 })
 
 test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) and a noop deploy and does not update the branch', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -3910,9 +3674,6 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -3923,7 +3684,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         ref: 'test-ref',
@@ -3935,12 +3696,12 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
     },
     status: 200
   })
-  octokit.rest.repos.getBranch = vi.fn().mockReturnValueOnce({
+  vi.mocked(octokit.rest.repos.getBranch).mockResolvedValueOnce({
     data: {commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}}},
     status: 200
   })
 
-  octokit.rest.pulls.updateBranch = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.updateBranch).mockResolvedValue({
     data: {
       message: 'Updating pull request branch.',
       url: 'https://api.github.com/repos/foo/bar/pulls/123'
@@ -3951,9 +3712,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
   data.environmentObj.noop = true
   data.inputs.update_branch = 'force'
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     status: true,
     noopMode: true,
@@ -3964,7 +3723,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
 })
 
 test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS) and a noop deploy and does not update the branch', async () => {
-  octokit.graphql = vi.fn().mockReturnValue({
+  vi.mocked(octokit.graphql).mockResolvedValue({
     repository: {
       pullRequest: {
         reviewDecision: 'APPROVED',
@@ -3974,9 +3733,6 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
             {
               commit: {
                 oid: 'abc123',
-                checkSuites: {
-                  totalCount: 1
-                },
                 statusCheckRollup: {
                   state: 'SUCCESS'
                 }
@@ -3987,7 +3743,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
       }
     }
   })
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         ref: 'test-ref',
@@ -3999,11 +3755,11 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
     },
     status: 200
   })
-  octokit.rest.repos.getBranch = vi.fn().mockReturnValueOnce({
+  vi.mocked(octokit.rest.repos.getBranch).mockResolvedValueOnce({
     data: {commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}}},
     status: 200
   })
-  octokit.rest.pulls.updateBranch = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.updateBranch).mockResolvedValue({
     data: {
       message: 'Updating pull request branch.',
       url: 'https://api.github.com/repos/foo/bar/pulls/123'
@@ -4013,9 +3769,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
 
   data.environmentObj.noop = true
 
-  expect(
-    await (prechecks as unknown as TestPrechecks)(context, octokit, data)
-  ).toStrictEqual({
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
     message: '✅ PR is approved and all CI checks passed',
     status: true,
     noopMode: true,
@@ -4051,10 +3805,9 @@ class UnexpectedError extends Error {
 
 test('fails prechecks when the branch does not exist (deleted branch)', async () => {
   // Mock getBranch to throw a 404 error for the PR branch check
-  octokit.rest.repos.getBranch = vi
-    .fn()
+  vi.mocked(octokit.rest.repos.getBranch)
     // First call: stable branch check (succeeds)
-    .mockReturnValueOnce({
+    .mockResolvedValueOnce({
       data: {
         commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
         name: 'main'
@@ -4062,18 +3815,14 @@ test('fails prechecks when the branch does not exist (deleted branch)', async ()
       status: 200
     })
     // Second call: base branch check (succeeds)
-    .mockReturnValueOnce({
+    .mockResolvedValueOnce({
       data: {commit: {sha: 'deadbeef'}, name: 'main'},
       status: 200
     })
     // Third call: PR branch check (fails with 404)
     .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
 
-  const result = await (prechecks as unknown as TestPrechecks)(
-    context,
-    octokit,
-    data
-  )
+  const result = await prechecks(context, octokit, data)
 
   expect(result.status).toBe(false)
   expect(result.message).toContain('Cannot proceed with deployment')
@@ -4086,10 +3835,9 @@ test('fails prechecks when the branch does not exist (deleted branch)', async ()
 
 test('passes prechecks when branch exists (normal deployment)', async () => {
   // Mock getBranch to succeed for all calls
-  octokit.rest.repos.getBranch = vi
-    .fn()
+  vi.mocked(octokit.rest.repos.getBranch)
     // First call: stable branch check
-    .mockReturnValueOnce({
+    .mockResolvedValueOnce({
       data: {
         commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
         name: 'main'
@@ -4097,21 +3845,17 @@ test('passes prechecks when branch exists (normal deployment)', async () => {
       status: 200
     })
     // Second call: base branch check
-    .mockReturnValueOnce({
+    .mockResolvedValueOnce({
       data: {commit: {sha: 'deadbeef'}, name: 'main'},
       status: 200
     })
     // Third call: PR branch check (succeeds)
-    .mockReturnValueOnce({
+    .mockResolvedValueOnce({
       data: {commit: {sha: 'abc123'}, name: 'test-ref'},
       status: 200
     })
 
-  const result = await (prechecks as unknown as TestPrechecks)(
-    context,
-    octokit,
-    data
-  )
+  const result = await prechecks(context, octokit, data)
 
   expect(result.status).toBe(true)
   expect(result.ref).toBe('test-ref')
@@ -4123,25 +3867,20 @@ test('skips branch existence check when deploying to stable branch', async () =>
   data.environmentObj.stable_branch_used = true
 
   // Mock getBranch - should only be called twice (not three times)
-  octokit.rest.repos.getBranch = vi
-    .fn()
-    .mockReturnValueOnce({
+  vi.mocked(octokit.rest.repos.getBranch)
+    .mockResolvedValueOnce({
       data: {
         commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
         name: 'main'
       },
       status: 200
     })
-    .mockReturnValueOnce({
+    .mockResolvedValueOnce({
       data: {commit: {sha: 'deadbeef'}, name: 'main'},
       status: 200
     })
 
-  const result = await (prechecks as unknown as TestPrechecks)(
-    context,
-    octokit,
-    data
-  )
+  const result = await prechecks(context, octokit, data)
 
   expect(result.status).toBe(true)
   // Verify the branch existence check was skipped (only 2 getBranch calls, not 3)
@@ -4155,25 +3894,20 @@ test('skips branch existence check when deploying an exact SHA', async () => {
   data.environmentObj.sha = 'abc123def456'
   data.inputs.allow_sha_deployments = true
 
-  octokit.rest.repos.getBranch = vi
-    .fn()
-    .mockReturnValueOnce({
+  vi.mocked(octokit.rest.repos.getBranch)
+    .mockResolvedValueOnce({
       data: {
         commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
         name: 'main'
       },
       status: 200
     })
-    .mockReturnValueOnce({
+    .mockResolvedValueOnce({
       data: {commit: {sha: 'deadbeef'}, name: 'main'},
       status: 200
     })
 
-  const result = await (prechecks as unknown as TestPrechecks)(
-    context,
-    octokit,
-    data
-  )
+  const result = await prechecks(context, octokit, data)
 
   expect(result.status).toBe(true)
   // Verify the branch existence check was skipped
@@ -4185,7 +3919,7 @@ test('skips branch existence check when deploying an exact SHA', async () => {
 
 test('skips branch existence check when PR is from a fork', async () => {
   // Mock the PR as a fork
-  octokit.rest.pulls.get = vi.fn().mockReturnValue({
+  vi.mocked(octokit.rest.pulls.get).mockResolvedValue({
     data: {
       head: {
         ref: 'test-ref',
@@ -4203,28 +3937,22 @@ test('skips branch existence check when PR is from a fork', async () => {
     status: 200
   })
 
-  octokit.rest.repos.getBranch = vi
-    .fn()
-    .mockReturnValueOnce({
+  vi.mocked(octokit.rest.repos.getBranch)
+    .mockResolvedValueOnce({
       data: {
         commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
         name: 'main'
       },
       status: 200
     })
-    .mockReturnValueOnce({
+    .mockResolvedValueOnce({
       data: {commit: {sha: 'deadbeef'}, name: 'main'},
       status: 200
     })
 
-  const result = await (prechecks as unknown as TestPrechecks)(
-    context,
-    octokit,
-    data
-  )
+  const result = await prechecks(context, octokit, data)
 
-  expect(result.status).toBe(true)
-  expect((result as {isFork: boolean}).isFork).toBe(true)
+  expect(result).toMatchObject({status: true, isFork: true})
   // Verify the branch existence check was skipped for forks
   expect(octokit.rest.repos.getBranch).toHaveBeenCalledTimes(2)
   expect(debugMock).not.toHaveBeenCalledWith(
@@ -4234,26 +3962,21 @@ test('skips branch existence check when PR is from a fork', async () => {
 
 test('fails prechecks when branch check encounters unexpected error', async () => {
   // Mock getBranch to throw a non-404 error
-  octokit.rest.repos.getBranch = vi
-    .fn()
-    .mockReturnValueOnce({
+  vi.mocked(octokit.rest.repos.getBranch)
+    .mockResolvedValueOnce({
       data: {
         commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
         name: 'main'
       },
       status: 200
     })
-    .mockReturnValueOnce({
+    .mockResolvedValueOnce({
       data: {commit: {sha: 'deadbeef'}, name: 'main'},
       status: 200
     })
     .mockRejectedValueOnce(new UnexpectedError('Internal server error'))
 
-  const result = await (prechecks as unknown as TestPrechecks)(
-    context,
-    octokit,
-    data
-  )
+  const result = await prechecks(context, octokit, data)
 
   // Should fail and not continue
   expect(result.status).toBe(false)

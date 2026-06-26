@@ -3,11 +3,22 @@ import {COLORS} from './colors.ts'
 import dedent from 'dedent-js'
 import {LOCK_METADATA} from './lock-metadata.ts'
 import {API_HEADERS} from './api-headers.ts'
-import type {
-  BranchDeployContext,
-  BranchDeployOctokit,
-  IssueCommentContext
-} from '../types.ts'
+import {getActionInput} from '../action-io.ts'
+import {issueCommentContext, legacyArrayElement} from '../trust-boundaries.ts'
+import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
+
+export interface NakedCommandOctokit {
+  readonly rest: {
+    readonly issues: Pick<
+      BranchDeployOctokit['rest']['issues'],
+      'createComment'
+    >
+    readonly reactions: Pick<
+      BranchDeployOctokit['rest']['reactions'],
+      'createForIssueComment'
+    >
+  }
+}
 
 const thumbsDown = '-1'
 const docs =
@@ -21,17 +32,17 @@ const docs =
 export async function nakedCommandCheck(
   body: string,
   param_separator: string,
-  triggers: string[],
-  octokit: BranchDeployOctokit,
+  triggers: readonly string[],
+  octokit: NakedCommandOctokit,
   context: BranchDeployContext
-) {
-  var nakedCommand = false
+): Promise<boolean> {
+  let nakedCommand = false
   core.debug(`before - nakedCommandCheck: body: ${body}`)
   body = body.trim()
 
   // ////// checking for lock flags ////////
   // if the body contains the globalFlag, exit right away as environments are not relevant
-  const globalFlag = core.getInput('global_lock_flag').trim()
+  const globalFlag = getActionInput('global_lock_flag').trim()
   if (body.includes(globalFlag)) {
     core.debug('global lock flag found in naked command check')
     return nakedCommand
@@ -47,19 +58,21 @@ export async function nakedCommandCheck(
     core.debug(
       `'--reason' found in comment body: ${body} - attempting to remove for naked command checks`
     )
-    body = body.split('--reason')[0]!.trim()
+    body = legacyArrayElement(body.split('--reason')[0]).trim()
     core.debug(`comment body after '--reason' removal: ${body}`)
   }
   ////////// end lock flag checks //////////
 
   // first remove any params
   // Seperate the issueops command on the 'param_separator'
-  var paramCheck = body.split(param_separator)
+  const paramCheck = body.split(param_separator)
   paramCheck.shift() // remove everything before the 'param_separator'
   const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
   // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
   if (params !== '') {
-    body = body.split(`${param_separator}${params}`)[0]!.trim()
+    body = legacyArrayElement(
+      body.split(`${param_separator}${params}`)[0]
+    ).trim()
     core.debug(
       `params were found and removed for naked command checks: ${params}`
     )
@@ -105,7 +118,7 @@ export async function nakedCommandCheck(
       // add a reaction to the issue_comment to indicate failure
       await octokit.rest.reactions.createForIssueComment({
         ...context.repo,
-        comment_id: (context as IssueCommentContext).payload.comment.id,
+        comment_id: issueCommentContext(context).payload.comment.id,
         content: thumbsDown,
         headers: API_HEADERS
       })

@@ -4,4 +4,10 @@ export const LOCK_METADATA = {
   globalLockBranch: 'global-branch-deploy-lock',
   lockCommitMsg: 'lock [skip ci]',
   lockFile: 'lock.json'
+} as const satisfies {
+  readonly globalLockBranch: string
+  readonly lockBranchSuffix: string
+  readonly lockCommitMsg: string
+  readonly lockFile: string
+  readonly lockInfoFlags: readonly string[]
 }

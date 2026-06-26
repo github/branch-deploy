@@ -33,16 +33,34 @@ import {API_HEADERS} from './functions/api-headers.ts'
 import {timestamp} from './functions/timestamp.ts'
 import {deploymentConfirmation} from './functions/deployment-confirmation.ts'
 import {formatLockReason} from './functions/format-lock-reason.ts'
-import type {ApiError, CreatedDeployment, IssueCommentContext} from './types.ts'
+import {
+  getActionInput,
+  getActionState,
+  saveActionState,
+  setActionOutput
+} from './action-io.ts'
+import {
+  branchDeployContext,
+  createdDeployment,
+  issueCommentContext,
+  legacyApiError,
+  legacyCommitterLogin,
+  legacyDeploymentId,
+  legacyLockData,
+  legacyReactionResult,
+  legacyStrictTrue,
+  legacyTruthy
+} from './trust-boundaries.ts'
+import type {RunResult} from './types.ts'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
-export async function run() {
+export async function run(): Promise<RunResult> {
   try {
     core.info(`🛸 github/branch-deploy ${COLORS.info}${VERSION}${COLORS.reset}`)
     core.debug(`context: ${JSON.stringify(context)}`)
 
     // Get the inputs for the branch-deploy Action
-    const token = core.getInput('github_token', {required: true})
+    const token = getActionInput('github_token', {required: true})
 
     // get all the Actions inputs and roll up them into a single object
     const inputs = getInputs()
@@ -54,17 +72,17 @@ export async function run() {
     })
 
     // Set the state so that the post run logic will trigger
-    core.saveState('isPost', 'true')
-    core.saveState('actionsToken', token)
+    saveActionState('isPost', 'true')
+    saveActionState('actionsToken', token)
 
     // setup the environment variable which is dynamically set throughout the Action
-    var environment = inputs.environment
+    let environment = inputs.environment
 
     // If we are running in the 'unlock on merge' mode, run auto-unlock logic
     if (inputs.unlockOnMergeMode) {
       core.info(`🏃 running in 'unlock on merge' mode`)
       await unlockOnMerge(octokit, context, inputs.environment_targets)
-      core.saveState('bypass', 'true')
+      saveActionState('bypass', 'true')
       return 'success - unlock on merge mode'
     }
 
@@ -73,29 +91,29 @@ export async function run() {
       core.info(`🏃 running in 'merge deploy' mode`)
       await identicalCommitCheck(octokit, context, environment)
       // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
-      core.saveState('bypass', 'true')
+      saveActionState('bypass', 'true')
       return 'success - merge deploy mode'
     }
 
     // Get the body of the IssueOps command
-    const body = (
-      context as unknown as IssueCommentContext
-    ).payload.comment.body.trim()
+    const actionContext = branchDeployContext(context)
+    const issueComment = issueCommentContext(actionContext)
+    const body = issueComment.payload.comment.body.trim()
 
     // Check the context of the event to ensure it is valid, return if it is not
-    if (!(await contextCheck(context))) {
-      core.saveState('bypass', 'true')
+    if (!contextCheck(context)) {
+      saveActionState('bypass', 'true')
       return 'safe-exit'
     }
 
     // deprecated command/input checks
-    if ((await isDeprecated(body, octokit, context)) === true) {
-      core.saveState('bypass', 'true')
+    if (await isDeprecated(body, octokit, context)) {
+      saveActionState('bypass', 'true')
       return 'safe-exit'
     }
 
     if (
-      inputs.disable_naked_commands === true &&
+      inputs.disable_naked_commands &&
       (await nakedCommandCheck(
         body,
         inputs.param_separator,
@@ -108,66 +126,58 @@ export async function run() {
         ],
         octokit,
         context
-      )) === true
+      ))
     ) {
-      core.saveState('bypass', 'true')
+      saveActionState('bypass', 'true')
       return 'safe-exit'
     }
 
     // Get variables from the event context
-    const issue_number = (context as unknown as IssueCommentContext).payload
-      .issue.number
+    const issue_number = issueComment.payload.issue.number
     const {owner, repo} = context.repo
 
     // set helpful outputs that can be used in other Actions / steps
-    core.setOutput('comment_body', body)
-    core.setOutput('issue_number', issue_number)
+    setActionOutput('comment_body', body)
+    setActionOutput('issue_number', issue_number)
 
     // check if the comment is a trigger and what type of trigger it is
-    const isDeploy = await triggerCheck(body, inputs.trigger)
-    const isNoopDeploy = await triggerCheck(body, inputs.noop_trigger)
-    const isLock = await triggerCheck(body, inputs.lock_trigger)
-    const isUnlock = await triggerCheck(body, inputs.unlock_trigger)
-    const isHelp = await triggerCheck(body, inputs.help_trigger)
-    const isLockInfoAlias = await triggerCheck(body, inputs.lock_info_alias)
+    const isDeploy = triggerCheck(body, inputs.trigger)
+    const isNoopDeploy = triggerCheck(body, inputs.noop_trigger)
+    const isLock = triggerCheck(body, inputs.lock_trigger)
+    const isUnlock = triggerCheck(body, inputs.unlock_trigger)
+    const isHelp = triggerCheck(body, inputs.help_trigger)
+    const isLockInfoAlias = triggerCheck(body, inputs.lock_info_alias)
 
     if (isDeploy || isNoopDeploy) {
-      core.setOutput('type', 'deploy')
+      setActionOutput('type', 'deploy')
     } else if (isLock) {
-      core.setOutput('type', 'lock')
+      setActionOutput('type', 'lock')
     } else if (isUnlock) {
-      core.setOutput('type', 'unlock')
+      setActionOutput('type', 'unlock')
     } else if (isHelp) {
-      core.setOutput('type', 'help')
+      setActionOutput('type', 'help')
     } else if (isLockInfoAlias) {
-      core.setOutput('type', 'lock-info-alias')
+      setActionOutput('type', 'lock-info-alias')
     } else {
       // if no trigger is detected, exit here
-      core.saveState('bypass', 'true')
-      core.setOutput('triggered', 'false')
+      saveActionState('bypass', 'true')
+      setActionOutput('triggered', 'false')
       core.info('⛔ no trigger detected in comment - exiting')
       return 'safe-exit'
     }
 
     // If we made it this far, the action has been triggered in one manner or another
-    core.setOutput('triggered', 'true')
+    setActionOutput('triggered', 'true')
 
     // Add the reaction to the issue_comment which triggered the Action
-    const reactRes = (await reactEmote(inputs.reaction, context, octokit))!
-    core.setOutput(
-      'comment_id',
-      (context as unknown as IssueCommentContext).payload.comment.id
+    const reactRes = legacyReactionResult(
+      await reactEmote(inputs.reaction, actionContext, octokit)
     )
-    core.saveState(
-      'comment_id',
-      (context as unknown as IssueCommentContext).payload.comment.id
-    )
-    core.setOutput('initial_reaction_id', reactRes.data.id)
-    core.saveState('reaction_id', reactRes.data.id)
-    core.setOutput(
-      'actor_handle',
-      (context as unknown as IssueCommentContext).payload.comment.user.login
-    )
+    setActionOutput('comment_id', issueComment.payload.comment.id)
+    saveActionState('comment_id', issueComment.payload.comment.id)
+    setActionOutput('initial_reaction_id', reactRes.data.id)
+    saveActionState('reaction_id', reactRes.data.id)
+    setActionOutput('actor_handle', issueComment.payload.comment.user.login)
 
     // If the command is a help request
     if (isHelp) {
@@ -180,21 +190,21 @@ export async function run() {
       )
       // If the user doesn't have valid permissions, return an error
       if (validPermissionsRes !== true) {
-        await actionStatus(
-          context,
+        await actionStatus({
+          context: actionContext,
           octokit,
-          reactRes.data.id, // original reaction id
-          validPermissionsRes // the message
-        )
+          reactionId: reactRes.data.id,
+          message: validPermissionsRes
+        })
         // Set the bypass state to true so that the post run logic will not run
-        core.saveState('bypass', 'true')
+        saveActionState('bypass', 'true')
         core.setFailed(validPermissionsRes)
         return 'failure'
       }
 
       // Run the help command and exit
       await help(octokit, context, reactRes.data.id, inputs)
-      core.saveState('bypass', 'true')
+      saveActionState('bypass', 'true')
       return 'safe-exit'
     }
 
@@ -208,38 +218,35 @@ export async function run() {
       )
       // If the user doesn't have valid permissions, return an error
       if (validPermissionsRes !== true) {
-        await actionStatus(
-          context,
+        await actionStatus({
+          context: actionContext,
           octokit,
-          reactRes.data.id,
-          validPermissionsRes
-        )
+          reactionId: reactRes.data.id,
+          message: validPermissionsRes
+        })
         // Set the bypass state to true so that the post run logic will not run
-        core.saveState('bypass', 'true')
+        saveActionState('bypass', 'true')
         core.setFailed(validPermissionsRes)
         return 'failure'
       }
 
       // Check if the environment being locked/unlocked is a valid environment
-      const lockEnvTargetCheckObj = await environmentTargets(
-        environment, // the default environment from the Actions inputs
-        body, // the body of the comment
-        inputs.lock_trigger, // the lock_trigger
-        inputs.unlock_trigger, // the unlock_trigger
-        null, // the stable_branch is not used for lock/unlock
-        context, // the context object
-        octokit, // the octokit object
-        reactRes.data.id, // the reaction id
-        true, // lockChecks set to true as this is for lock/unlock requests
-        null, // environment_url is not used for lock/unlock
-        null // param_separator is not used for lock/unlock
-      )
+      const lockEnvTargetCheckObj = await environmentTargets({
+        mode: 'lock',
+        environment,
+        body,
+        trigger: inputs.lock_trigger,
+        alternateTrigger: inputs.unlock_trigger,
+        context: actionContext,
+        octokit,
+        reactionId: reactRes.data.id
+      })
 
       // extract the environment target from the lockEnvTargetCheckObj
       const lockEnvTargetCheck = lockEnvTargetCheckObj.environment
 
       // If the environment targets are not valid, then exit
-      if (!lockEnvTargetCheck) {
+      if (lockEnvTargetCheck === false) {
         core.debug('No valid environment targets found for lock/unlock request')
         return 'safe-exit'
       }
@@ -248,41 +255,40 @@ export async function run() {
       if (isLock || isLockInfoAlias) {
         // If the lock request is only for details
         if (
-          LOCK_METADATA.lockInfoFlags.some(
-            substring => body.includes(substring) === true
+          LOCK_METADATA.lockInfoFlags.some(substring =>
+            body.includes(substring)
           ) ||
-          isLockInfoAlias === true
+          isLockInfoAlias
         ) {
           core.debug('detailsOnly lock request detected')
           // Get the lock details from the lock file
-          const lockResponse = await lock(
+          const lockResponse = await lock({
             octokit,
-            context,
-            null, // ref
-            reactRes.data.id,
-            null, // sticky
-            null, // environment (we will find this in the lock function - important)
-            true, // details only flag
-            false, // postDeployStep
-            true // leaveComment
-          )
+            context: actionContext,
+            ref: null,
+            reactionId: reactRes.data.id,
+            sticky: null,
+            environment: null,
+            mode: {type: 'details', postDeployStep: false},
+            leaveComment: true
+          })
           // extract values from the lock response
-          const lockData = lockResponse.lockData!
+          const lockData = legacyLockData(lockResponse.lockData)
           const lockStatus = lockResponse.status
 
           // If a lock was found
           if (lockStatus !== null) {
             // Find the total time since the lock was created
-            const totalTime = await timeDiff(
+            const totalTime = timeDiff(
               lockData.created_at,
               new Date().toISOString()
             )
 
             // special comment for global deploy locks
             let globalMsg = ''
-            let environmentMsg = `- __Environment__: \`${lockData.environment}\``
-            let lockBranchName = `${constructValidBranchName(lockData.environment)}-${LOCK_METADATA.lockBranchSuffix}`
-            if (lockData.global === true) {
+            let environmentMsg = `- __Environment__: \`${String(lockData.environment)}\``
+            let lockBranchName = `${String(constructValidBranchName(lockData.environment))}-${LOCK_METADATA.lockBranchSuffix}`
+            if (legacyStrictTrue(lockData.global)) {
               globalMsg = dedent(`
 
               This is a **global** deploy lock - All environments are currently locked
@@ -306,13 +312,13 @@ export async function run() {
             `)
 
             const lockMessageDetails = dedent(`
-            - __Branch__: \`${lockData.branch}\`
+            - __Branch__: \`${String(lockData.branch)}\`
             - __Created At__: \`${lockData.created_at}\`
             - __Created By__: \`${lockData.created_by}\`
-            - __Sticky__: \`${lockData.sticky}\`
+            - __Sticky__: \`${String(lockData.sticky)}\`
             ${environmentMsg}
             - __Comment Link__: [click here](${lockData.link})
-            - __Lock Link__: [click here](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/blob/${lockBranchName}/${LOCK_METADATA.lockFile})
+            - __Lock Link__: [click here](${String(process.env['GITHUB_SERVER_URL'])}/${owner}/${repo}/blob/${lockBranchName}/${LOCK_METADATA.lockFile})
 
             The current lock has been active for \`${totalTime}\`
 
@@ -325,50 +331,48 @@ export async function run() {
             ].join('\n\n')
 
             // Update the issue comment with the lock details
-            await actionStatus(
-              context,
+            await actionStatus({
+              context: actionContext,
               octokit,
-              reactRes.data.id, // original reaction id
-              lockMessage, // message
-              true, // success bool
-              true // use the 'alt reaction' bool
-            )
+              reactionId: reactRes.data.id,
+              message: lockMessage,
+              result: 'alternate-success'
+            })
             core.info(
               `🔒 the deployment lock is currently claimed by ${COLORS.highlight}${lockData.created_by}`
             )
           } else {
             // format the lock details message
-            var lockCommand
-            var lockTarget
+            let lockCommand: string
+            let lockTarget: string | null
             if (lockResponse.global) {
               lockTarget = 'global'
               lockCommand = `${inputs.lock_trigger} ${lockResponse.globalFlag}`
             } else {
               lockTarget = lockResponse.environment
-              lockCommand = `${inputs.lock_trigger} ${lockTarget}`
+              lockCommand = `${inputs.lock_trigger} ${String(lockTarget)}`
             }
 
             const lockMessage = dedent(`
             ### Lock Details 🔒
 
-            No active \`${lockTarget}\` deployment locks found for the \`${owner}/${repo}\` repository
+            No active \`${String(lockTarget)}\` deployment locks found for the \`${owner}/${repo}\` repository
 
-            > If you need to create a \`${lockTarget}\` lock, please comment \`${lockCommand}\`
+            > If you need to create a \`${String(lockTarget)}\` lock, please comment \`${lockCommand}\`
             `)
 
-            await actionStatus(
-              context,
+            await actionStatus({
+              context: actionContext,
               octokit,
-              reactRes.data.id, // original reaction id
-              lockMessage, // message
-              true, // success bool
-              true // use the 'alt reaction' bool
-            )
+              reactionId: reactRes.data.id,
+              message: lockMessage,
+              result: 'alternate-success'
+            })
             core.info('✅ no active deployment locks found')
           }
 
           // Exit the action since we are done after obtaining only the lock details with --details
-          core.saveState('bypass', 'true')
+          saveActionState('bypass', 'true')
           return 'safe-exit'
         }
 
@@ -382,48 +386,64 @@ export async function run() {
         })
 
         // Send the lock request
-        await lock(
+        await lock({
           octokit,
-          context,
-          pr.data.head.ref,
-          reactRes.data.id,
-          true, // sticky
-          null, // environment (we will find this in the lock function)
-          false, // details only flag
-          false, // postDeployStep
-          true // leaveComment
-        )
-        core.saveState('bypass', 'true')
+          context: actionContext,
+          ref: pr.data.head.ref,
+          reactionId: reactRes.data.id,
+          sticky: true,
+          environment: null,
+          mode: {type: 'acquire', postDeployStep: false},
+          leaveComment: true
+        })
+        saveActionState('bypass', 'true')
         return 'safe-exit'
       } else {
         // if it isn't a lock or lock info command, it must be an unlock command
         core.debug('running unlock command logic')
-        await unlock(octokit, context, reactRes.data.id)
-        core.saveState('bypass', 'true')
+        await unlock({
+          octokit,
+          context: actionContext,
+          reactionId: reactRes.data.id,
+          target: {type: 'context'},
+          mode: 'interactive'
+        })
+        saveActionState('bypass', 'true')
         return 'safe-exit'
       }
     }
 
     // Check if the default environment is being overwritten by an explicit environment
-    const environmentObj = await environmentTargets(
-      environment, // environment
-      body, // comment body
-      inputs.trigger, // trigger
-      inputs.noop_trigger, // noop trigger
-      inputs.stable_branch, // ref
-      context, // context object
-      octokit, // octokit object
-      reactRes.data.id, // reaction id
-      false, // lockChecks set to false as this is for a deployment
-      inputs.environment_urls, // environment_urls action input
-      inputs.param_separator // param_separator action input
-    )
+    const environmentObj = await environmentTargets({
+      mode: 'deployment',
+      environment,
+      body,
+      trigger: inputs.trigger,
+      alternateTrigger: inputs.noop_trigger,
+      stableBranch: inputs.stable_branch,
+      context: actionContext,
+      octokit,
+      reactionId: reactRes.data.id,
+      environmentUrls: inputs.environment_urls,
+      paramSeparator: inputs.param_separator
+    })
 
     // convert the environmentObj to a json string and debug log it
     core.debug(`environmentObj: ${JSON.stringify(environmentObj)}`)
 
+    // If the environment targets are not valid, then exit
+    if (environmentObj.environment === false) {
+      core.debug('No valid environment targets found')
+      return 'safe-exit'
+    }
+
+    if (!legacyTruthy(environmentObj.environment)) {
+      core.debug('No valid environment targets found')
+      return 'safe-exit'
+    }
+
     // deconstruct the environment object to get the environment
-    environment = environmentObj.environment as string
+    environment = environmentObj.environment
 
     // deconstruct the environment object to get the stable_branch_used value
     const stableBranchUsed = environmentObj.environmentObj.stable_branch_used
@@ -432,15 +452,9 @@ export async function run() {
     const params = environmentObj.environmentObj.params
     const parsed_params = environmentObj.environmentObj.parsed_params
 
-    // If the environment targets are not valid, then exit
-    if (!environment) {
-      core.debug('No valid environment targets found')
-      return 'safe-exit'
-    }
-
     core.info(`🌍 environment: ${COLORS.highlight}${environment}`)
-    core.saveState('environment', environment)
-    core.setOutput('environment', environment)
+    saveActionState('environment', environment)
+    setActionOutput('environment', environment)
 
     const data = {
       environment: environment,
@@ -450,24 +464,24 @@ export async function run() {
     }
 
     // Execute prechecks to ensure the Action can proceed
-    const precheckResults = await prechecks(context, octokit, data)
-    core.setOutput('ref', precheckResults.ref)
-    core.saveState('ref', precheckResults.ref)
-    core.setOutput('sha', precheckResults.sha)
-    core.saveState('sha', precheckResults.sha)
-    core.debug(`precheckResults.sha: ${precheckResults.sha}`)
+    const precheckResults = await prechecks(actionContext, octokit, data)
+    setActionOutput('ref', precheckResults.ref)
+    saveActionState('ref', precheckResults.ref)
+    setActionOutput('sha', precheckResults.sha)
+    saveActionState('sha', precheckResults.sha)
+    core.debug(`precheckResults.sha: ${String(precheckResults.sha)}`)
 
     // If the prechecks failed, run the actionStatus function and return
     // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
     if (!precheckResults.status) {
-      await actionStatus(
-        context,
+      await actionStatus({
+        context: actionContext,
         octokit,
-        reactRes.data.id, // original reaction id
-        precheckResults.message // message
-      )
+        reactionId: reactRes.data.id,
+        message: precheckResults.message
+      })
       // Set the bypass state to true so that the post run logic will not run
-      core.saveState('bypass', 'true')
+      saveActionState('bypass', 'true')
       core.setFailed(precheckResults.message)
       return 'failure'
     }
@@ -486,7 +500,7 @@ export async function run() {
       headers: API_HEADERS
     })
 
-    const committer = commitData.data?.committer?.login
+    const committer = legacyCommitterLogin(commitData)
     const commit_html_url = commitData.data.html_url
 
     if (committer === null || committer === undefined) {
@@ -496,7 +510,7 @@ export async function run() {
     }
 
     // Run commit safety checks
-    const commitSafetyCheckResults = await commitSafetyChecks(context, {
+    const commitSafetyCheckResults = commitSafetyChecks(context, {
       commit: commitData.data.commit,
       sha: commitData.data.sha,
       inputs: inputs
@@ -504,28 +518,25 @@ export async function run() {
 
     // If the commitSafetyCheckResults failed, run the actionStatus function and return
     // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
-    if (!commitSafetyCheckResults.status && stableBranchUsed !== true) {
-      await actionStatus(
-        context,
+    if (!commitSafetyCheckResults.status && !stableBranchUsed) {
+      await actionStatus({
+        context: actionContext,
         octokit,
-        reactRes.data.id, // original reaction id
-        commitSafetyCheckResults.message // message
-      )
+        reactionId: reactRes.data.id,
+        message: commitSafetyCheckResults.message
+      })
       // Set the bypass state to true so that the post run logic will not run
-      core.saveState('bypass', 'true')
+      saveActionState('bypass', 'true')
       core.setFailed(commitSafetyCheckResults.message)
       return 'failure'
-    } else if (!commitSafetyCheckResults.status && stableBranchUsed === true) {
+    } else if (!commitSafetyCheckResults.status && stableBranchUsed) {
       core.warning(
         'commit safety checks failed but the stable branch is being used so the workflow will continue - you should inspect recent commits on this branch as a precaution'
       )
     }
 
     // check for enforced deployment order if the input was provided and we are NOT deploying to the stable branch
-    if (
-      inputs.enforced_deployment_order.length > 0 &&
-      stableBranchUsed !== true
-    ) {
+    if (inputs.enforced_deployment_order.length > 0 && !stableBranchUsed) {
       const deploymentOrderResults = await validDeploymentOrder(
         octokit,
         context,
@@ -560,14 +571,14 @@ export async function run() {
             ${combined_environments_markdown}
           `)
 
-        await actionStatus(
-          context,
+        await actionStatus({
+          context: actionContext,
           octokit,
-          reactRes.data.id, // original reaction id
-          enforced_deployment_order_failure_message // message
-        )
+          reactionId: reactRes.data.id,
+          message: enforced_deployment_order_failure_message
+        })
         // Set the bypass state to true so that the post run logic will not run
-        core.saveState('bypass', 'true')
+        saveActionState('bypass', 'true')
         core.setFailed(
           `🚦 deployment order checks failed as not all previous environments have active deployments: ${combined_environments}`
         )
@@ -583,7 +594,7 @@ export async function run() {
     core.info(
       `🍯 sticky_locks_for_noop: ${COLORS.highlight}${inputs.sticky_locks_for_noop}${COLORS.reset}`
     )
-    var stickyLocks
+    let stickyLocks: boolean
     // if sticky_locks is true, then we will use the sticky_locks logic
     // if sticky_locks_for_noop is also true, then we will also use the sticky_locks logic for noop deployments
     // if sticky_locks is false, then no sticky locks will be applied and only non-sticky locks will be used
@@ -600,44 +611,41 @@ export async function run() {
     }
 
     // if we are using sticky_locks in deployments, don't leave a comment as this is inferred by the user
-    const leaveComment = stickyLocks === false ? true : false
+    const leaveComment = !stickyLocks ? true : false
 
     core.debug(`🔒 stickyLocks: ${stickyLocks}`)
     core.debug(`💬 leaveComment: ${leaveComment}`)
 
     // Aquire the branch-deploy lock
-    const lockResponse = await lock(
+    const lockResponse = await lock({
       octokit,
-      context,
-      precheckResults.ref,
-      reactRes.data.id,
-      stickyLocks, // sticky / hubot style locks - true/false depending on the input
-      environment, // environment
-      null, // details only flag
-      false, // postDeployStep
-      leaveComment // leaveComment - true/false depending on the input
-    )
+      context: actionContext,
+      ref: precheckResults.ref,
+      reactionId: reactRes.data.id,
+      sticky: stickyLocks,
+      environment,
+      mode: {type: 'acquire', postDeployStep: false},
+      leaveComment
+    })
 
     // If the lock request fails, exit the Action
     if (lockResponse.status === false) {
       return 'safe-exit'
     }
 
-    const github_run_id = parseInt(process.env.GITHUB_RUN_ID!)
+    const github_run_id = parseInt(process.env['GITHUB_RUN_ID'] ?? '')
 
     // Add a comment to the PR letting the user know that a deployment has been started
     // Format the success message
-    var deploymentType
-    if (precheckResults.noopMode) {
-      deploymentType = 'noop'
-    } else {
-      deploymentType =
-        environmentObj.environmentObj.sha !== null ? 'sha' : 'branch'
-    }
-    const log_url = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${github_run_id}`
+    const deploymentType = precheckResults.noopMode
+      ? 'noop'
+      : environmentObj.environmentObj.sha !== null
+        ? 'sha'
+        : 'branch'
+    const log_url = `${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/actions/runs/${github_run_id}`
 
     // if the deployment_confirmation is set to 'true', then we will prompt the user to confirm the deployment
-    if (inputs.deployment_confirmation === true) {
+    if (inputs.deployment_confirmation) {
       const deploymentConfirmed = await deploymentConfirmation(
         context,
         octokit,
@@ -661,13 +669,13 @@ export async function run() {
           commit_html_url: commit_html_url
         }
       )
-      if (deploymentConfirmed === true) {
+      if (deploymentConfirmed) {
         core.debug(
           `deploymentConfirmation() was successful - continuing with the deployment`
         )
       } else {
         // Set the bypass state to true so that the post run logic will not run
-        core.saveState('bypass', 'true')
+        saveActionState('bypass', 'true')
         core.debug(`❌ deployment not confirmed - exiting`)
         return 'failure'
       }
@@ -677,7 +685,16 @@ export async function run() {
     // it is not the exact time the deployment started, but it is very close
     const deployment_start_time = timestamp()
     core.debug(`deployment_start_time: ${deployment_start_time}`)
-    core.saveState('deployment_start_time', deployment_start_time)
+    saveActionState('deployment_start_time', deployment_start_time)
+
+    const environmentUrlJson =
+      environmentObj.environmentUrl !== null &&
+      environmentObj.environmentUrl !== ''
+        ? `"${environmentObj.environmentUrl}"`
+        : 'null'
+    const paramsJson = params !== null && params !== '' ? `"${params}"` : 'null'
+    const parsedParamsJson =
+      parsed_params !== null ? JSON.stringify(parsed_params) : 'null'
 
     const commentBody = dedent(`
       ### Deployment Triggered 🚀
@@ -697,7 +714,7 @@ export async function run() {
         "type": "${deploymentType.toLowerCase()}",
         "environment": {
           "name": "${environment}",
-          "url": ${environmentObj.environmentUrl ? `"${environmentObj.environmentUrl}"` : null}
+          "url": ${environmentUrlJson}
         },
         "deployment": {
           "timestamp": "${deployment_start_time}",
@@ -707,7 +724,7 @@ export async function run() {
           "branch": "${precheckResults.ref}",
           "commit": "${precheckResults.sha}",
           "verified": ${commitSafetyCheckResults.isVerified},
-          "committer": "${committer}",
+          "committer": "${String(committer)}",
           "html_url": "${commit_html_url}"
         },
         "context": {
@@ -715,15 +732,15 @@ export async function run() {
           "noop": ${precheckResults.noopMode},
           "fork": ${precheckResults.isFork},
           "comment": {
-            "created_at": "${(context as unknown as IssueCommentContext).payload.comment.created_at}",
-            "updated_at": "${(context as unknown as IssueCommentContext).payload.comment.updated_at}",
+            "created_at": "${issueComment.payload.comment.created_at}",
+            "updated_at": "${issueComment.payload.comment.updated_at}",
             "body": "${body}",
-            "html_url": "${(context as unknown as IssueCommentContext).payload.comment.html_url}"
+            "html_url": "${issueComment.payload.comment.html_url}"
           }
         },
         "parameters": {
-          "raw": ${params ? `"${params}"` : null},
-          "parsed": ${parsed_params ? `${JSON.stringify(parsed_params)}` : null}
+          "raw": ${paramsJson},
+          "parsed": ${parsedParamsJson}
         }
       }
       \`\`\`
@@ -742,14 +759,14 @@ export async function run() {
     })
 
     // Set output for initial comment id
-    core.setOutput('initial_comment_id', deploymentStartedComment.data.id)
-    core.saveState('initial_comment_id', deploymentStartedComment.data.id)
+    setActionOutput('initial_comment_id', deploymentStartedComment.data.id)
+    saveActionState('initial_comment_id', deploymentStartedComment.data.id)
 
     // Set outputs for noopMode
     if (precheckResults.noopMode) {
-      core.setOutput('noop', precheckResults.noopMode)
-      core.setOutput('continue', 'true')
-      core.saveState('noop', precheckResults.noopMode)
+      setActionOutput('noop', precheckResults.noopMode)
+      setActionOutput('continue', 'true')
+      saveActionState('noop', precheckResults.noopMode)
 
       core.info(
         `🧑‍🚀 commit sha to noop: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`
@@ -759,14 +776,13 @@ export async function run() {
       // If noop mode is enabled, return here
       return 'success - noop'
     } else {
-      core.setOutput('noop', precheckResults.noopMode)
-      core.saveState('noop', precheckResults.noopMode)
+      setActionOutput('noop', precheckResults.noopMode)
+      saveActionState('noop', precheckResults.noopMode)
     }
 
     // Get required_contexts for the deployment
-    var requiredContexts: string[] = []
+    let requiredContexts: string[] = []
     if (
-      inputs.required_contexts &&
       inputs.required_contexts !== '' &&
       inputs.required_contexts !== 'false'
     ) {
@@ -786,8 +802,7 @@ export async function run() {
     // otherwise if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
     // this is important as we cannot reliably merge into the base branch if we are using a SHA
     const auto_merge =
-      environmentObj.environmentObj.sha !== null &&
-      environmentObj.environmentObj.sha !== undefined
+      environmentObj.environmentObj.sha !== null
         ? false
         : inputs.update_branch === 'disabled'
           ? false
@@ -800,8 +815,7 @@ export async function run() {
       params: params,
       parsed_params: parsed_params,
       github_run_id: github_run_id,
-      initial_comment_id: (context as unknown as IssueCommentContext).payload
-        .comment.id,
+      initial_comment_id: issueComment.payload.comment.id,
       initial_reaction_id: reactRes.data.id,
       deployment_started_comment_id: deploymentStartedComment.data.id,
       timestamp: deployment_start_time,
@@ -811,7 +825,7 @@ export async function run() {
     }
 
     // Create a new deployment
-    const {data: createDeploy} = (await octokit.rest.repos.createDeployment({
+    const createDeploymentResponse = await octokit.rest.repos.createDeployment({
       owner: owner,
       repo: repo,
       ref: precheckResults.ref,
@@ -824,9 +838,10 @@ export async function run() {
       // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
       payload: payload,
       headers: API_HEADERS
-    })) as unknown as {data: CreatedDeployment}
-    core.setOutput('deployment_id', createDeploy.id)
-    core.saveState('deployment_id', createDeploy.id)
+    })
+    const createDeploy = createdDeployment(createDeploymentResponse.data)
+    setActionOutput('deployment_id', createDeploy.id)
+    saveActionState('deployment_id', createDeploy.id)
 
     // If a merge to the base branch is required, let the user know and exit
     if (
@@ -841,21 +856,26 @@ export async function run() {
 
         > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
         `)
-      await actionStatus(context, octokit, reactRes.data.id, mergeMessage)
+      await actionStatus({
+        context: actionContext,
+        octokit,
+        reactionId: reactRes.data.id,
+        message: mergeMessage
+      })
       core.warning(mergeMessage)
       // Enable bypass for the post deploy step since the deployment is not complete
-      core.saveState('bypass', 'true')
+      saveActionState('bypass', 'true')
       return 'safe-exit'
     }
 
     // Debug log information about the deployment that was just created
     core.info(
-      `📓 deployment id: ${COLORS.highlight}${createDeploy.id}${COLORS.reset}`
+      `📓 deployment id: ${COLORS.highlight}${String(createDeploy.id)}${COLORS.reset}`
     )
-    core.debug(`deployment.url: ${createDeploy.url}`)
-    core.debug(`deployment.created_at: ${createDeploy.created_at}`)
-    core.debug(`deployment.updated_at: ${createDeploy.updated_at}`)
-    core.debug(`deployment.statuses_url: ${createDeploy.statuses_url}`)
+    core.debug(`deployment.url: ${String(createDeploy.url)}`)
+    core.debug(`deployment.created_at: ${String(createDeploy.created_at)}`)
+    core.debug(`deployment.updated_at: ${String(createDeploy.updated_at)}`)
+    core.debug(`deployment.statuses_url: ${String(createDeploy.statuses_url)}`)
 
     // Set the deployment status to in_progress
     await createDeploymentStatus(
@@ -863,7 +883,7 @@ export async function run() {
       context,
       precheckResults.ref,
       'in_progress',
-      createDeploy.id as number,
+      legacyDeploymentId(createDeploy.id),
       environment,
       environmentObj.environmentUrl // environment_url (can be null)
     )
@@ -872,24 +892,26 @@ export async function run() {
       `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`
     )
     core.info(`🚀 ${COLORS.success}deployment started!${COLORS.reset}`)
-    core.setOutput('continue', 'true')
+    setActionOutput('continue', 'true')
     return 'success'
   } catch (error) {
-    core.saveState('bypass', 'true')
-    core.error((error as ApiError).stack)
-    core.setFailed((error as ApiError).message)
+    saveActionState('bypass', 'true')
+    const apiError = legacyApiError(error)
+    core.error(apiError.stack)
+    core.setFailed(apiError.message)
+    return undefined
   }
 }
 
 /* istanbul ignore next */
-if (core.getState('isPost') === 'true') {
-  post()
+if (getActionState('isPost') === 'true') {
+  void post()
 } else {
   /* istanbul ignore next */
   if (
-    process.env.CI === 'true' &&
-    process.env.BRANCH_DEPLOY_VITEST_TEST !== 'true'
+    process.env['CI'] === 'true' &&
+    process.env['BRANCH_DEPLOY_VITEST_TEST'] !== 'true'
   ) {
-    run()
+    void run()
   }
 }

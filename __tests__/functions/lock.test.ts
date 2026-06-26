@@ -1,9 +1,18 @@
 import * as core from '@actions/core'
 import {vi, expect, test, beforeEach} from 'vitest'
-import {lock} from '../../src/functions/lock.ts'
+import {
+  lock,
+  type LockOctokit,
+  type LockRequest
+} from '../../src/functions/lock.ts'
 import {COLORS} from '../../src/functions/colors.ts'
 import * as actionStatus from '../../src/functions/action-status.ts'
-import {asMock} from '../test-helpers.ts'
+import {createIssueCommentContext} from '../test-helpers.ts'
+import type {
+  IssueCommentContext,
+  LockData,
+  LockResponse
+} from '../../src/types.ts'
 
 class NotFoundError extends Error {
   declare status: number
@@ -44,66 +53,72 @@ const infoMock = vi.spyOn(core, 'info')
 const debugMock = vi.spyOn(core, 'debug')
 const errorMock = vi.spyOn(core, 'error')
 
-type TestMock = ReturnType<typeof vi.fn>
-type TestLock = (...args: unknown[]) => ReturnType<typeof lock>
-
-interface ExpectedLockData {
-  branch: string
-  created_at: string
-  created_by: string
-  environment: string | null
-  global: boolean
-  link: string
-  reason: string | null
-  sticky: boolean
-  unlock_command: string
+interface LockOctokitOverrides {
+  readonly git?: Partial<LockOctokit['rest']['git']>
+  readonly issues?: Partial<LockOctokit['rest']['issues']>
+  readonly reactions?: Partial<LockOctokit['rest']['reactions']>
+  readonly repos?: Partial<LockOctokit['rest']['repos']>
 }
 
-interface ExpectedLockResponse {
-  environment: string | null
-  global: boolean
-  globalFlag: string
-  lockData: ExpectedLockData | null
-  status: boolean | null | string
-}
-
-interface TestLockOctokit {
-  rest: {
-    git: {createRef: TestMock}
-    issues: {createComment: TestMock}
-    repos: {
-      createOrUpdateFileContents: TestMock
-      get: TestMock
-      getBranch: TestMock
-      getContent: TestMock
+function createLockOctokit(overrides: LockOctokitOverrides = {}): LockOctokit {
+  return {
+    rest: {
+      git: {createRef: vi.fn(), ...overrides.git},
+      issues: {createComment: vi.fn(), ...overrides.issues},
+      reactions: {
+        createForIssueComment: vi.fn(),
+        deleteForIssueComment: vi.fn(),
+        ...overrides.reactions
+      },
+      repos: {
+        createOrUpdateFileContents: vi.fn(),
+        get: vi.fn(),
+        getBranch: vi.fn(),
+        getContent: vi.fn(),
+        ...overrides.repos
+      }
     }
+  } satisfies LockOctokit
+}
+
+function contextFor(body: string, actor = 'monalisa'): IssueCommentContext {
+  return createIssueCommentContext({
+    actor,
+    issue: {number: 1},
+    payload: {comment: {body, id: 123}},
+    repo: {owner: 'corp', repo: 'test'}
+  })
+}
+
+let context: IssueCommentContext
+let octokit: LockOctokit
+let octokitOtherUserHasLock: LockOctokit
+let createdLock: LockResponse
+let monalisaOwner: LockResponse
+let noLockFound: LockResponse
+let failedToCreateLock: LockResponse
+
+function lockRequest(overrides: Partial<LockRequest> = {}): LockRequest {
+  return {
+    context,
+    environment,
+    leaveComment: true,
+    mode: {postDeployStep: false, type: 'acquire'},
+    octokit,
+    reactionId: 123,
+    ref: 'cool-new-feature',
+    sticky: false,
+    ...overrides
   }
 }
-
-interface TestExistingLockOctokit {
-  rest: {
-    repos: {
-      get: TestMock
-      getBranch: TestMock
-      getContent: TestMock
-    }
-  }
-}
-
-var octokit: TestLockOctokit
-var octokitOtherUserHasLock: TestExistingLockOctokit
-var createdLock: ExpectedLockResponse
-var monalisaOwner: ExpectedLockResponse
-var noLockFound: ExpectedLockResponse
-var failedToCreateLock: ExpectedLockResponse
 
 beforeEach(() => {
   vi.clearAllMocks()
 
-  process.env.INPUT_GLOBAL_LOCK_FLAG = '--global'
-  process.env.INPUT_LOCK_TRIGGER = '.lock'
-  process.env.INPUT_ENVIRONMENT = 'production'
-  process.env.INPUT_LOCK_INFO_ALIAS = '.wcid'
+  vi.stubEnv('INPUT_GLOBAL_LOCK_FLAG', '--global')
+  vi.stubEnv('INPUT_LOCK_TRIGGER', '.lock')
+  vi.stubEnv('INPUT_ENVIRONMENT', 'production')
+  vi.stubEnv('INPUT_LOCK_INFO_ALIAS', '.wcid')
 
   createdLock = {
     lockData: null,
@@ -111,7 +126,7 @@ beforeEach(() => {
     globalFlag,
     environment,
     global: false
-  }
+  } satisfies LockResponse
   monalisaOwner = {
     lockData: {
       branch: 'cool-new-feature',
@@ -128,81 +143,50 @@ beforeEach(() => {
     globalFlag,
     environment,
     global: false
-  }
+  } satisfies LockResponse
   noLockFound = {
     lockData: null,
     status: null,
     globalFlag,
     environment,
     global: false
-  }
+  } satisfies LockResponse
   failedToCreateLock = {
     lockData: null,
     status: false,
     globalFlag,
     environment,
     global: false
-  }
+  } satisfies LockResponse
 
-  octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: vi.fn().mockReturnValue({}),
-        getContent: vi
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found'))
-      },
-      git: {
-        createRef: vi.fn().mockReturnValue({status: 201})
-      },
-      issues: {
-        createComment: vi.fn().mockReturnValue({})
-      }
-    }
-  }
+  context = contextFor('.lock')
+  octokit = createLockOctokit({
+    repos: {
+      getBranch: vi
+        .fn()
+        .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
+        .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      createOrUpdateFileContents: vi.fn().mockReturnValue({}),
+      getContent: vi.fn().mockRejectedValue(new NotFoundError('file not found'))
+    },
+    git: {createRef: vi.fn().mockReturnValue({status: 201})},
+    issues: {createComment: vi.fn().mockReturnValue({})}
+  })
 
-  octokitOtherUserHasLock = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockReturnValueOnce({data: {content: lockBase64Octocat}})
-      }
+  octokitOtherUserHasLock = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockReturnValueOnce({data: {content: lockBase64Octocat}})
     }
-  }
+  })
 })
 
-const context = {
-  actor: 'monalisa',
-  repo: {
-    owner: 'corp',
-    repo: 'test'
-  },
-  issue: {
-    number: 1
-  },
-  payload: {
-    comment: {
-      body: '.lock'
-    }
-  }
-}
-
-const ref = 'cool-new-feature'
-
 test('successfully obtains a deployment lock (non-sticky) by creating the branch and lock file', async () => {
-  expect(
-    await (lock as TestLock)(octokit, context, ref, 123, false, environment)
-  ).toStrictEqual(createdLock)
+  expect(await lock(lockRequest())).toStrictEqual(createdLock)
   expect(infoMock).toHaveBeenCalledWith(
     `🔒 created lock branch: ${COLORS.highlight}production-branch-deploy-lock`
   )
@@ -214,33 +198,24 @@ test('successfully obtains a deployment lock (non-sticky) by creating the branch
 })
 
 test('Determines that another user has the lock (GLOBAL) and exits - during a lock claim on deployment', async () => {
-  const actionStatusSpy = asMock(
-    vi.spyOn(actionStatus, 'actionStatus')
-  ).mockImplementation(() => {
-    return undefined
-  })
+  const actionStatusSpy = vi
+    .spyOn(actionStatus, 'actionStatus')
+    .mockResolvedValue(undefined)
   expect(
-    await (lock as TestLock)(
-      octokitOtherUserHasLock,
-      context,
-      ref,
-      123,
-      false,
-      environment
-    )
+    await lock(lockRequest({octokit: octokitOtherUserHasLock}))
   ).toStrictEqual(failedToCreateLock)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
   expect(debugMock).toHaveBeenCalledWith(
     `constructed lock branch name: ${environment}-branch-deploy-lock`
   )
-  expect(actionStatusSpy).toHaveBeenCalledWith(
+  expect(actionStatusSpy.mock.calls[0]?.[0]).toMatchObject({
     context,
-    octokitOtherUserHasLock,
-    123,
-    expect.stringMatching(
-      /Sorry __monalisa__, the `production` environment deployment lock is currently claimed by __octocat__/
-    )
+    octokit: octokitOtherUserHasLock,
+    reactionId: 123
+  })
+  expect(actionStatusSpy.mock.calls[0]?.[0].message).toMatch(
+    /Sorry __monalisa__, the `production` environment deployment lock is currently claimed by __octocat__/
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
   expect(setFailedMock).toHaveBeenCalledWith(
@@ -251,34 +226,24 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a lo
 })
 
 test('Determines that another user has the lock (non-global) and exits - during a lock claim on deployment', async () => {
-  failedToCreateLock.global = false
-  const actionStatusSpy = asMock(
-    vi.spyOn(actionStatus, 'actionStatus')
-  ).mockImplementation(() => {
-    return undefined
-  })
+  const actionStatusSpy = vi
+    .spyOn(actionStatus, 'actionStatus')
+    .mockResolvedValue(undefined)
   expect(
-    await (lock as TestLock)(
-      octokitOtherUserHasLock,
-      context,
-      ref,
-      123,
-      false,
-      environment
-    )
+    await lock(lockRequest({octokit: octokitOtherUserHasLock}))
   ).toStrictEqual(failedToCreateLock)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
   expect(debugMock).toHaveBeenCalledWith(
     `constructed lock branch name: ${environment}-branch-deploy-lock`
   )
-  expect(actionStatusSpy).toHaveBeenCalledWith(
+  expect(actionStatusSpy.mock.calls[0]?.[0]).toMatchObject({
     context,
-    octokitOtherUserHasLock,
-    123,
-    expect.stringMatching(
-      /Sorry __monalisa__, the `production` environment deployment lock is currently claimed by __octocat__/
-    )
+    octokit: octokitOtherUserHasLock,
+    reactionId: 123
+  })
+  expect(actionStatusSpy.mock.calls[0]?.[0].message).toMatch(
+    /Sorry __monalisa__, the `production` environment deployment lock is currently claimed by __octocat__/
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
   expect(setFailedMock).toHaveBeenCalledWith(
@@ -288,29 +253,63 @@ test('Determines that another user has the lock (non-global) and exits - during 
   )
 })
 
-test('Determines that another user has the lock (GLOBAL) and exits - during a direct lock claim with .lock --global', async () => {
-  context.payload.comment.body = '.lock --global'
-  const actionStatusSpy = asMock(
-    vi.spyOn(actionStatus, 'actionStatus')
-  ).mockImplementation(() => {
-    return undefined
-  })
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('file not found'))
-          .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}})
-      }
-    }
+test('preserves strict global handling for malformed lock JSON', async () => {
+  const actionStatusSpy = vi
+    .spyOn(actionStatus, 'actionStatus')
+    .mockResolvedValue(undefined)
+  const malformedLockData = {
+    branch: 'octocats-everywhere',
+    created_at: '2022-06-14T21:12:14.041Z',
+    created_by: 'octocat',
+    environment: 'production',
+    global: 'false',
+    link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+    reason: null,
+    sticky: true,
+    unlock_command: '.unlock production'
   }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValue({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockRejectedValueOnce(new NotFoundError('file not found'))
+        .mockReturnValueOnce({
+          data: {
+            content: Buffer.from(JSON.stringify(malformedLockData)).toString(
+              'base64'
+            )
+          }
+        })
+    }
+  })
+
+  await expect(lock(lockRequest({octokit}))).resolves.toMatchObject({
+    status: false
+  })
+  const message = actionStatusSpy.mock.calls[0]?.[0].message ?? ''
+  expect(message).toContain('the `production` environment deployment lock')
+  expect(message).not.toContain('the `global` deployment lock')
+})
+
+test('Determines that another user has the lock (GLOBAL) and exits - during a direct lock claim with .lock --global', async () => {
+  context = contextFor('.lock --global')
+  const actionStatusSpy = vi
+    .spyOn(actionStatus, 'actionStatus')
+    .mockResolvedValue(undefined)
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockRejectedValueOnce(new NotFoundError('file not found'))
+        .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}})
+    }
+  })
   expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true, null)
+    await lock(lockRequest({context, environment: null, octokit, sticky: true}))
   ).toStrictEqual({
     lockData: {
       branch: 'octocats-everywhere',
@@ -333,46 +332,38 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a di
   expect(debugMock).toHaveBeenCalledWith(
     `constructed lock branch name: global-branch-deploy-lock`
   )
-  expect(actionStatusSpy).toHaveBeenCalledWith(
+  expect(actionStatusSpy.mock.calls[0]?.[0]).toMatchObject({
     context,
     octokit,
-    123,
-    expect.stringMatching(
-      /Sorry __monalisa__, the `global` deployment lock is currently claimed by __octocat__/
-    )
+    reactionId: 123
+  })
+  expect(actionStatusSpy.mock.calls[0]?.[0].message).toMatch(
+    /Sorry __monalisa__, the `global` deployment lock is currently claimed by __octocat__/
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
   expect(setFailedMock).toHaveBeenCalledWith(
     expect.stringMatching(/Cannot claim deployment lock/)
   )
-  expect(actionStatusSpy.mock.calls[0]![3]).toContain(
+  expect(actionStatusSpy.mock.calls[0]?.[0].message).toContain(
     '- __Reason__:\n\n      Testing my new feature with lots of cats'
   )
 })
 
 test('Determines that another user has the lock (non-global) and exits - during a direct lock claim with .lock', async () => {
-  const actionStatusSpy = asMock(
-    vi.spyOn(actionStatus, 'actionStatus')
-  ).mockImplementation(() => {
-    return undefined
-  })
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('file not found'))
-          .mockReturnValueOnce({data: {content: lockBase64Octocat}})
-      }
+  const actionStatusSpy = vi
+    .spyOn(actionStatus, 'actionStatus')
+    .mockResolvedValue(undefined)
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockRejectedValueOnce(new NotFoundError('file not found'))
+        .mockReturnValueOnce({data: {content: lockBase64Octocat}})
     }
-  }
-  expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true, environment)
-  ).toStrictEqual({
+  })
+  expect(await lock(lockRequest({octokit, sticky: true}))).toStrictEqual({
     lockData: {
       branch: 'octocats-everywhere',
       created_at: '2022-06-14T21:12:14.041Z',
@@ -394,13 +385,13 @@ test('Determines that another user has the lock (non-global) and exits - during 
   expect(debugMock).toHaveBeenCalledWith(
     `constructed lock branch name: ${environment}-branch-deploy-lock`
   )
-  expect(actionStatusSpy).toHaveBeenCalledWith(
+  expect(actionStatusSpy.mock.calls[0]?.[0]).toMatchObject({
     context,
     octokit,
-    123,
-    expect.stringMatching(
-      /Sorry __monalisa__, the `production` environment deployment lock is currently claimed by __octocat__/
-    )
+    reactionId: 123
+  })
+  expect(actionStatusSpy.mock.calls[0]?.[0].message).toMatch(
+    /Sorry __monalisa__, the `production` environment deployment lock is currently claimed by __octocat__/
   )
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
   expect(setFailedMock).toHaveBeenCalledWith(
@@ -422,41 +413,30 @@ test('renders a stored multiline lock reason as inert code when another user enc
     reason: injectedReason,
     sticky: true,
     unlock_command: `.unlock ${collisionEnvironment}`
-  }
-  const actionStatusSpy = asMock(
-    vi.spyOn(actionStatus, 'actionStatus')
-  ).mockImplementation(() => undefined)
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('file not found'))
-          .mockReturnValueOnce({
-            data: {
-              content: Buffer.from(JSON.stringify(lockData)).toString('base64')
-            }
-          })
-      }
+  } satisfies LockData
+  const actionStatusSpy = vi
+    .spyOn(actionStatus, 'actionStatus')
+    .mockResolvedValue(undefined)
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockRejectedValueOnce(new NotFoundError('file not found'))
+        .mockReturnValueOnce({
+          data: {
+            content: Buffer.from(JSON.stringify(lockData)).toString('base64')
+          }
+        })
     }
-  }
+  })
 
   expect(
-    await (lock as TestLock)(
-      octokit,
-      context,
-      ref,
-      123,
-      false,
-      collisionEnvironment
-    )
+    await lock(lockRequest({environment: collisionEnvironment, octokit}))
   ).toMatchObject({status: false, lockData})
 
-  const comment = actionStatusSpy.mock.calls[0]![3]
+  const comment = actionStatusSpy.mock.calls[0]?.[0].message ?? ''
   expect(comment).toContain(
     '- __Reason__:\n\n      routine `\n      \n      ## Deployment approved\n      [continue](https://example.com)\n\n- __Environment__: `__BRANCH_DEPLOY_LOCK_REASON__`'
   )
@@ -465,29 +445,23 @@ test('renders a stored multiline lock reason as inert code when another user enc
 })
 
 test('Request detailsOnly on the lock file and gets lock file data successfully', async () => {
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
-          .mockReturnValueOnce({data: {content: lockBase64Octocat}}) // succeeds the second time looking for a 'local' lock for the environment
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
+        .mockReturnValueOnce({data: {content: lockBase64Octocat}}) // succeeds the second time looking for a 'local' lock for the environment
     }
-  }
+  })
   expect(
-    await (lock as TestLock)(
-      octokit,
-      context,
-      ref,
-      123,
-      null,
-      environment,
-      true
+    await lock(
+      lockRequest({
+        mode: {postDeployStep: false, type: 'details'},
+        octokit,
+        sticky: null
+      })
     )
   ).toStrictEqual({
     lockData: {
@@ -514,29 +488,23 @@ test('Request detailsOnly on the lock file and gets lock file data successfully'
 })
 
 test('Request detailsOnly on the lock file and gets lock file data successfully - global lock', async () => {
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
-          .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}}) // succeeds the second time looking for a 'local' lock for the environment
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
+        .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}}) // succeeds the second time looking for a 'local' lock for the environment
     }
-  }
+  })
   expect(
-    await (lock as TestLock)(
-      octokit,
-      context,
-      ref,
-      123,
-      null,
-      environment,
-      true
+    await lock(
+      lockRequest({
+        mode: {postDeployStep: false, type: 'details'},
+        octokit,
+        sticky: null
+      })
     )
   ).toStrictEqual({
     lockData: {
@@ -563,24 +531,28 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
 })
 
 test('Request detailsOnly on the lock file and gets lock file data successfully -- .wcid', async () => {
-  context.payload.comment.body = '.wcid'
+  context = contextFor('.wcid')
 
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
-          .mockReturnValueOnce({data: {content: lockBase64Octocat}}) // succeeds the second time looking for a 'local' lock for the environment
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
+        .mockReturnValueOnce({data: {content: lockBase64Octocat}}) // succeeds the second time looking for a 'local' lock for the environment
     }
-  }
+  })
   expect(
-    await (lock as TestLock)(octokit, context, ref, 123, null, null, true)
+    await lock(
+      lockRequest({
+        context,
+        environment: null,
+        mode: {postDeployStep: false, type: 'details'},
+        octokit,
+        sticky: null
+      })
+    )
   ).toStrictEqual({
     lockData: {
       branch: 'octocats-everywhere',
@@ -606,23 +578,27 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
 })
 
 test('Request detailsOnly on the lock file and gets lock file data successfully -- .wcid --global', async () => {
-  context.payload.comment.body = '.wcid --global'
+  context = contextFor('.wcid --global')
 
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}}) // succeeds looking for a global lock
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockReturnValueOnce({data: {content: lockBase64OctocatGlobal}}) // succeeds looking for a global lock
     }
-  }
+  })
   expect(
-    await (lock as TestLock)(octokit, context, ref, 123, null, null, true)
+    await lock(
+      lockRequest({
+        context,
+        environment: null,
+        mode: {postDeployStep: false, type: 'details'},
+        octokit,
+        sticky: null
+      })
+    )
   ).toStrictEqual({
     lockData: {
       branch: 'octocats-everywhere',
@@ -648,23 +624,27 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
 })
 
 test('Request detailsOnly on the lock file and does not find a lock --global', async () => {
-  context.payload.comment.body = '.lock -i --global'
+  context = contextFor('.lock -i --global')
 
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('file not found')) // fails looking for a global lock
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockRejectedValueOnce(new NotFoundError('file not found')) // fails looking for a global lock
     }
-  }
+  })
   expect(
-    await (lock as TestLock)(octokit, context, ref, 123, null, null, true)
+    await lock(
+      lockRequest({
+        context,
+        environment: null,
+        mode: {postDeployStep: false, type: 'details'},
+        octokit,
+        sticky: null
+      })
+    )
   ).toStrictEqual({
     lockData: null,
     status: null,
@@ -680,24 +660,28 @@ test('Request detailsOnly on the lock file and does not find a lock --global', a
 })
 
 test('Request detailsOnly on the lock file and gets lock file data successfully with --details flag', async () => {
-  context.payload.comment.body = '.lock --details'
+  context = contextFor('.lock --details')
 
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
-          .mockReturnValueOnce({data: {content: lockBase64Octocat}}) // succeeds the second time looking for a 'local' lock for the environment
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockRejectedValueOnce(new NotFoundError('file not found')) // fails the first time looking for a global lock
+        .mockReturnValueOnce({data: {content: lockBase64Octocat}}) // succeeds the second time looking for a 'local' lock for the environment
     }
-  }
+  })
   expect(
-    await (lock as TestLock)(octokit, context, ref, 123, null, null, true)
+    await lock(
+      lockRequest({
+        context,
+        environment: null,
+        mode: {postDeployStep: false, type: 'details'},
+        octokit,
+        sticky: null
+      })
+    )
   ).toStrictEqual({
     lockData: {
       branch: 'octocats-everywhere',
@@ -723,32 +707,24 @@ test('Request detailsOnly on the lock file and gets lock file data successfully 
 })
 
 test('Request detailsOnly on the lock file when the lock branch exists but no lock file exists', async () => {
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found')),
-        createOrUpdateFileContents: vi.fn().mockReturnValue({})
-      },
-      issues: {
-        createComment: vi.fn().mockReturnValue({})
-      }
-    }
-  }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockRejectedValue(new NotFoundError('file not found')),
+      createOrUpdateFileContents: vi.fn().mockReturnValue({})
+    },
+    issues: {createComment: vi.fn().mockReturnValue({})}
+  })
   expect(
-    await (lock as TestLock)(
-      octokit,
-      context,
-      ref,
-      123,
-      null,
-      environment,
-      true
+    await lock(
+      lockRequest({
+        mode: {postDeployStep: false, type: 'details'},
+        octokit,
+        sticky: null
+      })
     )
   ).toStrictEqual(noLockFound)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
@@ -758,38 +734,54 @@ test('Request detailsOnly on the lock file when the lock branch exists but no lo
   )
 })
 
-test('Request detailsOnly on the lock file when no branch exists', async () => {
-  context.payload.comment.body = '.lock --details'
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: vi.fn().mockReturnValue({}),
-        getContent: vi
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found'))
-      },
-      git: {
-        createRef: vi.fn().mockReturnValue({status: 201})
-      },
-      issues: {
-        createComment: vi.fn().mockReturnValue({})
-      }
+test('preserves legacy truthiness for malformed falsy global lock JSON', async () => {
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValue({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockReturnValueOnce({
+          data: {content: Buffer.from('null').toString('base64')}
+        })
+        .mockRejectedValueOnce(new NotFoundError('file not found'))
     }
-  }
+  })
+
   expect(
-    await (lock as TestLock)(
-      octokit,
-      context,
-      ref,
-      123,
-      null,
-      environment,
-      true
+    await lock(
+      lockRequest({
+        mode: {postDeployStep: false, type: 'details'},
+        octokit,
+        sticky: null
+      })
+    )
+  ).toStrictEqual(noLockFound)
+})
+
+test('Request detailsOnly on the lock file when no branch exists', async () => {
+  context = contextFor('.lock --details')
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi
+        .fn()
+        .mockRejectedValueOnce(new NotFoundError('Reference does not exist'))
+        .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      createOrUpdateFileContents: vi.fn().mockReturnValue({}),
+      getContent: vi.fn().mockRejectedValue(new NotFoundError('file not found'))
+    },
+    git: {createRef: vi.fn().mockReturnValue({status: 201})},
+    issues: {createComment: vi.fn().mockReturnValue({})}
+  })
+  expect(
+    await lock(
+      lockRequest({
+        context,
+        mode: {postDeployStep: false, type: 'details'},
+        octokit,
+        sticky: null
+      })
     )
   ).toStrictEqual(noLockFound)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
@@ -800,61 +792,45 @@ test('Request detailsOnly on the lock file when no branch exists', async () => {
 })
 
 test('Request detailsOnly on the lock file when no branch exists and hits an error when trying to check the branch', async () => {
-  context.payload.comment.body = '.lock --details'
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockRejectedValueOnce(new BigBadError('oh no - 500')),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        createOrUpdateFileContents: vi.fn().mockReturnValue({}),
-        getContent: vi
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found'))
-      }
+  context = contextFor('.lock --details')
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockRejectedValueOnce(new BigBadError('oh no - 500')),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      createOrUpdateFileContents: vi.fn().mockReturnValue({}),
+      getContent: vi.fn().mockRejectedValue(new NotFoundError('file not found'))
     }
-  }
-  try {
-    await (lock as TestLock)(
-      octokit,
-      context,
-      ref,
-      123,
-      null,
-      environment,
-      true
+  })
+
+  await expect(
+    lock(
+      lockRequest({
+        context,
+        mode: {postDeployStep: false, type: 'details'},
+        octokit,
+        sticky: null
+      })
     )
-  } catch (error) {
-    expect(errorMock).toHaveBeenCalledWith(
-      'an unexpected status code was returned while checking for the lock branch'
-    )
-    expect((error as Error).message).toBe('Error: oh no - 500')
-    expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
-    expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
-    expect(debugMock).toHaveBeenCalledWith(
-      `constructed lock branch name: ${environment}-branch-deploy-lock`
-    )
-  }
+  ).rejects.toThrow('Error: oh no - 500')
+  expect(errorMock).toHaveBeenCalledWith(
+    'an unexpected status code was returned while checking for the lock branch'
+  )
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch name: ${environment}-branch-deploy-lock`
+  )
 })
 
 test('Determines that the lock request is coming from current owner of the lock and exits - non-sticky', async () => {
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockReturnValue({data: {content: lockBase64Monalisa}})
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi.fn().mockReturnValue({data: {content: lockBase64Monalisa}})
     }
-  }
-  expect(
-    await (lock as TestLock)(octokit, context, ref, 123, false, environment)
-  ).toStrictEqual(monalisaOwner)
+  })
+  expect(await lock(lockRequest({octokit}))).toStrictEqual(monalisaOwner)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
   expect(debugMock).toHaveBeenCalledWith(
@@ -866,22 +842,16 @@ test('Determines that the lock request is coming from current owner of the lock 
 })
 
 test('Determines that the lock request is coming from current owner of the lock and exits - sticky', async () => {
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockReturnValue({data: {content: lockBase64Monalisa}})
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi.fn().mockReturnValue({data: {content: lockBase64Monalisa}})
     }
-  }
-  expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true, environment)
-  ).toStrictEqual(monalisaOwner)
+  })
+  expect(await lock(lockRequest({octokit, sticky: true}))).toStrictEqual(
+    monalisaOwner
+  )
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
   expect(debugMock).toHaveBeenCalledWith(
@@ -893,22 +863,16 @@ test('Determines that the lock request is coming from current owner of the lock 
 })
 
 test('checks a lock and finds that it is from another owner and that no reason was set - it was a lock for the production environment', async () => {
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockReturnValue({data: {content: lockBase64OctocatNoReason}})
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockReturnValue({data: {content: lockBase64OctocatNoReason}})
     }
-  }
-  expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true, environment)
-  ).toStrictEqual({
+  })
+  expect(await lock(lockRequest({octokit, sticky: true}))).toStrictEqual({
     environment: 'production',
     global: false,
     globalFlag: '--global',
@@ -927,22 +891,16 @@ test('checks a lock and finds that it is from another owner and that no reason w
 })
 
 test('checks a lock and finds that it is from another owner and that no reason was set - it was a lock for the production environment and sticky is set to false', async () => {
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockReturnValue({data: {content: lockBase64OctocatNoReason}})
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockReturnValue({data: {content: lockBase64OctocatNoReason}})
     }
-  }
-  expect(
-    await (lock as TestLock)(octokit, context, ref, 123, false, environment)
-  ).toStrictEqual({
+  })
+  expect(await lock(lockRequest({octokit}))).toStrictEqual({
     environment: 'production',
     global: false,
     globalFlag: '--global',
@@ -961,23 +919,18 @@ test('checks a lock and finds that it is from another owner and that no reason w
 })
 
 test('Determines that the lock request is coming from current owner of the lock (GLOBAL lock) and exits - sticky', async () => {
-  context.actor = 'octocat'
-  context.payload.comment.body = '.lock --global'
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockReturnValue({data: {content: lockBase64OctocatGlobal}})
-      }
+  context = contextFor('.lock --global', 'octocat')
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockReturnValue({data: {content: lockBase64OctocatGlobal}})
     }
-  }
+  })
   expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true, null)
+    await lock(lockRequest({context, environment: null, octokit, sticky: true}))
   ).toStrictEqual({
     lockData: {
       branch: 'octocats-everywhere',
@@ -1006,52 +959,37 @@ test('Determines that the lock request is coming from current owner of the lock 
 })
 
 test('fails to decode the lock file contents', async () => {
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi.fn().mockReturnValue({data: {content: null}})
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi.fn().mockReturnValue({data: {content: null}})
     }
-  }
-  try {
-    await (lock as TestLock)(octokit, context, ref, 123, true, environment)
-  } catch (error) {
-    expect((error as Error).message).toBe(
-      'TypeError [ERR_INVALID_ARG_TYPE]: The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received null'
-    )
-    expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
-    expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
-    expect(debugMock).toHaveBeenCalledWith(
-      `constructed lock branch name: ${environment}-branch-deploy-lock`
-    )
-  }
+  })
+
+  await expect(lock(lockRequest({octokit, sticky: true}))).rejects.toThrow(
+    'The first argument must be of type string or an instance of Buffer'
+  )
+  expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
+  expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
+  expect(debugMock).toHaveBeenCalledWith(
+    `constructed lock branch name: ${environment}-branch-deploy-lock`
+  )
 })
 
 test('Creates a lock when the lock branch exists but no lock file exists', async () => {
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi
-          .fn()
-          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
-        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
-        getContent: vi
-          .fn()
-          .mockRejectedValue(new NotFoundError('file not found')),
-        createOrUpdateFileContents: vi.fn().mockReturnValue({})
-      },
-      issues: {
-        createComment: vi.fn().mockReturnValue({})
-      }
-    }
-  }
-  expect(
-    await (lock as TestLock)(octokit, context, ref, 123, false, environment)
-  ).toStrictEqual(createdLock)
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+      get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+      getContent: vi
+        .fn()
+        .mockRejectedValue(new NotFoundError('file not found')),
+      createOrUpdateFileContents: vi.fn().mockReturnValue({})
+    },
+    issues: {createComment: vi.fn().mockReturnValue({})}
+  })
+  expect(await lock(lockRequest({octokit}))).toStrictEqual(createdLock)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
   expect(debugMock).toHaveBeenCalledWith(
@@ -1061,11 +999,10 @@ test('Creates a lock when the lock branch exists but no lock file exists', async
 })
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file - with a --reason', async () => {
-  context.payload.comment.body =
-    '.lock --reason testing a super cool new feature'
-  expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true, environment)
-  ).toStrictEqual(createdLock)
+  context = contextFor('.lock --reason testing a super cool new feature')
+  expect(await lock(lockRequest({context, sticky: true}))).toStrictEqual(
+    createdLock
+  )
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
   expect(debugMock).toHaveBeenCalledWith(
@@ -1081,10 +1018,10 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
 })
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file - with an empty --reason', async () => {
-  context.payload.comment.body = '.lock --reason '
-  expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true, environment)
-  ).toStrictEqual(createdLock)
+  context = contextFor('.lock --reason ')
+  expect(await lock(lockRequest({context, sticky: true}))).toStrictEqual(
+    createdLock
+  )
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
   expect(debugMock).toHaveBeenCalledWith(
@@ -1100,12 +1037,10 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
 })
 
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file', async () => {
-  context.payload.comment.body = '.lock --global'
-  createdLock.environment = null
-  createdLock.global = true
+  context = contextFor('.lock --global')
   expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true, null)
-  ).toStrictEqual(createdLock)
+    await lock(lockRequest({context, environment: null, sticky: true}))
+  ).toStrictEqual({...createdLock, environment: null, global: true})
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
   expect(debugMock).toHaveBeenCalledWith(
@@ -1124,13 +1059,10 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 })
 
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file with a --reason', async () => {
-  context.payload.comment.body =
-    '.lock --reason because something is broken --global'
-  createdLock.environment = null
-  createdLock.global = true
+  context = contextFor('.lock --reason because something is broken --global')
   expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true, null)
-  ).toStrictEqual(createdLock)
+    await lock(lockRequest({context, environment: null, sticky: true}))
+  ).toStrictEqual({...createdLock, environment: null, global: true})
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: null`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: true`)
   expect(debugMock).toHaveBeenCalledWith(
@@ -1150,13 +1082,12 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 })
 
 test('successfully obtains a deployment lock (sticky and global) by creating the branch and lock file with a --reason at the end of the string', async () => {
-  context.payload.comment.body =
+  context = contextFor(
     '.lock --global  --reason because something is broken badly  '
-  createdLock.environment = null
-  createdLock.global = true
+  )
   expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true, null)
-  ).toStrictEqual(createdLock)
+    await lock(lockRequest({context, environment: null, sticky: true}))
+  ).toStrictEqual({...createdLock, environment: null, global: true})
   expect(debugMock).toHaveBeenCalledWith(
     'reason: because something is broken badly'
   )
@@ -1178,12 +1109,12 @@ test('successfully obtains a deployment lock (sticky and global) by creating the
 })
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file with a --reason at the end of the string', async () => {
-  context.payload.comment.body =
+  context = contextFor(
     '.lock development  --reason because something is broken badly  '
-  createdLock.environment = 'development'
+  )
   expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true, null)
-  ).toStrictEqual(createdLock)
+    await lock(lockRequest({context, environment: null, sticky: true}))
+  ).toStrictEqual({...createdLock, environment: 'development'})
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: development`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
   expect(debugMock).toHaveBeenCalledWith(
@@ -1202,9 +1133,9 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
 })
 
 test('successfully obtains a deployment lock (sticky) by creating the branch and lock file with a --reason and assuming a null environment to start (but it is production)', async () => {
-  context.payload.comment.body = '.lock --reason because something is broken'
+  context = contextFor('.lock --reason because something is broken')
   expect(
-    await (lock as TestLock)(octokit, context, ref, 123, true)
+    await lock(lockRequest({context, environment: null, sticky: true}))
   ).toStrictEqual(createdLock)
   expect(debugMock).toHaveBeenCalledWith(`detected lock env: ${environment}`)
   expect(debugMock).toHaveBeenCalledWith(`detected lock global: false`)
@@ -1222,17 +1153,14 @@ test('successfully obtains a deployment lock (sticky) by creating the branch and
 })
 
 test('throws an error if an unhandled exception occurs', async () => {
-  const octokit = {
-    rest: {
-      repos: {
-        getBranch: vi.fn().mockRejectedValueOnce(new Error('oh no')),
-        getContent: vi.fn().mockRejectedValue(new Error('oh no'))
-      }
+  const octokit = createLockOctokit({
+    repos: {
+      getBranch: vi.fn().mockRejectedValueOnce(new Error('oh no')),
+      getContent: vi.fn().mockRejectedValue(new Error('oh no'))
     }
-  }
-  try {
-    await (lock as TestLock)(octokit, context, ref, 123, true, environment)
-  } catch (e) {
-    expect((e as Error).message).toBe('Error: oh no')
-  }
+  })
+
+  await expect(lock(lockRequest({octokit, sticky: true}))).rejects.toThrow(
+    'Error: oh no'
+  )
 })

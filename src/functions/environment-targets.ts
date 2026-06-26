@@ -5,6 +5,11 @@ import {actionStatus} from './action-status.ts'
 import {LOCK_METADATA} from './lock-metadata.ts'
 import {COLORS} from './colors.ts'
 import {parseParams} from './params.ts'
+import {getActionInput, saveActionState, setActionOutput} from '../action-io.ts'
+import {
+  legacyArrayElement,
+  legacyEnvironmentUrlMatch
+} from '../trust-boundaries.ts'
 import type {
   BranchDeployContext,
   BranchDeployOctokit,
@@ -22,46 +27,48 @@ import type {
 // :param environment: The default environment
 // :param param_separator: The separator used to seperate the command from the parameters
 // :returns: The environment target if found, false otherwise
-async function onDeploymentChecks(
-  environment_targets_sanitized: string[],
+function onDeploymentChecks(
+  environment_targets_sanitized: readonly string[],
   body: string,
   trigger: string,
   noop_trigger: string,
   stable_branch: string | null,
   environment: string,
   param_separator: string
-): Promise<EnvironmentTarget> {
-  var bodyFmt = body
+): EnvironmentTarget {
+  let bodyFmt = body
 
   // Seperate the issueops command on the 'param_separator'
-  var paramCheck = body.split(param_separator)
+  const paramCheck = body.split(param_separator)
   paramCheck.shift() // remove everything before the 'param_separator'
   const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
   // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
-  var paramsTrim = null
-  var parsed_params = null
+  let paramsTrim: string | null = null
+  let parsed_params: ReturnType<typeof parseParams> | null = null
   if (params !== '') {
-    bodyFmt = body.split(`${param_separator}${params}`)[0]!.trim()
+    bodyFmt = legacyArrayElement(
+      body.split(`${param_separator}${params}`)[0]
+    ).trim()
     paramsTrim = params.trim()
     core.info(
       `🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`
     )
 
     parsed_params = parseParams(paramsTrim)
-    core.setOutput('params', paramsTrim)
-    core.setOutput('parsed_params', parsed_params) // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON -> https://github.com/actions/runner/blob/078eb3b381939ee6665f545234e1dca5ed07da84/src/Misc/layoutbin/hashFiles/index.js#L525
-    core.saveState('params', paramsTrim)
-    core.saveState('parsed_params', parsed_params)
+    setActionOutput('params', paramsTrim)
+    setActionOutput('parsed_params', parsed_params) // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON -> https://github.com/actions/runner/blob/078eb3b381939ee6665f545234e1dca5ed07da84/src/Misc/layoutbin/hashFiles/index.js#L525
+    saveActionState('params', paramsTrim)
+    saveActionState('parsed_params', parsed_params)
   } else {
     core.debug('no parameters detected in command')
-    core.setOutput('params', '')
-    core.setOutput('parsed_params', '')
-    core.saveState('params', '')
-    core.saveState('parsed_params', '')
+    setActionOutput('params', '')
+    setActionOutput('parsed_params', '')
+    saveActionState('params', '')
+    saveActionState('parsed_params', '')
   }
 
   // check if the body contains an exact SHA targeted for deployment (SHA1 or SHA256)
-  var sha = null
+  let sha: string | null = null
 
   // escape all regex special characters in the trigger
   const escapedTrigger = trigger.replace(/[-[\]/{}()*+?.\\^$|]/g, '\\$&')
@@ -82,14 +89,14 @@ async function onDeploymentChecks(
   const match = bodyFmt.trim().match(regex)
   const noopMatch = bodyFmt.trim().match(noopRegex)
   if (match) {
-    sha = match[1]! // The captured SHA value
+    sha = legacyArrayElement(match[1]) // The captured SHA value
     // if a sha was used, then we need to remove it from the body for env checks
     bodyFmt = bodyFmt.replace(new RegExp(`\\s*${sha}\\s*`, 'g'), '').trim()
     core.info(
       `📍 detected SHA in command: ${COLORS.highlight}${sha}${COLORS.reset}`
     )
   } else if (noopMatch) {
-    sha = noopMatch[1]! // The captured SHA value
+    sha = legacyArrayElement(noopMatch[1]) // The captured SHA value
     // if a sha was used, then we need to remove it from the body for env checks
     bodyFmt = bodyFmt.replace(new RegExp(`\\s*${sha}\\s*`, 'g'), '').trim()
     core.info(
@@ -153,7 +160,7 @@ async function onDeploymentChecks(
     }
     // If the body with 'to <target>' contains the target on a stable branch deploy
     else if (
-      bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() ===
+      bodyFmt.replace(`${trigger} ${String(stable_branch)}`, '').trim() ===
       `to ${target}`
     ) {
       core.debug(
@@ -170,7 +177,7 @@ async function onDeploymentChecks(
     }
     // If the body with 'to <target>' contains the target on a stable branch noop trigger
     else if (
-      bodyFmt.replace(`${noop_trigger} ${stable_branch}`, '').trim() ===
+      bodyFmt.replace(`${noop_trigger} ${String(stable_branch)}`, '').trim() ===
       `to ${target}`
     ) {
       core.debug(
@@ -187,7 +194,8 @@ async function onDeploymentChecks(
     }
     // If the body on a stable branch deploy contains the target
     else if (
-      bodyFmt.replace(`${trigger} ${stable_branch}`, '').trim() === target
+      bodyFmt.replace(`${trigger} ${String(stable_branch)}`, '').trim() ===
+      target
     ) {
       core.debug(`found environment target for stable branch deploy: ${target}`)
       return {
@@ -201,7 +209,8 @@ async function onDeploymentChecks(
     }
     // If the body on a stable branch noop trigger contains the target
     else if (
-      bodyFmt.replace(`${noop_trigger} ${stable_branch}`, '').trim() === target
+      bodyFmt.replace(`${noop_trigger} ${String(stable_branch)}`, '').trim() ===
+      target
     ) {
       core.debug(
         `found environment target for stable branch noop trigger: ${target}`
@@ -240,7 +249,7 @@ async function onDeploymentChecks(
       }
     }
     // If the body matches the stable branch phrase exactly, just use the default environment
-    else if (bodyFmt.trim() === `${trigger} ${stable_branch}`) {
+    else if (bodyFmt.trim() === `${trigger} ${String(stable_branch)}`) {
       core.debug('using default environment for stable branch deployment')
       return {
         target: environment,
@@ -252,7 +261,7 @@ async function onDeploymentChecks(
       }
     }
     // If the body matches the stable branch phrase exactly on a noop trigger, just use the default environment
-    else if (bodyFmt.trim() === `${noop_trigger} ${stable_branch}`) {
+    else if (bodyFmt.trim() === `${noop_trigger} ${String(stable_branch)}`) {
       core.debug('using default environment for stable branch noop trigger')
       return {
         target: environment,
@@ -283,15 +292,15 @@ async function onDeploymentChecks(
 // :param unlock_trigger: The trigger used to initiate the unlock command
 // :param environment: The default environment from the Actions inputs
 // :returns: The environment target if found, false otherwise
-async function onLockChecks(
-  environment_targets_sanitized: string[],
+function onLockChecks(
+  environment_targets_sanitized: readonly string[],
   body: string,
   lock_trigger: string,
   unlock_trigger: string,
   environment: string
-) {
+): false | string {
   // if the body contains the globalFlag, exit right away as environments are not relevant
-  const globalFlag = core.getInput('global_lock_flag').trim()
+  const globalFlag = getActionInput('global_lock_flag').trim()
   if (body.includes(globalFlag)) {
     core.debug('global lock flag found in environment target check')
     return 'GLOBAL_REQUEST'
@@ -307,12 +316,12 @@ async function onLockChecks(
     core.debug(
       `'--reason' found in comment body: ${body} - attempting to remove for environment checks`
     )
-    body = body.split('--reason')[0]!
+    body = legacyArrayElement(body.split('--reason')[0])
     core.debug(`comment body after '--reason' removal: ${body}`)
   }
 
   // Get the lock info alias from the action inputs
-  const lockInfoAlias = core.getInput('lock_info_alias')
+  const lockInfoAlias = getActionInput('lock_info_alias')
 
   // if the body matches the lock trigger exactly, just use the default environment
   if (body.trim() === lock_trigger.trim()) {
@@ -355,19 +364,20 @@ async function onLockChecks(
 // :param environment: The environment target
 // :param environment_urls: The environment URLs from the action inputs
 // :returns: The environment URL if found, an empty string otherwise
-async function findEnvironmentUrl(
+function findEnvironmentUrl(
   environment: string,
   environment_urls: string | null
-) {
+): string | null {
   // The structure: "<environment1>|<url1>,<environment2>|<url2>,etc"
 
   // If the environment URLs are empty, just return an empty string
-  if (checkInput(environment_urls) === null) {
+  const configuredEnvironmentUrls = checkInput(environment_urls)
+  if (configuredEnvironmentUrls === null) {
     return null
   }
 
   // Split the environment URLs into an array
-  const environment_urls_array = environment_urls!.trim().split(',')
+  const environment_urls_array = configuredEnvironmentUrls.trim().split(',')
 
   // Loop through the array and find the environment URL for the given environment target
   for (const environment_url of environment_urls_array) {
@@ -380,25 +390,25 @@ async function findEnvironmentUrl(
         core.info(
           `💡 environment url for ${COLORS.highlight}${environment}${COLORS.reset} is explicitly disabled`
         )
-        core.saveState('environment_url', 'null')
-        core.setOutput('environment_url', 'null')
+        saveActionState('environment_url', 'null')
+        setActionOutput('environment_url', 'null')
         return null
       }
 
       // if the environment url does not match the http(s) schema, log a warning and continue
-      if (!environment_url!.match(/^https?:\/\//)) {
+      if (!legacyEnvironmentUrlMatch(environment_url, /^https?:\/\//)) {
         core.warning(
-          `environment url does not match http(s) schema: ${environment_url}`
+          `environment url does not match http(s) schema: ${String(environment_url)}`
         )
         continue
       }
 
-      core.saveState('environment_url', environment_url)
-      core.setOutput('environment_url', environment_url)
+      saveActionState('environment_url', environment_url)
+      setActionOutput('environment_url', environment_url)
       core.info(
-        `🔗 environment url detected: ${COLORS.highlight}${environment_url}`
+        `🔗 environment url detected: ${COLORS.highlight}${String(environment_url)}`
       )
-      return environment_url!
+      return legacyArrayElement(environment_url)
     }
   }
 
@@ -406,65 +416,58 @@ async function findEnvironmentUrl(
   core.warning(
     `no valid environment URL found for environment: ${environment} - setting environment URL to 'null' - please check your 'environment_urls' input`
   )
-  core.saveState('environment_url', 'null')
-  core.setOutput('environment_url', 'null')
+  saveActionState('environment_url', 'null')
+  setActionOutput('environment_url', 'null')
   return null
 }
 
-// A simple function that checks if an explicit environment target is being used
-// :param environment: The default environment from the Actions inputs
-// :param body: The comment body
-// :param trigger: The trigger prefix
-// :param alt_trigger: Usually the noop trigger prefix
-// :param stable_branch: The stable branch (only used for branch deploys)
-// :param context: The context of the Action
-// :param octokit: The Octokit instance
-// :param reactionId: The ID of the initial comment reaction (Integer)
-// :param lockChecks: Whether or not this is a lock/unlock command (Boolean)
-// :param environment_urls: The environment URLs from the action inputs
-// :param param_separator: The separator used to split the environment targets (String) - defaults to '|'
-// :returns: An object containing the environment target and environment URL
+interface EnvironmentRequestBase {
+  readonly alternateTrigger: string
+  readonly body: string
+  readonly context: BranchDeployContext
+  readonly environment: string
+  readonly octokit: BranchDeployOctokit
+  readonly reactionId: number
+  readonly trigger: string
+}
+
+export interface DeploymentEnvironmentRequest extends EnvironmentRequestBase {
+  readonly environmentUrls: string | null
+  readonly mode: 'deployment'
+  readonly paramSeparator: string
+  readonly stableBranch: string | null
+}
+
+export interface LockEnvironmentRequest extends EnvironmentRequestBase {
+  readonly mode: 'lock'
+}
+
+export type EnvironmentTargetsRequest =
+  | DeploymentEnvironmentRequest
+  | LockEnvironmentRequest
+
+// A simple function that checks if an explicit environment target is being used.
 export async function environmentTargets(
-  environment: string,
-  body: string,
-  trigger: string,
-  alt_trigger: string,
-  stable_branch: string | null,
-  context?: BranchDeployContext | null,
-  octokit?: BranchDeployOctokit | null,
-  reactionId?: number | null,
-  lockChecks?: false,
-  environment_urls?: string | null,
-  param_separator?: string | null
+  request: DeploymentEnvironmentRequest
 ): Promise<DeploymentEnvironmentResult>
 export async function environmentTargets(
-  environment: string,
-  body: string,
-  trigger: string,
-  alt_trigger: string,
-  stable_branch: string | null,
-  context: BranchDeployContext | null,
-  octokit: BranchDeployOctokit | null,
-  reactionId: number | null,
-  lockChecks: true,
-  environment_urls?: string | null,
-  param_separator?: string | null
+  request: LockEnvironmentRequest
 ): Promise<LockEnvironmentResult>
 export async function environmentTargets(
-  environment: string,
-  body: string,
-  trigger: string,
-  alt_trigger: string,
-  stable_branch: string | null,
-  context?: BranchDeployContext | null,
-  octokit?: BranchDeployOctokit | null,
-  reactionId?: number | null,
-  lockChecks = false,
-  environment_urls: string | null = null,
-  param_separator: string | null = '|'
+  request: EnvironmentTargetsRequest
 ): Promise<DeploymentEnvironmentResult | LockEnvironmentResult> {
+  const {
+    alternateTrigger,
+    body,
+    context,
+    environment,
+    octokit,
+    reactionId,
+    trigger
+  } = request
+
   // Get the environment targets from the action inputs
-  const environment_targets = core.getInput('environment_targets')
+  const environment_targets = getActionInput('environment_targets')
 
   // Sanitized the input to remove any whitespace and split into an array
   const environment_targets_sanitized = environment_targets
@@ -474,13 +477,13 @@ export async function environmentTargets(
   // convert the environment targets into an array joined on ,
   const environment_targets_joined = environment_targets_sanitized.join(',')
 
-  // If lockChecks is set to true, this request is for either a lock/unlock command to check the body for an environment target
-  if (lockChecks === true) {
-    const environmentDetected = await onLockChecks(
+  // Lock requests and deployment requests have intentionally separate fields.
+  if (request.mode === 'lock') {
+    const environmentDetected = onLockChecks(
       environment_targets_sanitized,
       body,
       trigger,
-      alt_trigger,
+      alternateTrigger,
       environment
     )
     if (environmentDetected !== false) {
@@ -494,27 +497,27 @@ export async function environmentTargets(
     > The following environment targets are available: \`${environment_targets_joined}\`
     `)
     core.warning(message)
-    core.saveState('bypass', 'true')
+    saveActionState('bypass', 'true')
 
     // Return the action status as a failure
-    await actionStatus(
-      context!,
-      octokit!,
-      reactionId!,
-      `### ⚠️ Cannot proceed with lock/unlock request\n\n${message}`
-    )
+    await actionStatus({
+      context,
+      octokit,
+      reactionId,
+      message: `### ⚠️ Cannot proceed with lock/unlock request\n\n${message}`
+    })
 
     return {environment: false, environmentUrl: null}
   } else {
     // If lockChecks is set to false, this request is for a branch deploy to check the body for an environment target
-    const environmentObj = await onDeploymentChecks(
+    const environmentObj = onDeploymentChecks(
       environment_targets_sanitized,
       body,
       trigger,
-      alt_trigger,
-      stable_branch,
+      alternateTrigger,
+      request.stableBranch,
       environment,
-      param_separator!
+      request.paramSeparator
     )
 
     const environmentDetected = environmentObj.target
@@ -527,15 +530,15 @@ export async function environmentTargets(
         > The following environment targets are available: \`${environment_targets_joined}\`
       `)
       core.warning(message)
-      core.saveState('bypass', 'true')
+      saveActionState('bypass', 'true')
 
       // Return the action status as a failure
-      await actionStatus(
-        context!,
-        octokit!,
-        reactionId!,
-        `### ⚠️ Cannot proceed with deployment\n\n${message}`
-      )
+      await actionStatus({
+        context,
+        octokit,
+        reactionId,
+        message: `### ⚠️ Cannot proceed with deployment\n\n${message}`
+      })
       return {
         environment: false,
         environmentUrl: null,
@@ -544,9 +547,9 @@ export async function environmentTargets(
     }
 
     // Attempt to get the environment URL from the environment_urls input using the environment target as the key
-    const environmentUrl = await findEnvironmentUrl(
+    const environmentUrl = findEnvironmentUrl(
       environmentDetected,
-      environment_urls
+      request.environmentUrls
     )
 
     // Return the environment target

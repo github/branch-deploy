@@ -5,4 +5,4 @@ export const COLORS = {
   warning: '\u001b[33m', // yellow
   error: '\u001b[31m', // red
   reset: '\u001b[0m' // reset
-}
+} as const satisfies Record<string, string>

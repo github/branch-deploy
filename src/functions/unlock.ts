@@ -5,40 +5,80 @@ import {LOCK_METADATA} from './lock-metadata.ts'
 import {constructValidBranchName} from './valid-branch-name.ts'
 import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
-import type {
-  ApiError,
-  BranchDeployContext,
-  BranchDeployOctokit,
-  IssueCommentContext
-} from '../types.ts'
+import {getActionInput, setActionOutput} from '../action-io.ts'
+import {
+  issueCommentContext,
+  legacyApiError,
+  legacyArrayElement
+} from '../trust-boundaries.ts'
+import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
 
 // Constants for the lock file
 const LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix
 const GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch
+
+type DeleteRefMethod = BranchDeployOctokit['rest']['git']['deleteRef']
+type DeleteRefParameters = Parameters<DeleteRefMethod>[0]
+type CreateCommentMethod =
+  BranchDeployOctokit['rest']['issues']['createComment']
+type CreateCommentParameters = Parameters<CreateCommentMethod>[0]
+type CreateReactionMethod =
+  BranchDeployOctokit['rest']['reactions']['createForIssueComment']
+type CreateReactionParameters = Parameters<CreateReactionMethod>[0]
+type DeleteReactionMethod =
+  BranchDeployOctokit['rest']['reactions']['deleteForIssueComment']
+type DeleteReactionParameters = Parameters<DeleteReactionMethod>[0]
+
+export interface UnlockOctokit {
+  readonly rest: {
+    readonly git: {
+      readonly deleteRef: (
+        parameters?: DeleteRefParameters
+      ) => Promise<{readonly status: number}>
+    }
+    readonly issues: {
+      readonly createComment: (
+        parameters?: CreateCommentParameters
+      ) => Promise<unknown>
+    }
+    readonly reactions: {
+      readonly createForIssueComment: (
+        parameters?: CreateReactionParameters
+      ) => Promise<unknown>
+      readonly deleteForIssueComment: (
+        parameters?: DeleteReactionParameters
+      ) => Promise<unknown>
+    }
+  }
+}
 
 // Helper function to find the environment to be unlocked (if any - otherwise, the default)
 // This function will also check if the global lock flag was provided
 // If the global lock flag was provided, the environment will be set to null
 // :param context: The GitHub Actions event context
 // :returns: An object - EX: {environment: 'staging', global: false}
-async function findEnvironment(context: BranchDeployContext) {
+function findEnvironment(
+  context: BranchDeployContext
+):
+  | {readonly environment: null; readonly global: true}
+  | {readonly environment: string; readonly global: false} {
   // Get the body of the comment
-  var body = (context as IssueCommentContext).payload.comment.body.trim()
+  let body = issueCommentContext(context).payload.comment.body.trim()
 
   // remove the --reason <text> from the body if it exists
   if (body.includes('--reason')) {
     core.debug(
       `'--reason' found in unlock comment body: ${body} - attempting to remove for environment checks`
     )
-    body = body.split('--reason')[0]!
+    body = legacyArrayElement(body.split('--reason')[0])
     core.debug(`comment body after '--reason' removal: ${body}`)
   }
 
   // Get the global lock flag from the Action input
-  const globalFlag = core.getInput('global_lock_flag').trim()
+  const globalFlag = getActionInput('global_lock_flag').trim()
 
   // Check if the global lock flag was provided
-  if (body.includes(globalFlag) === true) {
+  if (body.includes(globalFlag)) {
     return {
       environment: null,
       global: true
@@ -46,13 +86,13 @@ async function findEnvironment(context: BranchDeployContext) {
   }
 
   // remove the unlock command from the body
-  const unlockTrigger = core.getInput('unlock_trigger').trim()
+  const unlockTrigger = getActionInput('unlock_trigger').trim()
   body = body.replace(unlockTrigger, '').trim()
 
   // If the body is empty, return the default environment
   if (body === '') {
     return {
-      environment: core.getInput('environment').trim(),
+      environment: getActionInput('environment').trim(),
       global: false
     }
   } else {
@@ -64,6 +104,29 @@ async function findEnvironment(context: BranchDeployContext) {
   }
 }
 
+interface UnlockRequestBase {
+  readonly context: BranchDeployContext
+  readonly octokit: UnlockOctokit
+  readonly reactionId: number | null
+  readonly target:
+    | {readonly type: 'context'}
+    | {readonly environment: string; readonly type: 'environment'}
+}
+
+export interface InteractiveUnlockRequest extends UnlockRequestBase {
+  readonly mode: 'interactive'
+}
+
+export interface SilentUnlockRequest extends UnlockRequestBase {
+  readonly mode: 'silent'
+  readonly target: {readonly environment: string; readonly type: 'environment'}
+}
+
+export type SilentUnlockResult =
+  | 'failed to delete lock (bad status code) - silent'
+  | 'no deployment lock currently set - silent'
+  | 'removed lock - silent'
+
 // Helper function for releasing a deployment lock
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
@@ -72,19 +135,25 @@ async function findEnvironment(context: BranchDeployContext) {
 // :param silent: A bool indicating whether to add a comment to the issue or not (Boolean)
 // :returns: true if the lock was successfully released, a string with some details if silent was used, false otherwise
 export async function unlock(
-  octokit: BranchDeployOctokit,
-  context: BranchDeployContext,
-  reactionId: number | null,
-  environment: string | null = null,
-  silent = false
-): Promise<boolean | string> {
+  request: SilentUnlockRequest
+): Promise<SilentUnlockResult>
+export async function unlock(
+  request: InteractiveUnlockRequest
+): Promise<boolean>
+export async function unlock(
+  request: InteractiveUnlockRequest | SilentUnlockRequest
+): Promise<boolean | SilentUnlockResult> {
+  const {context, octokit, reactionId} = request
+  const silent = request.mode === 'silent'
+  let environment =
+    request.target.type === 'environment' ? request.target.environment : null
+  let global: boolean | undefined
   try {
-    var branchName
-    var global
+    let branchName: string
     // Find the environment from the context if it was not passed in
     // If the environment is not being passed in, we can safely assuming that this function is not being called from a post-deploy Action and instead, it is being directly called from an IssueOps command
     if (environment === null) {
-      const envObject = await findEnvironment(context)
+      const envObject = findEnvironment(context)
       environment = envObject.environment
       global = envObject.global
     } else {
@@ -93,13 +162,13 @@ export async function unlock(
     }
 
     // construct the branch name and success message text
-    var successText = ''
-    if (global === true) {
+    let successText = ''
+    if (global) {
       branchName = GLOBAL_LOCK_BRANCH
       successText = '`global`'
     } else {
-      branchName = `${constructValidBranchName(environment)}-${LOCK_BRANCH_SUFFIX}`
-      successText = `\`${environment}\``
+      branchName = `${String(constructValidBranchName(environment))}-${LOCK_BRANCH_SUFFIX}`
+      successText = `\`${String(environment)}\``
     }
 
     // Delete the lock branch
@@ -122,8 +191,8 @@ export async function unlock(
       }
 
       // If a global lock was successfully released, set the output
-      if (global === true) {
-        core.setOutput('global_lock_released', 'true')
+      if (global) {
+        setActionOutput('global_lock_released', 'true')
       }
 
       // Construct the message to add to the issue comment
@@ -134,7 +203,13 @@ export async function unlock(
       `)
 
       // Set the action status with the comment
-      await actionStatus(context, octokit, reactionId, comment, true, true)
+      await actionStatus({
+        context,
+        octokit,
+        reactionId,
+        message: comment,
+        result: 'alternate-success'
+      })
 
       // Return true
       return true
@@ -149,18 +224,19 @@ export async function unlock(
         return 'failed to delete lock (bad status code) - silent'
       }
 
-      await actionStatus(context, octokit, reactionId, comment, false)
+      await actionStatus({context, octokit, reactionId, message: comment})
       return false
     }
   } catch (error) {
     // debug the error msg
-    core.debug(`unlock() error.status: ${(error as ApiError).status}`)
-    core.debug(`unlock() error.message: ${(error as ApiError).message}`)
+    const apiError = legacyApiError(error)
+    core.debug(`unlock() error.status: ${String(apiError.status)}`)
+    core.debug(`unlock() error.message: ${apiError.message}`)
 
     // The the error caught was a 422 - Reference does not exist, this is OK - It means the lock branch does not exist
     if (
-      (error as ApiError).status === 422 &&
-      (error as ApiError).message.startsWith('Reference does not exist')
+      apiError.status === 422 &&
+      apiError.message.startsWith('Reference does not exist')
     ) {
       // If silent, exit here
       if (silent) {
@@ -169,22 +245,21 @@ export async function unlock(
       }
 
       // Format the comment
-      var noLockMsg
+      let noLockMsg: string
       if (global === true) {
         noLockMsg = '🔓 There is currently no `global` deployment lock set'
       } else {
-        noLockMsg = `🔓 There is currently no \`${environment}\` deployment lock set`
+        noLockMsg = `🔓 There is currently no \`${String(environment)}\` deployment lock set`
       }
 
       // Leave a comment letting the user know there is no lock to release
-      await actionStatus(
+      await actionStatus({
         context,
         octokit,
         reactionId,
-        noLockMsg,
-        true, // success
-        true // alt success reaction (ususally thumbs up)
-      )
+        message: noLockMsg,
+        result: 'alternate-success'
+      })
 
       // Return true since there is no lock to release
       return true
@@ -192,18 +267,17 @@ export async function unlock(
 
     // If silent, exit here
     if (silent) {
-      throw new Error(error as string)
+      throw new Error(String(error))
     }
 
     // Update the PR with the error
-    await actionStatus(
+    await actionStatus({
       context,
       octokit,
       reactionId,
-      (error as ApiError).message,
-      false
-    )
+      message: apiError.message
+    })
 
-    throw new Error(error as string)
+    throw new Error(String(error))
   }
 }
