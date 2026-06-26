@@ -61,6 +61,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # If the branch-deploy Action was triggered, run the noop deployment (i.e. '.noop')
       - name: noop deploy
@@ -125,6 +126,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # Setup Terraform on our Actions runner
       - uses: hashicorp/setup-terraform@ed3a0531877aca392eb870f440d9ae7aba83a6bd # pin@v1
@@ -626,6 +628,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # Deploy our branch to Heroku
       - name: Deploy to Heroku
@@ -679,6 +682,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # Install the Railway CLI through npm
       - name: Install Railway
@@ -735,6 +739,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # Deploy our branch via SSH remote commands
       - name: SSH Remote Deploy
@@ -790,6 +795,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # setup node
       - uses: actions/setup-node@v4
@@ -872,6 +878,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # Install the npm dependencies for your cloudflare workers project
         # Most importantly, we need to install @cloudflare/wrangler
@@ -953,6 +960,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ needs.trigger.outputs.sha }}
+          persist-credentials: false
 
       # You will do your own deployment here
       - name: fake regular deploy
@@ -1138,6 +1146,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ needs.trigger.outputs.sha }}
+          persist-credentials: false
 
       # read the hugo version from the .hugo-version file in this repository
       - name: set hugo version
@@ -1376,6 +1385,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ needs.trigger.outputs.sha }}
+          persist-credentials: false
 
       - name: build with astro
         uses: withastro/action@e3193ac80e18917ceaeb9f2d47019ad3b2c0416a # pin@v0.3.0
@@ -1601,6 +1611,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ needs.start.outputs.sha }}
+          persist-credentials: false
 
       # Authenticate to Azure using OpenID Connect.
       - name: Authenticate to Azure (OIDC)
