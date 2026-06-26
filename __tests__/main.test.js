@@ -676,9 +676,11 @@ test('successfully runs the action in lock mode with a reason', async () => {
 
 test('successfully runs the action in lock mode - details only', async () => {
   const infoSpy = vi.spyOn(core, 'info').mockImplementation(() => {})
-  vi.spyOn(actionStatus, 'actionStatus').mockImplementation(() => {
-    return undefined
-  })
+  const actionStatusSpy = vi
+    .spyOn(actionStatus, 'actionStatus')
+    .mockImplementation(() => {
+      return undefined
+    })
   vi.spyOn(validPermissions, 'validPermissions').mockImplementation(() => {
     return true
   })
@@ -691,7 +693,8 @@ test('successfully runs the action in lock mode - details only', async () => {
         environment: 'production',
         global: false,
         link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
-        reason: 'Testing my new feature with lots of cats',
+        reason:
+          'routine `\n\n## Deployment approved\n[continue](https://example.com)',
         sticky: true,
         unlock_command: '.unlock production'
       },
@@ -715,6 +718,12 @@ test('successfully runs the action in lock mode - details only', async () => {
   expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
   expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
   expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  const comment = actionStatusSpy.mock.calls.at(-1)[3]
+  expect(comment).toContain(
+    '- __Reason__:\n\n      routine `\n      \n      ## Deployment approved\n      [continue](https://example.com)\n\n- __Branch__: `octocats-everywhere`'
+  )
+  expect(comment).not.toContain('\n## Deployment approved')
+  expect(comment).not.toContain('\n[continue](https://example.com)')
 })
 
 test('successfully runs the action in lock mode - details only - for the development environment', async () => {

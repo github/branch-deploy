@@ -278,6 +278,9 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a di
   expect(setFailedMock).toHaveBeenCalledWith(
     expect.stringMatching(/Cannot claim deployment lock/)
   )
+  expect(actionStatusSpy.mock.calls[0][3]).toContain(
+    '- __Reason__:\n\n      Testing my new feature with lots of cats'
+  )
 })
 
 test('Determines that another user has the lock (non-global) and exits - during a direct lock claim with .lock', async () => {
@@ -336,6 +339,55 @@ test('Determines that another user has the lock (non-global) and exits - during 
   expect(setFailedMock).toHaveBeenCalledWith(
     expect.stringMatching(/Cannot claim deployment lock/)
   )
+})
+
+test('renders a stored multiline lock reason as inert code when another user encounters the lock', async () => {
+  const collisionEnvironment = '__BRANCH_DEPLOY_LOCK_REASON__'
+  const injectedReason =
+    'routine `\n\n## Deployment approved\n[continue](https://example.com)'
+  const lockData = {
+    branch: 'octocats-everywhere',
+    created_at: '2022-06-14T21:12:14.041Z',
+    created_by: 'octocat',
+    environment: collisionEnvironment,
+    global: false,
+    link: 'https://github.com/test-org/test-repo/pull/2#issuecomment-456',
+    reason: injectedReason,
+    sticky: true,
+    unlock_command: `.unlock ${collisionEnvironment}`
+  }
+  const actionStatusSpy = vi
+    .spyOn(actionStatus, 'actionStatus')
+    .mockImplementation(() => undefined)
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: vi
+          .fn()
+          .mockReturnValueOnce({data: {commit: {sha: 'abc123'}}}),
+        get: vi.fn().mockReturnValue({data: {default_branch: 'main'}}),
+        getContent: vi
+          .fn()
+          .mockRejectedValueOnce(new NotFoundError('file not found'))
+          .mockReturnValueOnce({
+            data: {
+              content: Buffer.from(JSON.stringify(lockData)).toString('base64')
+            }
+          })
+      }
+    }
+  }
+
+  expect(
+    await lock(octokit, context, ref, 123, false, collisionEnvironment)
+  ).toMatchObject({status: false, lockData})
+
+  const comment = actionStatusSpy.mock.calls[0][3]
+  expect(comment).toContain(
+    '- __Reason__:\n\n      routine `\n      \n      ## Deployment approved\n      [continue](https://example.com)\n\n- __Environment__: `__BRANCH_DEPLOY_LOCK_REASON__`'
+  )
+  expect(comment).not.toContain('\n## Deployment approved')
+  expect(comment).not.toContain('\n[continue](https://example.com)')
 })
 
 test('Request detailsOnly on the lock file and gets lock file data successfully', async () => {
