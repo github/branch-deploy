@@ -16,15 +16,8 @@ if [[ ! -f $version_file ]]; then
   exit 1
 fi
 
-version_line=$(grep 'export const VERSION' $version_file)
-if [[ -z $version_line ]]; then
-  echo -e "${RED}ERROR${OFF} - Version line not found in: $version_file"
-  exit 1
-fi
-
-# Extract the version value
-new_tag=$(echo $version_line | sed -E "s/export const VERSION = '([^']+)'/\1/")
-if [[ -z $new_tag ]]; then
+# Import the version through Node's native erasable TypeScript support.
+if ! new_tag=$(node --input-type=module --eval "import {VERSION} from './$version_file'; process.stdout.write(VERSION)"); then
   echo -e "${RED}ERROR${OFF} - Failed to extract version from: $version_file"
   exit 1
 fi

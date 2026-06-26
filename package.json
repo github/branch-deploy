@@ -1,18 +1,22 @@
 {
+  "name": "branch-deploy",
+  "private": true,
   "description": "Enabling Branch Deployments through IssueOps with GitHub Actions",
   "type": "module",
-  "main": "lib/main.js",
   "scripts": {
     "format": "prettier --write '**/*.{js,ts}'",
     "format-check": "prettier --check '**/*.{js,ts}'",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint 'src/**/*.ts' '__tests__/**/*.ts' vitest.config.ts eslint.config.js",
-    "package": "ncc build src/main.ts -o dist --source-map --license licenses.txt",
-    "test": "mkdir -p badges && BRANCH_DEPLOY_VITEST_TEST=true vitest run --coverage && make-coverage-badge --output-path ./badges/coverage.svg",
-    "ci-test": "BRANCH_DEPLOY_VITEST_TEST=true vitest run --coverage",
-    "all": "npm run format && npm run typecheck && npm run lint && npm run package",
-    "bundle": "npm run format && npm run package",
-    "act": "npm run format && npm run package && act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test"
+    "typecheck:runtime": "tsc --project tsconfig.runtime.json",
+    "lint": "eslint .",
+    "package": "ncc build src/main.ts -o dist --source-map --license licenses.txt --target es2022",
+    "test": "BRANCH_DEPLOY_VITEST_TEST=true vitest run --coverage",
+    "test:update-badge": "npm run test && mkdir -p badges && make-coverage-badge --output-path ./badges/coverage.svg",
+    "ci-test": "npm run test",
+    "check": "npm run format-check && npm run typecheck && npm run typecheck:runtime && npm run lint && npm run test",
+    "all": "npm run check && npm run package",
+    "bundle": "npm run package",
+    "act": "npm run package && act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test"
   },
   "repository": {
     "type": "git",
@@ -38,8 +42,9 @@
     "yargs-parser": "^22.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.2",
     "@types/node": "24.3.0",
-    "@vercel/ncc": "^0.38.4",
+    "@vercel/ncc": "0.44.0",
     "@vitest/coverage-v8": "^4.1.0",
     "eslint": "^9.39.2",
     "js-yaml": "^4.2.0",

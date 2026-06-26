@@ -29,16 +29,22 @@ jobs:
         run: npm ci
 
       - name: rebuild the dist/ directory
-        run: npm run bundle
+        run: npm run package
 
       - name: compare the expected and actual dist/ directories
         run: |
-          if [ "$(git diff --ignore-space-at-eol dist/ | wc -l)" -gt "0" ]; then
-            echo "Detected uncommitted changes after build.  See status below:"
-            git diff
+          if [[ -n "$(git status --porcelain --untracked-files=all -- dist/)" ]]; then
+            echo "Detected changes in dist/ after build. See status below:"
+            git status --short --untracked-files=all -- dist/
+            git diff -- dist/
             exit 1
           fi
         id: diff
+
+      - name: smoke test the ESM bundle
+        env:
+          BRANCH_DEPLOY_VITEST_TEST: 'true'
+        run: node --input-type=module --eval "const action = await import('./dist/index.js'); if (typeof action.run !== 'function') throw new Error('dist/index.js does not export run')"
 
       # If index.js was different than expected, upload the expected version as an artifact
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # pin@v7.0.0
