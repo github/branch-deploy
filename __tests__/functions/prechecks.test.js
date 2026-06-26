@@ -27,7 +27,8 @@ beforeEach(() => {
     nodes: [
       {
         commit: {
-          oid: 'abc123'
+          oid: 'abc123',
+          statusCheckRollup: null
         }
       }
     ]
@@ -164,6 +165,27 @@ beforeEach(() => {
     return false
   })
 })
+
+function mockApprovedCi(statusCheckRollup, checkSuiteCount) {
+  const commit = {
+    oid: 'abc123',
+    statusCheckRollup
+  }
+  if (checkSuiteCount !== undefined) {
+    commit.checkSuites = {totalCount: checkSuiteCount}
+  }
+
+  octokit.graphql = vi.fn().mockReturnValue({
+    repository: {
+      pullRequest: {
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'CLEAN',
+        reviews: {totalCount: 1},
+        commits: {nodes: [{commit}]}
+      }
+    }
+  })
+}
 
 test('runs prechecks and finds that the IssueOps command is valid for a branch deployment', async () => {
   expect(await prechecks(context, octokit, data)).toStrictEqual({
@@ -972,14 +994,8 @@ test('runs prechecks and finds that the IssueOps command is valid without define
     sha: 'abc123',
     isFork: false
   })
-  expect(debugMock).toHaveBeenCalledWith(
-    `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'totalCount') - Handled: ${COLORS.success}OK`
-  )
-  expect(debugMock).toHaveBeenCalledWith(
-    'this repo may not have any CI checks defined'
-  )
-  expect(debugMock).toHaveBeenCalledWith(
-    'skipping commit status check and proceeding...'
+  expect(infoMock).toHaveBeenCalledWith(
+    '💡 no CI checks have been defined for this pull request'
   )
 })
 
@@ -1004,6 +1020,118 @@ test('runs prechecks and fails due to a bad pull request', async () => {
 
 // Review checks and CI checks
 
+test.each([
+  [0, 'FAILURE', 'all'],
+  [0, 'PENDING', 'all'],
+  [1, 'FAILURE', 'all'],
+  [0, 'FAILURE', 'required']
+])(
+  'rejects an approved deployment with %i CheckSuites, aggregate %s, and checks=%s',
+  async (checkSuiteCount, aggregateState, checks) => {
+    mockApprovedCi(
+      {
+        state: aggregateState,
+        contexts: {
+          nodes: [
+            {
+              isRequired: true,
+              state: aggregateState,
+              context: 'legacy-ci'
+            }
+          ]
+        }
+      },
+      checkSuiteCount
+    )
+
+    data.inputs.checks = checks
+    const commitStatus = checks === 'required' ? 'FAILURE' : aggregateState
+    const detail =
+      commitStatus === 'PENDING'
+        ? 'CI checks must be passing in order to continue'
+        : 'Your pull request is approved but CI checks are failing'
+
+    expect(await prechecks(context, octokit, data)).toStrictEqual({
+      message: `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`APPROVED\`\n- commitStatus: \`${commitStatus}\`\n\n> ${detail}`,
+      status: false
+    })
+    expect(octokit.graphql.mock.calls[0][0]).toContain('... on StatusContext')
+  }
+)
+
+test('accepts a requested healthy legacy status context without CheckSuites', async () => {
+  mockApprovedCi(
+    {
+      state: 'SUCCESS',
+      contexts: {
+        nodes: [
+          {
+            isRequired: true,
+            state: 'SUCCESS',
+            context: 'legacy-ci'
+          }
+        ]
+      }
+    },
+    0
+  )
+
+  data.inputs.checks = ['legacy-ci']
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message: '✅ PR is approved and all CI checks passed',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true,
+    sha: 'abc123',
+    isFork: false
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    'filterChecks() - explicitly including ci check: legacy-ci'
+  )
+})
+
+test('allows checks=required when only an optional CI check is failing', async () => {
+  mockApprovedCi({
+    state: 'FAILURE',
+    contexts: {
+      nodes: [
+        {
+          isRequired: false,
+          conclusion: 'FAILURE',
+          name: 'optional-ci'
+        }
+      ]
+    }
+  })
+
+  data.inputs.checks = 'required'
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message: '✅ PR is approved and all CI checks passed',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true,
+    sha: 'abc123',
+    isFork: false
+  })
+  expect(debugMock).toHaveBeenCalledWith(
+    'filterChecks() - after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined'
+  )
+})
+
+test('rejects explicitly requested checks when the combined CI rollup is absent', async () => {
+  mockApprovedCi(null)
+
+  data.inputs.checks = ['security']
+
+  expect(await prechecks(context, octokit, data)).toStrictEqual({
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `MISSING`\n\n> The `checks` input option requires that all of the following checks are passing: `security`. However, the following checks are missing: `security`',
+    status: false
+  })
+})
+
 test('runs prechecks and finds that reviews and CI checks have not been defined', async () => {
   octokit.graphql = vi.fn().mockReturnValueOnce({
     repository: {
@@ -1022,14 +1150,8 @@ test('runs prechecks and finds that reviews and CI checks have not been defined'
     sha: 'abc123',
     isFork: false
   })
-  expect(debugMock).toHaveBeenCalledWith(
-    `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'totalCount') - Handled: ${COLORS.success}OK`
-  )
-  expect(debugMock).toHaveBeenCalledWith(
-    'this repo may not have any CI checks defined'
-  )
-  expect(debugMock).toHaveBeenCalledWith(
-    'skipping commit status check and proceeding...'
+  expect(infoMock).toHaveBeenCalledWith(
+    '💡 no CI checks have been defined for this pull request'
   )
   expect(infoMock).toHaveBeenCalledWith(
     '🎛️ CI checks have not been defined and required reviewers have not been defined'
