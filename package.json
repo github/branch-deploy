@@ -3,13 +3,14 @@
   "type": "module",
   "main": "lib/main.js",
   "scripts": {
-    "format": "prettier --write '**/*.js'",
-    "format-check": "prettier --check '**/*.js'",
-    "lint": "eslint src/**/*.js",
-    "package": "ncc build src/main.js -o dist --source-map --license licenses.txt",
+    "format": "prettier --write '**/*.{js,ts}'",
+    "format-check": "prettier --check '**/*.{js,ts}'",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint 'src/**/*.ts' '__tests__/**/*.ts' vitest.config.ts eslint.config.js",
+    "package": "ncc build src/main.ts -o dist --source-map --license licenses.txt",
     "test": "mkdir -p badges && BRANCH_DEPLOY_VITEST_TEST=true vitest run --coverage && make-coverage-badge --output-path ./badges/coverage.svg",
     "ci-test": "BRANCH_DEPLOY_VITEST_TEST=true vitest run --coverage",
-    "all": "npm run format && npm run lint && npm run package",
+    "all": "npm run format && npm run typecheck && npm run lint && npm run package",
     "bundle": "npm run format && npm run package",
     "act": "npm run format && npm run package && act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test"
   },
@@ -37,13 +38,15 @@
     "yargs-parser": "^22.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.5.0",
+    "@types/node": "24.3.0",
     "@vercel/ncc": "^0.38.4",
     "@vitest/coverage-v8": "^4.1.0",
     "eslint": "^9.39.2",
     "js-yaml": "^4.2.0",
     "make-coverage-badge": "^1.2.0",
     "prettier": "^3.8.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.61.1",
     "vitest": "^4.0.16"
   },
   "overrides": {

@@ -1,0 +1,46 @@
+import {contextCheck} from '../../src/functions/context-check.ts'
+import {vi, expect, test, beforeEach} from 'vitest'
+import * as core from '@actions/core'
+
+const warningMock = vi.spyOn(core, 'warning')
+const saveStateMock = vi.spyOn(core, 'saveState')
+
+var context: Parameters<typeof contextCheck>[0]
+beforeEach(() => {
+  vi.clearAllMocks()
+
+  context = {
+    eventName: 'issue_comment',
+    payload: {
+      issue: {
+        pull_request: {}
+      }
+    },
+    pull_request: {
+      number: 1
+    }
+  } as unknown as typeof context
+})
+
+test('checks the event context and finds that it is valid', async () => {
+  expect(await contextCheck(context)).toBe(true)
+})
+
+test('checks the event context and finds that it is invalid', async () => {
+  context.eventName = 'push'
+  expect(await contextCheck(context)).toBe(false)
+  expect(warningMock).toHaveBeenCalledWith(
+    'This Action can only be run in the context of a pull request comment'
+  )
+  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+})
+
+test('checks the event context and throws an error', async () => {
+  try {
+    await contextCheck('evil' as unknown as Parameters<typeof contextCheck>[0])
+  } catch (e) {
+    expect((e as Error).message).toBe(
+      "Could not get PR event context: TypeError: Cannot read properties of undefined (reading 'issue')"
+    )
+  }
+})

@@ -22,9 +22,9 @@ Here is a very high level flow of how we go from idea to release:
 
 Creating a release is a rather straight forward process.
 
-First, you must edit the [`src/version.js`](src/version.js) file to bump the version number.
+First, you must edit the [`src/version.ts`](../src/version.ts) file to bump the version number.
 
-Second, you simply run the following script to push a new release tag using the version number in `src/version.js` as a default:
+Second, you simply run the following script to push a new release tag using the version number in `src/version.ts` as a default:
 
 ```bash
 script/release

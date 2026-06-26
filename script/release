@@ -9,8 +9,8 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 
-# Read the version from src/version.js
-version_file="src/version.js"
+# Read the version from src/version.ts
+version_file="src/version.ts"
 if [[ ! -f $version_file ]]; then
   echo -e "${RED}ERROR${OFF} - Version file not found: $version_file"
   exit 1

@@ -20,7 +20,7 @@ This project should include unit tests for all lines, functions, and branches of
 
 This project **requires 100% test coverage** of code.
 
-Unit tests should exist in the `__tests__` directory. They are powered by `jest`.
+Unit tests should exist in the `__tests__` directory. They are powered by Vitest.
 
 ## Bundling
 
@@ -30,7 +30,7 @@ The final commit should always be a bundle of the code. This is done by running 
 npm run all
 ```
 
-This uses Vercel's `ncc` to bundle JS code for running in GitHub Actions.
+This uses Vercel's `ncc` to bundle TypeScript source into JavaScript for running in GitHub Actions.
 
 ## Project Guidelines
 
