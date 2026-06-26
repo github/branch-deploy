@@ -32,6 +32,7 @@ import {commitSafetyChecks} from './functions/commit-safety-checks.js'
 import {API_HEADERS} from './functions/api-headers.js'
 import {timestamp} from './functions/timestamp.js'
 import {deploymentConfirmation} from './functions/deployment-confirmation.js'
+import {formatLockReason} from './functions/format-lock-reason.js'
 
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 export async function run() {
@@ -285,12 +286,13 @@ export async function run() {
             }
 
             // Format the lock details message
-            const lockMessage = dedent(`
+            const lockMessageHeader = dedent(`
             ### Lock Details 🔒
 
             The deployment lock is currently claimed by __${lockData.created_by}__${globalMsg}
+            `)
 
-            - __Reason__: \`${lockData.reason}\`
+            const lockMessageDetails = dedent(`
             - __Branch__: \`${lockData.branch}\`
             - __Created At__: \`${lockData.created_at}\`
             - __Created By__: \`${lockData.created_by}\`
@@ -303,6 +305,11 @@ export async function run() {
 
             > If you need to release the lock, please comment \`${lockData.unlock_command}\`
             `)
+            const lockMessage = [
+              lockMessageHeader,
+              formatLockReason(lockData.reason),
+              lockMessageDetails
+            ].join('\n\n')
 
             // Update the issue comment with the lock details
             await actionStatus(
