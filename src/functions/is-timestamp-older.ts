@@ -1,12 +1,16 @@
 import * as core from '@actions/core'
+import {legacyTruthy} from '../trust-boundaries.ts'
 
 // A helper method that checks if timestamp A is older than timestamp B
 // :param timestampA: The first timestamp to compare (String - format: "2024-10-21T19:10:24Z")
 // :param timestampB: The second timestamp to compare (String - format: "2024-10-21T19:10:24Z")
 // :returns: true if timestampA is older than timestampB, false otherwise
-export function isTimestampOlder(timestampA: unknown, timestampB: unknown) {
+export function isTimestampOlder(
+  timestampA: unknown,
+  timestampB: unknown
+): boolean {
   // Defensive: handle null/undefined/empty
-  if (!timestampA || !timestampB) {
+  if (!legacyTruthy(timestampA) || !legacyTruthy(timestampB)) {
     throw new Error('One or both timestamps are missing or empty.')
   }
 
@@ -19,7 +23,7 @@ export function isTimestampOlder(timestampA: unknown, timestampB: unknown) {
     !ISO_UTC_REGEX.test(timestampB)
   ) {
     throw new Error(
-      `Timestamps must be strings in the format YYYY-MM-DDTHH:MM:SSZ. Received: '${timestampA}', '${timestampB}'`
+      `Timestamps must be strings in the format YYYY-MM-DDTHH:MM:SSZ. Received: '${String(timestampA)}', '${String(timestampB)}'`
     )
   }
 
@@ -28,7 +32,7 @@ export function isTimestampOlder(timestampA: unknown, timestampB: unknown) {
   const timestampBDate = new Date(timestampB)
 
   // Extra strict: ensure the parsed date matches the input string exactly (prevents JS date rollover)
-  const toStrictISOString = (d: Date) => {
+  const toStrictISOString = (d: Date): string => {
     // Returns YYYY-MM-DDTHH:MM:SSZ
     return (
       d.getUTCFullYear().toString().padStart(4, '0') +
@@ -46,20 +50,20 @@ export function isTimestampOlder(timestampA: unknown, timestampB: unknown) {
     )
   }
   if (
-    isNaN(timestampADate as unknown as number) ||
-    isNaN(timestampBDate as unknown as number) ||
+    Number.isNaN(timestampADate.getTime()) ||
+    Number.isNaN(timestampBDate.getTime()) ||
     toStrictISOString(timestampADate) !== timestampA ||
     toStrictISOString(timestampBDate) !== timestampB
   ) {
     core.error(
-      `Invalid date parsing. Received: '${timestampA}' => ${timestampADate}, '${timestampB}' => ${timestampBDate}`
+      `Invalid date parsing. Received: '${timestampA}' => ${String(timestampADate)}, '${timestampB}' => ${String(timestampBDate)}`
     )
     throw new Error(
       `Invalid date format. Please ensure the dates are valid UTC timestamps. Received: '${timestampA}', '${timestampB}'`
     )
   }
 
-  const result = timestampADate < timestampBDate
+  const result = timestampADate.getTime() < timestampBDate.getTime()
 
   if (result) {
     core.debug(`${timestampA} is older than ${timestampB}`)

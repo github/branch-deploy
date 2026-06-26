@@ -1,23 +1,29 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {actionStatus} from './action-status.ts'
+import {legacyAllowForksValue} from '../trust-boundaries.ts'
 import type {
   ActionInputs,
   BranchDeployContext,
-  BranchDeployOctokit
+  BranchDeployOctokit,
+  ChecksInput
 } from '../types.ts'
 
 const defaultSpecificMessage = '<something went wrong - please report this>'
 const usageGuideLink =
   'https://github.com/github/branch-deploy/blob/main/docs/usage.md'
 
+function isChecksArray(value: ChecksInput): value is readonly string[] {
+  return typeof value !== 'string'
+}
+
 export async function help(
   octokit: BranchDeployOctokit,
   context: BranchDeployContext,
   reactionId: number,
   inputs: ActionInputs
-) {
-  var update_branch_message = defaultSpecificMessage
+): Promise<void> {
+  let update_branch_message = defaultSpecificMessage
   if (inputs.update_branch.trim() === 'warn') {
     update_branch_message =
       'This Action will warn if the branch is out of date with the base branch'
@@ -29,7 +35,7 @@ export async function help(
       'This Action will not update the branch to the base branch before deployment'
   } else update_branch_message = 'Unknown value for update_branch'
 
-  var required_contexts_message = defaultSpecificMessage
+  let required_contexts_message = defaultSpecificMessage
   if (inputs.required_contexts.trim() === 'false') {
     required_contexts_message =
       'There are no designated required contexts for this Action (default and suggested)'
@@ -37,14 +43,14 @@ export async function help(
     required_contexts_message = `There are required contexts designated for this Action`
   }
 
-  var commit_verification_message = defaultSpecificMessage
-  if (inputs.commit_verification === true) {
+  let commit_verification_message = defaultSpecificMessage
+  if (inputs.commit_verification) {
     commit_verification_message = `This Action will require that commits have a verified signature before they can be deployed`
   } else {
     commit_verification_message = `This Action will not require commits to have a verified signature before they can be deployed`
   }
 
-  var checks_message = defaultSpecificMessage
+  let checks_message = defaultSpecificMessage
   if (
     typeof inputs.checks === 'string' &&
     inputs.checks.trim() === 'required'
@@ -56,55 +62,61 @@ export async function help(
   ) {
     checks_message = `All CI checks must pass before a deployment can be requested`
   } else {
-    checks_message = `The following CI checks must pass before a deployment can be requested: \`${(inputs.checks as string[]).join(`,`)}\``
+    const checks = isChecksArray(inputs.checks)
+      ? inputs.checks.join(',')
+      : inputs.checks
+    checks_message = `The following CI checks must pass before a deployment can be requested: \`${checks}\``
   }
 
-  var ignored_checks_message = defaultSpecificMessage
+  let ignored_checks_message = defaultSpecificMessage
   if (inputs.ignored_checks.length > 0) {
     ignored_checks_message = `The following CI checks will be ignored when determining if a deployment can be requested: \`${inputs.ignored_checks.join(`,`)}\``
   } else {
     ignored_checks_message = `No CI checks will be ignored when determining if a deployment can be requested`
   }
 
-  var skip_ci_message = defaultSpecificMessage
+  let skip_ci_message = defaultSpecificMessage
+  let skipCiDisplay = inputs.skipCi
   if (inputs.skipCi.trim() !== '') {
     skip_ci_message = `This Action will not require passing CI for the environments specified`
   } else {
-    inputs.skipCi = 'false'
+    skipCiDisplay = 'false'
     skip_ci_message = `This Action will require passing CI for all environments`
   }
 
-  var skip_reviews_message = defaultSpecificMessage
+  let skip_reviews_message = defaultSpecificMessage
+  let skipReviewsDisplay = inputs.skipReviews
   if (inputs.skipReviews.trim() !== '') {
     skip_reviews_message = `This Action will not require passing reviews for the environments specified`
   } else {
-    inputs.skipReviews = 'false'
+    skipReviewsDisplay = 'false'
     skip_reviews_message = `This Action will require passing reviews for all environments`
   }
 
-  var draft_permitted_targets_message = defaultSpecificMessage
+  let draft_permitted_targets_message = defaultSpecificMessage
+  let draftPermittedTargetsDisplay = inputs.draft_permitted_targets
   if (inputs.draft_permitted_targets.trim() !== '') {
     draft_permitted_targets_message = `This Action will allow draft pull requests to request deployments to the listed environments`
   } else {
-    inputs.draft_permitted_targets = 'false'
+    draftPermittedTargetsDisplay = 'false'
     draft_permitted_targets_message = `This Action will not draft pull requests to be deployed to any environment`
   }
 
-  var admins_message = defaultSpecificMessage
+  let admins_message = defaultSpecificMessage
   if (inputs.admins.trim() === 'false') {
     admins_message = `This Action has no designated admins (default)`
   } else {
     admins_message = `This Action will allow the listed admins to bypass pull request reviews before deployment`
   }
 
-  var sha_deployment_message = defaultSpecificMessage
-  if (inputs.allow_sha_deployments === true) {
+  let sha_deployment_message = defaultSpecificMessage
+  if (inputs.allow_sha_deployments) {
     sha_deployment_message = `This Action will allow deployments to an exact SHA (potentially dangerous/unsafe)`
   } else {
     sha_deployment_message = `This Action will not allow deployments to an exact SHA (recommended)`
   }
 
-  var enforced_deployment_order_message = defaultSpecificMessage
+  let enforced_deployment_order_message = defaultSpecificMessage
   if (inputs.enforced_deployment_order.length > 0) {
     enforced_deployment_order_message = `Deployments are required to follow a specific deployment order by environment before the next one can proceed: ${inputs.enforced_deployment_order.join(
       ', '
@@ -112,6 +124,10 @@ export async function help(
   } else {
     enforced_deployment_order_message = `Deployments can be made to any environment in any order`
   }
+
+  const checksDisplay = isChecksArray(inputs.checks)
+    ? inputs.checks.join(',')
+    : inputs.checks
 
   // Construct the message to add to the issue comment
   const comment = dedent(`
@@ -176,9 +192,9 @@ export async function help(
   > Note: Just because an environment is listed here does not mean it is available for deployment
 
   - \`${inputs.environment}\` - The default environment for this Action
-  - \`${
-    inputs.production_environments
-  }\` - The environments that are considered "production"
+  - \`${inputs.production_environments.join(
+    ','
+  )}\` - The environments that are considered "production"
   - \`${
     inputs.environment_targets
   }\` - The list of environments that can be targeted for deployment
@@ -229,21 +245,21 @@ export async function help(
     inputs.required_contexts
   }\` - ${required_contexts_message}
   - \`allowForks: ${inputs.allowForks}\` - This Action will ${
-    (inputs.allowForks as unknown) === 'true' ? 'run' : 'not run'
+    legacyAllowForksValue(inputs.allowForks) === 'true' ? 'run' : 'not run'
   } on forked repositories
-  - \`skipCi: ${inputs.skipCi}\` - ${skip_ci_message}
-  - \`checks: ${inputs.checks}\` - ${checks_message}
-  - \`use_security_warnings: ${inputs.use_security_warnings}\` - This Action will ${inputs.use_security_warnings === true ? 'use' : 'not use'} security warnings
-  - \`ignored_checks: ${inputs.ignored_checks}\` - ${ignored_checks_message}
-  - \`skipReviews: ${inputs.skipReviews}\` - ${skip_reviews_message}
+  - \`skipCi: ${skipCiDisplay}\` - ${skip_ci_message}
+  - \`checks: ${checksDisplay}\` - ${checks_message}
+  - \`use_security_warnings: ${inputs.use_security_warnings}\` - This Action will ${inputs.use_security_warnings ? 'use' : 'not use'} security warnings
+  - \`ignored_checks: ${inputs.ignored_checks.join(',')}\` - ${ignored_checks_message}
+  - \`skipReviews: ${skipReviewsDisplay}\` - ${skip_reviews_message}
   - \`draft_permitted_targets: ${
-    inputs.draft_permitted_targets
+    draftPermittedTargetsDisplay
   }\` - ${draft_permitted_targets_message}
   - \`admins: ${inputs.admins}\` - ${admins_message}
   - \`deployment_confirmation: ${
     inputs.deployment_confirmation
   }\` - This Action will ${
-    inputs.deployment_confirmation === true ? 'require' : 'not require'
+    inputs.deployment_confirmation ? 'require' : 'not require'
   } additional confirmation before deploying
   - \`deployment_confirmation_timeout: ${
     inputs.deployment_confirmation_timeout
@@ -257,9 +273,7 @@ export async function help(
   - \`allow_non_default_target_branch_deployments: ${
     inputs.allow_non_default_target_branch_deployments
   }\` - This Action will ${
-    inputs.allow_non_default_target_branch_deployments === true
-      ? 'allow'
-      : 'not allow'
+    inputs.allow_non_default_target_branch_deployments ? 'allow' : 'not allow'
   } the deployments of pull requests that target a branch other than the default branch (aka stable branch)
 
   ---
@@ -270,12 +284,11 @@ export async function help(
   core.debug(comment)
 
   // Put the help comment on the pull request
-  await actionStatus(
+  await actionStatus({
     context,
     octokit,
     reactionId,
-    comment,
-    true, // success is true
-    true // thumbs up instead of rocket
-  )
+    message: comment,
+    result: 'alternate-success'
+  })
 }

@@ -5,15 +5,122 @@ import {isOutdated} from './outdated-check.ts'
 import {stringToArray} from './string-to-array.ts'
 import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
+import {saveActionState, setActionOutput} from '../action-io.ts'
+import {
+  legacyApiError,
+  legacyArrayElement,
+  legacyBranchTreeSha,
+  legacyDebugValue,
+  legacyIgnoredChecks,
+  legacyLooselyTrue,
+  legacyPrechecksCommitOid,
+  legacyPrechecksPullData,
+  legacyPrechecksPullRepository,
+  legacyPrechecksStatusCheckRollup,
+  legacyTruthy
+} from '../trust-boundaries.ts'
 import type {
-  ApiError,
   BranchDeployContext,
   BranchDeployOctokit,
-  CheckResult,
+  RawCheckResult,
   PrecheckData,
   PrecheckResult,
   PrechecksGraphqlResult
 } from '../types.ts'
+
+type PullGetMethod = BranchDeployOctokit['rest']['pulls']['get']
+type PullGetParameters = Parameters<PullGetMethod>[0]
+type FullPullGetResponse = Awaited<ReturnType<PullGetMethod>>
+type PullUpdateMethod = BranchDeployOctokit['rest']['pulls']['updateBranch']
+type PullUpdateParameters = Parameters<PullUpdateMethod>[0]
+type BranchGetMethod = BranchDeployOctokit['rest']['repos']['getBranch']
+type BranchGetParameters = Parameters<BranchGetMethod>[0]
+type FullBranchGetResponse = Awaited<ReturnType<BranchGetMethod>>
+type CompareMethod = BranchDeployOctokit['rest']['repos']['compareCommits']
+type CompareParameters = Parameters<CompareMethod>[0]
+type FullCompareResponse = Awaited<ReturnType<CompareMethod>>
+type PermissionMethod =
+  BranchDeployOctokit['rest']['repos']['getCollaboratorPermissionLevel']
+type PermissionParameters = Parameters<PermissionMethod>[0]
+type FullPermissionResponse = Awaited<ReturnType<PermissionMethod>>
+
+type PullHead = FullPullGetResponse['data']['head']
+type PullHeadRepository = NonNullable<PullHead['repo']>
+type BranchCommit = FullBranchGetResponse['data']['commit']
+
+export interface PrechecksPullResponse {
+  readonly data?: {
+    readonly base?: Partial<Pick<FullPullGetResponse['data']['base'], 'ref'>>
+    readonly draft?: Exclude<FullPullGetResponse['data']['draft'], undefined>
+    readonly head?: Partial<Pick<PullHead, 'label' | 'ref' | 'sha'>> & {
+      readonly repo?: null | Partial<
+        Pick<PullHeadRepository, 'fork' | 'full_name'>
+      >
+    }
+  }
+  readonly status: number
+}
+
+export interface PrechecksPullData {
+  readonly base: Pick<FullPullGetResponse['data']['base'], 'ref'>
+  readonly draft?: Exclude<FullPullGetResponse['data']['draft'], undefined>
+  readonly head: Pick<PullHead, 'label' | 'ref' | 'sha'> & {
+    readonly repo?: null | Partial<
+      Pick<PullHeadRepository, 'fork' | 'full_name'>
+    >
+  }
+}
+
+export interface PrechecksBranchResponse {
+  readonly data: {
+    readonly commit: Pick<BranchCommit, 'sha'> & {
+      readonly commit?: {
+        readonly tree?: Partial<Pick<BranchCommit['commit']['tree'], 'sha'>>
+      }
+    }
+    readonly name?: FullBranchGetResponse['data']['name']
+  }
+  readonly status?: number
+}
+
+export interface PrechecksOctokit {
+  readonly graphql: (
+    query: string,
+    variables: Readonly<Record<string, unknown>>
+  ) => Promise<PrechecksGraphqlResult>
+  readonly rest: {
+    readonly pulls: {
+      readonly get: (
+        parameters?: PullGetParameters
+      ) => Promise<PrechecksPullResponse>
+      readonly updateBranch: (parameters?: PullUpdateParameters) => Promise<{
+        readonly data?: unknown
+        readonly status: number
+      }>
+    }
+    readonly repos: {
+      readonly compareCommits: (parameters?: CompareParameters) => Promise<{
+        readonly data: Pick<FullCompareResponse['data'], 'behind_by'>
+        readonly status?: number
+      }>
+      readonly getBranch: (
+        parameters?: BranchGetParameters
+      ) => Promise<PrechecksBranchResponse>
+      readonly getCollaboratorPermissionLevel: (
+        parameters?: PermissionParameters
+      ) => Promise<{
+        readonly data: Pick<FullPermissionResponse['data'], 'permission'>
+        readonly status: number
+      }>
+    }
+  }
+}
+
+export interface PrechecksRequest {
+  readonly context: BranchDeployContext
+  readonly data: PrecheckData
+  readonly octokit: PrechecksOctokit
+}
 
 // Runs precheck logic before the branch deployment can proceed
 // :param context: The context of the event
@@ -22,11 +129,11 @@ import type {
 // :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
 export async function prechecks(
   context: BranchDeployContext,
-  octokit: BranchDeployOctokit,
+  octokit: PrechecksOctokit,
   data: PrecheckData
 ): Promise<PrecheckResult> {
   // Setup the message variable
-  var message
+  let message: string
 
   // Check if the user has valid permissions
   const validPermissionsRes = await validPermissions(
@@ -49,13 +156,15 @@ export async function prechecks(
     return {message: message, status: false}
   }
 
+  const prData = legacyPrechecksPullData(pr.data)
+
   // save sha
-  var sha = pr.data.head.sha
+  let sha = prData.head.sha
 
   // set an output which is the branch name this PR is targeting to merge into
-  const baseRef = pr?.data?.base?.ref
-  core.setOutput('base_ref', baseRef)
-  core.debug(`base_ref: ${baseRef}`)
+  const baseRef = pr.data?.base?.ref
+  setActionOutput('base_ref', baseRef)
+  core.debug(`base_ref: ${String(baseRef)}`)
 
   // Setup the skipCi, skipReview, and draft_permitted_targets variables
   const skipCiArray = stringToArray(data.inputs.skipCi)
@@ -67,12 +176,12 @@ export async function prechecks(
   const skipReviews = skipReviewsArray.includes(data.environment)
   const allowDraftDeploy = draftPermittedTargetsArray.includes(data.environment)
   const checks = data.inputs.checks
-  const ignoredChecks = data.inputs.ignored_checks || []
+  const ignoredChecks = legacyIgnoredChecks(data.inputs.ignored_checks)
 
-  var ref = pr.data.head.ref
-  var noopMode = data.environmentObj.noop
-  var forkBypass = false
-  const isFork = pr?.data?.head?.repo?.fork == true
+  let ref = prData.head.ref
+  const noopMode = data.environmentObj.noop
+  let forkBypass = false
+  const isFork = legacyLooselyTrue(prData.head.repo?.fork)
 
   // Make an API call to get the base branch
   // https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#get-a-branch
@@ -84,13 +193,13 @@ export async function prechecks(
 
   // we also want to output the default branch tree sha of the base branch (e.g. the default branch)
   // this can be useful for subsequent workflow steps that may need to do commit comparisons
-  core.setOutput(
+  setActionOutput(
     'default_branch_tree_sha',
-    stableBaseBranch?.data?.commit?.commit?.tree?.sha
+    legacyBranchTreeSha(stableBaseBranch)
   )
 
   // Check to see if the "stable" branch was used as the deployment target
-  if (data.environmentObj.stable_branch_used === true) {
+  if (data.environmentObj.stable_branch_used) {
     // the sha now becomes the sha of the base branch for "stable branch" deployments
     sha = stableBaseBranch.data.commit.sha
     ref = data.inputs.stable_branch
@@ -109,7 +218,7 @@ export async function prechecks(
   const securityWarningsEnabled = data.inputs.use_security_warnings
 
   if (nonDefaultTargetBranchUsed) {
-    core.setOutput('non_default_target_branch_used', 'true')
+    setActionOutput('non_default_target_branch_used', 'true')
   }
 
   // If the PR is targeting a branch other than the default branch (and it is not a stable branch deploy) reject the deployment, unless the Action is explicitly configured to allow it
@@ -119,7 +228,7 @@ export async function prechecks(
     !nonDefaultDeploysAllowed
   ) {
     return {
-      message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`${baseRef}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
+      message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`${String(baseRef)}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
       status: false
     }
   }
@@ -131,47 +240,48 @@ export async function prechecks(
     securityWarningsEnabled
   ) {
     core.warning(
-      `🚨 this pull request is attempting to merge into the \`${baseRef}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`) - this action is potentially dangerous`
+      `🚨 this pull request is attempting to merge into the \`${String(baseRef)}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`) - this action is potentially dangerous`
     )
   }
 
   // Determine whether to use the ref or sha depending on if the PR is from a fork or not
   // Note: We should not export fork values if the stable_branch is being used here
-  if (isFork === true && forkBypass === false) {
+  if (isFork && !forkBypass) {
     core.info(`🍴 the pull request is a ${COLORS.highlight}fork${COLORS.reset}`)
     core.info(
-      `🍴 fork: the ref (${COLORS.highlight}${ref}${COLORS.reset}) output will be replaced with the commit sha (${COLORS.highlight}${pr.data.head.sha}${COLORS.reset})`
+      `🍴 fork: the ref (${COLORS.highlight}${ref}${COLORS.reset}) output will be replaced with the commit sha (${COLORS.highlight}${prData.head.sha}${COLORS.reset})`
     )
     core.debug(`the pull request is from a fork, using sha instead of ref`)
-    core.setOutput('fork', 'true')
-    core.saveState('fork', 'true')
+    setActionOutput('fork', 'true')
+    saveActionState('fork', 'true')
 
     // If this Action's inputs have been configured to explicitly prevent forks, exit
-    if (data.inputs.allowForks === false) {
+    if (!data.inputs.allowForks) {
       message = `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`
       return {message: message, status: false}
     }
 
     // Set some outputs specific to forks
-    const label = pr.data.head.label
-    const forkRef = pr.data.head.ref
+    const pullRepository = legacyPrechecksPullRepository(prData.head.repo)
+    const label = prData.head.label
+    const forkRef = prData.head.ref
     const forkCheckout = `${label.replace(':', '-')} ${forkRef}`
-    const forkFullName = pr.data.head.repo.full_name
-    core.setOutput('fork_ref', forkRef)
-    core.setOutput('fork_label', label)
-    core.setOutput('fork_checkout', forkCheckout)
-    core.setOutput('fork_full_name', forkFullName)
+    const forkFullName = pullRepository.full_name
+    setActionOutput('fork_ref', forkRef)
+    setActionOutput('fork_label', label)
+    setActionOutput('fork_checkout', forkCheckout)
+    setActionOutput('fork_full_name', forkFullName)
     core.debug(`fork_ref: ${forkRef}`)
     core.debug(`fork_label: ${label}`)
     core.debug(`fork_checkout: ${forkCheckout}`)
     core.debug(`fork_full_name: ${forkFullName}`)
 
     // If this pull request is a fork, use the exact SHA rather than the branch name
-    ref = pr.data.head.sha
+    ref = prData.head.sha
   } else {
     // If this PR is NOT a fork, we can safely use the branch name
-    core.setOutput('fork', 'false')
-    core.saveState('fork', 'false')
+    setActionOutput('fork', 'false')
+    saveActionState('fork', 'false')
   }
 
   // Check to ensure PR CI checks are passing and the PR has been reviewed
@@ -214,21 +324,20 @@ export async function prechecks(
   const variables = {
     owner: context.repo.owner,
     name: context.repo.repo,
-    number: parseInt(data.issue_number as string),
+    number: parseInt(String(data.issue_number)),
     headers: {
       Accept: 'application/vnd.github.merge-info-preview+json'
     }
   }
   // Make the GraphQL query
-  const result = await octokit.graphql<PrechecksGraphqlResult>(query, variables)
+  const result = await octokit.graphql(query, variables)
 
   // Fetch the commit oid which is the SHA1 hash of the commit
-  const commit_oid =
-    result?.repository?.pullRequest?.commits?.nodes[0]?.commit?.oid
+  const commit_oid = legacyPrechecksCommitOid(result)
 
   // Check the reviewDecision
-  var reviewDecision
-  if (skipReviews && isFork === false) {
+  let reviewDecision: string | null | undefined
+  if (skipReviews && !isFork) {
     // If skipReviews is true, we bypass the results the graphql
     // This logic is not applied on forks as all PRs from forks must have the required reviews (if requested)
     reviewDecision = 'skip_reviews'
@@ -244,7 +353,7 @@ export async function prechecks(
   }
 
   // If pull request reviews are not required and the PR is from a fork and the request isn't a deploy to the stable branch, we need to alert the user that this is potentially dangerous
-  if (reviewDecision === null && isFork === true && forkBypass === false) {
+  if (reviewDecision === null && isFork && !forkBypass) {
     core.warning(
       '🚨 pull request reviews are not enforced by this repository and this operation is being performed on a fork - this operation is dangerous! You should require reviews via branch protection settings (or rulesets) to ensure that the changes being deployed are the changes that you reviewed.'
     )
@@ -254,25 +363,29 @@ export async function prechecks(
   const mergeStateStatus = result.repository.pullRequest.mergeStateStatus
 
   // Grab the draft status
-  const isDraft = pr.data.draft
+  const isDraft = prData.draft
 
   // log some extra details if the state of the PR is in a 'draft'
-  if (isDraft && !allowDraftDeploy) {
+  if (legacyTruthy(isDraft) && !allowDraftDeploy) {
     core.warning(
       `deployment requested on a draft PR from a non-allowed environment`
     )
-  } else if (isDraft && allowDraftDeploy) {
+  } else if (legacyTruthy(isDraft) && allowDraftDeploy) {
     core.info(
       `📓 deployment requested on a ${COLORS.highlight}draft${COLORS.reset} pull request from an ${COLORS.highlight}allowed${COLORS.reset} environment`
     )
   }
 
   // Grab the statusCheckRollup state from the GraphQL result
-  var commitStatus
-  var filterChecksResults
+  let commitStatus: string | null
+  let filterChecksResults:
+    | {
+        readonly message: string
+        readonly status: 'FAILURE' | 'MISSING' | 'SUCCESS'
+      }
+    | undefined
   try {
-    const statusCheckRollup =
-      result.repository.pullRequest.commits.nodes[0]!.commit.statusCheckRollup
+    const statusCheckRollup = legacyPrechecksStatusCheckRollup(result)
     const checkResults = statusCheckRollup?.contexts?.nodes ?? []
     const explicitChecks = Array.isArray(checks) && checks.length > 0
 
@@ -312,7 +425,7 @@ export async function prechecks(
     } else if (checks === 'all') {
       // if there are no ignored checks, we can just check the state of the latest commit
       if (ignoredChecks.length === 0) {
-        commitStatus = statusCheckRollup.state
+        commitStatus = legacyArrayElement(statusCheckRollup).state
 
         // if there are ignored checks, we need to filter out the ignored checks from the graphql result
       } else {
@@ -337,7 +450,7 @@ export async function prechecks(
     }
   } catch (e) {
     core.debug(
-      `could not retrieve PR commit status: ${e} - Handled: ${COLORS.success}OK`
+      `could not retrieve PR commit status: ${String(e)} - Handled: ${COLORS.success}OK`
     )
     core.debug('this repo may not have any CI checks defined')
     core.debug('skipping commit status check and proceeding...')
@@ -346,7 +459,7 @@ export async function prechecks(
     // Try to display the raw GraphQL result for debugging purposes
     try {
       core.debug('raw graphql result for debugging:')
-      core.debug(result as unknown as string)
+      core.debug(legacyDebugValue(result))
     } /* istanbul ignore next */ catch {
       core.debug(
         'Could not output raw graphql result for debugging - This is bad'
@@ -360,7 +473,7 @@ export async function prechecks(
   // Make an API call to get the base branch that the pull request is targeting
   const baseBranch = await octokit.rest.repos.getBranch({
     ...context.repo,
-    branch: pr.data.base.ref,
+    branch: prData.base.ref,
     headers: API_HEADERS
   })
 
@@ -368,19 +481,18 @@ export async function prechecks(
   const outdated = await isOutdated(context, octokit, {
     baseBranch: baseBranch, // this is the base branch that the PR is targeting
     stableBaseBranch: stableBaseBranch, // this is the 'stable' branch (aka: the default branch of the repo)
-    pr: pr,
+    pr: {data: {head: {sha: prData.head.sha}}},
     mergeStateStatus: mergeStateStatus,
     outdated_mode: data.inputs.outdated_mode
   })
 
-  const approvedReviewsCount =
-    result?.repository?.pullRequest?.reviews?.totalCount
+  const approvedReviewsCount = result.repository.pullRequest.reviews?.totalCount
 
   // log values for debugging
   core.debug('precheck values for debugging:')
-  core.debug(`reviewDecision: ${reviewDecision}`)
-  core.debug(`mergeStateStatus: ${mergeStateStatus}`)
-  core.debug(`commitStatus: ${commitStatus}`)
+  core.debug(`reviewDecision: ${String(reviewDecision)}`)
+  core.debug(`mergeStateStatus: ${String(mergeStateStatus)}`)
+  core.debug(`commitStatus: ${String(commitStatus)}`)
   core.debug(`userIsAdmin: ${userIsAdmin}`)
   core.debug(`update_branch: ${data.inputs.update_branch}`)
   core.debug(`skipCi: ${skipCi}`)
@@ -389,18 +501,18 @@ export async function prechecks(
   core.debug(`forkBypass: ${forkBypass}`)
   core.debug(`environment: ${data.environment}`)
   core.debug(`outdated: ${outdated.outdated}`)
-  core.debug(`approvedReviewsCount: ${approvedReviewsCount}`)
+  core.debug(`approvedReviewsCount: ${String(approvedReviewsCount)}`)
 
   // output values
-  core.setOutput('commit_status', commitStatus)
-  core.setOutput('review_decision', reviewDecision)
-  core.setOutput('is_outdated', outdated.outdated)
-  core.setOutput('merge_state_status', mergeStateStatus)
-  core.setOutput('approved_reviews_count', approvedReviewsCount)
+  setActionOutput('commit_status', commitStatus)
+  setActionOutput('review_decision', reviewDecision)
+  setActionOutput('is_outdated', outdated.outdated)
+  setActionOutput('merge_state_status', mergeStateStatus)
+  setActionOutput('approved_reviews_count', approvedReviewsCount)
 
   // save state values
-  core.saveState('review_decision', reviewDecision)
-  core.saveState('approved_reviews_count', approvedReviewsCount)
+  saveActionState('review_decision', reviewDecision)
+  saveActionState('approved_reviews_count', approvedReviewsCount)
 
   // Check if the branch exists before proceeding with deployment
   // Skip this check if:
@@ -408,9 +520,9 @@ export async function prechecks(
   // 2. We're deploying an exact SHA (allow_sha_deployments is enabled and a SHA was provided)
   // 3. The PR is from a fork (we use SHA for forks, not branch names)
   if (
-    data.environmentObj.stable_branch_used !== true &&
+    !data.environmentObj.stable_branch_used &&
     data.environmentObj.sha === null &&
-    isFork === false
+    !isFork
   ) {
     core.debug(`checking if branch exists: ${ref}`)
     try {
@@ -421,22 +533,23 @@ export async function prechecks(
       })
       core.info(`✅ branch exists: ${ref}`)
     } catch (error) {
-      if ((error as ApiError).status === 404) {
+      const apiError = legacyApiError(error)
+      if (apiError.status === 404) {
         message = `### ⚠️ Cannot proceed with deployment\n\n- ref: \`${ref}\`\n\nThe branch for this pull request no longer exists. This can happen if the branch was deleted after the PR was merged or closed. If you need to deploy, you can:\n- Use the stable branch deployment (e.g., \`${data.inputs.trigger} ${data.inputs.stable_branch}\`)\n- Use an exact SHA deployment if enabled (e.g., \`${data.inputs.trigger} ${sha}\`)\n\n> If you are running this command on a closed pull request, you can also try reopening the pull request to restore the branch for a deployment.`
         core.warning(`branch does not exist: ${ref}`)
         return {message: message, status: false}
       }
       // If it's not a 404 error, it's unexpected - hard stop
-      message = `### ⚠️ Cannot proceed with deployment\n\n- ref: \`${ref}\`\n\n> An unexpected error occurred while checking if the branch exists: \`${(error as ApiError).message}\``
+      message = `### ⚠️ Cannot proceed with deployment\n\n- ref: \`${ref}\`\n\n> An unexpected error occurred while checking if the branch exists: \`${apiError.message}\``
       core.error(
-        `unexpected error checking if branch exists: ${(error as ApiError).message}`
+        `unexpected error checking if branch exists: ${apiError.message}`
       )
       return {message: message, status: false}
     }
   }
 
   // Always allow deployments to the "stable" branch regardless of CI checks or PR review
-  if (data.environmentObj.stable_branch_used === true) {
+  if (data.environmentObj.stable_branch_used) {
     message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`
     core.info(message)
     core.debug(
@@ -451,7 +564,7 @@ export async function prechecks(
     // ... this style of deployment is not recommended and should only be used in very specific situations. Read more here:
     // https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md
   } else if (
-    data.inputs.allow_sha_deployments === true &&
+    data.inputs.allow_sha_deployments &&
     data.environmentObj.sha !== null
   ) {
     message = `✅ deployment requested using an exact ${COLORS.highlight}sha${COLORS.reset}`
@@ -463,13 +576,13 @@ export async function prechecks(
     // since an exact sha was used, we overwrite both the ref and sha values with the exact sha that was provided by the user
     sha = data.environmentObj.sha
     ref = data.environmentObj.sha
-    core.setOutput('sha_deployment', sha)
+    setActionOutput('sha_deployment', sha)
 
     // If the commit sha (from the PR head) does not exactly match the sha returned from the graphql query, something is wrong
     // This could occur if the branch had a commit pushed to it in between the rest call and the graphql query
     // In this case, we should not proceed with the deployment as we cannot guarantee the sha is safe for a variety of reasons
   } else if (sha !== commit_oid) {
-    message = `### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: \`${sha}\`\n- commit_oid: \`${commit_oid}\`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.`
+    message = `### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: \`${sha}\`\n- commit_oid: \`${String(commit_oid)}\`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.`
     return {message: message, status: false}
 
     // If the requested operation (deploy or noop) is taking place on a fork, that fork is NOT using the stable branch (i.e. `.deploy main`), the PR is...
@@ -478,8 +591,8 @@ export async function prechecks(
     // This logic will even apply to noop deployments and ignore the value of skip_reviews if it is set out of an abundance of caution
     // This logic will also apply even if the requested deployer is an admin
   } else if (
-    isFork === true &&
-    forkBypass === false &&
+    isFork &&
+    !forkBypass &&
     (reviewDecision === 'REVIEW_REQUIRED' ||
       reviewDecision === 'CHANGES_REQUESTED')
   ) {
@@ -491,7 +604,7 @@ export async function prechecks(
 
     // If allow_sha_deployments are not enabled and a sha was provided, exit
   } else if (
-    data.inputs.allow_sha_deployments === false &&
+    !data.inputs.allow_sha_deployments &&
     data.environmentObj.sha !== null
   ) {
     message = `### ⚠️ Cannot proceed with deployment\n\n- allow_sha_deployments: \`${data.inputs.allow_sha_deployments}\`\n\n> sha deployments have not been enabled`
@@ -503,11 +616,11 @@ export async function prechecks(
       commitStatus === null ||
       commitStatus === 'skip_ci') &&
     data.inputs.update_branch !== 'disabled' &&
-    outdated.outdated === true
+    outdated.outdated
   ) {
     // If the update_branch param is set to "warn", warn and exit
     if (data.inputs.update_branch === 'warn') {
-      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${outdated.branch}\` branch and try again`
+      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${String(mergeStateStatus)}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${String(outdated.branch)}\` branch and try again`
       return {message: message, status: false}
     }
 
@@ -527,20 +640,20 @@ export async function prechecks(
 
       // If the result is not a 202, return an error message and exit
       if (result.status !== 202) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with the \`${outdated.branch}\` branch`
+        message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with the \`${String(outdated.branch)}\` branch`
         return {message: message, status: false}
       }
 
       // If the result is a 202, let the user know the branch was updated and exit so they can retry
-      message = `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${mergeStateStatus}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> I went ahead and updated your branch with \`${data.inputs.stable_branch}\` - Please try again once this operation is complete`
+      message = `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${String(mergeStateStatus)}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> I went ahead and updated your branch with \`${data.inputs.stable_branch}\` - Please try again once this operation is complete`
       return {message: message, status: false}
     } catch (error) {
-      message = `### ⚠️ Cannot proceed with deployment\n\n\`\`\`text\n${(error as ApiError).message}\n\`\`\``
+      message = `### ⚠️ Cannot proceed with deployment\n\n\`\`\`text\n${legacyApiError(error).message}\n\`\`\``
       return {message: message, status: false}
     }
 
     // If the mergeStateStatus is in DRAFT and allowDraftDeploy is true, alert and exit
-  } else if (isDraft && !allowDraftDeploy) {
+  } else if (legacyTruthy(isDraft) && !allowDraftDeploy) {
     message = `### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state`
     return {message: message, status: false}
 
@@ -567,7 +680,7 @@ export async function prechecks(
     core.info(message)
 
     // CI checks are passing and reviews are set to be bypassed
-  } else if (commitStatus === 'SUCCESS' && reviewDecision == 'skip_reviews') {
+  } else if (commitStatus === 'SUCCESS' && reviewDecision === 'skip_reviews') {
     message =
       '✅ CI checks passed and required reviewers have been disabled for this environment'
     core.info(message)
@@ -605,7 +718,7 @@ export async function prechecks(
     )
 
     // If CI checks are set to be bypassed and the deployer is an admin
-  } else if (commitStatus === 'skip_ci' && userIsAdmin === true) {
+  } else if (commitStatus === 'skip_ci' && userIsAdmin) {
     message =
       '✅ CI requirements have been disabled for this environment and approval is bypassed due to admin rights'
     core.info(message)
@@ -630,12 +743,12 @@ export async function prechecks(
     )
 
     // If CI is passing and the deployer is an admin
-  } else if (commitStatus === 'SUCCESS' && userIsAdmin === true) {
+  } else if (commitStatus === 'SUCCESS' && userIsAdmin) {
     message = '✅ CI is passing and approval is bypassed due to admin rights'
     core.info(message)
 
     // If CI is undefined and the deployer is an admin
-  } else if (commitStatus === null && userIsAdmin === true) {
+  } else if (commitStatus === null && userIsAdmin) {
     message =
       '✅ CI checks have not been defined and approval is bypassed due to admin rights'
     core.info(message)
@@ -661,7 +774,7 @@ export async function prechecks(
     commitStatus === 'PENDING' &&
     !noopMode
   ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
     return {message: message, status: false}
 
     // If CI is pending and reviewers have not been defined and it IS a noop deploy
@@ -670,7 +783,7 @@ export async function prechecks(
     commitStatus === 'PENDING' &&
     noopMode
   ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
     core.info(
       'note: even noop deploys require CI to finish and be in a passing state'
     )
@@ -707,13 +820,13 @@ export async function prechecks(
     commitStatus === 'PENDING' &&
     !noopMode
   ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
     return {message: message, status: false}
 
     // Regardless of the reviewDecision or noop, if the commitStatus is 'MISSING' this means that a user has explicitly requested a CI check to be passing with the `checks: <check1>,<check2>,<etc>` input option, but the check could not be found in the GraphQL result
     // In this case, we should alert the user that the check could not be found and exit
   } else if (commitStatus === 'MISSING') {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> ${filterChecksResults!.message}`
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> ${legacyArrayElement(filterChecksResults).message}`
     return {message: message, status: false}
 
     // If CI is passing but the PR is missing an approval, let the user know
@@ -735,7 +848,7 @@ export async function prechecks(
     (reviewDecision === null || reviewDecision === 'skip_reviews') &&
     commitStatus === 'FAILURE'
   ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request does not require approvals but CI checks are failing`
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request does not require approvals but CI checks are failing`
     return {message: message, status: false}
 
     // If the PR is NOT reviewed and CI checks have NOT been defined and NOT a noop deploy
@@ -745,7 +858,7 @@ export async function prechecks(
     commitStatus === null &&
     !noopMode
   ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is missing required approvals`
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${String(commitStatus)}\`\n\n> Your pull request is missing required approvals`
     core.info(
       'note: CI checks have not been defined so they will not be evaluated'
     )
@@ -784,7 +897,7 @@ export async function prechecks(
 
     // If there are any other errors blocking deployment, let the user know
   } else {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`
+    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${String(commitStatus)}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`
     return {message: message, status: false}
   }
 
@@ -807,26 +920,27 @@ export async function prechecks(
 // :returns: An object containing a message (if a failure occurs), and a string representing the status of the checks
 // example: {message: '...', status: 'SUCCESS'}
 // The status will be one of the following: 'SUCCESS', 'FAILURE', 'MISSING'
-function filterChecks(
-  checks: 'all' | 'required' | string[],
-  checkResults: CheckResult[],
-  ignoredChecks: string[],
+export function filterChecks(
+  checks: 'all' | 'required' | readonly string[],
+  checkResults: readonly RawCheckResult[],
+  ignoredChecks: readonly string[],
   required: boolean
 ): {message: string; status: 'FAILURE' | 'MISSING' | 'SUCCESS'} {
   const healthyCheckStatuses = ['SUCCESS', 'SKIPPED', 'NEUTRAL']
 
-  core.debug(`filterChecks() - checks: ${checks}`)
-  core.debug(`filterChecks() - ignoredChecks: ${ignoredChecks}`)
+  const checksDisplay = typeof checks === 'string' ? checks : checks.join(',')
+  core.debug(`filterChecks() - checks: ${checksDisplay}`)
+  core.debug(`filterChecks() - ignoredChecks: ${ignoredChecks.join(',')}`)
   core.debug(`filterChecks() - required: ${required}`)
 
   // If checks is an array (meaning it isn't just `required` or `all`) and it contains items
-  const checksProvided = Array.isArray(checks) && checks.length > 0
+  const checksProvided = typeof checks !== 'string' && checks.length > 0
 
   // If a set of values is provided for the `checks` input option, ensure all of them exist in checkResults
   // Example: if `checks` is set to `['test', 'lint', 'build']`, ensure that all of those checks exist in checkResults
   if (checksProvided) {
     const missingChecks = checks.filter(
-      ch => !checkResults.some(cr => (cr.name ?? cr.context) === ch)
+      ch => !checkResults.some(cr => checkName(cr) === ch)
     )
     if (missingChecks.length > 0) {
       core.warning(
@@ -845,16 +959,16 @@ function filterChecks(
     .filter(check => {
       if (checksProvided) {
         // check if the `checks` input option explicitly includes the name of the check that was found
-        const checkName = check.name ?? check.context
-        const isIncluded = checks.includes(checkName as string)
+        const name = checkName(check)
+        const isIncluded = checks.some(checkName => checkName === name)
 
         if (isIncluded) {
           core.debug(
-            `filterChecks() - explicitly including ci check: ${checkName}`
+            `filterChecks() - explicitly including ci check: ${String(name)}`
           )
         } else {
           core.debug(
-            `filterChecks() - ${checkName} is not in the explicit list of checks to include (${checks})`
+            `filterChecks() - ${String(name)} is not in the explicit list of checks to include (${checksDisplay})`
           )
         }
 
@@ -869,10 +983,12 @@ function filterChecks(
 
     .filter(check => {
       // Filter out ignored checks
-      const checkName = check.name ?? check.context
-      const isIgnored = ignoredChecks.includes(checkName as string)
+      const name = checkName(check)
+      const isIgnored = ignoredChecks.some(
+        ignoredCheck => ignoredCheck === name
+      )
       if (isIgnored) {
-        core.debug(`filterChecks() - ignoring ci check: ${checkName}`)
+        core.debug(`filterChecks() - ignoring ci check: ${String(name)}`)
       }
       // If required is true, only keep checks that are required
       return !isIgnored && (required ? check.isRequired : true)
@@ -880,7 +996,7 @@ function filterChecks(
 
   // Determine if all remaining checks are in a healthy state
   const allHealthy = filteredChecks.every(check =>
-    healthyCheckStatuses.includes((check.conclusion ?? check.state) as string)
+    healthyCheckStatuses.some(status => status === checkStatus(check))
   )
 
   // If no checks remain after filtering, default to SUCCESS
@@ -897,4 +1013,20 @@ function filterChecks(
       : 'one or more checks did not pass',
     status: allHealthy ? 'SUCCESS' : 'FAILURE'
   }
+}
+
+function checkName(check: RawCheckResult): string | null | undefined {
+  const name: string | null | undefined =
+    'name' in check ? check.name : undefined
+  const context: string | null | undefined =
+    'context' in check ? check.context : undefined
+  return name ?? context
+}
+
+function checkStatus(check: RawCheckResult): string | null | undefined {
+  const conclusion: string | null | undefined =
+    'conclusion' in check ? check.conclusion : undefined
+  const state: string | null | undefined =
+    'state' in check ? check.state : undefined
+  return conclusion ?? state
 }

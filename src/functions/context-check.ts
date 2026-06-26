@@ -1,21 +1,27 @@
 import * as core from '@actions/core'
-import type {BranchDeployContext, IssueCommentContext} from '../types.ts'
+import {saveActionState} from '../action-io.ts'
+import {issueCommentContext} from '../trust-boundaries.ts'
+import type {BranchDeployContext} from '../types.ts'
 
 // A simple function that checks the event context to make sure it is valid
 // :param context: The GitHub Actions event context
 // :returns: Boolean - true if the context is valid, false otherwise
-export async function contextCheck(context: BranchDeployContext) {
+export function contextCheck(context: BranchDeployContext): boolean {
   // Get the PR event context
-  var pr
+  let pr: unknown
   try {
-    pr = (context as IssueCommentContext).payload.issue.pull_request
+    pr = issueCommentContext(context).payload.issue.pull_request
   } catch (error) {
-    throw new Error(`Could not get PR event context: ${error}`)
+    throw new Error(`Could not get PR event context: ${String(error)}`)
   }
 
   // If the context is not valid, return false
-  if (context.eventName !== 'issue_comment' || pr == null || pr == undefined) {
-    core.saveState('bypass', 'true')
+  if (
+    context.eventName !== 'issue_comment' ||
+    pr === null ||
+    pr === undefined
+  ) {
+    saveActionState('bypass', 'true')
     core.warning(
       'This Action can only be run in the context of a pull request comment'
     )

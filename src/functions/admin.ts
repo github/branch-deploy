@@ -4,15 +4,49 @@ import githubUsernameRegex from 'github-username-regex-js'
 import {retry} from '@octokit/plugin-retry'
 import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
-import type {ApiError, BranchDeployContext} from '../types.ts'
+import {getActionInput} from '../action-io.ts'
+import {legacyApiError, legacyArrayElement} from '../trust-boundaries.ts'
+import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
+
+type GetOrganizationMethod = BranchDeployOctokit['rest']['orgs']['get']
+type GetOrganizationParameters = Parameters<GetOrganizationMethod>[0]
+type FullGetOrganizationResponse = Awaited<ReturnType<GetOrganizationMethod>>
+type GetTeamMethod = BranchDeployOctokit['rest']['teams']['getByName']
+type GetTeamParameters = Parameters<GetTeamMethod>[0]
+type FullGetTeamResponse = Awaited<ReturnType<GetTeamMethod>>
+
+export interface AdminOctokit {
+  readonly request: (route: string) => Promise<{readonly status: number}>
+  readonly rest: {
+    readonly orgs: {
+      readonly get: (parameters?: GetOrganizationParameters) => Promise<{
+        readonly data: Pick<FullGetOrganizationResponse['data'], 'id'>
+      }>
+    }
+    readonly teams: {
+      readonly getByName: (
+        parameters?: GetTeamParameters
+      ) => Promise<{readonly data: Pick<FullGetTeamResponse['data'], 'id'>}>
+    }
+  }
+}
+
+export type AdminOctokitFactory = (token: string) => AdminOctokit
+
+export const defaultAdminOctokitFactory: AdminOctokitFactory = token =>
+  github.getOctokit(token, {additionalPlugins: [retry]})
 
 // Helper function to check if a user exists in an org team
 // :param actor: The user to check
 // :param orgTeams: An array of org/team names
 // :returns: True if the user is in the org team, false otherwise
-async function orgTeamCheck(actor: string, orgTeams: string[]) {
+async function orgTeamCheck(
+  actor: string,
+  orgTeams: readonly string[],
+  createClient: AdminOctokitFactory
+): Promise<boolean> {
   // This pat needs org read permissions if you are using org/teams to define admins
-  const adminsPat = core.getInput('admins_pat')
+  const adminsPat = getActionInput('admins_pat')
 
   // If no admin_pat is provided, then we cannot check for org team memberships
   if (!adminsPat || adminsPat.length === 0 || adminsPat === 'false') {
@@ -23,27 +57,25 @@ async function orgTeamCheck(actor: string, orgTeams: string[]) {
   }
 
   // Create a new octokit client with the admins_pat and the retry plugin
-  const octokit = github.getOctokit(adminsPat, {
-    additionalPlugins: [retry]
-  })
+  const octokit = createClient(adminsPat)
 
   // Loop through all org/team names
   for (const orgTeam of orgTeams) {
     // Split the org/team name into org and team
-    var [org, team] = orgTeam.split('/')
+    const [org, team] = orgTeam.split('/')
 
     try {
       // Make an API call to get the org id
       const orgData = await octokit.rest.orgs.get({
-        org: org!,
+        org: legacyArrayElement(org),
         headers: API_HEADERS
       })
       const orgId = orgData.data.id
 
       // Make an API call to get the team id
       const teamData = await octokit.rest.teams.getByName({
-        org: org!,
-        team_slug: team!,
+        org: legacyArrayElement(org),
+        team_slug: legacyArrayElement(team),
         headers: API_HEADERS
       })
       const teamId = teamData.data.id
@@ -62,13 +94,14 @@ async function orgTeamCheck(actor: string, orgTeams: string[]) {
         core.warning(`non 204 response from org team check: ${result.status}`)
       }
     } catch (error) {
-      core.debug(`orgTeamCheck() error.status: ${(error as ApiError).status}`)
+      const apiError = legacyApiError(error)
+      core.debug(`orgTeamCheck() error.status: ${String(apiError.status)}`)
       // If any of the API calls returns a 404, the user is not in the team
-      if ((error as ApiError).status === 404) {
+      if (apiError.status === 404) {
         core.debug(`${actor} is not a member of the ${orgTeam} team`)
         // If some other error occurred, output a warning
       } else {
-        core.warning(`error checking org team membership: ${error}`)
+        core.warning(`error checking org team membership: ${String(error)}`)
       }
     }
   }
@@ -80,9 +113,12 @@ async function orgTeamCheck(actor: string, orgTeams: string[]) {
 // Helper function to check if a user is set as an admin for branch-deployments
 // :param context: The GitHub Actions event context
 // :returns: true if the user is an admin, false otherwise (Boolean)
-export async function isAdmin(context: BranchDeployContext) {
+export async function isAdmin(
+  context: BranchDeployContext,
+  createClient: AdminOctokitFactory = defaultAdminOctokitFactory
+): Promise<boolean> {
   // Get the admins string from the action inputs
-  const admins = core.getInput('admins')
+  const admins = getActionInput('admins')
 
   core.debug(`raw admins value: ${admins}`)
 
@@ -92,8 +128,8 @@ export async function isAdmin(context: BranchDeployContext) {
     .map(admin => admin.trim().toLowerCase())
 
   // loop through admins
-  var handles: string[] = []
-  var orgTeams: string[] = []
+  const handles: string[] = []
+  const orgTeams: string[] = []
   adminsSanitized.forEach(admin => {
     // If the item contains a '/', then it is a org/team
     if (admin.includes('/')) {
@@ -124,7 +160,7 @@ export async function isAdmin(context: BranchDeployContext) {
 
   // Check if the user is in the org/team list
   if (orgTeams.length > 0) {
-    const result = await orgTeamCheck(context.actor, orgTeams)
+    const result = await orgTeamCheck(context.actor, orgTeams, createClient)
     if (result) {
       core.debug(`${context.actor} is an admin via org team reference`)
       core.info(isAdminMsg)

@@ -9,46 +9,54 @@ import {checkInput} from './check-input.ts'
 import {postDeploy} from './post-deploy.ts'
 import {COLORS} from './colors.ts'
 import {VERSION} from '../version.ts'
-import type {ApiError, BranchDeployContext} from '../types.ts'
+import {
+  getActionInput,
+  getActionState,
+  getBooleanActionInput
+} from '../action-io.ts'
+import {branchDeployContext, legacyApiError} from '../trust-boundaries.ts'
+import type {RawPostDeployData} from '../types.ts'
 
-export async function post() {
+export async function post(): Promise<void> {
   try {
-    const token = core.getState('actionsToken')
-    const bypass = core.getState('bypass') === 'true'
-    const skip_completing = core.getBooleanInput('skip_completing')
+    const token = getActionState('actionsToken')
+    const bypass = getActionState('bypass') === 'true'
+    const skip_completing = getBooleanActionInput('skip_completing')
 
     const data = {
-      sha: core.getState('sha'),
-      ref: core.getState('ref'),
-      comment_id: core.getState('comment_id'),
-      reaction_id: core.getState('reaction_id'),
-      noop: core.getState('noop') === 'true',
-      deployment_id: core.getState('deployment_id'),
-      environment: core.getState('environment'),
-      environment_url: checkInput(core.getState('environment_url')),
-      approved_reviews_count: core.getState('approved_reviews_count'),
-      review_decision: core.getState('review_decision'),
-      status: core.getInput('status'),
-      fork: core.getState('fork') === 'true',
-      params: core.getState('params'),
-      parsed_params: core.getState('parsed_params'),
+      sha: getActionState('sha'),
+      ref: getActionState('ref'),
+      comment_id: getActionState('comment_id'),
+      reaction_id: getActionState('reaction_id'),
+      noop: getActionState('noop') === 'true',
+      deployment_id: getActionState('deployment_id'),
+      environment: getActionState('environment'),
+      environment_url: checkInput(getActionState('environment_url')),
+      approved_reviews_count: getActionState('approved_reviews_count'),
+      review_decision: getActionState('review_decision'),
+      status: getActionInput('status'),
+      fork: getActionState('fork') === 'true',
+      params: getActionState('params'),
+      parsed_params: getActionState('parsed_params'),
       labels: {
         successful_deploy: stringToArray(
-          core.getInput('successful_deploy_labels')
+          getActionInput('successful_deploy_labels')
         ),
-        successful_noop: stringToArray(core.getInput('successful_noop_labels')),
-        failed_deploy: stringToArray(core.getInput('failed_deploy_labels')),
-        failed_noop: stringToArray(core.getInput('failed_noop_labels')),
-        skip_successful_noop_labels_if_approved: core.getBooleanInput(
+        successful_noop: stringToArray(
+          getActionInput('successful_noop_labels')
+        ),
+        failed_deploy: stringToArray(getActionInput('failed_deploy_labels')),
+        failed_noop: stringToArray(getActionInput('failed_noop_labels')),
+        skip_successful_noop_labels_if_approved: getBooleanActionInput(
           'skip_successful_noop_labels_if_approved'
         ),
-        skip_successful_deploy_labels_if_approved: core.getBooleanInput(
+        skip_successful_deploy_labels_if_approved: getBooleanActionInput(
           'skip_successful_deploy_labels_if_approved'
         )
       },
-      commit_verified: core.getState('commit_verified') === 'true',
-      deployment_start_time: core.getState('deployment_start_time')
-    }
+      commit_verified: getActionState('commit_verified') === 'true',
+      deployment_start_time: getActionState('deployment_start_time')
+    } satisfies RawPostDeployData
 
     // If bypass is set, exit the workflow
     if (bypass) {
@@ -57,7 +65,8 @@ export async function post() {
     }
 
     // Check the context of the event to ensure it is valid, return if it is not
-    if (!(await contextCheck(context as unknown as BranchDeployContext))) {
+    const actionContext = branchDeployContext(context)
+    if (!contextCheck(actionContext)) {
       return
     }
 
@@ -82,11 +91,12 @@ export async function post() {
       core.debug('environment_url not set, its value is null')
     }
 
-    await postDeploy(context as unknown as BranchDeployContext, octokit, data)
+    await postDeploy(actionContext, octokit, data)
 
     return
   } catch (error) {
-    core.error((error as ApiError).stack)
-    core.setFailed((error as ApiError).message)
+    const apiError = legacyApiError(error)
+    core.error(apiError.stack)
+    core.setFailed(apiError.message)
   }
 }

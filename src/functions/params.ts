@@ -10,7 +10,7 @@ export function parseParams(params: string | null): ParsedParams {
   // use the yarns-parser library to parse the parameters as JSON
   const parsed = parse(params ?? '')
   core.debug(
-    `Parsing parameters string: ${params}, produced: ${JSON.stringify(parsed)}`
+    `Parsing parameters string: ${String(params)}, produced: ${JSON.stringify(parsed)}`
   )
   return parsed
 }

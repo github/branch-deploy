@@ -3,21 +3,40 @@ import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
 import {SUGGESTED_RULESETS} from './suggested-rulesets.ts'
 import {ERROR} from './templates/error.ts'
+import {
+  legacyApiError,
+  legacyBranchRuleParameters
+} from '../trust-boundaries.ts'
 import type {
-  ApiError,
   BranchDeployContext,
   BranchDeployOctokit,
   BranchRule,
   RuleParameters
 } from '../types.ts'
 
+type BranchRulesMethod = BranchDeployOctokit['rest']['repos']['getBranchRules']
+type BranchRulesParameters = Parameters<BranchRulesMethod>[0]
+
+export interface BranchRulesetOctokit {
+  readonly rest: {
+    readonly repos: {
+      readonly getBranchRules: (
+        parameters?: BranchRulesParameters
+      ) => Promise<{readonly data: readonly BranchRule[]}>
+    }
+  }
+}
+
 export async function branchRulesetChecks(
   context: BranchDeployContext,
-  octokit: BranchDeployOctokit,
-  data: {branch: string; use_security_warnings?: boolean}
-) {
+  octokit: BranchRulesetOctokit,
+  data: {readonly branch: string; readonly use_security_warnings?: boolean}
+): Promise<{
+  readonly failed_checks?: readonly string[]
+  readonly success: boolean
+}> {
   const branch = data.branch
-  const useSecurityWarnings = data?.use_security_warnings !== false
+  const useSecurityWarnings = data.use_security_warnings !== false
 
   // Exit early if the user has disabled security warnings
   if (!useSecurityWarnings) {
@@ -25,11 +44,11 @@ export async function branchRulesetChecks(
   }
 
   try {
-    const {data: branchRules} = (await octokit.rest.repos.getBranchRules({
+    const {data: branchRules} = await octokit.rest.repos.getBranchRules({
       ...context.repo,
       branch,
       headers: API_HEADERS
-    })) as {data: BranchRule[]}
+    })
 
     core.debug(
       `branch ${COLORS.highlight}rulesets${COLORS.reset}: ${JSON.stringify(branchRules)}`
@@ -46,17 +65,17 @@ export async function branchRulesetChecks(
     } else {
       // Loop through the suggested rulesets and check them against the branch rules
       SUGGESTED_RULESETS.forEach(suggestedRule => {
-        const {type: ruleType, parameters: ruleParameters} = suggestedRule
+        const ruleType = suggestedRule.type
 
         const branchRule = branchRules.find(rule => rule.type === ruleType)
 
         if (!branchRule) {
           logMissingRule(branch, ruleType, failed_checks)
-        } else if (ruleParameters) {
+        } else if ('parameters' in suggestedRule) {
           checkRuleParameters(
             branch,
             ruleType,
-            ruleParameters,
+            suggestedRule.parameters,
             branchRule,
             failed_checks
           )
@@ -75,11 +94,10 @@ export async function branchRulesetChecks(
 
     return {success: failed_checks.length === 0, failed_checks}
   } catch (error) {
+    const apiError = legacyApiError(error)
     if (
-      (error as ApiError).status === ERROR.messages.upgrade_or_public.status &&
-      (error as ApiError).message.includes(
-        ERROR.messages.upgrade_or_public.message
-      )
+      apiError.status === ERROR.messages.upgrade_or_public.status &&
+      apiError.message.includes(ERROR.messages.upgrade_or_public.message)
     ) {
       core.debug(ERROR.messages.upgrade_or_public.help_text)
       return {success: false, failed_checks: ['upgrade_or_public_required']}
@@ -93,7 +111,7 @@ function logMissingRule(
   branch: string,
   ruleType: string,
   failed_checks: string[]
-) {
+): void {
   core.warning(
     `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} is missing a rule of type ${COLORS.highlight}${ruleType}${COLORS.reset}`
   )
@@ -106,9 +124,10 @@ function checkRuleParameters(
   ruleParameters: RuleParameters,
   branchRule: BranchRule,
   failed_checks: string[]
-) {
+): void {
+  const branchRuleParameters = legacyBranchRuleParameters(branchRule)
   Object.keys(ruleParameters).forEach(key => {
-    if (branchRule.parameters[key] !== ruleParameters[key]) {
+    if (branchRuleParameters[key] !== ruleParameters[key]) {
       if (key === 'required_approving_review_count') {
         handleReviewCountMismatch(branch, ruleType, branchRule, failed_checks)
       } else {
@@ -123,15 +142,16 @@ function handleReviewCountMismatch(
   ruleType: string,
   branchRule: BranchRule,
   failed_checks: string[]
-) {
-  if (branchRule.parameters['required_approving_review_count'] === 0) {
+): void {
+  const parameters = legacyBranchRuleParameters(branchRule)
+  if (parameters['required_approving_review_count'] === 0) {
     core.warning(
       `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains the required_approving_review_count parameter but it is set to 0`
     )
     failed_checks.push(`mismatch_${ruleType}_required_approving_review_count`)
   } else {
     core.debug(
-      `required_approving_review_count is ${branchRule.parameters['required_approving_review_count']} - OK`
+      `required_approving_review_count is ${String(parameters['required_approving_review_count'])} - OK`
     )
   }
 }
@@ -141,14 +161,14 @@ function logParameterMismatch(
   ruleType: string,
   key: string,
   failed_checks: string[]
-) {
+): void {
   core.warning(
     `🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains a rule of type ${COLORS.highlight}${ruleType}${COLORS.reset} with a parameter ${COLORS.highlight}${key}${COLORS.reset} which does not match the suggested parameter`
   )
   failed_checks.push(`mismatch_${ruleType}_${key}`)
 }
 
-function logWarnings(failed_checks: string[]) {
+function logWarnings(failed_checks: string[]): void {
   if (failed_checks.length > 0) {
     core.warning(
       `😨 the following branch ruleset warnings were detected: ${failed_checks.join(', ')}`

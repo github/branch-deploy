@@ -1,9 +1,23 @@
 import {API_HEADERS} from './api-headers.ts'
-import type {
-  BranchDeployContext,
-  BranchDeployOctokit,
-  IssueCommentContext
-} from '../types.ts'
+import {issueCommentContext} from '../trust-boundaries.ts'
+import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
+
+type CreateReactionMethod =
+  BranchDeployOctokit['rest']['reactions']['createForIssueComment']
+type CreateReactionParameters = Parameters<CreateReactionMethod>[0]
+type FullCreateReactionResponse = Awaited<ReturnType<CreateReactionMethod>>
+
+export interface ReactEmoteOctokit {
+  readonly rest: {
+    readonly reactions: {
+      readonly createForIssueComment: (
+        parameters?: CreateReactionParameters
+      ) => Promise<{
+        readonly data: Pick<FullCreateReactionResponse['data'], 'id'>
+      }>
+    }
+  }
+}
 
 // Fixed presets of allowed emote types as defined by GitHub
 const presets = [
@@ -25,8 +39,8 @@ const presets = [
 export async function reactEmote(
   reaction: string,
   context: BranchDeployContext,
-  octokit: BranchDeployOctokit
-) {
+  octokit: ReactEmoteOctokit
+): Promise<{readonly data: {readonly id: number}} | undefined> {
   // Get the owner and repo from the context
   const {owner, repo} = context.repo
 
@@ -45,7 +59,7 @@ export async function reactEmote(
   const reactRes = await octokit.rest.reactions.createForIssueComment({
     owner,
     repo,
-    comment_id: (context as IssueCommentContext).payload.comment.id,
+    comment_id: issueCommentContext(context).payload.comment.id,
     content: preset,
     headers: API_HEADERS
   })

@@ -1,8 +1,9 @@
 import * as core from '@actions/core'
 import {checkInput} from './check-input.ts'
 import dedent from 'dedent-js'
-import {existsSync} from 'fs'
+import {existsSync} from 'node:fs'
 import nunjucks from 'nunjucks'
+import {getActionInput, getBooleanActionInput} from '../action-io.ts'
 import type {BranchDeployContext, PostDeployMessageData} from '../types.ts'
 
 // Helper function construct a post deployment message
@@ -24,19 +25,19 @@ import type {BranchDeployContext, PostDeployMessageData} from '../types.ts'
 //   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
 //   - attribute: total_seconds: The total amount of seconds that the deployment took (Int)
 // :returns: The formatted message (String)
-export async function postDeployMessage(
+export function postDeployMessage(
   context: BranchDeployContext,
   data: PostDeployMessageData
-) {
+): string {
   // fetch the inputs
-  const environment_url_in_comment = core.getBooleanInput(
+  const environment_url_in_comment = getBooleanActionInput(
     'environment_url_in_comment'
   )
-  const deployMessagePath = checkInput(core.getInput('deploy_message_path'))
+  const deployMessagePath = checkInput(getActionInput('deploy_message_path'))
 
   const vars = {
     environment: data.environment,
-    environment_url: data.environment_url || null,
+    environment_url: data.environment_url === '' ? null : data.environment_url,
     status: data.status,
     noop: data.noop,
     ref: data.ref,
@@ -44,17 +45,28 @@ export async function postDeployMessage(
     approved_reviews_count: data.approved_reviews_count
       ? parseInt(data.approved_reviews_count)
       : null,
-    review_decision: data.review_decision || null,
+    review_decision: data.review_decision === '' ? null : data.review_decision,
     deployment_id: data.deployment_id ? parseInt(data.deployment_id) : null,
     fork: data.fork,
-    params: data.params || null,
-    parsed_params: data.parsed_params || null,
+    params: data.params === '' ? null : data.params,
+    parsed_params: data.parsed_params === '' ? null : data.parsed_params,
     deployment_end_time: data.deployment_end_time,
     actor: context.actor,
-    logs: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+    logs: `${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/actions/runs/${String(process.env['GITHUB_RUN_ID'])}`,
     commit_verified: data.commit_verified,
     total_seconds: data.total_seconds
   }
+
+  const environmentUrlJson =
+    vars.environment_url !== null && vars.environment_url !== ''
+      ? `"${vars.environment_url}"`
+      : 'null'
+  const reviewDecisionJson =
+    vars.review_decision !== null && vars.review_decision !== ''
+      ? `"${vars.review_decision}"`
+      : 'null'
+  const paramsJson =
+    vars.params !== null && vars.params !== '' ? `"${vars.params}"` : 'null'
 
   // this is kinda gross but wrangling dedent() and nunjucks is a pain
   const deployment_metadata = dedent(`
@@ -67,10 +79,10 @@ export async function postDeployMessage(
     \t\t\t\t  "status": "${vars.status}",
     \t\t\t\t  "environment": {
     \t\t\t\t    "name": "${vars.environment}",
-    \t\t\t\t    "url": ${vars.environment_url ? `"${vars.environment_url}"` : null}
+    \t\t\t\t    "url": ${environmentUrlJson}
     \t\t\t\t  },
     \t\t\t\t  "deployment": {
-    \t\t\t\t    "id": ${vars.deployment_id},
+    \t\t\t\t    "id": ${String(vars.deployment_id)},
     \t\t\t\t    "timestamp": "${vars.deployment_end_time}",
     \t\t\t\t    "logs": "${vars.logs}",
     \t\t\t\t    "duration": ${vars.total_seconds}
@@ -86,12 +98,12 @@ export async function postDeployMessage(
     \t\t\t\t    "fork": ${vars.fork}
     \t\t\t\t  },
     \t\t\t\t  "reviews": {
-    \t\t\t\t    "count": ${vars.approved_reviews_count},
-    \t\t\t\t    "decision": ${vars.review_decision ? `"${vars.review_decision}"` : null}
+    \t\t\t\t    "count": ${String(vars.approved_reviews_count)},
+    \t\t\t\t    "decision": ${reviewDecisionJson}
     \t\t\t\t  },
     \t\t\t\t  "parameters": {
-    \t\t\t\t    "raw": ${vars.params ? `"${vars.params}"` : null},
-    \t\t\t\t    "parsed": ${vars.parsed_params}
+    \t\t\t\t    "raw": ${paramsJson},
+    \t\t\t\t    "parsed": ${String(vars.parsed_params)}
     \t\t\t\t  }
     \t\t\t\t}
     \`\`\`
@@ -103,29 +115,29 @@ export async function postDeployMessage(
 
   // if the 'deployMessagePath' exists, use that instead of the env var option
   // the env var option can often fail if the message is too long so this is the preferred option
-  if (deployMessagePath) {
+  if (deployMessagePath !== null) {
     if (existsSync(deployMessagePath)) {
       core.debug('using deployMessagePath')
       nunjucks.configure({autoescape: true})
       return nunjucks.render(deployMessagePath, vars)
     }
   } else {
-    core.debug(`deployMessagePath is not set - ${deployMessagePath}`)
+    core.debug(`deployMessagePath is not set - ${String(deployMessagePath)}`)
   }
 
   // If we get here, try to use the env var option with the default message structure
-  const deployMessageEnvVar = checkInput(process.env.DEPLOY_MESSAGE)
+  const deployMessageEnvVar = checkInput(process.env['DEPLOY_MESSAGE'])
 
-  var deployTypeString = ' ' // a single space as a default
+  let deployTypeString = ' ' // a single space as a default
 
   // Set the mode and deploy type based on the deployment mode
-  if (data.noop === true) {
+  if (data.noop) {
     deployTypeString = ' **noop** '
   }
 
   // Dynamically set the message text depending if the deployment succeeded or failed
-  var message
-  var deployStatus
+  let message: string
+  let deployStatus: string
   if (data.status === 'success') {
     message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${data.ref}\` to **${data.environment}**`
     deployStatus = '✅'
@@ -138,8 +150,8 @@ export async function postDeployMessage(
   }
 
   // Conditionally format the message body
-  var message_fmt
-  if (deployMessageEnvVar) {
+  let message_fmt: string
+  if (deployMessageEnvVar !== null) {
     const customMessageFmt = deployMessageEnvVar
       .replace(/\\n/g, '\n')
       .replace(/\\t/g, '\t')
@@ -168,10 +180,11 @@ export async function postDeployMessage(
   // Conditionally add the environment url to the message body
   // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
   if (
-    data.environment_url &&
+    data.environment_url !== null &&
+    data.environment_url !== '' &&
     data.status === 'success' &&
-    data.noop !== true &&
-    environment_url_in_comment === true
+    !data.noop &&
+    environment_url_in_comment
   ) {
     const environment_url_short = data.environment_url
       .replace('https://', '')

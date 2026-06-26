@@ -6,4 +6,5 @@
 // - v1.1.1-rc.1
 // - etc
 
-export const VERSION = 'v11.1.5'
+export const VERSION =
+  'v11.1.5' as const satisfies `v${number}.${number}.${number}${string}`

@@ -19,7 +19,7 @@ declare module 'nunjucks' {
 
 declare module 'yargs-parser' {
   interface Arguments extends Record<string, unknown> {
-    _: Array<number | string>
+    _: (number | string)[]
   }
 
   export default function parse(args: string): Arguments

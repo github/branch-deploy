@@ -3,16 +3,56 @@ import dedent from 'dedent-js'
 import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
 import {timestamp} from './timestamp.ts'
+import {
+  issueCommentContext,
+  legacyApiError,
+  legacyReactionUser
+} from '../trust-boundaries.ts'
 import type {
-  ApiError,
   BranchDeployContext,
   BranchDeployOctokit,
-  DeploymentConfirmationData,
-  IssueCommentContext
+  DeploymentConfirmationData
 } from '../types.ts'
 
 const thumbsUp = '+1'
 const thumbsDown = '-1'
+
+type CreateCommentMethod =
+  BranchDeployOctokit['rest']['issues']['createComment']
+type CreateCommentParameters = Parameters<CreateCommentMethod>[0]
+type FullCreateCommentResponse = Awaited<ReturnType<CreateCommentMethod>>
+type UpdateCommentMethod =
+  BranchDeployOctokit['rest']['issues']['updateComment']
+type UpdateCommentParameters = Parameters<UpdateCommentMethod>[0]
+type ListReactionsMethod =
+  BranchDeployOctokit['rest']['reactions']['listForIssueComment']
+type ListReactionsParameters = Parameters<ListReactionsMethod>[0]
+type FullListReactionsResponse = Awaited<ReturnType<ListReactionsMethod>>
+type Reaction = FullListReactionsResponse['data'][number]
+
+export interface DeploymentConfirmationOctokit {
+  readonly rest: {
+    readonly issues: {
+      readonly createComment: (
+        parameters?: CreateCommentParameters
+      ) => Promise<{
+        readonly data: Pick<FullCreateCommentResponse['data'], 'id'>
+      }>
+      readonly updateComment: (
+        parameters?: UpdateCommentParameters
+      ) => Promise<unknown>
+    }
+    readonly reactions: {
+      readonly listForIssueComment: (
+        parameters?: ListReactionsParameters
+      ) => Promise<{
+        readonly data: readonly (Pick<Reaction, 'content'> & {
+          readonly user: null | Pick<NonNullable<Reaction['user']>, 'login'>
+        })[]
+      }>
+    }
+  }
+}
 
 // Helper function to allow the original actor to confirm the deployment by adding a reaction to a comment
 // :param context: The context of the action
@@ -20,16 +60,17 @@ const thumbsDown = '-1'
 // :returns: true if the deployment has been confirmed by the original actor, false otherwise
 export async function deploymentConfirmation(
   context: BranchDeployContext,
-  octokit: BranchDeployOctokit,
+  octokit: DeploymentConfirmationOctokit,
   data: DeploymentConfirmationData
-) {
+): Promise<boolean> {
+  const issueComment = issueCommentContext(context)
   const message = dedent(`
     ### Deployment Confirmation Required 🚦
 
     In order to proceed with this deployment, __${context.actor}__ must react to this comment with either a 👍 or a 👎.
 
     - Commit: [\`${data.sha}\`](${data.commit_html_url})
-    - Committer: \`${data.committer}\` - **${data.isVerified ? 'verified' : 'unverified'}**
+    - Committer: \`${String(data.committer)}\` - **${data.isVerified ? 'verified' : 'unverified'}**
     - Environment: \`${data.environment}\`
     - Branch: \`${data.ref}\`
     - Deployment Type: \`${data.deploymentType}\`
@@ -45,7 +86,7 @@ export async function deploymentConfirmation(
       "type": "${data.deploymentType.toLowerCase()}",
       "environment": {
         "name": "${data.environment}",
-        "url": ${data.environmentUrl ? `"${data.environmentUrl}"` : null}
+        "url": ${data.environmentUrl !== null && data.environmentUrl !== '' ? `"${data.environmentUrl}"` : 'null'}
       },
       "deployment": {
         "logs": "${data.log_url}"
@@ -54,7 +95,7 @@ export async function deploymentConfirmation(
         "branch": "${data.ref}",
         "commit": "${data.sha}",
         "verified": ${data.isVerified},
-        "committer": "${data.committer}",
+        "committer": "${String(data.committer)}",
         "html_url": "${data.commit_html_url}"
       },
       "context": {
@@ -62,15 +103,15 @@ export async function deploymentConfirmation(
         "noop": ${data.noopMode},
         "fork": ${data.isFork},
         "comment": {
-          "created_at": "${(context as IssueCommentContext).payload.comment.created_at}",
-          "updated_at": "${(context as IssueCommentContext).payload.comment.updated_at}",
+          "created_at": "${issueComment.payload.comment.created_at}",
+          "updated_at": "${issueComment.payload.comment.updated_at}",
           "body": "${data.body}",
-          "html_url": "${(context as IssueCommentContext).payload.comment.html_url}"
+          "html_url": "${issueComment.payload.comment.html_url}"
         }
       },
       "parameters": {
-        "raw": ${data.params ? `"${data.params}"` : null},
-        "parsed": ${data.parsed_params ? `${JSON.stringify(data.parsed_params)}` : null}
+        "raw": ${data.params !== null && data.params !== '' ? `"${data.params}"` : 'null'},
+        "parsed": ${data.parsed_params !== null ? JSON.stringify(data.parsed_params) : 'null'}
       }
     }
     \`\`\`
@@ -111,7 +152,8 @@ export async function deploymentConfirmation(
 
       // Look for thumbs up or thumbs down from the original actor
       for (const reaction of reactions.data) {
-        if (reaction.user!.login === context.actor) {
+        const reactionUser = legacyReactionUser(reaction.user)
+        if (reactionUser.login === context.actor) {
           if (reaction.content === thumbsUp) {
             // Update confirmation comment with success message
             await octokit.rest.issues.updateComment({
@@ -145,7 +187,7 @@ export async function deploymentConfirmation(
           }
         } else {
           core.debug(
-            `ignoring reaction from ${reaction.user!.login}, expected ${context.actor}`
+            `ignoring reaction from ${reactionUser.login}, expected ${context.actor}`
           )
         }
       }
@@ -154,7 +196,7 @@ export async function deploymentConfirmation(
       await new Promise(resolve => setTimeout(resolve, pollInterval))
     } catch (error) {
       core.warning(
-        `temporary failure when checking for reactions on the deployment confirmation comment: ${(error as ApiError).message}`
+        `temporary failure when checking for reactions on the deployment confirmation comment: ${legacyApiError(error).message}`
       )
       await new Promise(resolve => setTimeout(resolve, pollInterval))
     }

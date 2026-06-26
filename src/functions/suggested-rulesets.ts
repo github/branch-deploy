@@ -1,3 +1,8 @@
+interface SuggestedRule {
+  readonly parameters?: Readonly<Record<string, boolean | number>>
+  readonly type: string
+}
+
 export const SUGGESTED_RULESETS = [
   {
     type: 'deletion' // ensure that the stable / default branch is protected from deletion
@@ -22,4 +27,4 @@ export const SUGGESTED_RULESETS = [
   {
     type: 'required_deployments' // ensure that the stable / default branch requires deployments to pass before merging into (can be any environment)
   }
-]
+] as const satisfies readonly SuggestedRule[]

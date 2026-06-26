@@ -2,18 +2,16 @@
 // :param firstDate: ISO 8601 formatted date string
 // :param secondDate: ISO 8601 formatted date string
 // :returns: A string in the following format: `${days}d:${hours}h:${minutes}m:${seconds}s`
-export async function timeDiff(firstDate: string, secondDate: string) {
+export function timeDiff(firstDate: string, secondDate: string): string {
   const firstDateFmt = new Date(firstDate)
   const secondDateFmt = new Date(secondDate)
 
-  var seconds = Math.floor(
-    ((secondDateFmt as unknown as number) -
-      (firstDateFmt as unknown as number)) /
-      1000
+  let seconds = Math.floor(
+    (secondDateFmt.getTime() - firstDateFmt.getTime()) / 1000
   )
-  var minutes = Math.floor(seconds / 60)
-  var hours = Math.floor(minutes / 60)
-  var days = Math.floor(hours / 24)
+  let minutes = Math.floor(seconds / 60)
+  let hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
 
   hours = hours - days * 24
   minutes = minutes - days * 24 * 60 - hours * 60

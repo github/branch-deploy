@@ -1,30 +1,67 @@
-import * as core from '@actions/core'
 import {stringToArray} from '../functions/string-to-array.ts'
-import type {ActionInputs} from '../types.ts'
+import {getActionInput, getBooleanActionInput} from '../action-io.ts'
+import type {ActionInputKey, IntegerActionInputKey} from '../action-io.ts'
+import type {
+  ActionInputs,
+  ChecksInput,
+  OutdatedMode,
+  UpdateBranchMode
+} from '../types.ts'
+
+export const UPDATE_BRANCH_VALUES = [
+  'disabled',
+  'warn',
+  'force'
+] as const satisfies readonly UpdateBranchMode[]
+export const OUTDATED_MODE_VALUES = [
+  'pr_base',
+  'default_branch',
+  'strict'
+] as const satisfies readonly OutdatedMode[]
+export const CHECKS_MODE_VALUES = [
+  'all',
+  'required'
+] as const satisfies readonly Extract<ChecksInput, string>[]
+
+export const LITERAL_ACTION_INPUT_KEYS = [
+  'update_branch',
+  'outdated_mode',
+  'checks'
+] as const satisfies readonly ActionInputKey[]
+
+export type LiteralActionInputKey = (typeof LITERAL_ACTION_INPUT_KEYS)[number]
+
+export const LITERAL_ACTION_INPUT_VALUES = {
+  update_branch: UPDATE_BRANCH_VALUES,
+  outdated_mode: OUTDATED_MODE_VALUES,
+  checks: CHECKS_MODE_VALUES
+} as const satisfies Readonly<Record<LiteralActionInputKey, readonly string[]>>
 
 // Helper function to validate the input values
 // :param inputName: The name of the input being validated (string)
 // :param inputValue: The input value to validate (string)
 // :param validValues: An array of valid values for the input (array)
-function validateInput(
+function validateInput<const Value extends string>(
   inputName: string,
   inputValue: string,
-  validValues: readonly string[]
-) {
-  if (!validValues.includes(inputValue)) {
+  validValues: readonly Value[]
+): Value {
+  const validValue = validValues.find(value => value === inputValue)
+  if (validValue === undefined) {
     throw new Error(
       `Invalid value for '${inputName}': ${inputValue}. Must be one of: ${validValues.join(
         ', '
       )}`
     )
   }
+  return validValue
 }
 
 // Helper function to parse and validate integer inputs
 // :param inputName: The name of the input being parsed (string)
 // :returns: The parsed integer value
-function getIntInput(inputName: string) {
-  const value = parseInt(core.getInput(inputName), 10)
+function getIntInput(inputName: IntegerActionInputKey): number {
+  const value = parseInt(getActionInput(inputName), 10)
   if (isNaN(value)) {
     throw new Error(`Invalid value for ${inputName}: must be an integer`)
   }
@@ -34,52 +71,46 @@ function getIntInput(inputName: string) {
 // Helper function to get all the inputs for the Action
 // :returns: An object containing all the inputs
 export function getInputs(): ActionInputs {
-  var environment = core.getInput('environment', {required: true})
-  const trigger = core.getInput('trigger', {required: true})
-  const reaction = core.getInput('reaction')
-  const stable_branch = core.getInput('stable_branch')
-  const noop_trigger = core.getInput('noop_trigger')
-  const lock_trigger = core.getInput('lock_trigger')
+  const environment = getActionInput('environment', {required: true})
+  const trigger = getActionInput('trigger', {required: true})
+  const reaction = getActionInput('reaction')
+  const stable_branch = getActionInput('stable_branch')
+  const noop_trigger = getActionInput('noop_trigger')
+  const lock_trigger = getActionInput('lock_trigger')
   const production_environments = stringToArray(
-    core.getInput('production_environments')
+    getActionInput('production_environments')
   )
-  const environment_targets = core.getInput('environment_targets')
-  const draft_permitted_targets = core.getInput('draft_permitted_targets')
-  const unlock_trigger = core.getInput('unlock_trigger')
-  const help_trigger = core.getInput('help_trigger')
-  const lock_info_alias = core.getInput('lock_info_alias')
-  const global_lock_flag = core.getInput('global_lock_flag')
-  const update_branch = core.getInput(
-    'update_branch'
-  ) as ActionInputs['update_branch']
-  const outdated_mode = core.getInput(
-    'outdated_mode'
-  ) as ActionInputs['outdated_mode']
-  const required_contexts = core.getInput('required_contexts')
-  const allowForks = core.getBooleanInput('allow_forks')
-  const skipCi = core.getInput('skip_ci')
-  var checks = core.getInput('checks') as string | string[]
-  const skipReviews = core.getInput('skip_reviews')
-  const mergeDeployMode = core.getBooleanInput('merge_deploy_mode')
-  const unlockOnMergeMode = core.getBooleanInput('unlock_on_merge_mode')
-  const admins = core.getInput('admins')
-  const environment_urls = core.getInput('environment_urls')
-  const param_separator = core.getInput('param_separator')
-  const permissions = stringToArray(core.getInput('permissions'))
-  const sticky_locks = core.getBooleanInput('sticky_locks')
-  const sticky_locks_for_noop = core.getBooleanInput('sticky_locks_for_noop')
-  const allow_sha_deployments = core.getBooleanInput('allow_sha_deployments')
-  const disable_naked_commands = core.getBooleanInput('disable_naked_commands')
+  const environment_targets = getActionInput('environment_targets')
+  const draft_permitted_targets = getActionInput('draft_permitted_targets')
+  const unlock_trigger = getActionInput('unlock_trigger')
+  const help_trigger = getActionInput('help_trigger')
+  const lock_info_alias = getActionInput('lock_info_alias')
+  const global_lock_flag = getActionInput('global_lock_flag')
+  const required_contexts = getActionInput('required_contexts')
+  const allowForks = getBooleanActionInput('allow_forks')
+  const skipCi = getActionInput('skip_ci')
+  const rawChecks = getActionInput('checks')
+  const skipReviews = getActionInput('skip_reviews')
+  const mergeDeployMode = getBooleanActionInput('merge_deploy_mode')
+  const unlockOnMergeMode = getBooleanActionInput('unlock_on_merge_mode')
+  const admins = getActionInput('admins')
+  const environment_urls = getActionInput('environment_urls')
+  const param_separator = getActionInput('param_separator')
+  const permissions = stringToArray(getActionInput('permissions'))
+  const sticky_locks = getBooleanActionInput('sticky_locks')
+  const sticky_locks_for_noop = getBooleanActionInput('sticky_locks_for_noop')
+  const allow_sha_deployments = getBooleanActionInput('allow_sha_deployments')
+  const disable_naked_commands = getBooleanActionInput('disable_naked_commands')
   const enforced_deployment_order = stringToArray(
-    core.getInput('enforced_deployment_order')
+    getActionInput('enforced_deployment_order')
   )
-  const commit_verification = core.getBooleanInput('commit_verification')
-  const ignored_checks = stringToArray(core.getInput('ignored_checks'))
-  const use_security_warnings = core.getBooleanInput('use_security_warnings')
-  const allow_non_default_target_branch_deployments = core.getBooleanInput(
+  const commit_verification = getBooleanActionInput('commit_verification')
+  const ignored_checks = stringToArray(getActionInput('ignored_checks'))
+  const use_security_warnings = getBooleanActionInput('use_security_warnings')
+  const allow_non_default_target_branch_deployments = getBooleanActionInput(
     'allow_non_default_target_branch_deployments'
   )
-  const deployment_confirmation = core.getBooleanInput(
+  const deployment_confirmation = getBooleanActionInput(
     'deployment_confirmation'
   )
   const deployment_confirmation_timeout = getIntInput(
@@ -87,17 +118,22 @@ export function getInputs(): ActionInputs {
   )
 
   // validate inputs
-  validateInput('update_branch', update_branch, ['disabled', 'warn', 'force'])
-  validateInput('outdated_mode', outdated_mode, [
-    'pr_base',
-    'default_branch',
-    'strict'
-  ])
+  const update_branch: UpdateBranchMode = validateInput(
+    'update_branch',
+    getActionInput('update_branch'),
+    UPDATE_BRANCH_VALUES
+  )
+  const outdated_mode: OutdatedMode = validateInput(
+    'outdated_mode',
+    getActionInput('outdated_mode'),
+    OUTDATED_MODE_VALUES
+  )
 
-  if (checks === 'all' || checks === 'required') {
-    validateInput('checks', checks, ['all', 'required'])
+  let checks: ChecksInput
+  if (rawChecks === 'all' || rawChecks === 'required') {
+    checks = validateInput('checks', rawChecks, CHECKS_MODE_VALUES)
   } else {
-    checks = stringToArray(checks as string)
+    checks = stringToArray(rawChecks)
   }
 
   // rollup all the inputs into a single object
@@ -119,7 +155,7 @@ export function getInputs(): ActionInputs {
     required_contexts: required_contexts,
     allowForks: allowForks,
     skipCi: skipCi,
-    checks: checks as ActionInputs['checks'],
+    checks: checks,
     skipReviews: skipReviews,
     draft_permitted_targets,
     admins: admins,

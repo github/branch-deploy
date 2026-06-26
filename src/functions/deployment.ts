@@ -1,11 +1,42 @@
 import * as core from '@actions/core'
 import {API_HEADERS} from './api-headers.ts'
+import {
+  legacyDeploymentStatusId,
+  legacyEnvironmentUrl
+} from '../trust-boundaries.ts'
 import type {
   BranchDeployContext,
   BranchDeployOctokit,
   DeploymentGraphqlResult,
   DeploymentGraphqlNode
 } from '../types.ts'
+
+type CreateDeploymentStatusMethod =
+  BranchDeployOctokit['rest']['repos']['createDeploymentStatus']
+type CreateDeploymentStatusParameters =
+  Parameters<CreateDeploymentStatusMethod>[0]
+type FullDeploymentStatusResponse = Awaited<
+  ReturnType<CreateDeploymentStatusMethod>
+>
+
+export interface DeploymentStatusOctokit {
+  readonly rest: {
+    readonly repos: {
+      readonly createDeploymentStatus: (
+        parameters?: CreateDeploymentStatusParameters
+      ) => Promise<{
+        readonly data: Pick<FullDeploymentStatusResponse['data'], 'id' | 'url'>
+      }>
+    }
+  }
+}
+
+export interface DeploymentGraphqlOctokit {
+  readonly graphql: (
+    query: string,
+    variables: Readonly<Record<string, unknown>>
+  ) => Promise<DeploymentGraphqlResult>
+}
 
 // Helper function to add deployment statuses to a PR / ref
 // :param octokit: The octokit client
@@ -17,7 +48,7 @@ import type {
 // :param environment_url: The environment url of the deployment (default '')
 // :returns: The result of the deployment status creation (Object)
 export async function createDeploymentStatus(
-  octokit: BranchDeployOctokit,
+  octokit: DeploymentStatusOctokit,
   context: BranchDeployContext,
   ref: string,
   state:
@@ -31,7 +62,7 @@ export async function createDeploymentStatus(
   deploymentId: number | string,
   environment: string,
   environment_url: string | null = null
-) {
+): Promise<Pick<FullDeploymentStatusResponse['data'], 'id' | 'url'>> {
   // Get the owner and the repo from the context
   const {owner, repo} = context.repo
 
@@ -39,11 +70,11 @@ export async function createDeploymentStatus(
     owner: owner,
     repo: repo,
     ref: ref,
-    deployment_id: deploymentId as number,
+    deployment_id: legacyDeploymentStatusId(deploymentId),
     state: state,
-    log_url: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${context.runId}`,
+    log_url: `${String(process.env['GITHUB_SERVER_URL'])}/${owner}/${repo}/actions/runs/${context.runId}`,
     environment: environment,
-    environment_url: environment_url as string,
+    environment_url: legacyEnvironmentUrl(environment_url),
     headers: API_HEADERS
   })
 
@@ -60,11 +91,11 @@ export async function createDeploymentStatus(
 // :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
 // :returns: true if the deployment is active for the given environment at the given commit sha, false otherwise
 export async function activeDeployment(
-  octokit: BranchDeployOctokit,
+  octokit: DeploymentGraphqlOctokit,
   context: BranchDeployContext,
   environment: string,
   sha: string
-) {
+): Promise<boolean> {
   const deployment = await latestActiveDeployment(octokit, context, environment)
 
   // If no deployment was found, return false
@@ -103,10 +134,10 @@ export async function activeDeployment(
 //   }
 // ]
 export async function latestActiveDeployment(
-  octokit: BranchDeployOctokit,
+  octokit: DeploymentGraphqlOctokit,
   context: BranchDeployContext,
   environment: string
-) {
+): Promise<DeploymentGraphqlNode | null> {
   const {owner, repo} = context.repo
 
   const variables = {
@@ -116,10 +147,7 @@ export async function latestActiveDeployment(
   }
 
   let queryNumber = 1
-  let data = await octokit.graphql<DeploymentGraphqlResult>(
-    buildQuery(),
-    variables
-  )
+  let data = await octokit.graphql(buildQuery(), variables)
   // nodes may be empty if no matching deployments were found - ex: []
   let nodes = data.repository.deployments.nodes
 
@@ -146,10 +174,7 @@ export async function latestActiveDeployment(
 
   while (hasNextPage) {
     queryNumber++
-    data = await octokit.graphql<DeploymentGraphqlResult>(
-      buildQuery(endCursor),
-      variables
-    )
+    data = await octokit.graphql(buildQuery(endCursor), variables)
 
     nodes = data.repository.deployments.nodes
     activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
@@ -177,11 +202,11 @@ export async function latestActiveDeployment(
   return null
 }
 
-function buildQuery(page: string | null = null) {
+function buildQuery(page: string | null = null): string {
   return `
     query ($repo_owner: String!, $repo_name: String!, $environment: String!) {
       repository(owner: $repo_owner, name: $repo_name) {
-        deployments(environments: [$environment], first: 100, after: ${page}, orderBy: { field: CREATED_AT, direction: DESC }) {
+        deployments(environments: [$environment], first: 100, after: ${String(page)}, orderBy: { field: CREATED_AT, direction: DESC }) {
           nodes {
             createdAt
             environment

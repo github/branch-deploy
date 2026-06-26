@@ -1,11 +1,21 @@
 import * as core from '@actions/core'
 import dedent from 'dedent-js'
 import {API_HEADERS} from './api-headers.ts'
-import type {
-  BranchDeployContext,
-  BranchDeployOctokit,
-  IssueCommentContext
-} from '../types.ts'
+import {issueCommentContext} from '../trust-boundaries.ts'
+import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
+
+export interface DeprecatedChecksOctokit {
+  readonly rest: {
+    readonly issues: Pick<
+      BranchDeployOctokit['rest']['issues'],
+      'createComment'
+    >
+    readonly reactions: Pick<
+      BranchDeployOctokit['rest']['reactions'],
+      'createForIssueComment'
+    >
+  }
+}
 
 // The old and common trigger for noop style deployments
 const oldNoopInput = '.deploy noop'
@@ -20,9 +30,9 @@ const thumbsDown = '-1'
 // :returns: true if the input is deprecated, false otherwise
 export async function isDeprecated(
   body: string,
-  octokit: BranchDeployOctokit,
+  octokit: DeprecatedChecksOctokit,
   context: BranchDeployContext
-) {
+): Promise<boolean> {
   // If the body of the payload starts with the common 'old noop' trigger, warn the user and exit
   if (body.startsWith(oldNoopInput)) {
     core.warning(
@@ -48,7 +58,7 @@ export async function isDeprecated(
     // add a reaction to the issue_comment to indicate failure
     await octokit.rest.reactions.createForIssueComment({
       ...context.repo,
-      comment_id: (context as IssueCommentContext).payload.comment.id,
+      comment_id: issueCommentContext(context).payload.comment.id,
       content: thumbsDown,
       headers: API_HEADERS
     })

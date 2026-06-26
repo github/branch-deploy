@@ -5,7 +5,7 @@ import {COLORS} from './colors.ts'
 // :param body: The content body of the message being checked (String)
 // :param trigger: The "trigger" phrase which is searched for in the body of the message (String)
 // :returns: true if a message activates the trigger, false otherwise
-export async function triggerCheck(body: string, trigger: string) {
+export function triggerCheck(body: string, trigger: string): boolean {
   // If the trigger is not activated, set the output to false and return with false
   if (!body.startsWith(trigger)) {
     core.debug(
@@ -16,7 +16,7 @@ export async function triggerCheck(body: string, trigger: string) {
 
   // Ensure the trigger match is complete: either end-of-string or followed by whitespace
   const nextChar = body[trigger.length]
-  if (nextChar && !/\s/.test(nextChar)) {
+  if (nextChar !== undefined && nextChar !== '' && !/\s/.test(nextChar)) {
     core.debug(
       `comment body starts with trigger but is not complete: ${COLORS.highlight}${trigger}${COLORS.reset}`
     )
