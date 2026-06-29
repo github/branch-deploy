@@ -190,6 +190,10 @@ describe('file commands', () => {
 describe('stdout commands and logging', () => {
   test('preserves output and state fallback bytes and escaping', () => {
     const output = captureStdout()
+    delete process.env['GITHUB_OUTPUT']
+    delete process.env['GITHUB_STATE']
+    core.setOutput('missing-output', 'value')
+    core.saveState('missing-state', 'value')
     vi.stubEnv('GITHUB_OUTPUT', '')
     vi.stubEnv('GITHUB_STATE', '')
 
@@ -197,7 +201,9 @@ describe('stdout commands and logging', () => {
     core.saveState('name:part,rest', 'line%\r\nend')
 
     expect(output.read()).toBe(
-      `${EOL}::set-output name=name%3Apart%2Crest::line%25%0D%0Aend${EOL}` +
+      `${EOL}::set-output name=missing-output::value${EOL}` +
+        `::save-state name=missing-state::value${EOL}` +
+        `${EOL}::set-output name=name%3Apart%2Crest::line%25%0D%0Aend${EOL}` +
         `::save-state name=name%3Apart%2Crest::line%25%0D%0Aend${EOL}`
     )
   })
