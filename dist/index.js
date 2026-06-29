@@ -2644,56 +2644,6 @@ function requestFlush() {
 
 /***/ }),
 
-/***/ 958:
-/***/ ((module) => {
-
-module.exports = function dedent(templateStrings) {
-    var values = [];
-    for (var _i = 1; _i < arguments.length; _i++) {
-        values[_i - 1] = arguments[_i];
-    }
-    var matches = [];
-    var strings = typeof templateStrings === 'string' ? [templateStrings] : templateStrings.slice();
-    // 1. Remove trailing whitespace.
-    strings[strings.length - 1] = strings[strings.length - 1].replace(/\r?\n([\t ]*)$/, '');
-    // 2. Find all line breaks to determine the highest common indentation level.
-    for (var i = 0; i < strings.length; i++) {
-        var match = void 0;
-        if (match = strings[i].match(/\n[\t ]+/g)) {
-            matches.push.apply(matches, match);
-        }
-    }
-    // 3. Remove the common indentation from all strings.
-    if (matches.length) {
-        var size = Math.min.apply(Math, matches.map(function (value) { return value.length - 1; }));
-        var pattern = new RegExp("\n[\t ]{" + size + "}", 'g');
-        for (var i = 0; i < strings.length; i++) {
-            strings[i] = strings[i].replace(pattern, '\n');
-        }
-    }
-    // 4. Remove leading whitespace.
-    strings[0] = strings[0].replace(/^\r?\n/, '');
-    // 5. Perform interpolation.
-    var string = strings[0];
-    for (var i = 0; i < values.length; i++) {
-        string += values[i] + strings[i + 1];
-    }
-    return string;
-};
-//# sourceMappingURL=index.js.map
-
-/***/ }),
-
-/***/ 3016:
-/***/ ((module) => {
-
-var module$1 = /^(?:[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}|[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(_[a-zA-Z0-9]+))$/i;
-
-module.exports = module$1;
-
-
-/***/ }),
-
 /***/ 8115:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -44438,9 +44388,17 @@ function retry(octokit, octokitOptions) {
 retry.VERSION = plugin_retry_dist_bundle_VERSION;
 
 
-// EXTERNAL MODULE: ./node_modules/dedent-js/lib/index.js
-var dedent_js_lib = __nccwpck_require__(958);
-var dedent_js_lib_default = /*#__PURE__*/__nccwpck_require__.n(dedent_js_lib);
+;// CONCATENATED MODULE: ./src/functions/dedent.ts
+function dedent(value) {
+    let result = value.replace(/\r?\n([\t ]*)$/, '');
+    const indentations = result.match(/\n[\t ]+/g);
+    if (indentations !== null) {
+        const size = Math.min(...indentations.map(indentation => indentation.length - 1));
+        result = result.replace(new RegExp(`\\n[\\t ]{${size}}`, 'g'), '\n');
+    }
+    return result.replace(/^\r?\n/, '');
+}
+
 ;// CONCATENATED MODULE: ./src/version.ts
 // The version of the branch-deploy Action
 // Acceptable version formats:
@@ -44842,7 +44800,7 @@ async function nakedCommandCheck(body, param_separator, triggers, octokit, conte
             nakedCommand = true;
             warning(`🩲 naked commands are ${COLORS.warning}not${COLORS.reset} allowed based on your configuration: ${COLORS.highlight}${body}${COLORS.reset}`);
             warning(`📚 view the documentation around ${COLORS.highlight}naked commands${COLORS.reset} to learn more: ${docs}`);
-            const message = dedent_js_lib_default()(`
+            const message = dedent(`
       ### Missing Explicit Environment
 
       #### Suggestion
@@ -46628,7 +46586,7 @@ async function environmentTargets(request) {
             return { environment: environmentDetected, environmentUrl: null };
         }
         // If we get here, then no valid environment target was found
-        const message = dedent_js_lib_default()(`
+        const message = dedent(`
     No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
 
     > The following environment targets are available: \`${environment_targets_joined}\`
@@ -46650,7 +46608,7 @@ async function environmentTargets(request) {
         const environmentDetected = environmentObj.target;
         // If no environment target was found, let the user know via a comment and return false
         if (environmentDetected === false) {
-            const message = dedent_js_lib_default()(`
+            const message = dedent(`
         No matching environment target found. Please check your command and try again. You can read more about environment targets in the README of this Action.
 
         > The following environment targets are available: \`${environment_targets_joined}\`
@@ -46846,7 +46804,7 @@ async function isDeprecated(body, octokit, context) {
     // If the body of the payload starts with the common 'old noop' trigger, warn the user and exit
     if (body.startsWith(oldNoopInput)) {
         warning(`'${oldNoopInput}' is deprecated. Please view the docs for more information: ${docsLink}#deploy-noop`);
-        const message = dedent_js_lib_default()(`
+        const message = dedent(`
       ### Deprecated Input Detected
 
       ⚠️ Command is Deprecated ⚠️
@@ -46903,9 +46861,6 @@ async function validPermissions(octokit, context, validPermissionsArray) {
     return true;
 }
 
-// EXTERNAL MODULE: ./node_modules/github-username-regex-js/index.js
-var github_username_regex_js = __nccwpck_require__(3016);
-var github_username_regex_js_default = /*#__PURE__*/__nccwpck_require__.n(github_username_regex_js);
 ;// CONCATENATED MODULE: ./src/functions/admin.ts
 
 
@@ -46914,7 +46869,7 @@ var github_username_regex_js_default = /*#__PURE__*/__nccwpck_require__.n(github
 
 
 
-
+const GITHUB_USERNAME_REGEX = /^(?:[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}|[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(_[a-zA-Z0-9]+))$/i;
 const defaultAdminOctokitFactory = token => getOctokit(token, { additionalPlugins: [retry] });
 // Helper function to check if a user exists in an org team
 // :param actor: The user to check
@@ -46998,7 +46953,7 @@ async function isAdmin(context, createClient = defaultAdminOctokitFactory) {
         // Otherwise, it is a github handle
         else {
             // Check if the github handle is valid
-            if (github_username_regex_js_default().test(admin)) {
+            if (GITHUB_USERNAME_REGEX.test(admin)) {
                 // Add the handle to the list of handles and remove @ from the start of the handle
                 handles.push(admin.replace('@', ''));
             }
@@ -48176,7 +48131,7 @@ async function createLock(octokit, context, ref, reason, sticky, environment, gl
         else {
             lockMsg = `to the \`${String(environment)}\` environment`;
         }
-        const comment = dedent_js_lib_default()(`
+        const comment = dedent(`
     ### 🔒 Deployment Lock Claimed
 
     ${globalMsg}
@@ -48374,7 +48329,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId, le
             else {
                 lockMsg = `\`${String(lockData.environment)}\` environment`;
             }
-            const youOwnItComment = dedent_js_lib_default()(`
+            const youOwnItComment = dedent(`
         ### 🔒 Deployment Lock Information
 
         __${context.actor}__, you are already the owner of the current ${lockMsg} deployment lock
@@ -48418,7 +48373,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId, le
     let environmentText = '';
     let lockBranchForLink;
     if (legacyStrictTrue(lockData.global)) {
-        lockText = dedent_js_lib_default()(`the \`global\` deployment lock is currently claimed by __${lockData.created_by}__
+        lockText = dedent(`the \`global\` deployment lock is currently claimed by __${lockData.created_by}__
       
       A \`global\` deployment lock prevents all other users from deploying to any environment except for the owner of the lock
       `);
@@ -48430,14 +48385,14 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId, le
         lockBranchForLink = `${String(lockData.environment)}-${LOCK_BRANCH_SUFFIX}`;
     }
     // Construct the comment to add to the issue, alerting that the lock is already claimed
-    const commentHeader = dedent_js_lib_default()(`
+    const commentHeader = dedent(`
   ### ⚠️ Cannot ${header}
 
   Sorry __${context.actor}__, ${lockText}
 
   #### Lock Details 🔒
   `);
-    const commentDetails = dedent_js_lib_default()(`
+    const commentDetails = dedent(`
   ${environmentText}
   - __Branch__: \`${String(lockData.branch)}\`
   - __Created At__: \`${lockData.created_at}\`
@@ -48722,7 +48677,7 @@ async function unlock(request) {
                 setActionOutput('global_lock_released', 'true');
             }
             // Construct the message to add to the issue comment
-            const comment = dedent_js_lib_default()(`
+            const comment = dedent(`
       ### 🔓 Deployment Lock Removed
 
       The ${successText} deployment lock has been successfully removed
@@ -48935,7 +48890,7 @@ function postDeployMessage(context, data) {
         : 'null';
     const paramsJson = vars.params !== null && vars.params !== '' ? `"${vars.params}"` : 'null';
     // this is kinda gross but wrangling dedent() and nunjucks is a pain
-    const deployment_metadata = dedent_js_lib_default()(`
+    const deployment_metadata = dedent(`
     <details><summary>Details</summary>
 
     <!--- post-deploy-metadata-start -->
@@ -49018,7 +48973,7 @@ function postDeployMessage(context, data) {
         const customMessageFmt = deployMessageEnvVar
             .replace(/\\n/g, '\n')
             .replace(/\\t/g, '\t');
-        message_fmt = dedent_js_lib_default()(`
+        message_fmt = dedent(`
     ### Deployment Results ${deployStatus}
 
     ${message}
@@ -49033,7 +48988,7 @@ function postDeployMessage(context, data) {
     `);
     }
     else {
-        message_fmt = dedent_js_lib_default()(`
+        message_fmt = dedent(`
     ### Deployment Results ${deployStatus}
 
     ${message}
@@ -49663,7 +49618,7 @@ async function help(octokit, context, reactionId, inputs) {
         ? inputs.checks.join(',')
         : inputs.checks;
     // Construct the message to add to the issue comment
-    const comment = dedent_js_lib_default()(`
+    const comment = dedent(`
   ## 📚 Branch Deployment Help
 
   This help message was automatically generated based on the inputs provided to this Action.
@@ -50106,7 +50061,7 @@ const deployment_confirmation_thumbsDown = '-1';
 // :returns: true if the deployment has been confirmed by the original actor, false otherwise
 async function deploymentConfirmation(context, octokit, data) {
     const issueComment = issueCommentContext(context);
-    const message = dedent_js_lib_default()(`
+    const message = dedent(`
     ### Deployment Confirmation Required 🚦
 
     In order to proceed with this deployment, __${context.actor}__ must react to this comment with either a 👍 or a 👎.
@@ -50464,12 +50419,12 @@ async function run() {
                         let environmentMsg = `- __Environment__: \`${String(lockData.environment)}\``;
                         let lockBranchName = `${String(constructValidBranchName(lockData.environment))}-${LOCK_METADATA.lockBranchSuffix}`;
                         if (legacyStrictTrue(lockData.global)) {
-                            globalMsg = dedent_js_lib_default()(`
+                            globalMsg = dedent(`
 
               This is a **global** deploy lock - All environments are currently locked
 
               `);
-                            environmentMsg = dedent_js_lib_default()(`
+                            environmentMsg = dedent(`
               - __Environments__: \`all\`
               - __Global__: \`true\`
               `);
@@ -50477,12 +50432,12 @@ async function run() {
                             lockBranchName = LOCK_METADATA.globalLockBranch;
                         }
                         // Format the lock details message
-                        const lockMessageHeader = dedent_js_lib_default()(`
+                        const lockMessageHeader = dedent(`
             ### Lock Details 🔒
 
             The deployment lock is currently claimed by __${lockData.created_by}__${globalMsg}
             `);
-                        const lockMessageDetails = dedent_js_lib_default()(`
+                        const lockMessageDetails = dedent(`
             - __Branch__: \`${String(lockData.branch)}\`
             - __Created At__: \`${lockData.created_at}\`
             - __Created By__: \`${lockData.created_by}\`
@@ -50522,7 +50477,7 @@ async function run() {
                             lockTarget = lockResponse.environment;
                             lockCommand = `${inputs.lock_trigger} ${String(lockTarget)}`;
                         }
-                        const lockMessage = dedent_js_lib_default()(`
+                        const lockMessage = dedent(`
             ### Lock Details 🔒
 
             No active \`${String(lockTarget)}\` deployment locks found for the \`${owner}/${repo}\` repository
@@ -50698,7 +50653,7 @@ async function run() {
                 })
                     .join('\n');
                 // format the error message
-                const enforced_deployment_order_failure_message = dedent_js_lib_default()(`
+                const enforced_deployment_order_failure_message = dedent(`
             ### 🚦 Invalid Deployment Order
 
             The deployment to \`${environment}\` cannot be proceed as the following environments need successful deployments first:
@@ -50806,7 +50761,7 @@ async function run() {
             : 'null';
         const paramsJson = params !== null && params !== '' ? `"${params}"` : 'null';
         const parsedParamsJson = parsed_params !== null ? JSON.stringify(parsed_params) : 'null';
-        const commentBody = dedent_js_lib_default()(`
+        const commentBody = dedent(`
       ### Deployment Triggered 🚀
 
       __${github_context.actor}__, started a __${deploymentType}__ deployment to __${environment}__ (${deploymentType}: \`${precheckResults.ref}\`)
@@ -50938,7 +50893,7 @@ async function run() {
         // If a merge to the base branch is required, let the user know and exit
         if (typeof createDeploy.id === 'undefined' &&
             createDeploy.message.includes('Auto-merged')) {
-            const mergeMessage = dedent_js_lib_default()(`
+            const mergeMessage = dedent(`
         ### ⚠️ Deployment Warning
 
         - Message: ${createDeploy.message}
