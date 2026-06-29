@@ -11,7 +11,7 @@ concurrency: {group: release, queue: max}
 jobs:
   release:
     if: ${{ github.repository == 'GrantBirki/branch-deploy' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       artifact-metadata: write
       attestations: write
