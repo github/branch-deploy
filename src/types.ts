@@ -1,5 +1,4 @@
 import type {getOctokit} from '@actions/github'
-import type {RestEndpointMethodTypes} from '@octokit/rest'
 
 export type BranchDeployOctokit = ReturnType<typeof getOctokit>
 
@@ -191,8 +190,10 @@ export type LockResponse =
       readonly status: null | true
     })
 
-type RestRepositoryCommit =
-  RestEndpointMethodTypes['repos']['getCommit']['response']['data']['commit']
+type GetCommitMethod = BranchDeployOctokit['rest']['repos']['getCommit']
+type RestRepositoryCommit = Awaited<
+  ReturnType<GetCommitMethod>
+>['data']['commit']
 
 export interface RepositoryCommit {
   readonly author?: {
@@ -432,8 +433,12 @@ export interface PostDeployMessageData {
   readonly total_seconds: number
 }
 
-export type BranchRule =
-  RestEndpointMethodTypes['repos']['getBranchRules']['response']['data'][number]
+type GetBranchRulesMethod =
+  BranchDeployOctokit['rest']['repos']['getBranchRules']
+
+export type BranchRule = Awaited<
+  ReturnType<GetBranchRulesMethod>
+>['data'][number]
 
 export type BranchRuleWithParameters = Extract<
   BranchRule,

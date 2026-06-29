@@ -11,7 +11,6 @@
     "lint": "eslint .",
     "package": "ncc build src/main.ts -o dist --source-map --license licenses.txt --target es2022",
     "test": "BRANCH_DEPLOY_VITEST_TEST=true vitest run --coverage",
-    "test:update-badge": "npm run test && mkdir -p badges && make-coverage-badge --output-path ./badges/coverage.svg",
     "ci-test": "npm run test",
     "check": "npm run format-check && npm run typecheck && npm run typecheck:runtime && npm run lint && npm run test",
     "all": "npm run check && npm run package",
@@ -31,28 +30,23 @@
   "author": "Grant Birkinbine",
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^3.0.0",
-    "@actions/github": "^9.0.0",
-    "@octokit/plugin-retry": "^8.0.3",
-    "@octokit/request": "^10.0.8",
-    "@octokit/rest": "^22.0.1",
-    "dedent-js": "^1.0.1",
-    "github-username-regex-js": "^1.0.0",
-    "nunjucks": "^3.2.4",
-    "yargs-parser": "^22.0.0"
+    "@actions/core": "3.0.0",
+    "@actions/github": "9.0.0",
+    "@octokit/plugin-retry": "8.0.3",
+    "nunjucks": "3.2.4",
+    "yargs-parser": "22.0.0"
   },
   "devDependencies": {
     "@eslint/js": "9.39.2",
     "@types/node": "24.3.0",
     "@vercel/ncc": "0.44.0",
-    "@vitest/coverage-v8": "^4.1.0",
-    "eslint": "^9.39.2",
-    "js-yaml": "^4.2.0",
-    "make-coverage-badge": "^1.2.0",
-    "prettier": "^3.8.1",
+    "@vitest/coverage-v8": "4.1.0",
+    "eslint": "9.39.2",
+    "js-yaml": "4.2.0",
+    "prettier": "3.8.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.61.1",
-    "vitest": "^4.0.16"
+    "vitest": "4.1.0"
   },
   "overrides": {
     "flatted": "3.4.2",

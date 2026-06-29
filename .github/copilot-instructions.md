@@ -5,7 +5,7 @@
 Bootstrap the project by running:
 
 ```bash
-npm ci
+npm ci --ignore-scripts --no-audit --no-fund
 ```
 
 Use the exact dependency versions recorded in `package-lock.json`. Do not add or update a dependency without maintainer approval, and pin approved development-tool additions to an exact version.
@@ -22,7 +22,7 @@ This verifies formatting, the full project and runtime-only TypeScript configura
 
 The full-project `tsconfig.json` keeps `skipLibCheck` enabled only because Vitest 4.1's declarations conflict with `exactOptionalPropertyTypes`. `tsconfig.runtime.json` excludes test tooling and restores full declaration checking for all runtime source and local declarations.
 
-`npm run test` must not rewrite tracked files. Use `npm run test:update-badge` only when the coverage badge intentionally needs to be refreshed.
+`npm run test` must not rewrite tracked files. The tracked 100% coverage badge reflects the enforced coverage thresholds and does not need a separate update command.
 
 Unit tests should exist in the `__tests__` directory. They are powered by Vitest.
 

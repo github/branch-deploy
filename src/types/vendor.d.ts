@@ -1,8 +1,3 @@
-declare module 'github-username-regex-js' {
-  const githubUsernameRegex: RegExp
-  export default githubUsernameRegex
-}
-
 declare module 'nunjucks' {
   interface ConfigureOptions {
     autoescape?: boolean

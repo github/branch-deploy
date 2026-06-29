@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import dedent from 'dedent-js'
+import {dedent} from './dedent.ts'
 import {checkLockFile} from './check-lock-file.ts'
 import {actionStatus} from './action-status.ts'
 import {constructValidBranchName} from './valid-branch-name.ts'
