@@ -81,6 +81,35 @@ test('runs isAdmin checks and finds a valid handle that is a GitHub EMU', async 
   )
 })
 
+test.each([
+  {admin: '', valid: false},
+  {admin: 'a', valid: true},
+  {admin: '0', valid: true},
+  {admin: 'a-b', valid: true},
+  {admin: 'a'.repeat(39), valid: true},
+  {admin: 'a'.repeat(40), valid: false},
+  {admin: '-monalisa', valid: false},
+  {admin: 'mona--lisa', valid: false},
+  {admin: 'monalisa-', valid: false},
+  {admin: '@monalisa', valid: false},
+  {admin: 'mona_lisa', valid: true},
+  {admin: 'name-with-hyphens_company', valid: true},
+  {admin: `${'a'.repeat(40)}_company`, valid: true},
+  {admin: 'mona_lisa-smith', valid: false},
+  {admin: 'mona__lisa', valid: false}
+])('preserves legacy username validation for $admin', async ({admin, valid}) => {
+  vi.stubEnv('INPUT_ADMINS', admin)
+  const usernameContext = createContext({actor: admin})
+
+  expect(await isAdmin(usernameContext)).toStrictEqual(valid)
+
+  if (!valid) {
+    expect(debugMock).toHaveBeenCalledWith(
+      `${admin} is not a valid GitHub username... skipping admin check`
+    )
+  }
+})
+
 test('runs isAdmin checks and does not find a valid admin due to a bad GitHub handle', async () => {
   vi.stubEnv('INPUT_ADMINS', 'mona%lisa-')
   const contextNoAdmin = createContext({actor: 'mona%lisa-'})
