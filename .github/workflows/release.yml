@@ -65,11 +65,16 @@ jobs:
             [[ "$tag_info" == "tag commit $GITHUB_SHA" ]] || fail "Existing exact tag $version is not an annotated tag for this commit."
           fi
 
-          previous=$({ git tag --list | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -vxF "$version" | sort -V | tail -n 1; } || true)
-          if [[ -n "$previous" ]]; then
-            newest=$(printf '%s\n%s\n' "$previous" "$version" | sort -V | tail -n 1)
-            [[ "$newest" == "$version" ]] || fail "$version must be newer than the latest stable tag $previous."
+          latest_tag=$({ git tag --list | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -vxF "$version" | sort -V | tail -n 1; } || true)
+          if [[ -n "$latest_tag" ]]; then
+            newest=$(printf '%s\n%s\n' "$latest_tag" "$version" | sort -V | tail -n 1)
+            [[ "$newest" == "$version" ]] || fail "$version must be newer than the latest stable tag $latest_tag."
           fi
+
+          releases=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name')
+          previous=$({ grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' <<< "$releases" | grep -vxF "$version" | sort -V | tail -n 1; } || true)
+          # The first automated release follows the fork's last manual stable tag.
+          previous=${previous:-v11.1.2}
 
           {
             echo "major=$major"
