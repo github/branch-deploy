@@ -1,50 +1,40 @@
 # Maintainer Guide 🧑‍🔬
 
-This document is intended for maintainers of the project. It describes the process of maintaining the project, including how to release new versions.
+This project is distributed as the action metadata plus the committed ES module bundle in `dist/`; it is not released as an npm library.
 
 ## Release Process 🏷️
 
-Here is a very high level flow of how we go from idea to release:
+`src/version.ts` is the release version source. Only stable `vMAJOR.MINOR.PATCH` versions are released.
 
-1. User XYZ wants to add feature ABC to the project
-2. The user likely opens an issue
-3. Either the user or a maintainer creates a pull request with the feature
-4. The pull request is reviewed by a maintainer - CI passing, etc
-5. The pull request is merged
-6. A new tag is pushed to the repository (see section below for more details)
-7. A pre-release is created on GitHub. Maintainers can test this pre-release and so can users.
-8. The pre-release looks good, so the maintainer(s) flip the release to a full release (aka latest)
-9. The [`update-latest-release-tag`](../.github/workflows/update-latest-release-tag.yml) workflow is run to sync major release tags with the latest release tag
+To prepare a release:
 
-### Creating a Release
+1. Update `src/version.ts` to the next stable version.
+2. Install the locked dependencies, run the complete project check, and regenerate the committed action bundle:
 
-> This project uses semantic versioning
+   ```bash
+   npm ci
+   npm run all
+   ```
 
-Creating a release is a rather straight forward process.
+3. Commit the version and `dist/` changes in a pull request.
+4. Merge the reviewed pull request to protected `main` after CI passes.
 
-First, you must edit the [`src/version.ts`](../src/version.ts) file to bump the version number.
+The release workflow then rebuilds the project, verifies the committed bundle, and creates build-provenance attestations for `action.yml` and every file in `dist/`. After those attestations verify, it creates an assetless immutable GitHub Release with generated notes, verifies the release, and moves the matching major tag such as `v11` to the new exact release tag.
 
-Second, install the exact locked dependencies, run the complete project check, regenerate the committed GitHub Action bundle, and commit the resulting version and `dist/` changes:
+Transient failures can be retried from the original workflow run. A matching exact tag or release is reused only when it targets the same source commit. If the workflow itself must change, merge the fix and release the next stable version.
 
-```bash
-npm ci
-npm run all
-```
-
-The project is distributed as the action metadata plus the committed ES module bundle in `dist/`; it is not released as an npm library.
-
-Finally, run the following script to push a new release tag using the version exported by `src/version.ts` as a default:
+Verify an immutable release with:
 
 ```bash
-script/release
+gh release verify v11.1.6 --repo GrantBirki/branch-deploy
 ```
 
-> Pretty much just `script/release` and press `ENTER` for the default
+Verify a downloaded action file with:
 
-Now that the new release is published you can set it as a pre-release to test it out, or set it as the latest release.
+```bash
+gh attestation verify dist/index.js \
+  --repo GrantBirki/branch-deploy \
+  --signer-workflow GrantBirki/branch-deploy/.github/workflows/release.yml
+```
 
-Once a tag is set to the latest release, we need to update the major release tags to point to the latest release tag.
-
-_What does that mean?_... Here is an example! Let's say we just pushed a new release with the tag `v1.2.3` and we want our "major" release tag `v1` to point to this new release. We would run the [`update-latest-release-tag`](../.github/workflows/update-latest-release-tag.yml) workflow to accomplish this. The workflow has a few inputs with descriptions that will help you along with this process.
-
-The reason that we update release tags to point to major releases is for the convenience of users. If a user wants to use the latest version of this Action, all they need to do is simply point to the latest major release tag. If they point at `v1` then they will pick up **all** changes made to `v1.x.x` without having to update their workflows. When/if a `v2` tag rolls out, then they will need to update their workflows (example).
+The direct file attestations provide build provenance, while the immutable release attestation binds the exact annotated tag to its source commit. This single-workflow design is intentionally not described as SLSA Build Level 3 because it does not use an isolated reusable build boundary.
