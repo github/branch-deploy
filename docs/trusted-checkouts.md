@@ -31,7 +31,7 @@ Use trusted checkouts when your branch-deploy workflow does both of these:
 
 Common examples include:
 
-- `script/deploy`, `script/release`, or `script/ci/*` helper scripts
+- `script/deploy` or `script/ci/*` helper scripts
 - custom deployment message templates with `deploy_message_path`
 - scripts that transform Terraform plan/apply output before branch-deploy posts
   the final deployment comment
