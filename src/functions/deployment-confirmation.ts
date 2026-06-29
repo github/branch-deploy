@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {dedent} from './dedent.ts'
 import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'

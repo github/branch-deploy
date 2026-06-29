@@ -1,6 +1,6 @@
 import {constructValidBranchName} from '../../src/functions/valid-branch-name.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 
 const debugMock = vi.spyOn(core, 'debug')
 

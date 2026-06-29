@@ -1,7 +1,7 @@
 import {LOCK_METADATA} from './lock-metadata.ts'
 import {COLORS} from './colors.ts'
 import {constructValidBranchName} from './valid-branch-name.ts'
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {API_HEADERS} from './api-headers.ts'
 import {
   decodedLockData,

@@ -9,7 +9,7 @@ import * as lock from '../../src/functions/lock.ts'
 import * as unlock from '../../src/functions/unlock.ts'
 import * as createDeploymentStatus from '../../src/functions/deployment.ts'
 import * as postDeployMessage from '../../src/functions/post-deploy-message.ts'
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import * as label from '../../src/functions/label.ts'
 import type {
   IssueCommentContext,

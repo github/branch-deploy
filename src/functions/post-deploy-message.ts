@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {checkInput} from './check-input.ts'
 import {dedent} from './dedent.ts'
 import {existsSync} from 'node:fs'

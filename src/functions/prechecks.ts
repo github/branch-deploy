@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {validPermissions} from './valid-permissions.ts'
 import {isAdmin} from './admin.ts'
 import {isOutdated} from './outdated-check.ts'

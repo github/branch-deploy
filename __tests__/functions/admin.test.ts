@@ -5,7 +5,7 @@ import type {
 } from '../../src/functions/admin.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
 import {COLORS} from '../../src/functions/colors.ts'
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import {createContext} from '../test-helpers.ts'
 
 const debugMock = vi.spyOn(core, 'debug')

@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {COLORS} from './colors.ts'
 import {dedent} from './dedent.ts'
 import {LOCK_METADATA} from './lock-metadata.ts'

@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {API_HEADERS} from './api-headers.ts'
 import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
 

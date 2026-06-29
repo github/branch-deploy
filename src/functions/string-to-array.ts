@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 
 // Helper function to convert a String to an Array specifically in Actions
 // :param string: A comma seperated string to convert to an array

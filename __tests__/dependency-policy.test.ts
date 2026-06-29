@@ -2,7 +2,6 @@ import {readFileSync} from 'node:fs'
 import {expect, test} from 'vitest'
 
 const EXPECTED_RUNTIME_DEPENDENCIES = {
-  '@actions/core': '3.0.0',
   '@actions/github': '9.0.0',
   '@octokit/plugin-retry': '8.0.3',
   nunjucks: '3.2.4',

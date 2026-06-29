@@ -37065,2951 +37065,119 @@ __nccwpck_require__.d(__webpack_exports__, {
   e: () => (/* binding */ run)
 });
 
-;// CONCATENATED MODULE: external "os"
-const external_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("os");
-;// CONCATENATED MODULE: ./node_modules/@actions/core/lib/utils.js
-// We use any as a valid input type
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/**
- * Sanitizes an input into a string so it can be passed into issueCommand safely
- * @param input input to sanitize into a string
- */
-function utils_toCommandValue(input) {
+// EXTERNAL MODULE: external "node:crypto"
+var external_node_crypto_ = __nccwpck_require__(7598);
+;// CONCATENATED MODULE: external "node:fs"
+const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs");
+;// CONCATENATED MODULE: external "node:os"
+const external_node_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:os");
+;// CONCATENATED MODULE: ./src/actions-core.ts
+
+
+
+const TRUE_INPUTS = ['true', 'True', 'TRUE'];
+const FALSE_INPUTS = ['false', 'False', 'FALSE'];
+function toCommandValue(input) {
     if (input === null || input === undefined) {
         return '';
     }
-    else if (typeof input === 'string' || input instanceof String) {
-        return input;
+    if (typeof input === 'string' || input instanceof String) {
+        return String(input);
     }
     return JSON.stringify(input);
 }
-/**
- *
- * @param annotationProperties
- * @returns The command properties to send with the actual annotation command
- * See IssueCommandProperties: https://github.com/actions/runner/blob/main/src/Runner.Worker/ActionCommandManager.cs#L646
- */
-function utils_toCommandProperties(annotationProperties) {
-    if (!Object.keys(annotationProperties).length) {
-        return {};
-    }
-    return {
-        title: annotationProperties.title,
-        file: annotationProperties.file,
-        line: annotationProperties.startLine,
-        endLine: annotationProperties.endLine,
-        col: annotationProperties.startColumn,
-        endColumn: annotationProperties.endColumn
-    };
+function escapeData(input) {
+    return toCommandValue(input)
+        .replace(/%/gu, '%25')
+        .replace(/\r/gu, '%0D')
+        .replace(/\n/gu, '%0A');
 }
-//# sourceMappingURL=utils.js.map
-;// CONCATENATED MODULE: ./node_modules/@actions/core/lib/command.js
-
-
-/**
- * Issues a command to the GitHub Actions runner
- *
- * @param command - The command name to issue
- * @param properties - Additional properties for the command (key-value pairs)
- * @param message - The message to include with the command
- * @remarks
- * This function outputs a specially formatted string to stdout that the Actions
- * runner interprets as a command. These commands can control workflow behavior,
- * set outputs, create annotations, mask values, and more.
- *
- * Command Format:
- *   ::name key=value,key=value::message
- *
- * @example
- * ```typescript
- * // Issue a warning annotation
- * issueCommand('warning', {}, 'This is a warning message');
- * // Output: ::warning::This is a warning message
- *
- * // Set an environment variable
- * issueCommand('set-env', { name: 'MY_VAR' }, 'some value');
- * // Output: ::set-env name=MY_VAR::some value
- *
- * // Add a secret mask
- * issueCommand('add-mask', {}, 'secretValue123');
- * // Output: ::add-mask::secretValue123
- * ```
- *
- * @internal
- * This is an internal utility function that powers the public API functions
- * such as setSecret, warning, error, and exportVariable.
- */
-function command_issueCommand(command, properties, message) {
-    const cmd = new Command(command, properties, message);
-    process.stdout.write(cmd.toString() + external_os_namespaceObject.EOL);
+function escapeProperty(input) {
+    return escapeData(input).replace(/:/gu, '%3A').replace(/,/gu, '%2C');
 }
-function command_issue(name, message = '') {
-    command_issueCommand(name, {}, message);
+function issueCommand(command, name, message) {
+    const property = name !== undefined && name !== '' ? ` name=${escapeProperty(name)}` : '';
+    process.stdout.write(`::${command}${property}::${escapeData(message)}${external_node_os_namespaceObject.EOL}`);
 }
-const CMD_STRING = '::';
-class Command {
-    constructor(command, properties, message) {
-        if (!command) {
-            command = 'missing.command';
-        }
-        this.command = command;
-        this.properties = properties;
-        this.message = message;
-    }
-    toString() {
-        let cmdStr = CMD_STRING + this.command;
-        if (this.properties && Object.keys(this.properties).length > 0) {
-            cmdStr += ' ';
-            let first = true;
-            for (const key in this.properties) {
-                if (this.properties.hasOwnProperty(key)) {
-                    const val = this.properties[key];
-                    if (val) {
-                        if (first) {
-                            first = false;
-                        }
-                        else {
-                            cmdStr += ',';
-                        }
-                        cmdStr += `${key}=${escapeProperty(val)}`;
-                    }
-                }
-            }
-        }
-        cmdStr += `${CMD_STRING}${escapeData(this.message)}`;
-        return cmdStr;
-    }
-}
-function escapeData(s) {
-    return utils_toCommandValue(s)
-        .replace(/%/g, '%25')
-        .replace(/\r/g, '%0D')
-        .replace(/\n/g, '%0A');
-}
-function escapeProperty(s) {
-    return utils_toCommandValue(s)
-        .replace(/%/g, '%25')
-        .replace(/\r/g, '%0D')
-        .replace(/\n/g, '%0A')
-        .replace(/:/g, '%3A')
-        .replace(/,/g, '%2C');
-}
-//# sourceMappingURL=command.js.map
-;// CONCATENATED MODULE: external "crypto"
-const external_crypto_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("crypto");
-// EXTERNAL MODULE: external "fs"
-var external_fs_ = __nccwpck_require__(9896);
-;// CONCATENATED MODULE: ./node_modules/@actions/core/lib/file-command.js
-// For internal use, subject to change.
-// We use any as a valid input type
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-
-
-
-function file_command_issueFileCommand(command, message) {
-    const filePath = process.env[`GITHUB_${command}`];
-    if (!filePath) {
-        throw new Error(`Unable to find environment variable for file command ${command}`);
-    }
-    if (!external_fs_.existsSync(filePath)) {
-        throw new Error(`Missing file at path: ${filePath}`);
-    }
-    external_fs_.appendFileSync(filePath, `${utils_toCommandValue(message)}${external_os_namespaceObject.EOL}`, {
-        encoding: 'utf8'
-    });
-}
-function file_command_prepareKeyValueMessage(key, value) {
-    const delimiter = `ghadelimiter_${external_crypto_namespaceObject.randomUUID()}`;
-    const convertedValue = utils_toCommandValue(value);
-    // These should realistically never happen, but just in case someone finds a
-    // way to exploit uuid generation let's not allow keys or values that contain
-    // the delimiter.
+function prepareKeyValueMessage(key, value) {
+    const delimiter = `ghadelimiter_${(0,external_node_crypto_.randomUUID)()}`;
+    const convertedValue = toCommandValue(value);
     if (key.includes(delimiter)) {
         throw new Error(`Unexpected input: name should not contain the delimiter "${delimiter}"`);
+    }
+    if (convertedValue === undefined) {
+        throw new TypeError("Cannot read properties of undefined (reading 'includes')");
     }
     if (convertedValue.includes(delimiter)) {
         throw new Error(`Unexpected input: value should not contain the delimiter "${delimiter}"`);
     }
-    return `${key}<<${delimiter}${external_os_namespaceObject.EOL}${convertedValue}${external_os_namespaceObject.EOL}${delimiter}`;
+    return `${key}<<${delimiter}${external_node_os_namespaceObject.EOL}${convertedValue}${external_node_os_namespaceObject.EOL}${delimiter}`;
 }
-//# sourceMappingURL=file-command.js.map
-// EXTERNAL MODULE: external "path"
-var external_path_ = __nccwpck_require__(6928);
-// EXTERNAL MODULE: external "http"
-var external_http_ = __nccwpck_require__(8611);
-// EXTERNAL MODULE: external "https"
-var external_https_ = __nccwpck_require__(5692);
-;// CONCATENATED MODULE: ./node_modules/@actions/http-client/lib/proxy.js
-function getProxyUrl(reqUrl) {
-    const usingSsl = reqUrl.protocol === 'https:';
-    if (checkBypass(reqUrl)) {
-        return undefined;
+function issueFileCommand(filePath, message) {
+    if (!(0,external_node_fs_namespaceObject.existsSync)(filePath)) {
+        throw new Error(`Missing file at path: ${filePath}`);
     }
-    const proxyVar = (() => {
-        if (usingSsl) {
-            return process.env['https_proxy'] || process.env['HTTPS_PROXY'];
-        }
-        else {
-            return process.env['http_proxy'] || process.env['HTTP_PROXY'];
-        }
-    })();
-    if (proxyVar) {
-        try {
-            return new DecodedURL(proxyVar);
-        }
-        catch (_a) {
-            if (!proxyVar.startsWith('http://') && !proxyVar.startsWith('https://'))
-                return new DecodedURL(`http://${proxyVar}`);
-        }
-    }
-    else {
-        return undefined;
-    }
+    (0,external_node_fs_namespaceObject.appendFileSync)(filePath, `${message}${external_node_os_namespaceObject.EOL}`, { encoding: 'utf8' });
 }
-function checkBypass(reqUrl) {
-    if (!reqUrl.hostname) {
-        return false;
-    }
-    const reqHost = reqUrl.hostname;
-    if (isLoopbackAddress(reqHost)) {
-        return true;
-    }
-    const noProxy = process.env['no_proxy'] || process.env['NO_PROXY'] || '';
-    if (!noProxy) {
-        return false;
-    }
-    // Determine the request port
-    let reqPort;
-    if (reqUrl.port) {
-        reqPort = Number(reqUrl.port);
-    }
-    else if (reqUrl.protocol === 'http:') {
-        reqPort = 80;
-    }
-    else if (reqUrl.protocol === 'https:') {
-        reqPort = 443;
-    }
-    // Format the request hostname and hostname with port
-    const upperReqHosts = [reqUrl.hostname.toUpperCase()];
-    if (typeof reqPort === 'number') {
-        upperReqHosts.push(`${upperReqHosts[0]}:${reqPort}`);
-    }
-    // Compare request host against noproxy
-    for (const upperNoProxyItem of noProxy
-        .split(',')
-        .map(x => x.trim().toUpperCase())
-        .filter(x => x)) {
-        if (upperNoProxyItem === '*' ||
-            upperReqHosts.some(x => x === upperNoProxyItem ||
-                x.endsWith(`.${upperNoProxyItem}`) ||
-                (upperNoProxyItem.startsWith('.') &&
-                    x.endsWith(`${upperNoProxyItem}`)))) {
-            return true;
-        }
-    }
-    return false;
-}
-function isLoopbackAddress(host) {
-    const hostLower = host.toLowerCase();
-    return (hostLower === 'localhost' ||
-        hostLower.startsWith('127.') ||
-        hostLower.startsWith('[::1]') ||
-        hostLower.startsWith('[0:0:0:0:0:0:0:1]'));
-}
-class DecodedURL extends URL {
-    constructor(url, base) {
-        super(url, base);
-        this._decodedUsername = decodeURIComponent(super.username);
-        this._decodedPassword = decodeURIComponent(super.password);
-    }
-    get username() {
-        return this._decodedUsername;
-    }
-    get password() {
-        return this._decodedPassword;
-    }
-}
-//# sourceMappingURL=proxy.js.map
-// EXTERNAL MODULE: ./node_modules/tunnel/index.js
-var node_modules_tunnel = __nccwpck_require__(770);
-// EXTERNAL MODULE: ./node_modules/undici/index.js
-var undici = __nccwpck_require__(6752);
-;// CONCATENATED MODULE: ./node_modules/@actions/http-client/lib/index.js
-/* eslint-disable @typescript-eslint/no-explicit-any */
-var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-
-
-
-
-
-var HttpCodes;
-(function (HttpCodes) {
-    HttpCodes[HttpCodes["OK"] = 200] = "OK";
-    HttpCodes[HttpCodes["MultipleChoices"] = 300] = "MultipleChoices";
-    HttpCodes[HttpCodes["MovedPermanently"] = 301] = "MovedPermanently";
-    HttpCodes[HttpCodes["ResourceMoved"] = 302] = "ResourceMoved";
-    HttpCodes[HttpCodes["SeeOther"] = 303] = "SeeOther";
-    HttpCodes[HttpCodes["NotModified"] = 304] = "NotModified";
-    HttpCodes[HttpCodes["UseProxy"] = 305] = "UseProxy";
-    HttpCodes[HttpCodes["SwitchProxy"] = 306] = "SwitchProxy";
-    HttpCodes[HttpCodes["TemporaryRedirect"] = 307] = "TemporaryRedirect";
-    HttpCodes[HttpCodes["PermanentRedirect"] = 308] = "PermanentRedirect";
-    HttpCodes[HttpCodes["BadRequest"] = 400] = "BadRequest";
-    HttpCodes[HttpCodes["Unauthorized"] = 401] = "Unauthorized";
-    HttpCodes[HttpCodes["PaymentRequired"] = 402] = "PaymentRequired";
-    HttpCodes[HttpCodes["Forbidden"] = 403] = "Forbidden";
-    HttpCodes[HttpCodes["NotFound"] = 404] = "NotFound";
-    HttpCodes[HttpCodes["MethodNotAllowed"] = 405] = "MethodNotAllowed";
-    HttpCodes[HttpCodes["NotAcceptable"] = 406] = "NotAcceptable";
-    HttpCodes[HttpCodes["ProxyAuthenticationRequired"] = 407] = "ProxyAuthenticationRequired";
-    HttpCodes[HttpCodes["RequestTimeout"] = 408] = "RequestTimeout";
-    HttpCodes[HttpCodes["Conflict"] = 409] = "Conflict";
-    HttpCodes[HttpCodes["Gone"] = 410] = "Gone";
-    HttpCodes[HttpCodes["TooManyRequests"] = 429] = "TooManyRequests";
-    HttpCodes[HttpCodes["InternalServerError"] = 500] = "InternalServerError";
-    HttpCodes[HttpCodes["NotImplemented"] = 501] = "NotImplemented";
-    HttpCodes[HttpCodes["BadGateway"] = 502] = "BadGateway";
-    HttpCodes[HttpCodes["ServiceUnavailable"] = 503] = "ServiceUnavailable";
-    HttpCodes[HttpCodes["GatewayTimeout"] = 504] = "GatewayTimeout";
-})(HttpCodes || (HttpCodes = {}));
-var Headers;
-(function (Headers) {
-    Headers["Accept"] = "accept";
-    Headers["ContentType"] = "content-type";
-})(Headers || (Headers = {}));
-var MediaTypes;
-(function (MediaTypes) {
-    MediaTypes["ApplicationJson"] = "application/json";
-})(MediaTypes || (MediaTypes = {}));
-/**
- * Returns the proxy URL, depending upon the supplied url and proxy environment variables.
- * @param serverUrl  The server URL where the request will be sent. For example, https://api.github.com
- */
-function lib_getProxyUrl(serverUrl) {
-    const proxyUrl = pm.getProxyUrl(new URL(serverUrl));
-    return proxyUrl ? proxyUrl.href : '';
-}
-const HttpRedirectCodes = [
-    HttpCodes.MovedPermanently,
-    HttpCodes.ResourceMoved,
-    HttpCodes.SeeOther,
-    HttpCodes.TemporaryRedirect,
-    HttpCodes.PermanentRedirect
-];
-const HttpResponseRetryCodes = [
-    HttpCodes.BadGateway,
-    HttpCodes.ServiceUnavailable,
-    HttpCodes.GatewayTimeout
-];
-const RetryableHttpVerbs = (/* unused pure expression or super */ null && (['OPTIONS', 'GET', 'DELETE', 'HEAD']));
-const ExponentialBackoffCeiling = 10;
-const ExponentialBackoffTimeSlice = 5;
-class HttpClientError extends Error {
-    constructor(message, statusCode) {
-        super(message);
-        this.name = 'HttpClientError';
-        this.statusCode = statusCode;
-        Object.setPrototypeOf(this, HttpClientError.prototype);
-    }
-}
-class HttpClientResponse {
-    constructor(message) {
-        this.message = message;
-    }
-    readBody() {
-        return __awaiter(this, void 0, void 0, function* () {
-            return new Promise((resolve) => __awaiter(this, void 0, void 0, function* () {
-                let output = Buffer.alloc(0);
-                this.message.on('data', (chunk) => {
-                    output = Buffer.concat([output, chunk]);
-                });
-                this.message.on('end', () => {
-                    resolve(output.toString());
-                });
-            }));
-        });
-    }
-    readBodyBuffer() {
-        return __awaiter(this, void 0, void 0, function* () {
-            return new Promise((resolve) => __awaiter(this, void 0, void 0, function* () {
-                const chunks = [];
-                this.message.on('data', (chunk) => {
-                    chunks.push(chunk);
-                });
-                this.message.on('end', () => {
-                    resolve(Buffer.concat(chunks));
-                });
-            }));
-        });
-    }
-}
-function isHttps(requestUrl) {
-    const parsedUrl = new URL(requestUrl);
-    return parsedUrl.protocol === 'https:';
-}
-class lib_HttpClient {
-    constructor(userAgent, handlers, requestOptions) {
-        this._ignoreSslError = false;
-        this._allowRedirects = true;
-        this._allowRedirectDowngrade = false;
-        this._maxRedirects = 50;
-        this._allowRetries = false;
-        this._maxRetries = 1;
-        this._keepAlive = false;
-        this._disposed = false;
-        this.userAgent = this._getUserAgentWithOrchestrationId(userAgent);
-        this.handlers = handlers || [];
-        this.requestOptions = requestOptions;
-        if (requestOptions) {
-            if (requestOptions.ignoreSslError != null) {
-                this._ignoreSslError = requestOptions.ignoreSslError;
-            }
-            this._socketTimeout = requestOptions.socketTimeout;
-            if (requestOptions.allowRedirects != null) {
-                this._allowRedirects = requestOptions.allowRedirects;
-            }
-            if (requestOptions.allowRedirectDowngrade != null) {
-                this._allowRedirectDowngrade = requestOptions.allowRedirectDowngrade;
-            }
-            if (requestOptions.maxRedirects != null) {
-                this._maxRedirects = Math.max(requestOptions.maxRedirects, 0);
-            }
-            if (requestOptions.keepAlive != null) {
-                this._keepAlive = requestOptions.keepAlive;
-            }
-            if (requestOptions.allowRetries != null) {
-                this._allowRetries = requestOptions.allowRetries;
-            }
-            if (requestOptions.maxRetries != null) {
-                this._maxRetries = requestOptions.maxRetries;
-            }
-        }
-    }
-    options(requestUrl, additionalHeaders) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.request('OPTIONS', requestUrl, null, additionalHeaders || {});
-        });
-    }
-    get(requestUrl, additionalHeaders) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.request('GET', requestUrl, null, additionalHeaders || {});
-        });
-    }
-    del(requestUrl, additionalHeaders) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.request('DELETE', requestUrl, null, additionalHeaders || {});
-        });
-    }
-    post(requestUrl, data, additionalHeaders) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.request('POST', requestUrl, data, additionalHeaders || {});
-        });
-    }
-    patch(requestUrl, data, additionalHeaders) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.request('PATCH', requestUrl, data, additionalHeaders || {});
-        });
-    }
-    put(requestUrl, data, additionalHeaders) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.request('PUT', requestUrl, data, additionalHeaders || {});
-        });
-    }
-    head(requestUrl, additionalHeaders) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.request('HEAD', requestUrl, null, additionalHeaders || {});
-        });
-    }
-    sendStream(verb, requestUrl, stream, additionalHeaders) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.request(verb, requestUrl, stream, additionalHeaders);
-        });
-    }
-    /**
-     * Gets a typed object from an endpoint
-     * Be aware that not found returns a null.  Other errors (4xx, 5xx) reject the promise
-     */
-    getJson(requestUrl_1) {
-        return __awaiter(this, arguments, void 0, function* (requestUrl, additionalHeaders = {}) {
-            additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
-            const res = yield this.get(requestUrl, additionalHeaders);
-            return this._processResponse(res, this.requestOptions);
-        });
-    }
-    postJson(requestUrl_1, obj_1) {
-        return __awaiter(this, arguments, void 0, function* (requestUrl, obj, additionalHeaders = {}) {
-            const data = JSON.stringify(obj, null, 2);
-            additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
-            additionalHeaders[Headers.ContentType] =
-                this._getExistingOrDefaultContentTypeHeader(additionalHeaders, MediaTypes.ApplicationJson);
-            const res = yield this.post(requestUrl, data, additionalHeaders);
-            return this._processResponse(res, this.requestOptions);
-        });
-    }
-    putJson(requestUrl_1, obj_1) {
-        return __awaiter(this, arguments, void 0, function* (requestUrl, obj, additionalHeaders = {}) {
-            const data = JSON.stringify(obj, null, 2);
-            additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
-            additionalHeaders[Headers.ContentType] =
-                this._getExistingOrDefaultContentTypeHeader(additionalHeaders, MediaTypes.ApplicationJson);
-            const res = yield this.put(requestUrl, data, additionalHeaders);
-            return this._processResponse(res, this.requestOptions);
-        });
-    }
-    patchJson(requestUrl_1, obj_1) {
-        return __awaiter(this, arguments, void 0, function* (requestUrl, obj, additionalHeaders = {}) {
-            const data = JSON.stringify(obj, null, 2);
-            additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
-            additionalHeaders[Headers.ContentType] =
-                this._getExistingOrDefaultContentTypeHeader(additionalHeaders, MediaTypes.ApplicationJson);
-            const res = yield this.patch(requestUrl, data, additionalHeaders);
-            return this._processResponse(res, this.requestOptions);
-        });
-    }
-    /**
-     * Makes a raw http request.
-     * All other methods such as get, post, patch, and request ultimately call this.
-     * Prefer get, del, post and patch
-     */
-    request(verb, requestUrl, data, headers) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (this._disposed) {
-                throw new Error('Client has already been disposed.');
-            }
-            const parsedUrl = new URL(requestUrl);
-            let info = this._prepareRequest(verb, parsedUrl, headers);
-            // Only perform retries on reads since writes may not be idempotent.
-            const maxTries = this._allowRetries && RetryableHttpVerbs.includes(verb)
-                ? this._maxRetries + 1
-                : 1;
-            let numTries = 0;
-            let response;
-            do {
-                response = yield this.requestRaw(info, data);
-                // Check if it's an authentication challenge
-                if (response &&
-                    response.message &&
-                    response.message.statusCode === HttpCodes.Unauthorized) {
-                    let authenticationHandler;
-                    for (const handler of this.handlers) {
-                        if (handler.canHandleAuthentication(response)) {
-                            authenticationHandler = handler;
-                            break;
-                        }
-                    }
-                    if (authenticationHandler) {
-                        return authenticationHandler.handleAuthentication(this, info, data);
-                    }
-                    else {
-                        // We have received an unauthorized response but have no handlers to handle it.
-                        // Let the response return to the caller.
-                        return response;
-                    }
-                }
-                let redirectsRemaining = this._maxRedirects;
-                while (response.message.statusCode &&
-                    HttpRedirectCodes.includes(response.message.statusCode) &&
-                    this._allowRedirects &&
-                    redirectsRemaining > 0) {
-                    const redirectUrl = response.message.headers['location'];
-                    if (!redirectUrl) {
-                        // if there's no location to redirect to, we won't
-                        break;
-                    }
-                    const parsedRedirectUrl = new URL(redirectUrl);
-                    if (parsedUrl.protocol === 'https:' &&
-                        parsedUrl.protocol !== parsedRedirectUrl.protocol &&
-                        !this._allowRedirectDowngrade) {
-                        throw new Error('Redirect from HTTPS to HTTP protocol. This downgrade is not allowed for security reasons. If you want to allow this behavior, set the allowRedirectDowngrade option to true.');
-                    }
-                    // we need to finish reading the response before reassigning response
-                    // which will leak the open socket.
-                    yield response.readBody();
-                    // strip authorization header if redirected to a different hostname
-                    if (parsedRedirectUrl.hostname !== parsedUrl.hostname) {
-                        for (const header in headers) {
-                            // header names are case insensitive
-                            if (header.toLowerCase() === 'authorization') {
-                                delete headers[header];
-                            }
-                        }
-                    }
-                    // let's make the request with the new redirectUrl
-                    info = this._prepareRequest(verb, parsedRedirectUrl, headers);
-                    response = yield this.requestRaw(info, data);
-                    redirectsRemaining--;
-                }
-                if (!response.message.statusCode ||
-                    !HttpResponseRetryCodes.includes(response.message.statusCode)) {
-                    // If not a retry code, return immediately instead of retrying
-                    return response;
-                }
-                numTries += 1;
-                if (numTries < maxTries) {
-                    yield response.readBody();
-                    yield this._performExponentialBackoff(numTries);
-                }
-            } while (numTries < maxTries);
-            return response;
-        });
-    }
-    /**
-     * Needs to be called if keepAlive is set to true in request options.
-     */
-    dispose() {
-        if (this._agent) {
-            this._agent.destroy();
-        }
-        this._disposed = true;
-    }
-    /**
-     * Raw request.
-     * @param info
-     * @param data
-     */
-    requestRaw(info, data) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return new Promise((resolve, reject) => {
-                function callbackForResult(err, res) {
-                    if (err) {
-                        reject(err);
-                    }
-                    else if (!res) {
-                        // If `err` is not passed, then `res` must be passed.
-                        reject(new Error('Unknown error'));
-                    }
-                    else {
-                        resolve(res);
-                    }
-                }
-                this.requestRawWithCallback(info, data, callbackForResult);
-            });
-        });
-    }
-    /**
-     * Raw request with callback.
-     * @param info
-     * @param data
-     * @param onResult
-     */
-    requestRawWithCallback(info, data, onResult) {
-        if (typeof data === 'string') {
-            if (!info.options.headers) {
-                info.options.headers = {};
-            }
-            info.options.headers['Content-Length'] = Buffer.byteLength(data, 'utf8');
-        }
-        let callbackCalled = false;
-        function handleResult(err, res) {
-            if (!callbackCalled) {
-                callbackCalled = true;
-                onResult(err, res);
-            }
-        }
-        const req = info.httpModule.request(info.options, (msg) => {
-            const res = new HttpClientResponse(msg);
-            handleResult(undefined, res);
-        });
-        let socket;
-        req.on('socket', sock => {
-            socket = sock;
-        });
-        // If we ever get disconnected, we want the socket to timeout eventually
-        req.setTimeout(this._socketTimeout || 3 * 60000, () => {
-            if (socket) {
-                socket.end();
-            }
-            handleResult(new Error(`Request timeout: ${info.options.path}`));
-        });
-        req.on('error', function (err) {
-            // err has statusCode property
-            // res should have headers
-            handleResult(err);
-        });
-        if (data && typeof data === 'string') {
-            req.write(data, 'utf8');
-        }
-        if (data && typeof data !== 'string') {
-            data.on('close', function () {
-                req.end();
-            });
-            data.pipe(req);
-        }
-        else {
-            req.end();
-        }
-    }
-    /**
-     * Gets an http agent. This function is useful when you need an http agent that handles
-     * routing through a proxy server - depending upon the url and proxy environment variables.
-     * @param serverUrl  The server URL where the request will be sent. For example, https://api.github.com
-     */
-    getAgent(serverUrl) {
-        const parsedUrl = new URL(serverUrl);
-        return this._getAgent(parsedUrl);
-    }
-    getAgentDispatcher(serverUrl) {
-        const parsedUrl = new URL(serverUrl);
-        const proxyUrl = pm.getProxyUrl(parsedUrl);
-        const useProxy = proxyUrl && proxyUrl.hostname;
-        if (!useProxy) {
-            return;
-        }
-        return this._getProxyAgentDispatcher(parsedUrl, proxyUrl);
-    }
-    _prepareRequest(method, requestUrl, headers) {
-        const info = {};
-        info.parsedUrl = requestUrl;
-        const usingSsl = info.parsedUrl.protocol === 'https:';
-        info.httpModule = usingSsl ? https : http;
-        const defaultPort = usingSsl ? 443 : 80;
-        info.options = {};
-        info.options.host = info.parsedUrl.hostname;
-        info.options.port = info.parsedUrl.port
-            ? parseInt(info.parsedUrl.port)
-            : defaultPort;
-        info.options.path =
-            (info.parsedUrl.pathname || '') + (info.parsedUrl.search || '');
-        info.options.method = method;
-        info.options.headers = this._mergeHeaders(headers);
-        if (this.userAgent != null) {
-            info.options.headers['user-agent'] = this.userAgent;
-        }
-        info.options.agent = this._getAgent(info.parsedUrl);
-        // gives handlers an opportunity to participate
-        if (this.handlers) {
-            for (const handler of this.handlers) {
-                handler.prepareRequest(info.options);
-            }
-        }
-        return info;
-    }
-    _mergeHeaders(headers) {
-        if (this.requestOptions && this.requestOptions.headers) {
-            return Object.assign({}, lowercaseKeys(this.requestOptions.headers), lowercaseKeys(headers || {}));
-        }
-        return lowercaseKeys(headers || {});
-    }
-    /**
-     * Gets an existing header value or returns a default.
-     * Handles converting number header values to strings since HTTP headers must be strings.
-     * Note: This returns string | string[] since some headers can have multiple values.
-     * For headers that must always be a single string (like Content-Type), use the
-     * specialized _getExistingOrDefaultContentTypeHeader method instead.
-     */
-    _getExistingOrDefaultHeader(additionalHeaders, header, _default) {
-        let clientHeader;
-        if (this.requestOptions && this.requestOptions.headers) {
-            const headerValue = lowercaseKeys(this.requestOptions.headers)[header];
-            if (headerValue) {
-                clientHeader =
-                    typeof headerValue === 'number' ? headerValue.toString() : headerValue;
-            }
-        }
-        const additionalValue = additionalHeaders[header];
-        if (additionalValue !== undefined) {
-            return typeof additionalValue === 'number'
-                ? additionalValue.toString()
-                : additionalValue;
-        }
-        if (clientHeader !== undefined) {
-            return clientHeader;
-        }
-        return _default;
-    }
-    /**
-     * Specialized version of _getExistingOrDefaultHeader for Content-Type header.
-     * Always returns a single string (not an array) since Content-Type should be a single value.
-     * Converts arrays to comma-separated strings and numbers to strings to ensure type safety.
-     * This was split from _getExistingOrDefaultHeader to provide stricter typing for callers
-     * that assign the result to places expecting a string (e.g., additionalHeaders[Headers.ContentType]).
-     */
-    _getExistingOrDefaultContentTypeHeader(additionalHeaders, _default) {
-        let clientHeader;
-        if (this.requestOptions && this.requestOptions.headers) {
-            const headerValue = lowercaseKeys(this.requestOptions.headers)[Headers.ContentType];
-            if (headerValue) {
-                if (typeof headerValue === 'number') {
-                    clientHeader = String(headerValue);
-                }
-                else if (Array.isArray(headerValue)) {
-                    clientHeader = headerValue.join(', ');
-                }
-                else {
-                    clientHeader = headerValue;
-                }
-            }
-        }
-        const additionalValue = additionalHeaders[Headers.ContentType];
-        // Return the first non-undefined value, converting numbers or arrays to strings if necessary
-        if (additionalValue !== undefined) {
-            if (typeof additionalValue === 'number') {
-                return String(additionalValue);
-            }
-            else if (Array.isArray(additionalValue)) {
-                return additionalValue.join(', ');
-            }
-            else {
-                return additionalValue;
-            }
-        }
-        if (clientHeader !== undefined) {
-            return clientHeader;
-        }
-        return _default;
-    }
-    _getAgent(parsedUrl) {
-        let agent;
-        const proxyUrl = pm.getProxyUrl(parsedUrl);
-        const useProxy = proxyUrl && proxyUrl.hostname;
-        if (this._keepAlive && useProxy) {
-            agent = this._proxyAgent;
-        }
-        if (!useProxy) {
-            agent = this._agent;
-        }
-        // if agent is already assigned use that agent.
-        if (agent) {
-            return agent;
-        }
-        const usingSsl = parsedUrl.protocol === 'https:';
-        let maxSockets = 100;
-        if (this.requestOptions) {
-            maxSockets = this.requestOptions.maxSockets || http.globalAgent.maxSockets;
-        }
-        // This is `useProxy` again, but we need to check `proxyURl` directly for TypeScripts's flow analysis.
-        if (proxyUrl && proxyUrl.hostname) {
-            const agentOptions = {
-                maxSockets,
-                keepAlive: this._keepAlive,
-                proxy: Object.assign(Object.assign({}, ((proxyUrl.username || proxyUrl.password) && {
-                    proxyAuth: `${proxyUrl.username}:${proxyUrl.password}`
-                })), { host: proxyUrl.hostname, port: proxyUrl.port })
-            };
-            let tunnelAgent;
-            const overHttps = proxyUrl.protocol === 'https:';
-            if (usingSsl) {
-                tunnelAgent = overHttps ? tunnel.httpsOverHttps : tunnel.httpsOverHttp;
-            }
-            else {
-                tunnelAgent = overHttps ? tunnel.httpOverHttps : tunnel.httpOverHttp;
-            }
-            agent = tunnelAgent(agentOptions);
-            this._proxyAgent = agent;
-        }
-        // if tunneling agent isn't assigned create a new agent
-        if (!agent) {
-            const options = { keepAlive: this._keepAlive, maxSockets };
-            agent = usingSsl ? new https.Agent(options) : new http.Agent(options);
-            this._agent = agent;
-        }
-        if (usingSsl && this._ignoreSslError) {
-            // we don't want to set NODE_TLS_REJECT_UNAUTHORIZED=0 since that will affect request for entire process
-            // http.RequestOptions doesn't expose a way to modify RequestOptions.agent.options
-            // we have to cast it to any and change it directly
-            agent.options = Object.assign(agent.options || {}, {
-                rejectUnauthorized: false
-            });
-        }
-        return agent;
-    }
-    _getProxyAgentDispatcher(parsedUrl, proxyUrl) {
-        let proxyAgent;
-        if (this._keepAlive) {
-            proxyAgent = this._proxyAgentDispatcher;
-        }
-        // if agent is already assigned use that agent.
-        if (proxyAgent) {
-            return proxyAgent;
-        }
-        const usingSsl = parsedUrl.protocol === 'https:';
-        proxyAgent = new ProxyAgent(Object.assign({ uri: proxyUrl.href, pipelining: !this._keepAlive ? 0 : 1 }, ((proxyUrl.username || proxyUrl.password) && {
-            token: `Basic ${Buffer.from(`${proxyUrl.username}:${proxyUrl.password}`).toString('base64')}`
-        })));
-        this._proxyAgentDispatcher = proxyAgent;
-        if (usingSsl && this._ignoreSslError) {
-            // we don't want to set NODE_TLS_REJECT_UNAUTHORIZED=0 since that will affect request for entire process
-            // http.RequestOptions doesn't expose a way to modify RequestOptions.agent.options
-            // we have to cast it to any and change it directly
-            proxyAgent.options = Object.assign(proxyAgent.options.requestTls || {}, {
-                rejectUnauthorized: false
-            });
-        }
-        return proxyAgent;
-    }
-    _getUserAgentWithOrchestrationId(userAgent) {
-        const baseUserAgent = userAgent || 'actions/http-client';
-        const orchId = process.env['ACTIONS_ORCHESTRATION_ID'];
-        if (orchId) {
-            // Sanitize the orchestration ID to ensure it contains only valid characters
-            // Valid characters: 0-9, a-z, _, -, .
-            const sanitizedId = orchId.replace(/[^a-z0-9_.-]/gi, '_');
-            return `${baseUserAgent} actions_orchestration_id/${sanitizedId}`;
-        }
-        return baseUserAgent;
-    }
-    _performExponentialBackoff(retryNumber) {
-        return __awaiter(this, void 0, void 0, function* () {
-            retryNumber = Math.min(ExponentialBackoffCeiling, retryNumber);
-            const ms = ExponentialBackoffTimeSlice * Math.pow(2, retryNumber);
-            return new Promise(resolve => setTimeout(() => resolve(), ms));
-        });
-    }
-    _processResponse(res, options) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
-                const statusCode = res.message.statusCode || 0;
-                const response = {
-                    statusCode,
-                    result: null,
-                    headers: {}
-                };
-                // not found leads to null obj returned
-                if (statusCode === HttpCodes.NotFound) {
-                    resolve(response);
-                }
-                // get the result from the body
-                function dateTimeDeserializer(key, value) {
-                    if (typeof value === 'string') {
-                        const a = new Date(value);
-                        if (!isNaN(a.valueOf())) {
-                            return a;
-                        }
-                    }
-                    return value;
-                }
-                let obj;
-                let contents;
-                try {
-                    contents = yield res.readBody();
-                    if (contents && contents.length > 0) {
-                        if (options && options.deserializeDates) {
-                            obj = JSON.parse(contents, dateTimeDeserializer);
-                        }
-                        else {
-                            obj = JSON.parse(contents);
-                        }
-                        response.result = obj;
-                    }
-                    response.headers = res.message.headers;
-                }
-                catch (err) {
-                    // Invalid resource (contents not json);  leaving result obj null
-                }
-                // note that 3xx redirects are handled by the http layer.
-                if (statusCode > 299) {
-                    let msg;
-                    // if exception/error in body, attempt to get better error
-                    if (obj && obj.message) {
-                        msg = obj.message;
-                    }
-                    else if (contents && contents.length > 0) {
-                        // it may be the case that the exception is in the body message as string
-                        msg = contents;
-                    }
-                    else {
-                        msg = `Failed request: (${statusCode})`;
-                    }
-                    const err = new HttpClientError(msg, statusCode);
-                    err.result = response.result;
-                    reject(err);
-                }
-                else {
-                    resolve(response);
-                }
-            }));
-        });
-    }
-}
-const lowercaseKeys = (obj) => Object.keys(obj).reduce((c, k) => ((c[k.toLowerCase()] = obj[k]), c), {});
-//# sourceMappingURL=index.js.map
-;// CONCATENATED MODULE: ./node_modules/@actions/http-client/lib/auth.js
-var auth_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-class BasicCredentialHandler {
-    constructor(username, password) {
-        this.username = username;
-        this.password = password;
-    }
-    prepareRequest(options) {
-        if (!options.headers) {
-            throw Error('The request has no headers');
-        }
-        options.headers['Authorization'] = `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`;
-    }
-    // This handler cannot handle 401
-    canHandleAuthentication() {
-        return false;
-    }
-    handleAuthentication() {
-        return auth_awaiter(this, void 0, void 0, function* () {
-            throw new Error('not implemented');
-        });
-    }
-}
-class auth_BearerCredentialHandler {
-    constructor(token) {
-        this.token = token;
-    }
-    // currently implements pre-authorization
-    // TODO: support preAuth = false where it hooks on 401
-    prepareRequest(options) {
-        if (!options.headers) {
-            throw Error('The request has no headers');
-        }
-        options.headers['Authorization'] = `Bearer ${this.token}`;
-    }
-    // This handler cannot handle 401
-    canHandleAuthentication() {
-        return false;
-    }
-    handleAuthentication() {
-        return auth_awaiter(this, void 0, void 0, function* () {
-            throw new Error('not implemented');
-        });
-    }
-}
-class PersonalAccessTokenCredentialHandler {
-    constructor(token) {
-        this.token = token;
-    }
-    // currently implements pre-authorization
-    // TODO: support preAuth = false where it hooks on 401
-    prepareRequest(options) {
-        if (!options.headers) {
-            throw Error('The request has no headers');
-        }
-        options.headers['Authorization'] = `Basic ${Buffer.from(`PAT:${this.token}`).toString('base64')}`;
-    }
-    // This handler cannot handle 401
-    canHandleAuthentication() {
-        return false;
-    }
-    handleAuthentication() {
-        return auth_awaiter(this, void 0, void 0, function* () {
-            throw new Error('not implemented');
-        });
-    }
-}
-//# sourceMappingURL=auth.js.map
-;// CONCATENATED MODULE: ./node_modules/@actions/core/lib/oidc-utils.js
-var oidc_utils_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-
-
-
-class oidc_utils_OidcClient {
-    static createHttpClient(allowRetry = true, maxRetry = 10) {
-        const requestOptions = {
-            allowRetries: allowRetry,
-            maxRetries: maxRetry
-        };
-        return new HttpClient('actions/oidc-client', [new BearerCredentialHandler(oidc_utils_OidcClient.getRequestToken())], requestOptions);
-    }
-    static getRequestToken() {
-        const token = process.env['ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
-        if (!token) {
-            throw new Error('Unable to get ACTIONS_ID_TOKEN_REQUEST_TOKEN env variable');
-        }
-        return token;
-    }
-    static getIDTokenUrl() {
-        const runtimeUrl = process.env['ACTIONS_ID_TOKEN_REQUEST_URL'];
-        if (!runtimeUrl) {
-            throw new Error('Unable to get ACTIONS_ID_TOKEN_REQUEST_URL env variable');
-        }
-        return runtimeUrl;
-    }
-    static getCall(id_token_url) {
-        return oidc_utils_awaiter(this, void 0, void 0, function* () {
-            var _a;
-            const httpclient = oidc_utils_OidcClient.createHttpClient();
-            const res = yield httpclient
-                .getJson(id_token_url)
-                .catch(error => {
-                throw new Error(`Failed to get ID Token. \n 
-        Error Code : ${error.statusCode}\n 
-        Error Message: ${error.message}`);
-            });
-            const id_token = (_a = res.result) === null || _a === void 0 ? void 0 : _a.value;
-            if (!id_token) {
-                throw new Error('Response json body do not have ID Token field');
-            }
-            return id_token;
-        });
-    }
-    static getIDToken(audience) {
-        return oidc_utils_awaiter(this, void 0, void 0, function* () {
-            try {
-                // New ID Token is requested from action service
-                let id_token_url = oidc_utils_OidcClient.getIDTokenUrl();
-                if (audience) {
-                    const encodedAudience = encodeURIComponent(audience);
-                    id_token_url = `${id_token_url}&audience=${encodedAudience}`;
-                }
-                debug(`ID token url is ${id_token_url}`);
-                const id_token = yield oidc_utils_OidcClient.getCall(id_token_url);
-                setSecret(id_token);
-                return id_token;
-            }
-            catch (error) {
-                throw new Error(`Error message: ${error.message}`);
-            }
-        });
-    }
-}
-//# sourceMappingURL=oidc-utils.js.map
-;// CONCATENATED MODULE: ./node_modules/@actions/core/lib/summary.js
-var summary_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-
-
-const { access, appendFile, writeFile } = external_fs_.promises;
-const SUMMARY_ENV_VAR = 'GITHUB_STEP_SUMMARY';
-const SUMMARY_DOCS_URL = 'https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary';
-class Summary {
-    constructor() {
-        this._buffer = '';
-    }
-    /**
-     * Finds the summary file path from the environment, rejects if env var is not found or file does not exist
-     * Also checks r/w permissions.
-     *
-     * @returns step summary file path
-     */
-    filePath() {
-        return summary_awaiter(this, void 0, void 0, function* () {
-            if (this._filePath) {
-                return this._filePath;
-            }
-            const pathFromEnv = process.env[SUMMARY_ENV_VAR];
-            if (!pathFromEnv) {
-                throw new Error(`Unable to find environment variable for $${SUMMARY_ENV_VAR}. Check if your runtime environment supports job summaries.`);
-            }
-            try {
-                yield access(pathFromEnv, external_fs_.constants.R_OK | external_fs_.constants.W_OK);
-            }
-            catch (_a) {
-                throw new Error(`Unable to access summary file: '${pathFromEnv}'. Check if the file has correct read/write permissions.`);
-            }
-            this._filePath = pathFromEnv;
-            return this._filePath;
-        });
-    }
-    /**
-     * Wraps content in an HTML tag, adding any HTML attributes
-     *
-     * @param {string} tag HTML tag to wrap
-     * @param {string | null} content content within the tag
-     * @param {[attribute: string]: string} attrs key-value list of HTML attributes to add
-     *
-     * @returns {string} content wrapped in HTML element
-     */
-    wrap(tag, content, attrs = {}) {
-        const htmlAttrs = Object.entries(attrs)
-            .map(([key, value]) => ` ${key}="${value}"`)
-            .join('');
-        if (!content) {
-            return `<${tag}${htmlAttrs}>`;
-        }
-        return `<${tag}${htmlAttrs}>${content}</${tag}>`;
-    }
-    /**
-     * Writes text in the buffer to the summary buffer file and empties buffer. Will append by default.
-     *
-     * @param {SummaryWriteOptions} [options] (optional) options for write operation
-     *
-     * @returns {Promise<Summary>} summary instance
-     */
-    write(options) {
-        return summary_awaiter(this, void 0, void 0, function* () {
-            const overwrite = !!(options === null || options === void 0 ? void 0 : options.overwrite);
-            const filePath = yield this.filePath();
-            const writeFunc = overwrite ? writeFile : appendFile;
-            yield writeFunc(filePath, this._buffer, { encoding: 'utf8' });
-            return this.emptyBuffer();
-        });
-    }
-    /**
-     * Clears the summary buffer and wipes the summary file
-     *
-     * @returns {Summary} summary instance
-     */
-    clear() {
-        return summary_awaiter(this, void 0, void 0, function* () {
-            return this.emptyBuffer().write({ overwrite: true });
-        });
-    }
-    /**
-     * Returns the current summary buffer as a string
-     *
-     * @returns {string} string of summary buffer
-     */
-    stringify() {
-        return this._buffer;
-    }
-    /**
-     * If the summary buffer is empty
-     *
-     * @returns {boolen} true if the buffer is empty
-     */
-    isEmptyBuffer() {
-        return this._buffer.length === 0;
-    }
-    /**
-     * Resets the summary buffer without writing to summary file
-     *
-     * @returns {Summary} summary instance
-     */
-    emptyBuffer() {
-        this._buffer = '';
-        return this;
-    }
-    /**
-     * Adds raw text to the summary buffer
-     *
-     * @param {string} text content to add
-     * @param {boolean} [addEOL=false] (optional) append an EOL to the raw text (default: false)
-     *
-     * @returns {Summary} summary instance
-     */
-    addRaw(text, addEOL = false) {
-        this._buffer += text;
-        return addEOL ? this.addEOL() : this;
-    }
-    /**
-     * Adds the operating system-specific end-of-line marker to the buffer
-     *
-     * @returns {Summary} summary instance
-     */
-    addEOL() {
-        return this.addRaw(external_os_namespaceObject.EOL);
-    }
-    /**
-     * Adds an HTML codeblock to the summary buffer
-     *
-     * @param {string} code content to render within fenced code block
-     * @param {string} lang (optional) language to syntax highlight code
-     *
-     * @returns {Summary} summary instance
-     */
-    addCodeBlock(code, lang) {
-        const attrs = Object.assign({}, (lang && { lang }));
-        const element = this.wrap('pre', this.wrap('code', code), attrs);
-        return this.addRaw(element).addEOL();
-    }
-    /**
-     * Adds an HTML list to the summary buffer
-     *
-     * @param {string[]} items list of items to render
-     * @param {boolean} [ordered=false] (optional) if the rendered list should be ordered or not (default: false)
-     *
-     * @returns {Summary} summary instance
-     */
-    addList(items, ordered = false) {
-        const tag = ordered ? 'ol' : 'ul';
-        const listItems = items.map(item => this.wrap('li', item)).join('');
-        const element = this.wrap(tag, listItems);
-        return this.addRaw(element).addEOL();
-    }
-    /**
-     * Adds an HTML table to the summary buffer
-     *
-     * @param {SummaryTableCell[]} rows table rows
-     *
-     * @returns {Summary} summary instance
-     */
-    addTable(rows) {
-        const tableBody = rows
-            .map(row => {
-            const cells = row
-                .map(cell => {
-                if (typeof cell === 'string') {
-                    return this.wrap('td', cell);
-                }
-                const { header, data, colspan, rowspan } = cell;
-                const tag = header ? 'th' : 'td';
-                const attrs = Object.assign(Object.assign({}, (colspan && { colspan })), (rowspan && { rowspan }));
-                return this.wrap(tag, data, attrs);
-            })
-                .join('');
-            return this.wrap('tr', cells);
-        })
-            .join('');
-        const element = this.wrap('table', tableBody);
-        return this.addRaw(element).addEOL();
-    }
-    /**
-     * Adds a collapsable HTML details element to the summary buffer
-     *
-     * @param {string} label text for the closed state
-     * @param {string} content collapsable content
-     *
-     * @returns {Summary} summary instance
-     */
-    addDetails(label, content) {
-        const element = this.wrap('details', this.wrap('summary', label) + content);
-        return this.addRaw(element).addEOL();
-    }
-    /**
-     * Adds an HTML image tag to the summary buffer
-     *
-     * @param {string} src path to the image you to embed
-     * @param {string} alt text description of the image
-     * @param {SummaryImageOptions} options (optional) addition image attributes
-     *
-     * @returns {Summary} summary instance
-     */
-    addImage(src, alt, options) {
-        const { width, height } = options || {};
-        const attrs = Object.assign(Object.assign({}, (width && { width })), (height && { height }));
-        const element = this.wrap('img', null, Object.assign({ src, alt }, attrs));
-        return this.addRaw(element).addEOL();
-    }
-    /**
-     * Adds an HTML section heading element
-     *
-     * @param {string} text heading text
-     * @param {number | string} [level=1] (optional) the heading level, default: 1
-     *
-     * @returns {Summary} summary instance
-     */
-    addHeading(text, level) {
-        const tag = `h${level}`;
-        const allowedTag = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag)
-            ? tag
-            : 'h1';
-        const element = this.wrap(allowedTag, text);
-        return this.addRaw(element).addEOL();
-    }
-    /**
-     * Adds an HTML thematic break (<hr>) to the summary buffer
-     *
-     * @returns {Summary} summary instance
-     */
-    addSeparator() {
-        const element = this.wrap('hr', null);
-        return this.addRaw(element).addEOL();
-    }
-    /**
-     * Adds an HTML line break (<br>) to the summary buffer
-     *
-     * @returns {Summary} summary instance
-     */
-    addBreak() {
-        const element = this.wrap('br', null);
-        return this.addRaw(element).addEOL();
-    }
-    /**
-     * Adds an HTML blockquote to the summary buffer
-     *
-     * @param {string} text quote text
-     * @param {string} cite (optional) citation url
-     *
-     * @returns {Summary} summary instance
-     */
-    addQuote(text, cite) {
-        const attrs = Object.assign({}, (cite && { cite }));
-        const element = this.wrap('blockquote', text, attrs);
-        return this.addRaw(element).addEOL();
-    }
-    /**
-     * Adds an HTML anchor tag to the summary buffer
-     *
-     * @param {string} text link text/content
-     * @param {string} href hyperlink
-     *
-     * @returns {Summary} summary instance
-     */
-    addLink(text, href) {
-        const element = this.wrap('a', text, { href });
-        return this.addRaw(element).addEOL();
-    }
-}
-const _summary = new Summary();
-/**
- * @deprecated use `core.summary`
- */
-const markdownSummary = (/* unused pure expression or super */ null && (_summary));
-const summary = (/* unused pure expression or super */ null && (_summary));
-//# sourceMappingURL=summary.js.map
-;// CONCATENATED MODULE: ./node_modules/@actions/core/lib/path-utils.js
-
-/**
- * toPosixPath converts the given path to the posix form. On Windows, \\ will be
- * replaced with /.
- *
- * @param pth. Path to transform.
- * @return string Posix path.
- */
-function toPosixPath(pth) {
-    return pth.replace(/[\\]/g, '/');
-}
-/**
- * toWin32Path converts the given path to the win32 form. On Linux, / will be
- * replaced with \\.
- *
- * @param pth. Path to transform.
- * @return string Win32 path.
- */
-function toWin32Path(pth) {
-    return pth.replace(/[/]/g, '\\');
-}
-/**
- * toPlatformPath converts the given path to a platform-specific path. It does
- * this by replacing instances of / and \ with the platform-specific path
- * separator.
- *
- * @param pth The path to platformize.
- * @return string The platform-specific path.
- */
-function toPlatformPath(pth) {
-    return pth.replace(/[/\\]/g, path.sep);
-}
-//# sourceMappingURL=path-utils.js.map
-// EXTERNAL MODULE: external "string_decoder"
-var external_string_decoder_ = __nccwpck_require__(3193);
-// EXTERNAL MODULE: external "events"
-var external_events_ = __nccwpck_require__(4434);
-;// CONCATENATED MODULE: external "child_process"
-const external_child_process_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("child_process");
-// EXTERNAL MODULE: external "assert"
-var external_assert_ = __nccwpck_require__(2613);
-;// CONCATENATED MODULE: ./node_modules/@actions/io/lib/io-util.js
-var io_util_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-
-
-const { chmod, copyFile, lstat, mkdir, open: io_util_open, readdir, rename, rm, rmdir, stat, symlink, unlink } = external_fs_.promises;
-// export const {open} = 'fs'
-const IS_WINDOWS = process.platform === 'win32';
-/**
- * Custom implementation of readlink to ensure Windows junctions
- * maintain trailing backslash for backward compatibility with Node.js < 24
- *
- * In Node.js 20, Windows junctions (directory symlinks) always returned paths
- * with trailing backslashes. Node.js 24 removed this behavior, which breaks
- * code that relied on this format for path operations.
- *
- * This implementation restores the Node 20 behavior by adding a trailing
- * backslash to all junction results on Windows.
- */
-function readlink(fsPath) {
-    return io_util_awaiter(this, void 0, void 0, function* () {
-        const result = yield fs.promises.readlink(fsPath);
-        // On Windows, restore Node 20 behavior: add trailing backslash to all results
-        // since junctions on Windows are always directory links
-        if (IS_WINDOWS && !result.endsWith('\\')) {
-            return `${result}\\`;
-        }
-        return result;
-    });
-}
-// See https://github.com/nodejs/node/blob/d0153aee367422d0858105abec186da4dff0a0c5/deps/uv/include/uv/win.h#L691
-const UV_FS_O_EXLOCK = 0x10000000;
-const READONLY = external_fs_.constants.O_RDONLY;
-function exists(fsPath) {
-    return io_util_awaiter(this, void 0, void 0, function* () {
-        try {
-            yield stat(fsPath);
-        }
-        catch (err) {
-            if (err.code === 'ENOENT') {
-                return false;
-            }
-            throw err;
-        }
-        return true;
-    });
-}
-function isDirectory(fsPath_1) {
-    return io_util_awaiter(this, arguments, void 0, function* (fsPath, useStat = false) {
-        const stats = useStat ? yield stat(fsPath) : yield lstat(fsPath);
-        return stats.isDirectory();
-    });
-}
-/**
- * On OSX/Linux, true if path starts with '/'. On Windows, true for paths like:
- * \, \hello, \\hello\share, C:, and C:\hello (and corresponding alternate separator cases).
- */
-function isRooted(p) {
-    p = normalizeSeparators(p);
-    if (!p) {
-        throw new Error('isRooted() parameter "p" cannot be empty');
-    }
-    if (IS_WINDOWS) {
-        return (p.startsWith('\\') || /^[A-Z]:/i.test(p) // e.g. \ or \hello or \\hello
-        ); // e.g. C: or C:\hello
-    }
-    return p.startsWith('/');
-}
-/**
- * Best effort attempt to determine whether a file exists and is executable.
- * @param filePath    file path to check
- * @param extensions  additional file extensions to try
- * @return if file exists and is executable, returns the file path. otherwise empty string.
- */
-function tryGetExecutablePath(filePath, extensions) {
-    return io_util_awaiter(this, void 0, void 0, function* () {
-        let stats = undefined;
-        try {
-            // test file exists
-            stats = yield stat(filePath);
-        }
-        catch (err) {
-            if (err.code !== 'ENOENT') {
-                // eslint-disable-next-line no-console
-                console.log(`Unexpected error attempting to determine if executable file exists '${filePath}': ${err}`);
-            }
-        }
-        if (stats && stats.isFile()) {
-            if (IS_WINDOWS) {
-                // on Windows, test for valid extension
-                const upperExt = external_path_.extname(filePath).toUpperCase();
-                if (extensions.some(validExt => validExt.toUpperCase() === upperExt)) {
-                    return filePath;
-                }
-            }
-            else {
-                if (isUnixExecutable(stats)) {
-                    return filePath;
-                }
-            }
-        }
-        // try each extension
-        const originalFilePath = filePath;
-        for (const extension of extensions) {
-            filePath = originalFilePath + extension;
-            stats = undefined;
-            try {
-                stats = yield stat(filePath);
-            }
-            catch (err) {
-                if (err.code !== 'ENOENT') {
-                    // eslint-disable-next-line no-console
-                    console.log(`Unexpected error attempting to determine if executable file exists '${filePath}': ${err}`);
-                }
-            }
-            if (stats && stats.isFile()) {
-                if (IS_WINDOWS) {
-                    // preserve the case of the actual file (since an extension was appended)
-                    try {
-                        const directory = external_path_.dirname(filePath);
-                        const upperName = external_path_.basename(filePath).toUpperCase();
-                        for (const actualName of yield readdir(directory)) {
-                            if (upperName === actualName.toUpperCase()) {
-                                filePath = external_path_.join(directory, actualName);
-                                break;
-                            }
-                        }
-                    }
-                    catch (err) {
-                        // eslint-disable-next-line no-console
-                        console.log(`Unexpected error attempting to determine the actual case of the file '${filePath}': ${err}`);
-                    }
-                    return filePath;
-                }
-                else {
-                    if (isUnixExecutable(stats)) {
-                        return filePath;
-                    }
-                }
-            }
-        }
-        return '';
-    });
-}
-function normalizeSeparators(p) {
-    p = p || '';
-    if (IS_WINDOWS) {
-        // convert slashes on Windows
-        p = p.replace(/\//g, '\\');
-        // remove redundant slashes
-        return p.replace(/\\\\+/g, '\\');
-    }
-    // remove redundant slashes
-    return p.replace(/\/\/+/g, '/');
-}
-// on Mac/Linux, test the execute bit
-//     R   W  X  R  W X R W X
-//   256 128 64 32 16 8 4 2 1
-function isUnixExecutable(stats) {
-    return ((stats.mode & 1) > 0 ||
-        ((stats.mode & 8) > 0 &&
-            process.getgid !== undefined &&
-            stats.gid === process.getgid()) ||
-        ((stats.mode & 64) > 0 &&
-            process.getuid !== undefined &&
-            stats.uid === process.getuid()));
-}
-// Get the path of cmd.exe in windows
-function getCmdPath() {
-    var _a;
-    return (_a = process.env['COMSPEC']) !== null && _a !== void 0 ? _a : `cmd.exe`;
-}
-//# sourceMappingURL=io-util.js.map
-;// CONCATENATED MODULE: ./node_modules/@actions/io/lib/io.js
-var io_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-
-
-
-/**
- * Copies a file or folder.
- * Based off of shelljs - https://github.com/shelljs/shelljs/blob/9237f66c52e5daa40458f94f9565e18e8132f5a6/src/cp.js
- *
- * @param     source    source path
- * @param     dest      destination path
- * @param     options   optional. See CopyOptions.
- */
-function cp(source_1, dest_1) {
-    return io_awaiter(this, arguments, void 0, function* (source, dest, options = {}) {
-        const { force, recursive, copySourceDirectory } = readCopyOptions(options);
-        const destStat = (yield ioUtil.exists(dest)) ? yield ioUtil.stat(dest) : null;
-        // Dest is an existing file, but not forcing
-        if (destStat && destStat.isFile() && !force) {
-            return;
-        }
-        // If dest is an existing directory, should copy inside.
-        const newDest = destStat && destStat.isDirectory() && copySourceDirectory
-            ? path.join(dest, path.basename(source))
-            : dest;
-        if (!(yield ioUtil.exists(source))) {
-            throw new Error(`no such file or directory: ${source}`);
-        }
-        const sourceStat = yield ioUtil.stat(source);
-        if (sourceStat.isDirectory()) {
-            if (!recursive) {
-                throw new Error(`Failed to copy. ${source} is a directory, but tried to copy without recursive flag.`);
-            }
-            else {
-                yield cpDirRecursive(source, newDest, 0, force);
-            }
-        }
-        else {
-            if (path.relative(source, newDest) === '') {
-                // a file cannot be copied to itself
-                throw new Error(`'${newDest}' and '${source}' are the same file`);
-            }
-            yield io_copyFile(source, newDest, force);
-        }
-    });
-}
-/**
- * Moves a path.
- *
- * @param     source    source path
- * @param     dest      destination path
- * @param     options   optional. See MoveOptions.
- */
-function mv(source_1, dest_1) {
-    return io_awaiter(this, arguments, void 0, function* (source, dest, options = {}) {
-        if (yield ioUtil.exists(dest)) {
-            let destExists = true;
-            if (yield ioUtil.isDirectory(dest)) {
-                // If dest is directory copy src into dest
-                dest = path.join(dest, path.basename(source));
-                destExists = yield ioUtil.exists(dest);
-            }
-            if (destExists) {
-                if (options.force == null || options.force) {
-                    yield rmRF(dest);
-                }
-                else {
-                    throw new Error('Destination already exists');
-                }
-            }
-        }
-        yield mkdirP(path.dirname(dest));
-        yield ioUtil.rename(source, dest);
-    });
-}
-/**
- * Remove a path recursively with force
- *
- * @param inputPath path to remove
- */
-function rmRF(inputPath) {
-    return io_awaiter(this, void 0, void 0, function* () {
-        if (ioUtil.IS_WINDOWS) {
-            // Check for invalid characters
-            // https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file
-            if (/[*"<>|]/.test(inputPath)) {
-                throw new Error('File path must not contain `*`, `"`, `<`, `>` or `|` on Windows');
-            }
-        }
-        try {
-            // note if path does not exist, error is silent
-            yield ioUtil.rm(inputPath, {
-                force: true,
-                maxRetries: 3,
-                recursive: true,
-                retryDelay: 300
-            });
-        }
-        catch (err) {
-            throw new Error(`File was unable to be removed ${err}`);
-        }
-    });
-}
-/**
- * Make a directory.  Creates the full path with folders in between
- * Will throw if it fails
- *
- * @param   fsPath        path to create
- * @returns Promise<void>
- */
-function mkdirP(fsPath) {
-    return io_awaiter(this, void 0, void 0, function* () {
-        ok(fsPath, 'a path argument must be provided');
-        yield ioUtil.mkdir(fsPath, { recursive: true });
-    });
-}
-/**
- * Returns path of a tool had the tool actually been invoked.  Resolves via paths.
- * If you check and the tool does not exist, it will throw.
- *
- * @param     tool              name of the tool
- * @param     check             whether to check if tool exists
- * @returns   Promise<string>   path to tool
- */
-function which(tool, check) {
-    return io_awaiter(this, void 0, void 0, function* () {
-        if (!tool) {
-            throw new Error("parameter 'tool' is required");
-        }
-        // recursive when check=true
-        if (check) {
-            const result = yield which(tool, false);
-            if (!result) {
-                if (IS_WINDOWS) {
-                    throw new Error(`Unable to locate executable file: ${tool}. Please verify either the file path exists or the file can be found within a directory specified by the PATH environment variable. Also verify the file has a valid extension for an executable file.`);
-                }
-                else {
-                    throw new Error(`Unable to locate executable file: ${tool}. Please verify either the file path exists or the file can be found within a directory specified by the PATH environment variable. Also check the file mode to verify the file is executable.`);
-                }
-            }
-            return result;
-        }
-        const matches = yield findInPath(tool);
-        if (matches && matches.length > 0) {
-            return matches[0];
-        }
-        return '';
-    });
-}
-/**
- * Returns a list of all occurrences of the given tool on the system path.
- *
- * @returns   Promise<string[]>  the paths of the tool
- */
-function findInPath(tool) {
-    return io_awaiter(this, void 0, void 0, function* () {
-        if (!tool) {
-            throw new Error("parameter 'tool' is required");
-        }
-        // build the list of extensions to try
-        const extensions = [];
-        if (IS_WINDOWS && process.env['PATHEXT']) {
-            for (const extension of process.env['PATHEXT'].split(external_path_.delimiter)) {
-                if (extension) {
-                    extensions.push(extension);
-                }
-            }
-        }
-        // if it's rooted, return it if exists. otherwise return empty.
-        if (isRooted(tool)) {
-            const filePath = yield tryGetExecutablePath(tool, extensions);
-            if (filePath) {
-                return [filePath];
-            }
-            return [];
-        }
-        // if any path separators, return empty
-        if (tool.includes(external_path_.sep)) {
-            return [];
-        }
-        // build the list of directories
-        //
-        // Note, technically "where" checks the current directory on Windows. From a toolkit perspective,
-        // it feels like we should not do this. Checking the current directory seems like more of a use
-        // case of a shell, and the which() function exposed by the toolkit should strive for consistency
-        // across platforms.
-        const directories = [];
-        if (process.env.PATH) {
-            for (const p of process.env.PATH.split(external_path_.delimiter)) {
-                if (p) {
-                    directories.push(p);
-                }
-            }
-        }
-        // find all matches
-        const matches = [];
-        for (const directory of directories) {
-            const filePath = yield tryGetExecutablePath(external_path_.join(directory, tool), extensions);
-            if (filePath) {
-                matches.push(filePath);
-            }
-        }
-        return matches;
-    });
-}
-function readCopyOptions(options) {
-    const force = options.force == null ? true : options.force;
-    const recursive = Boolean(options.recursive);
-    const copySourceDirectory = options.copySourceDirectory == null
-        ? true
-        : Boolean(options.copySourceDirectory);
-    return { force, recursive, copySourceDirectory };
-}
-function cpDirRecursive(sourceDir, destDir, currentDepth, force) {
-    return io_awaiter(this, void 0, void 0, function* () {
-        // Ensure there is not a run away recursive copy
-        if (currentDepth >= 255)
-            return;
-        currentDepth++;
-        yield mkdirP(destDir);
-        const files = yield ioUtil.readdir(sourceDir);
-        for (const fileName of files) {
-            const srcFile = `${sourceDir}/${fileName}`;
-            const destFile = `${destDir}/${fileName}`;
-            const srcFileStat = yield ioUtil.lstat(srcFile);
-            if (srcFileStat.isDirectory()) {
-                // Recurse
-                yield cpDirRecursive(srcFile, destFile, currentDepth, force);
-            }
-            else {
-                yield io_copyFile(srcFile, destFile, force);
-            }
-        }
-        // Change the mode for the newly created directory
-        yield ioUtil.chmod(destDir, (yield ioUtil.stat(sourceDir)).mode);
-    });
-}
-// Buffered file copy
-function io_copyFile(srcFile, destFile, force) {
-    return io_awaiter(this, void 0, void 0, function* () {
-        if ((yield ioUtil.lstat(srcFile)).isSymbolicLink()) {
-            // unlink/re-link it
-            try {
-                yield ioUtil.lstat(destFile);
-                yield ioUtil.unlink(destFile);
-            }
-            catch (e) {
-                // Try to override file permission
-                if (e.code === 'EPERM') {
-                    yield ioUtil.chmod(destFile, '0666');
-                    yield ioUtil.unlink(destFile);
-                }
-                // other errors = it doesn't exist, no work to do
-            }
-            // Copy over symlink
-            const symlinkFull = yield ioUtil.readlink(srcFile);
-            yield ioUtil.symlink(symlinkFull, destFile, ioUtil.IS_WINDOWS ? 'junction' : null);
-        }
-        else if (!(yield ioUtil.exists(destFile)) || force) {
-            yield ioUtil.copyFile(srcFile, destFile);
-        }
-    });
-}
-//# sourceMappingURL=io.js.map
-;// CONCATENATED MODULE: external "timers"
-const external_timers_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("timers");
-;// CONCATENATED MODULE: ./node_modules/@actions/exec/lib/toolrunner.js
-var toolrunner_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-
-
-
-
-
-
-
-/* eslint-disable @typescript-eslint/unbound-method */
-const toolrunner_IS_WINDOWS = process.platform === 'win32';
-/*
- * Class for running command line tools. Handles quoting and arg parsing in a platform agnostic way.
- */
-class ToolRunner extends external_events_.EventEmitter {
-    constructor(toolPath, args, options) {
-        super();
-        if (!toolPath) {
-            throw new Error("Parameter 'toolPath' cannot be null or empty.");
-        }
-        this.toolPath = toolPath;
-        this.args = args || [];
-        this.options = options || {};
-    }
-    _debug(message) {
-        if (this.options.listeners && this.options.listeners.debug) {
-            this.options.listeners.debug(message);
-        }
-    }
-    _getCommandString(options, noPrefix) {
-        const toolPath = this._getSpawnFileName();
-        const args = this._getSpawnArgs(options);
-        let cmd = noPrefix ? '' : '[command]'; // omit prefix when piped to a second tool
-        if (toolrunner_IS_WINDOWS) {
-            // Windows + cmd file
-            if (this._isCmdFile()) {
-                cmd += toolPath;
-                for (const a of args) {
-                    cmd += ` ${a}`;
-                }
-            }
-            // Windows + verbatim
-            else if (options.windowsVerbatimArguments) {
-                cmd += `"${toolPath}"`;
-                for (const a of args) {
-                    cmd += ` ${a}`;
-                }
-            }
-            // Windows (regular)
-            else {
-                cmd += this._windowsQuoteCmdArg(toolPath);
-                for (const a of args) {
-                    cmd += ` ${this._windowsQuoteCmdArg(a)}`;
-                }
-            }
-        }
-        else {
-            // OSX/Linux - this can likely be improved with some form of quoting.
-            // creating processes on Unix is fundamentally different than Windows.
-            // on Unix, execvp() takes an arg array.
-            cmd += toolPath;
-            for (const a of args) {
-                cmd += ` ${a}`;
-            }
-        }
-        return cmd;
-    }
-    _processLineBuffer(data, strBuffer, onLine) {
-        try {
-            let s = strBuffer + data.toString();
-            let n = s.indexOf(external_os_namespaceObject.EOL);
-            while (n > -1) {
-                const line = s.substring(0, n);
-                onLine(line);
-                // the rest of the string ...
-                s = s.substring(n + external_os_namespaceObject.EOL.length);
-                n = s.indexOf(external_os_namespaceObject.EOL);
-            }
-            return s;
-        }
-        catch (err) {
-            // streaming lines to console is best effort.  Don't fail a build.
-            this._debug(`error processing line. Failed with error ${err}`);
-            return '';
-        }
-    }
-    _getSpawnFileName() {
-        if (toolrunner_IS_WINDOWS) {
-            if (this._isCmdFile()) {
-                return process.env['COMSPEC'] || 'cmd.exe';
-            }
-        }
-        return this.toolPath;
-    }
-    _getSpawnArgs(options) {
-        if (toolrunner_IS_WINDOWS) {
-            if (this._isCmdFile()) {
-                let argline = `/D /S /C "${this._windowsQuoteCmdArg(this.toolPath)}`;
-                for (const a of this.args) {
-                    argline += ' ';
-                    argline += options.windowsVerbatimArguments
-                        ? a
-                        : this._windowsQuoteCmdArg(a);
-                }
-                argline += '"';
-                return [argline];
-            }
-        }
-        return this.args;
-    }
-    _endsWith(str, end) {
-        return str.endsWith(end);
-    }
-    _isCmdFile() {
-        const upperToolPath = this.toolPath.toUpperCase();
-        return (this._endsWith(upperToolPath, '.CMD') ||
-            this._endsWith(upperToolPath, '.BAT'));
-    }
-    _windowsQuoteCmdArg(arg) {
-        // for .exe, apply the normal quoting rules that libuv applies
-        if (!this._isCmdFile()) {
-            return this._uvQuoteCmdArg(arg);
-        }
-        // otherwise apply quoting rules specific to the cmd.exe command line parser.
-        // the libuv rules are generic and are not designed specifically for cmd.exe
-        // command line parser.
-        //
-        // for a detailed description of the cmd.exe command line parser, refer to
-        // http://stackoverflow.com/questions/4094699/how-does-the-windows-command-interpreter-cmd-exe-parse-scripts/7970912#7970912
-        // need quotes for empty arg
-        if (!arg) {
-            return '""';
-        }
-        // determine whether the arg needs to be quoted
-        const cmdSpecialChars = [
-            ' ',
-            '\t',
-            '&',
-            '(',
-            ')',
-            '[',
-            ']',
-            '{',
-            '}',
-            '^',
-            '=',
-            ';',
-            '!',
-            "'",
-            '+',
-            ',',
-            '`',
-            '~',
-            '|',
-            '<',
-            '>',
-            '"'
-        ];
-        let needsQuotes = false;
-        for (const char of arg) {
-            if (cmdSpecialChars.some(x => x === char)) {
-                needsQuotes = true;
-                break;
-            }
-        }
-        // short-circuit if quotes not needed
-        if (!needsQuotes) {
-            return arg;
-        }
-        // the following quoting rules are very similar to the rules that by libuv applies.
-        //
-        // 1) wrap the string in quotes
-        //
-        // 2) double-up quotes - i.e. " => ""
-        //
-        //    this is different from the libuv quoting rules. libuv replaces " with \", which unfortunately
-        //    doesn't work well with a cmd.exe command line.
-        //
-        //    note, replacing " with "" also works well if the arg is passed to a downstream .NET console app.
-        //    for example, the command line:
-        //          foo.exe "myarg:""my val"""
-        //    is parsed by a .NET console app into an arg array:
-        //          [ "myarg:\"my val\"" ]
-        //    which is the same end result when applying libuv quoting rules. although the actual
-        //    command line from libuv quoting rules would look like:
-        //          foo.exe "myarg:\"my val\""
-        //
-        // 3) double-up slashes that precede a quote,
-        //    e.g.  hello \world    => "hello \world"
-        //          hello\"world    => "hello\\""world"
-        //          hello\\"world   => "hello\\\\""world"
-        //          hello world\    => "hello world\\"
-        //
-        //    technically this is not required for a cmd.exe command line, or the batch argument parser.
-        //    the reasons for including this as a .cmd quoting rule are:
-        //
-        //    a) this is optimized for the scenario where the argument is passed from the .cmd file to an
-        //       external program. many programs (e.g. .NET console apps) rely on the slash-doubling rule.
-        //
-        //    b) it's what we've been doing previously (by deferring to node default behavior) and we
-        //       haven't heard any complaints about that aspect.
-        //
-        // note, a weakness of the quoting rules chosen here, is that % is not escaped. in fact, % cannot be
-        // escaped when used on the command line directly - even though within a .cmd file % can be escaped
-        // by using %%.
-        //
-        // the saving grace is, on the command line, %var% is left as-is if var is not defined. this contrasts
-        // the line parsing rules within a .cmd file, where if var is not defined it is replaced with nothing.
-        //
-        // one option that was explored was replacing % with ^% - i.e. %var% => ^%var^%. this hack would
-        // often work, since it is unlikely that var^ would exist, and the ^ character is removed when the
-        // variable is used. the problem, however, is that ^ is not removed when %* is used to pass the args
-        // to an external program.
-        //
-        // an unexplored potential solution for the % escaping problem, is to create a wrapper .cmd file.
-        // % can be escaped within a .cmd file.
-        let reverse = '"';
-        let quoteHit = true;
-        for (let i = arg.length; i > 0; i--) {
-            // walk the string in reverse
-            reverse += arg[i - 1];
-            if (quoteHit && arg[i - 1] === '\\') {
-                reverse += '\\'; // double the slash
-            }
-            else if (arg[i - 1] === '"') {
-                quoteHit = true;
-                reverse += '"'; // double the quote
-            }
-            else {
-                quoteHit = false;
-            }
-        }
-        reverse += '"';
-        return reverse.split('').reverse().join('');
-    }
-    _uvQuoteCmdArg(arg) {
-        // Tool runner wraps child_process.spawn() and needs to apply the same quoting as
-        // Node in certain cases where the undocumented spawn option windowsVerbatimArguments
-        // is used.
-        //
-        // Since this function is a port of quote_cmd_arg from Node 4.x (technically, lib UV,
-        // see https://github.com/nodejs/node/blob/v4.x/deps/uv/src/win/process.c for details),
-        // pasting copyright notice from Node within this function:
-        //
-        //      Copyright Joyent, Inc. and other Node contributors. All rights reserved.
-        //
-        //      Permission is hereby granted, free of charge, to any person obtaining a copy
-        //      of this software and associated documentation files (the "Software"), to
-        //      deal in the Software without restriction, including without limitation the
-        //      rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-        //      sell copies of the Software, and to permit persons to whom the Software is
-        //      furnished to do so, subject to the following conditions:
-        //
-        //      The above copyright notice and this permission notice shall be included in
-        //      all copies or substantial portions of the Software.
-        //
-        //      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        //      IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        //      FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        //      AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        //      LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-        //      FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-        //      IN THE SOFTWARE.
-        if (!arg) {
-            // Need double quotation for empty argument
-            return '""';
-        }
-        if (!arg.includes(' ') && !arg.includes('\t') && !arg.includes('"')) {
-            // No quotation needed
-            return arg;
-        }
-        if (!arg.includes('"') && !arg.includes('\\')) {
-            // No embedded double quotes or backslashes, so I can just wrap
-            // quote marks around the whole thing.
-            return `"${arg}"`;
-        }
-        // Expected input/output:
-        //   input : hello"world
-        //   output: "hello\"world"
-        //   input : hello""world
-        //   output: "hello\"\"world"
-        //   input : hello\world
-        //   output: hello\world
-        //   input : hello\\world
-        //   output: hello\\world
-        //   input : hello\"world
-        //   output: "hello\\\"world"
-        //   input : hello\\"world
-        //   output: "hello\\\\\"world"
-        //   input : hello world\
-        //   output: "hello world\\" - note the comment in libuv actually reads "hello world\"
-        //                             but it appears the comment is wrong, it should be "hello world\\"
-        let reverse = '"';
-        let quoteHit = true;
-        for (let i = arg.length; i > 0; i--) {
-            // walk the string in reverse
-            reverse += arg[i - 1];
-            if (quoteHit && arg[i - 1] === '\\') {
-                reverse += '\\';
-            }
-            else if (arg[i - 1] === '"') {
-                quoteHit = true;
-                reverse += '\\';
-            }
-            else {
-                quoteHit = false;
-            }
-        }
-        reverse += '"';
-        return reverse.split('').reverse().join('');
-    }
-    _cloneExecOptions(options) {
-        options = options || {};
-        const result = {
-            cwd: options.cwd || process.cwd(),
-            env: options.env || process.env,
-            silent: options.silent || false,
-            windowsVerbatimArguments: options.windowsVerbatimArguments || false,
-            failOnStdErr: options.failOnStdErr || false,
-            ignoreReturnCode: options.ignoreReturnCode || false,
-            delay: options.delay || 10000
-        };
-        result.outStream = options.outStream || process.stdout;
-        result.errStream = options.errStream || process.stderr;
-        return result;
-    }
-    _getSpawnOptions(options, toolPath) {
-        options = options || {};
-        const result = {};
-        result.cwd = options.cwd;
-        result.env = options.env;
-        result['windowsVerbatimArguments'] =
-            options.windowsVerbatimArguments || this._isCmdFile();
-        if (options.windowsVerbatimArguments) {
-            result.argv0 = `"${toolPath}"`;
-        }
-        return result;
-    }
-    /**
-     * Exec a tool.
-     * Output will be streamed to the live console.
-     * Returns promise with return code
-     *
-     * @param     tool     path to tool to exec
-     * @param     options  optional exec options.  See ExecOptions
-     * @returns   number
-     */
-    exec() {
-        return toolrunner_awaiter(this, void 0, void 0, function* () {
-            // root the tool path if it is unrooted and contains relative pathing
-            if (!isRooted(this.toolPath) &&
-                (this.toolPath.includes('/') ||
-                    (toolrunner_IS_WINDOWS && this.toolPath.includes('\\')))) {
-                // prefer options.cwd if it is specified, however options.cwd may also need to be rooted
-                this.toolPath = external_path_.resolve(process.cwd(), this.options.cwd || process.cwd(), this.toolPath);
-            }
-            // if the tool is only a file name, then resolve it from the PATH
-            // otherwise verify it exists (add extension on Windows if necessary)
-            this.toolPath = yield which(this.toolPath, true);
-            return new Promise((resolve, reject) => toolrunner_awaiter(this, void 0, void 0, function* () {
-                this._debug(`exec tool: ${this.toolPath}`);
-                this._debug('arguments:');
-                for (const arg of this.args) {
-                    this._debug(`   ${arg}`);
-                }
-                const optionsNonNull = this._cloneExecOptions(this.options);
-                if (!optionsNonNull.silent && optionsNonNull.outStream) {
-                    optionsNonNull.outStream.write(this._getCommandString(optionsNonNull) + external_os_namespaceObject.EOL);
-                }
-                const state = new ExecState(optionsNonNull, this.toolPath);
-                state.on('debug', (message) => {
-                    this._debug(message);
-                });
-                if (this.options.cwd && !(yield exists(this.options.cwd))) {
-                    return reject(new Error(`The cwd: ${this.options.cwd} does not exist!`));
-                }
-                const fileName = this._getSpawnFileName();
-                const cp = external_child_process_namespaceObject.spawn(fileName, this._getSpawnArgs(optionsNonNull), this._getSpawnOptions(this.options, fileName));
-                let stdbuffer = '';
-                if (cp.stdout) {
-                    cp.stdout.on('data', (data) => {
-                        if (this.options.listeners && this.options.listeners.stdout) {
-                            this.options.listeners.stdout(data);
-                        }
-                        if (!optionsNonNull.silent && optionsNonNull.outStream) {
-                            optionsNonNull.outStream.write(data);
-                        }
-                        stdbuffer = this._processLineBuffer(data, stdbuffer, (line) => {
-                            if (this.options.listeners && this.options.listeners.stdline) {
-                                this.options.listeners.stdline(line);
-                            }
-                        });
-                    });
-                }
-                let errbuffer = '';
-                if (cp.stderr) {
-                    cp.stderr.on('data', (data) => {
-                        state.processStderr = true;
-                        if (this.options.listeners && this.options.listeners.stderr) {
-                            this.options.listeners.stderr(data);
-                        }
-                        if (!optionsNonNull.silent &&
-                            optionsNonNull.errStream &&
-                            optionsNonNull.outStream) {
-                            const s = optionsNonNull.failOnStdErr
-                                ? optionsNonNull.errStream
-                                : optionsNonNull.outStream;
-                            s.write(data);
-                        }
-                        errbuffer = this._processLineBuffer(data, errbuffer, (line) => {
-                            if (this.options.listeners && this.options.listeners.errline) {
-                                this.options.listeners.errline(line);
-                            }
-                        });
-                    });
-                }
-                cp.on('error', (err) => {
-                    state.processError = err.message;
-                    state.processExited = true;
-                    state.processClosed = true;
-                    state.CheckComplete();
-                });
-                cp.on('exit', (code) => {
-                    state.processExitCode = code;
-                    state.processExited = true;
-                    this._debug(`Exit code ${code} received from tool '${this.toolPath}'`);
-                    state.CheckComplete();
-                });
-                cp.on('close', (code) => {
-                    state.processExitCode = code;
-                    state.processExited = true;
-                    state.processClosed = true;
-                    this._debug(`STDIO streams have closed for tool '${this.toolPath}'`);
-                    state.CheckComplete();
-                });
-                state.on('done', (error, exitCode) => {
-                    if (stdbuffer.length > 0) {
-                        this.emit('stdline', stdbuffer);
-                    }
-                    if (errbuffer.length > 0) {
-                        this.emit('errline', errbuffer);
-                    }
-                    cp.removeAllListeners();
-                    if (error) {
-                        reject(error);
-                    }
-                    else {
-                        resolve(exitCode);
-                    }
-                });
-                if (this.options.input) {
-                    if (!cp.stdin) {
-                        throw new Error('child process missing stdin');
-                    }
-                    cp.stdin.end(this.options.input);
-                }
-            }));
-        });
-    }
-}
-/**
- * Convert an arg string to an array of args. Handles escaping
- *
- * @param    argString   string of arguments
- * @returns  string[]    array of arguments
- */
-function argStringToArray(argString) {
-    const args = [];
-    let inQuotes = false;
-    let escaped = false;
-    let arg = '';
-    function append(c) {
-        // we only escape double quotes.
-        if (escaped && c !== '"') {
-            arg += '\\';
-        }
-        arg += c;
-        escaped = false;
-    }
-    for (let i = 0; i < argString.length; i++) {
-        const c = argString.charAt(i);
-        if (c === '"') {
-            if (!escaped) {
-                inQuotes = !inQuotes;
-            }
-            else {
-                append(c);
-            }
-            continue;
-        }
-        if (c === '\\' && escaped) {
-            append(c);
-            continue;
-        }
-        if (c === '\\' && inQuotes) {
-            escaped = true;
-            continue;
-        }
-        if (c === ' ' && !inQuotes) {
-            if (arg.length > 0) {
-                args.push(arg);
-                arg = '';
-            }
-            continue;
-        }
-        append(c);
-    }
-    if (arg.length > 0) {
-        args.push(arg.trim());
-    }
-    return args;
-}
-class ExecState extends external_events_.EventEmitter {
-    constructor(options, toolPath) {
-        super();
-        this.processClosed = false; // tracks whether the process has exited and stdio is closed
-        this.processError = '';
-        this.processExitCode = 0;
-        this.processExited = false; // tracks whether the process has exited
-        this.processStderr = false; // tracks whether stderr was written to
-        this.delay = 10000; // 10 seconds
-        this.done = false;
-        this.timeout = null;
-        if (!toolPath) {
-            throw new Error('toolPath must not be empty');
-        }
-        this.options = options;
-        this.toolPath = toolPath;
-        if (options.delay) {
-            this.delay = options.delay;
-        }
-    }
-    CheckComplete() {
-        if (this.done) {
-            return;
-        }
-        if (this.processClosed) {
-            this._setResult();
-        }
-        else if (this.processExited) {
-            this.timeout = (0,external_timers_namespaceObject.setTimeout)(ExecState.HandleTimeout, this.delay, this);
-        }
-    }
-    _debug(message) {
-        this.emit('debug', message);
-    }
-    _setResult() {
-        // determine whether there is an error
-        let error;
-        if (this.processExited) {
-            if (this.processError) {
-                error = new Error(`There was an error when attempting to execute the process '${this.toolPath}'. This may indicate the process failed to start. Error: ${this.processError}`);
-            }
-            else if (this.processExitCode !== 0 && !this.options.ignoreReturnCode) {
-                error = new Error(`The process '${this.toolPath}' failed with exit code ${this.processExitCode}`);
-            }
-            else if (this.processStderr && this.options.failOnStdErr) {
-                error = new Error(`The process '${this.toolPath}' failed because one or more lines were written to the STDERR stream`);
-            }
-        }
-        // clear the timeout
-        if (this.timeout) {
-            clearTimeout(this.timeout);
-            this.timeout = null;
-        }
-        this.done = true;
-        this.emit('done', error, this.processExitCode);
-    }
-    static HandleTimeout(state) {
-        if (state.done) {
-            return;
-        }
-        if (!state.processClosed && state.processExited) {
-            const message = `The STDIO streams did not close within ${state.delay / 1000} seconds of the exit event from process '${state.toolPath}'. This may indicate a child process inherited the STDIO streams and has not yet exited.`;
-            state._debug(message);
-        }
-        state._setResult();
-    }
-}
-//# sourceMappingURL=toolrunner.js.map
-;// CONCATENATED MODULE: ./node_modules/@actions/exec/lib/exec.js
-var exec_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-
-
-/**
- * Exec a command.
- * Output will be streamed to the live console.
- * Returns promise with return code
- *
- * @param     commandLine        command to execute (can include additional args). Must be correctly escaped.
- * @param     args               optional arguments for tool. Escaping is handled by the lib.
- * @param     options            optional exec options.  See ExecOptions
- * @returns   Promise<number>    exit code
- */
-function exec_exec(commandLine, args, options) {
-    return exec_awaiter(this, void 0, void 0, function* () {
-        const commandArgs = tr.argStringToArray(commandLine);
-        if (commandArgs.length === 0) {
-            throw new Error(`Parameter 'commandLine' cannot be null or empty.`);
-        }
-        // Path to tool to execute should be first arg
-        const toolPath = commandArgs[0];
-        args = commandArgs.slice(1).concat(args || []);
-        const runner = new tr.ToolRunner(toolPath, args, options);
-        return runner.exec();
-    });
-}
-/**
- * Exec a command and get the output.
- * Output will be streamed to the live console.
- * Returns promise with the exit code and collected stdout and stderr
- *
- * @param     commandLine           command to execute (can include additional args). Must be correctly escaped.
- * @param     args                  optional arguments for tool. Escaping is handled by the lib.
- * @param     options               optional exec options.  See ExecOptions
- * @returns   Promise<ExecOutput>   exit code, stdout, and stderr
- */
-function getExecOutput(commandLine, args, options) {
-    return exec_awaiter(this, void 0, void 0, function* () {
-        var _a, _b;
-        let stdout = '';
-        let stderr = '';
-        //Using string decoder covers the case where a mult-byte character is split
-        const stdoutDecoder = new StringDecoder('utf8');
-        const stderrDecoder = new StringDecoder('utf8');
-        const originalStdoutListener = (_a = options === null || options === void 0 ? void 0 : options.listeners) === null || _a === void 0 ? void 0 : _a.stdout;
-        const originalStdErrListener = (_b = options === null || options === void 0 ? void 0 : options.listeners) === null || _b === void 0 ? void 0 : _b.stderr;
-        const stdErrListener = (data) => {
-            stderr += stderrDecoder.write(data);
-            if (originalStdErrListener) {
-                originalStdErrListener(data);
-            }
-        };
-        const stdOutListener = (data) => {
-            stdout += stdoutDecoder.write(data);
-            if (originalStdoutListener) {
-                originalStdoutListener(data);
-            }
-        };
-        const listeners = Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.listeners), { stdout: stdOutListener, stderr: stdErrListener });
-        const exitCode = yield exec_exec(commandLine, args, Object.assign(Object.assign({}, options), { listeners }));
-        //flush any remaining characters
-        stdout += stdoutDecoder.end();
-        stderr += stderrDecoder.end();
-        return {
-            exitCode,
-            stdout,
-            stderr
-        };
-    });
-}
-//# sourceMappingURL=exec.js.map
-;// CONCATENATED MODULE: ./node_modules/@actions/core/lib/platform.js
-var platform_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-
-
-const getWindowsInfo = () => platform_awaiter(void 0, void 0, void 0, function* () {
-    const { stdout: version } = yield exec.getExecOutput('powershell -command "(Get-CimInstance -ClassName Win32_OperatingSystem).Version"', undefined, {
-        silent: true
-    });
-    const { stdout: name } = yield exec.getExecOutput('powershell -command "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption"', undefined, {
-        silent: true
-    });
-    return {
-        name: name.trim(),
-        version: version.trim()
-    };
-});
-const getMacOsInfo = () => platform_awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d;
-    const { stdout } = yield exec.getExecOutput('sw_vers', undefined, {
-        silent: true
-    });
-    const version = (_b = (_a = stdout.match(/ProductVersion:\s*(.+)/)) === null || _a === void 0 ? void 0 : _a[1]) !== null && _b !== void 0 ? _b : '';
-    const name = (_d = (_c = stdout.match(/ProductName:\s*(.+)/)) === null || _c === void 0 ? void 0 : _c[1]) !== null && _d !== void 0 ? _d : '';
-    return {
-        name,
-        version
-    };
-});
-const getLinuxInfo = () => platform_awaiter(void 0, void 0, void 0, function* () {
-    const { stdout } = yield exec.getExecOutput('lsb_release', ['-i', '-r', '-s'], {
-        silent: true
-    });
-    const [name, version] = stdout.trim().split('\n');
-    return {
-        name,
-        version
-    };
-});
-const platform = external_os_namespaceObject.platform();
-const arch = external_os_namespaceObject.arch();
-const isWindows = platform === 'win32';
-const isMacOS = platform === 'darwin';
-const isLinux = platform === 'linux';
-function getDetails() {
-    return platform_awaiter(this, void 0, void 0, function* () {
-        return Object.assign(Object.assign({}, (yield (isWindows
-            ? getWindowsInfo()
-            : isMacOS
-                ? getMacOsInfo()
-                : getLinuxInfo()))), { platform,
-            arch,
-            isWindows,
-            isMacOS,
-            isLinux });
-    });
-}
-//# sourceMappingURL=platform.js.map
-;// CONCATENATED MODULE: ./node_modules/@actions/core/lib/core.js
-var core_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-
-
-
-
-
-
-/**
- * The code to exit an action
- */
-var ExitCode;
-(function (ExitCode) {
-    /**
-     * A code indicating that the action was successful
-     */
-    ExitCode[ExitCode["Success"] = 0] = "Success";
-    /**
-     * A code indicating that the action was a failure
-     */
-    ExitCode[ExitCode["Failure"] = 1] = "Failure";
-})(ExitCode || (ExitCode = {}));
-//-----------------------------------------------------------------------
-// Variables
-//-----------------------------------------------------------------------
-/**
- * Sets env variable for this action and future actions in the job
- * @param name the name of the variable to set
- * @param val the value of the variable. Non-string values will be converted to a string via JSON.stringify
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function exportVariable(name, val) {
-    const convertedVal = toCommandValue(val);
-    process.env[name] = convertedVal;
-    const filePath = process.env['GITHUB_ENV'] || '';
-    if (filePath) {
-        return issueFileCommand('ENV', prepareKeyValueMessage(name, val));
-    }
-    issueCommand('set-env', { name }, convertedVal);
-}
-/**
- * Registers a secret which will get masked from logs
- *
- * @param secret - Value of the secret to be masked
- * @remarks
- * This function instructs the Actions runner to mask the specified value in any
- * logs produced during the workflow run. Once registered, the secret value will
- * be replaced with asterisks (***) whenever it appears in console output, logs,
- * or error messages.
- *
- * This is useful for protecting sensitive information such as:
- * - API keys
- * - Access tokens
- * - Authentication credentials
- * - URL parameters containing signatures (SAS tokens)
- *
- * Note that masking only affects future logs; any previous appearances of the
- * secret in logs before calling this function will remain unmasked.
- *
- * @example
- * ```typescript
- * // Register an API token as a secret
- * const apiToken = "abc123xyz456";
- * setSecret(apiToken);
- *
- * // Now any logs containing this value will show *** instead
- * console.log(`Using token: ${apiToken}`); // Outputs: "Using token: ***"
- * ```
- */
-function core_setSecret(secret) {
-    issueCommand('add-mask', {}, secret);
-}
-/**
- * Prepends inputPath to the PATH (for this action and future actions)
- * @param inputPath
- */
-function addPath(inputPath) {
-    const filePath = process.env['GITHUB_PATH'] || '';
-    if (filePath) {
-        issueFileCommand('PATH', inputPath);
-    }
-    else {
-        issueCommand('add-path', {}, inputPath);
-    }
-    process.env['PATH'] = `${inputPath}${path.delimiter}${process.env['PATH']}`;
-}
-/**
- * Gets the value of an input.
- * Unless trimWhitespace is set to false in InputOptions, the value is also trimmed.
- * Returns an empty string if the value is not defined.
- *
- * @param     name     name of the input to get
- * @param     options  optional. See InputOptions.
- * @returns   string
- */
 function getInput(name, options) {
-    const val = process.env[`INPUT_${name.replace(/ /g, '_').toUpperCase()}`] || '';
-    if (options && options.required && !val) {
+    const value = process.env[`INPUT_${name.replace(/ /gu, '_').toUpperCase()}`] ?? '';
+    if (options?.required === true && value === '') {
         throw new Error(`Input required and not supplied: ${name}`);
     }
-    if (options && options.trimWhitespace === false) {
-        return val;
-    }
-    return val.trim();
+    return options?.trimWhitespace === false ? value : value.trim();
 }
-/**
- * Gets the values of an multiline input.  Each value is also trimmed.
- *
- * @param     name     name of the input to get
- * @param     options  optional. See InputOptions.
- * @returns   string[]
- *
- */
-function getMultilineInput(name, options) {
-    const inputs = getInput(name, options)
-        .split('\n')
-        .filter(x => x !== '');
-    if (options && options.trimWhitespace === false) {
-        return inputs;
-    }
-    return inputs.map(input => input.trim());
-}
-/**
- * Gets the input value of the boolean type in the YAML 1.2 "core schema" specification.
- * Support boolean input list: `true | True | TRUE | false | False | FALSE` .
- * The return value is also in boolean type.
- * ref: https://yaml.org/spec/1.2/spec.html#id2804923
- *
- * @param     name     name of the input to get
- * @param     options  optional. See InputOptions.
- * @returns   boolean
- */
 function getBooleanInput(name, options) {
-    const trueValue = ['true', 'True', 'TRUE'];
-    const falseValue = ['false', 'False', 'FALSE'];
-    const val = getInput(name, options);
-    if (trueValue.includes(val))
+    const value = getInput(name, options);
+    if (TRUE_INPUTS.some(input => input === value)) {
         return true;
-    if (falseValue.includes(val))
+    }
+    if (FALSE_INPUTS.some(input => input === value)) {
         return false;
+    }
     throw new TypeError(`Input does not meet YAML 1.2 "Core Schema" specification: ${name}\n` +
-        `Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
+        'Support boolean input list: `true | True | TRUE | false | False | FALSE`');
 }
-/**
- * Sets the value of an output.
- *
- * @param     name     name of the output to set
- * @param     value    value to store. Non-string values will be converted to a string via JSON.stringify
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function setOutput(name, value) {
-    const filePath = process.env['GITHUB_OUTPUT'] || '';
-    if (filePath) {
-        return file_command_issueFileCommand('OUTPUT', file_command_prepareKeyValueMessage(name, value));
+    const filePath = process.env['GITHUB_OUTPUT'] ?? '';
+    if (filePath !== '') {
+        issueFileCommand(filePath, prepareKeyValueMessage(name, value));
+        return;
     }
-    process.stdout.write(external_os_namespaceObject.EOL);
-    command_issueCommand('set-output', { name }, utils_toCommandValue(value));
+    process.stdout.write(external_node_os_namespaceObject.EOL);
+    issueCommand('set-output', name, toCommandValue(value));
 }
-/**
- * Enables or disables the echoing of commands into stdout for the rest of the step.
- * Echoing is disabled by default if ACTIONS_STEP_DEBUG is not set.
- *
- */
-function setCommandEcho(enabled) {
-    issue('echo', enabled ? 'on' : 'off');
-}
-//-----------------------------------------------------------------------
-// Results
-//-----------------------------------------------------------------------
-/**
- * Sets the action status to failed.
- * When the action exits it will be with an exit code of 1
- * @param message add error issue message
- */
-function setFailed(message) {
-    process.exitCode = ExitCode.Failure;
-    core_error(message);
-}
-//-----------------------------------------------------------------------
-// Logging Commands
-//-----------------------------------------------------------------------
-/**
- * Gets whether Actions Step Debug is on or not
- */
-function isDebug() {
-    return process.env['RUNNER_DEBUG'] === '1';
-}
-/**
- * Writes debug message to user log
- * @param message debug message
- */
-function core_debug(message) {
-    command_issueCommand('debug', {}, message);
-}
-/**
- * Adds an error issue
- * @param message error issue message. Errors will be converted to string via toString()
- * @param properties optional properties to add to the annotation.
- */
-function core_error(message, properties = {}) {
-    command_issueCommand('error', utils_toCommandProperties(properties), message instanceof Error ? message.toString() : message);
-}
-/**
- * Adds a warning issue
- * @param message warning issue message. Errors will be converted to string via toString()
- * @param properties optional properties to add to the annotation.
- */
-function warning(message, properties = {}) {
-    command_issueCommand('warning', utils_toCommandProperties(properties), message instanceof Error ? message.toString() : message);
-}
-/**
- * Adds a notice issue
- * @param message notice issue message. Errors will be converted to string via toString()
- * @param properties optional properties to add to the annotation.
- */
-function notice(message, properties = {}) {
-    issueCommand('notice', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
-}
-/**
- * Writes info to log with console.log.
- * @param message info message
- */
-function info(message) {
-    process.stdout.write(message + external_os_namespaceObject.EOL);
-}
-/**
- * Begin an output group.
- *
- * Output until the next `groupEnd` will be foldable in this group
- *
- * @param name The name of the output group
- */
-function startGroup(name) {
-    issue('group', name);
-}
-/**
- * End an output group.
- */
-function endGroup() {
-    issue('endgroup');
-}
-/**
- * Wrap an asynchronous function call in a group.
- *
- * Returns the same type as the function itself.
- *
- * @param name The name of the group
- * @param fn The function to wrap in the group
- */
-function group(name, fn) {
-    return core_awaiter(this, void 0, void 0, function* () {
-        startGroup(name);
-        let result;
-        try {
-            result = yield fn();
-        }
-        finally {
-            endGroup();
-        }
-        return result;
-    });
-}
-//-----------------------------------------------------------------------
-// Wrapper action state
-//-----------------------------------------------------------------------
-/**
- * Saves state for current action, the state can only be retrieved by this action's post job execution.
- *
- * @param     name     name of the state to store
- * @param     value    value to store. Non-string values will be converted to a string via JSON.stringify
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function saveState(name, value) {
-    const filePath = process.env['GITHUB_STATE'] || '';
-    if (filePath) {
-        return file_command_issueFileCommand('STATE', file_command_prepareKeyValueMessage(name, value));
+    const filePath = process.env['GITHUB_STATE'] ?? '';
+    if (filePath !== '') {
+        issueFileCommand(filePath, prepareKeyValueMessage(name, value));
+        return;
     }
-    command_issueCommand('save-state', { name }, utils_toCommandValue(value));
+    issueCommand('save-state', name, toCommandValue(value));
 }
-/**
- * Gets the value of an state set by this action's main execution.
- *
- * @param     name     name of the state to get
- * @returns   string
- */
 function getState(name) {
-    return process.env[`STATE_${name}`] || '';
+    return process.env[`STATE_${name}`] ?? '';
 }
-function getIDToken(aud) {
-    return core_awaiter(this, void 0, void 0, function* () {
-        return yield OidcClient.getIDToken(aud);
-    });
+function debug(message) {
+    issueCommand('debug', undefined, message);
 }
-/**
- * Summary exports
- */
+function info(message) {
+    process.stdout.write(`${message}${external_node_os_namespaceObject.EOL}`);
+}
+function warning(message) {
+    issueCommand('warning', undefined, message instanceof Error ? message.toString() : message);
+}
+function actions_core_error(message) {
+    issueCommand('error', undefined, message instanceof Error ? message.toString() : message);
+}
+function setFailed(message) {
+    process.exitCode = 1;
+    actions_core_error(message);
+}
 
-/**
- * @deprecated use core.summary
- */
-
-/**
- * Path exports
- */
-
-/**
- * Platform utilities exports
- */
-
-//# sourceMappingURL=core.js.map
+// EXTERNAL MODULE: external "fs"
+var external_fs_ = __nccwpck_require__(9896);
+;// CONCATENATED MODULE: external "os"
+const external_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("os");
 ;// CONCATENATED MODULE: ./node_modules/@actions/github/lib/context.js
 
 
@@ -40065,8 +37233,10 @@ class Context {
 //# sourceMappingURL=context.js.map
 // EXTERNAL MODULE: ./node_modules/@actions/github/node_modules/@actions/http-client/lib/index.js
 var lib = __nccwpck_require__(9659);
+// EXTERNAL MODULE: ./node_modules/undici/index.js
+var undici = __nccwpck_require__(6752);
 ;// CONCATENATED MODULE: ./node_modules/@actions/github/lib/internal/utils.js
-var utils_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
@@ -40096,7 +37266,7 @@ function getProxyAgentDispatcher(destinationUrl) {
 }
 function getProxyFetch(destinationUrl) {
     const httpDispatcher = getProxyAgentDispatcher(destinationUrl);
-    const proxyFetch = (url, opts) => utils_awaiter(this, void 0, void 0, function* () {
+    const proxyFetch = (url, opts) => __awaiter(this, void 0, void 0, function* () {
         return (0,undici.fetch)(url, Object.assign(Object.assign({}, opts), { dispatcher: httpDispatcher }));
     });
     return proxyFetch;
@@ -40287,7 +37457,7 @@ var DEFAULTS = {
 };
 
 // pkg/dist-src/util/lowercase-keys.js
-function dist_bundle_lowercaseKeys(object) {
+function lowercaseKeys(object) {
   if (!object) {
     return {};
   }
@@ -40339,7 +37509,7 @@ function merge(defaults, route, options) {
   } else {
     options = Object.assign({}, route);
   }
-  options.headers = dist_bundle_lowercaseKeys(options.headers);
+  options.headers = lowercaseKeys(options.headers);
   removeUndefinedProperties(options);
   removeUndefinedProperties(options.headers);
   const mergedOptions = mergeDeep(defaults || {}, options);
@@ -44428,13 +41598,13 @@ const COLORS = {
 function triggerCheck(body, trigger) {
     // If the trigger is not activated, set the output to false and return with false
     if (!body.startsWith(trigger)) {
-        core_debug(`comment body does not start with trigger: ${COLORS.highlight}${trigger}${COLORS.reset}`);
+        debug(`comment body does not start with trigger: ${COLORS.highlight}${trigger}${COLORS.reset}`);
         return false;
     }
     // Ensure the trigger match is complete: either end-of-string or followed by whitespace
     const nextChar = body[trigger.length];
     if (nextChar !== undefined && nextChar !== '' && !/\s/.test(nextChar)) {
-        core_debug(`comment body starts with trigger but is not complete: ${COLORS.highlight}${trigger}${COLORS.reset}`);
+        debug(`comment body starts with trigger but is not complete: ${COLORS.highlight}${trigger}${COLORS.reset}`);
         return false;
     }
     info(`✅ comment body starts with trigger: ${COLORS.highlight}${trigger}${COLORS.reset}`);
@@ -44763,13 +41933,13 @@ const docs = 'https://github.com/github/branch-deploy/blob/main/docs/naked-comma
 // :returns: true if a naked command was issued, false otherwise
 async function nakedCommandCheck(body, param_separator, triggers, octokit, context) {
     let nakedCommand = false;
-    core_debug(`before - nakedCommandCheck: body: ${body}`);
+    debug(`before - nakedCommandCheck: body: ${body}`);
     body = body.trim();
     // ////// checking for lock flags ////////
     // if the body contains the globalFlag, exit right away as environments are not relevant
     const globalFlag = getActionInput('global_lock_flag').trim();
     if (body.includes(globalFlag)) {
-        core_debug('global lock flag found in naked command check');
+        debug('global lock flag found in naked command check');
         return nakedCommand;
     }
     // remove any lock flags from the body
@@ -44778,9 +41948,9 @@ async function nakedCommandCheck(body, param_separator, triggers, octokit, conte
     });
     // remove the --reason <text> from the body if it exists
     if (body.includes('--reason')) {
-        core_debug(`'--reason' found in comment body: ${body} - attempting to remove for naked command checks`);
+        debug(`'--reason' found in comment body: ${body} - attempting to remove for naked command checks`);
         body = legacyArrayElement(body.split('--reason')[0]).trim();
-        core_debug(`comment body after '--reason' removal: ${body}`);
+        debug(`comment body after '--reason' removal: ${body}`);
     }
     ////////// end lock flag checks //////////
     // first remove any params
@@ -44791,9 +41961,9 @@ async function nakedCommandCheck(body, param_separator, triggers, octokit, conte
     // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
     if (params !== '') {
         body = legacyArrayElement(body.split(`${param_separator}${params}`)[0]).trim();
-        core_debug(`params were found and removed for naked command checks: ${params}`);
+        debug(`params were found and removed for naked command checks: ${params}`);
     }
-    core_debug(`after - nakedCommandCheck: body: ${body}`);
+    debug(`after - nakedCommandCheck: body: ${body}`);
     // loop through all the triggers and check to see if the command is a naked command
     for (const trigger of triggers) {
         if (body === trigger) {
@@ -44913,7 +42083,7 @@ const maxCommentLength = 65536;
 function truncateCommentBody(message) {
     // If the message is short enough, return it as is
     if (message.length <= maxCommentLength) {
-        core_debug('comment body is within length limit');
+        debug('comment body is within length limit');
         return message;
     }
     // if we make it here, the message is too long, so truncate it
@@ -44986,6 +42156,8 @@ async function actionStatus({ context, message: originalMessage, octokit, reacti
 
 // EXTERNAL MODULE: external "util"
 var external_util_ = __nccwpck_require__(9023);
+// EXTERNAL MODULE: external "path"
+var external_path_ = __nccwpck_require__(6928);
 ;// CONCATENATED MODULE: ./node_modules/yargs-parser/build/lib/string-utils.js
 /**
  * @license
@@ -46235,7 +43407,7 @@ yargsParser.looksLikeNumber = looksLikeNumber;
 function parseParams(params) {
     // use the yarns-parser library to parse the parameters as JSON
     const parsed = build_lib(params ?? '');
-    core_debug(`Parsing parameters string: ${String(params)}, produced: ${JSON.stringify(parsed)}`);
+    debug(`Parsing parameters string: ${String(params)}, produced: ${JSON.stringify(parsed)}`);
     return parsed;
 }
 
@@ -46278,7 +43450,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         saveActionState('parsed_params', parsed_params);
     }
     else {
-        core_debug('no parameters detected in command');
+        debug('no parameters detected in command');
         setActionOutput('params', '');
         setActionOutput('parsed_params', '');
         saveActionState('params', '');
@@ -46310,7 +43482,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
     for (const target of environment_targets_sanitized) {
         // If the body on a branch deploy contains the target
         if (bodyFmt.replace(trigger, '').trim() === target) {
-            core_debug(`found environment target for branch deploy: ${target}`);
+            debug(`found environment target for branch deploy: ${target}`);
             return {
                 target: target,
                 stable_branch_used: false,
@@ -46322,7 +43494,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         }
         // If the body on a noop trigger contains the target
         else if (bodyFmt.replace(noop_trigger, '').trim() === target) {
-            core_debug(`found environment target for noop trigger: ${target}`);
+            debug(`found environment target for noop trigger: ${target}`);
             return {
                 target: target,
                 stable_branch_used: false,
@@ -46334,7 +43506,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         }
         // If the body with 'to <target>' contains the target on a branch deploy
         else if (bodyFmt.replace(trigger, '').trim() === `to ${target}`) {
-            core_debug(`found environment target for branch deploy (with 'to'): ${target}`);
+            debug(`found environment target for branch deploy (with 'to'): ${target}`);
             return {
                 target: target,
                 stable_branch_used: false,
@@ -46346,7 +43518,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         }
         // If the body with 'to <target>' contains the target on a noop trigger
         else if (bodyFmt.replace(noop_trigger, '').trim() === `to ${target}`) {
-            core_debug(`found environment target for noop trigger (with 'to'): ${target}`);
+            debug(`found environment target for noop trigger (with 'to'): ${target}`);
             return {
                 target: target,
                 stable_branch_used: false,
@@ -46359,7 +43531,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         // If the body with 'to <target>' contains the target on a stable branch deploy
         else if (bodyFmt.replace(`${trigger} ${String(stable_branch)}`, '').trim() ===
             `to ${target}`) {
-            core_debug(`found environment target for stable branch deploy (with 'to'): ${target}`);
+            debug(`found environment target for stable branch deploy (with 'to'): ${target}`);
             return {
                 target: target,
                 stable_branch_used: true,
@@ -46372,7 +43544,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         // If the body with 'to <target>' contains the target on a stable branch noop trigger
         else if (bodyFmt.replace(`${noop_trigger} ${String(stable_branch)}`, '').trim() ===
             `to ${target}`) {
-            core_debug(`found environment target for stable branch noop trigger (with 'to'): ${target}`);
+            debug(`found environment target for stable branch noop trigger (with 'to'): ${target}`);
             return {
                 target: target,
                 stable_branch_used: true,
@@ -46385,7 +43557,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         // If the body on a stable branch deploy contains the target
         else if (bodyFmt.replace(`${trigger} ${String(stable_branch)}`, '').trim() ===
             target) {
-            core_debug(`found environment target for stable branch deploy: ${target}`);
+            debug(`found environment target for stable branch deploy: ${target}`);
             return {
                 target: target,
                 stable_branch_used: true,
@@ -46398,7 +43570,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         // If the body on a stable branch noop trigger contains the target
         else if (bodyFmt.replace(`${noop_trigger} ${String(stable_branch)}`, '').trim() ===
             target) {
-            core_debug(`found environment target for stable branch noop trigger: ${target}`);
+            debug(`found environment target for stable branch noop trigger: ${target}`);
             return {
                 target: target,
                 stable_branch_used: true,
@@ -46410,7 +43582,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         }
         // If the body matches the trigger phrase exactly, just use the default environment
         else if (bodyFmt.trim() === trigger) {
-            core_debug('using default environment for branch deployment');
+            debug('using default environment for branch deployment');
             return {
                 target: environment,
                 stable_branch_used: false,
@@ -46422,7 +43594,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         }
         // If the body matches the noop_trigger phrase exactly, just use the default environment
         else if (bodyFmt.trim() === noop_trigger) {
-            core_debug('using default environment for noop trigger');
+            debug('using default environment for noop trigger');
             return {
                 target: environment,
                 stable_branch_used: false,
@@ -46434,7 +43606,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         }
         // If the body matches the stable branch phrase exactly, just use the default environment
         else if (bodyFmt.trim() === `${trigger} ${String(stable_branch)}`) {
-            core_debug('using default environment for stable branch deployment');
+            debug('using default environment for stable branch deployment');
             return {
                 target: environment,
                 stable_branch_used: true,
@@ -46446,7 +43618,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
         }
         // If the body matches the stable branch phrase exactly on a noop trigger, just use the default environment
         else if (bodyFmt.trim() === `${noop_trigger} ${String(stable_branch)}`) {
-            core_debug('using default environment for stable branch noop trigger');
+            debug('using default environment for stable branch noop trigger');
             return {
                 target: environment,
                 stable_branch_used: true,
@@ -46478,7 +43650,7 @@ function onLockChecks(environment_targets_sanitized, body, lock_trigger, unlock_
     // if the body contains the globalFlag, exit right away as environments are not relevant
     const globalFlag = getActionInput('global_lock_flag').trim();
     if (body.includes(globalFlag)) {
-        core_debug('global lock flag found in environment target check');
+        debug('global lock flag found in environment target check');
         return 'GLOBAL_REQUEST';
     }
     // remove any lock flags from the body
@@ -46487,40 +43659,40 @@ function onLockChecks(environment_targets_sanitized, body, lock_trigger, unlock_
     });
     // remove the --reason <text> from the body if it exists
     if (body.includes('--reason')) {
-        core_debug(`'--reason' found in comment body: ${body} - attempting to remove for environment checks`);
+        debug(`'--reason' found in comment body: ${body} - attempting to remove for environment checks`);
         body = legacyArrayElement(body.split('--reason')[0]);
-        core_debug(`comment body after '--reason' removal: ${body}`);
+        debug(`comment body after '--reason' removal: ${body}`);
     }
     // Get the lock info alias from the action inputs
     const lockInfoAlias = getActionInput('lock_info_alias');
     // if the body matches the lock trigger exactly, just use the default environment
     if (body.trim() === lock_trigger.trim()) {
-        core_debug('using default environment for lock request');
+        debug('using default environment for lock request');
         return environment;
     }
     // if the body matches the unlock trigger exactly, just use the default environment
     if (body.trim() === unlock_trigger.trim()) {
-        core_debug('using default environment for unlock request');
+        debug('using default environment for unlock request');
         return environment;
     }
     // if the body matches the lock info alias exactly, just use the default environment
     if (body.trim() === lockInfoAlias.trim()) {
-        core_debug('using default environment for lock info request');
+        debug('using default environment for lock info request');
         return environment;
     }
     // Loop through all the environment targets to see if an explicit target is being used
     for (const target of environment_targets_sanitized) {
         // If the body on a branch deploy contains the target
         if (body.replace(lock_trigger, '').trim() === target) {
-            core_debug(`found environment target for lock request: ${target}`);
+            debug(`found environment target for lock request: ${target}`);
             return target;
         }
         else if (body.replace(unlock_trigger, '').trim() === target) {
-            core_debug(`found environment target for unlock request: ${target}`);
+            debug(`found environment target for unlock request: ${target}`);
             return target;
         }
         else if (body.replace(lockInfoAlias, '').trim() === target) {
-            core_debug(`found environment target for lock info request: ${target}`);
+            debug(`found environment target for lock info request: ${target}`);
             return target;
         }
     }
@@ -46666,8 +43838,8 @@ async function createDeploymentStatus(octokit, context, ref, state, deploymentId
         environment_url: legacyEnvironmentUrl(environment_url),
         headers: API_HEADERS
     });
-    core_debug(`deploymentStatus.id: ${result.id}`);
-    core_debug(`deploymentStatus.url: ${result.url}`);
+    debug(`deploymentStatus.id: ${result.id}`);
+    debug(`deploymentStatus.url: ${result.url}`);
     return result;
 }
 // Helper function to check and see if a given sha is active and deployed to a given environment
@@ -46724,13 +43896,13 @@ async function latestActiveDeployment(octokit, context, environment) {
     let nodes = data.repository.deployments.nodes;
     // If no deployments were found, return null
     if (nodes.length === 0) {
-        core_debug(`no deployments found for ${environment}`);
+        debug(`no deployments found for ${environment}`);
         return null;
     }
     // Check for an active deployment in the first page of deployments
     let activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE');
     if (activeDeployment) {
-        core_debug(`found active deployment for ${environment} in page ${queryNumber}`);
+        debug(`found active deployment for ${environment} in page ${queryNumber}`);
         return activeDeployment;
     }
     // Paginate to find the active deployment if it exists
@@ -46742,16 +43914,16 @@ async function latestActiveDeployment(octokit, context, environment) {
         nodes = data.repository.deployments.nodes;
         activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE');
         if (activeDeployment) {
-            core_debug(`found active deployment for ${environment} in page ${queryNumber}`);
+            debug(`found active deployment for ${environment} in page ${queryNumber}`);
             return activeDeployment;
         }
         else {
-            core_debug(`no active deployment found for ${environment} in page ${queryNumber}`);
+            debug(`no active deployment found for ${environment} in page ${queryNumber}`);
         }
         hasNextPage = data.repository.deployments.pageInfo.hasNextPage;
         endCursor = data.repository.deployments.pageInfo.endCursor;
     }
-    core_debug(`no active deployment found for ${environment} after ${queryNumber} pages`);
+    debug(`no active deployment found for ${environment} after ${queryNumber} pages`);
     // If no active deployment was found, return null
     return null;
 }
@@ -46907,7 +44079,7 @@ async function orgTeamCheck(actor, orgTeams, createClient) {
             const result = await octokit.request(`GET /organizations/${orgId}/team/${teamId}/members/${actor}`);
             // If the status code is a 204, the user is in the team
             if (result.status === 204) {
-                core_debug(`${actor} is in ${orgTeam}`);
+                debug(`${actor} is in ${orgTeam}`);
                 return true;
                 // If some other status code occurred, return false and output a warning
             }
@@ -46917,10 +44089,10 @@ async function orgTeamCheck(actor, orgTeams, createClient) {
         }
         catch (error) {
             const apiError = legacyApiError(error);
-            core_debug(`orgTeamCheck() error.status: ${String(apiError.status)}`);
+            debug(`orgTeamCheck() error.status: ${String(apiError.status)}`);
             // If any of the API calls returns a 404, the user is not in the team
             if (apiError.status === 404) {
-                core_debug(`${actor} is not a member of the ${orgTeam} team`);
+                debug(`${actor} is not a member of the ${orgTeam} team`);
                 // If some other error occurred, output a warning
             }
             else {
@@ -46937,7 +44109,7 @@ async function orgTeamCheck(actor, orgTeams, createClient) {
 async function isAdmin(context, createClient = defaultAdminOctokitFactory) {
     // Get the admins string from the action inputs
     const admins = getActionInput('admins');
-    core_debug(`raw admins value: ${admins}`);
+    debug(`raw admins value: ${admins}`);
     // Sanitized the input to remove any whitespace and split into an array
     const adminsSanitized = admins
         .split(',')
@@ -46958,14 +44130,14 @@ async function isAdmin(context, createClient = defaultAdminOctokitFactory) {
                 handles.push(admin.replace('@', ''));
             }
             else {
-                core_debug(`${admin} is not a valid GitHub username... skipping admin check`);
+                debug(`${admin} is not a valid GitHub username... skipping admin check`);
             }
         }
     });
     const isAdminMsg = `🔮 ${COLORS.highlight}${context.actor}${COLORS.reset} is an ${COLORS.highlight}admin`;
     // Check if the user is in the admin handle list
     if (handles.includes(context.actor.toLowerCase())) {
-        core_debug(`${context.actor} is an admin via handle reference`);
+        debug(`${context.actor} is an admin via handle reference`);
         info(isAdminMsg);
         return true;
     }
@@ -46973,13 +44145,13 @@ async function isAdmin(context, createClient = defaultAdminOctokitFactory) {
     if (orgTeams.length > 0) {
         const result = await orgTeamCheck(context.actor, orgTeams, createClient);
         if (result) {
-            core_debug(`${context.actor} is an admin via org team reference`);
+            debug(`${context.actor} is an admin via org team reference`);
             info(isAdminMsg);
             return true;
         }
     }
     // If we get here, the user is not an admin
-    core_debug(`${context.actor} is not an admin`);
+    debug(`${context.actor} is not an admin`);
     return false;
 }
 
@@ -46996,7 +44168,7 @@ async function isAdmin(context, createClient = defaultAdminOctokitFactory) {
 // :param data: An object containing all of the data needed for this function
 // :return: A boolean value indicating if the PR branch is outdated or not
 async function isOutdated(context, octokit, data) {
-    core_debug(`outdated_mode: ${data.outdated_mode}`);
+    debug(`outdated_mode: ${data.outdated_mode}`);
     // Helper function to compare two branches
     // :param baseBranch: The base branch to compare against
     // :param prBranch: The PR branch to compare
@@ -47005,7 +44177,7 @@ async function isOutdated(context, octokit, data) {
         // if the mergeStateStatus is BEHIND, then we know the PR is behind the base branch
         // in this case we can skip the commit comparison
         if (data.mergeStateStatus === 'BEHIND') {
-            core_debug(`mergeStateStatus is BEHIND - exiting isOutdated logic early`);
+            debug(`mergeStateStatus is BEHIND - exiting isOutdated logic early`);
             return { outdated: true, branch: baseBranch.data.name };
         }
         const compare = await octokit.rest.repos.compareCommits({
@@ -47020,7 +44192,7 @@ async function isOutdated(context, octokit, data) {
             return { outdated: true, branch: baseBranch.data.name };
         }
         else {
-            core_debug(`The PR branch is not behind the base branch - OK`);
+            debug(`The PR branch is not behind the base branch - OK`);
             return { outdated: false, branch: baseBranch.data.name };
         }
     }
@@ -47030,13 +44202,13 @@ async function isOutdated(context, octokit, data) {
     // strict: compare the PR branch to both the base branch and the default branch (default mode)
     switch (data.outdated_mode) {
         case 'pr_base':
-            core_debug(`checking isOutdated with pr_base mode`);
+            debug(`checking isOutdated with pr_base mode`);
             return await compareBranches(data.baseBranch, data.pr);
         case 'default_branch':
-            core_debug(`checking isOutdated with default_branch mode`);
+            debug(`checking isOutdated with default_branch mode`);
             return await compareBranches(data.stableBaseBranch, data.pr);
         case 'strict': {
-            core_debug(`checking isOutdated with strict mode`);
+            debug(`checking isOutdated with strict mode`);
             const isBehindBaseBranch = await compareBranches(data.baseBranch, data.pr);
             const isBehindStableBaseBranch = await compareBranches(data.stableBaseBranch, data.pr);
             // Return the first branch that is behind (if any)
@@ -47066,7 +44238,7 @@ function stringToArray(string) {
     try {
         // If the String is empty, return an empty Array
         if (string.trim() === '') {
-            core_debug('in stringToArray(), an empty String was found so an empty Array was returned');
+            debug('in stringToArray(), an empty String was found so an empty Array was returned');
             return [];
         }
         // Split up the String on commas, trim each element, and return the Array
@@ -47082,7 +44254,7 @@ function stringToArray(string) {
         return results;
     }
     catch (error) {
-        core_error(`failed string for debugging purposes: ${string}`);
+        actions_core_error(`failed string for debugging purposes: ${string}`);
         throw new Error(`could not convert String to Array - error: ${String(error)}`);
     }
 }
@@ -47126,7 +44298,7 @@ async function prechecks(context, octokit, data) {
     // set an output which is the branch name this PR is targeting to merge into
     const baseRef = pr.data?.base?.ref;
     setActionOutput('base_ref', baseRef);
-    core_debug(`base_ref: ${String(baseRef)}`);
+    debug(`base_ref: ${String(baseRef)}`);
     // Setup the skipCi, skipReview, and draft_permitted_targets variables
     const skipCiArray = stringToArray(data.inputs.skipCi);
     const skipReviewsArray = stringToArray(data.inputs.skipReviews);
@@ -47157,7 +44329,7 @@ async function prechecks(context, octokit, data) {
         ref = data.inputs.stable_branch;
         // setting forkBypass to true because the stable branch is being used as the deployment target, even though the command is executed on a fork.
         forkBypass = true;
-        core_debug(`${data.inputs.trigger} command used with '${data.inputs.stable_branch}' branch - setting ref to ${ref}`);
+        debug(`${data.inputs.trigger} command used with '${data.inputs.stable_branch}' branch - setting ref to ${ref}`);
     }
     const nonDefaultTargetBranchUsed = data.inputs.stable_branch !== baseRef;
     const isNotStableBranchDeploy = !data.environmentObj.stable_branch_used;
@@ -47186,7 +44358,7 @@ async function prechecks(context, octokit, data) {
     if (isFork && !forkBypass) {
         info(`🍴 the pull request is a ${COLORS.highlight}fork${COLORS.reset}`);
         info(`🍴 fork: the ref (${COLORS.highlight}${ref}${COLORS.reset}) output will be replaced with the commit sha (${COLORS.highlight}${prData.head.sha}${COLORS.reset})`);
-        core_debug(`the pull request is from a fork, using sha instead of ref`);
+        debug(`the pull request is from a fork, using sha instead of ref`);
         setActionOutput('fork', 'true');
         saveActionState('fork', 'true');
         // If this Action's inputs have been configured to explicitly prevent forks, exit
@@ -47204,10 +44376,10 @@ async function prechecks(context, octokit, data) {
         setActionOutput('fork_label', label);
         setActionOutput('fork_checkout', forkCheckout);
         setActionOutput('fork_full_name', forkFullName);
-        core_debug(`fork_ref: ${forkRef}`);
-        core_debug(`fork_label: ${label}`);
-        core_debug(`fork_checkout: ${forkCheckout}`);
-        core_debug(`fork_full_name: ${forkFullName}`);
+        debug(`fork_ref: ${forkRef}`);
+        debug(`fork_label: ${label}`);
+        debug(`fork_checkout: ${forkCheckout}`);
+        debug(`fork_full_name: ${forkFullName}`);
         // If this pull request is a fork, use the exact SHA rather than the branch name
         ref = prData.head.sha;
     }
@@ -47340,17 +44512,17 @@ async function prechecks(context, octokit, data) {
         }
     }
     catch (e) {
-        core_debug(`could not retrieve PR commit status: ${String(e)} - Handled: ${COLORS.success}OK`);
-        core_debug('this repo may not have any CI checks defined');
-        core_debug('skipping commit status check and proceeding...');
+        debug(`could not retrieve PR commit status: ${String(e)} - Handled: ${COLORS.success}OK`);
+        debug('this repo may not have any CI checks defined');
+        debug('skipping commit status check and proceeding...');
         commitStatus = null;
         // Try to display the raw GraphQL result for debugging purposes
         try {
-            core_debug('raw graphql result for debugging:');
-            core_debug(legacyDebugValue(result));
+            debug('raw graphql result for debugging:');
+            debug(legacyDebugValue(result));
         } /* istanbul ignore next */
         catch {
-            core_debug('Could not output raw graphql result for debugging - This is bad');
+            debug('Could not output raw graphql result for debugging - This is bad');
         }
     }
     // Get admin data
@@ -47371,19 +44543,19 @@ async function prechecks(context, octokit, data) {
     });
     const approvedReviewsCount = result.repository.pullRequest.reviews?.totalCount;
     // log values for debugging
-    core_debug('precheck values for debugging:');
-    core_debug(`reviewDecision: ${String(reviewDecision)}`);
-    core_debug(`mergeStateStatus: ${String(mergeStateStatus)}`);
-    core_debug(`commitStatus: ${String(commitStatus)}`);
-    core_debug(`userIsAdmin: ${userIsAdmin}`);
-    core_debug(`update_branch: ${data.inputs.update_branch}`);
-    core_debug(`skipCi: ${skipCi}`);
-    core_debug(`skipReviews: ${skipReviews}`);
-    core_debug(`allowForks: ${data.inputs.allowForks}`);
-    core_debug(`forkBypass: ${forkBypass}`);
-    core_debug(`environment: ${data.environment}`);
-    core_debug(`outdated: ${outdated.outdated}`);
-    core_debug(`approvedReviewsCount: ${String(approvedReviewsCount)}`);
+    debug('precheck values for debugging:');
+    debug(`reviewDecision: ${String(reviewDecision)}`);
+    debug(`mergeStateStatus: ${String(mergeStateStatus)}`);
+    debug(`commitStatus: ${String(commitStatus)}`);
+    debug(`userIsAdmin: ${userIsAdmin}`);
+    debug(`update_branch: ${data.inputs.update_branch}`);
+    debug(`skipCi: ${skipCi}`);
+    debug(`skipReviews: ${skipReviews}`);
+    debug(`allowForks: ${data.inputs.allowForks}`);
+    debug(`forkBypass: ${forkBypass}`);
+    debug(`environment: ${data.environment}`);
+    debug(`outdated: ${outdated.outdated}`);
+    debug(`approvedReviewsCount: ${String(approvedReviewsCount)}`);
     // output values
     setActionOutput('commit_status', commitStatus);
     setActionOutput('review_decision', reviewDecision);
@@ -47401,7 +44573,7 @@ async function prechecks(context, octokit, data) {
     if (!data.environmentObj.stable_branch_used &&
         data.environmentObj.sha === null &&
         !isFork) {
-        core_debug(`checking if branch exists: ${ref}`);
+        debug(`checking if branch exists: ${ref}`);
         try {
             await octokit.rest.repos.getBranch({
                 ...context.repo,
@@ -47419,7 +44591,7 @@ async function prechecks(context, octokit, data) {
             }
             // If it's not a 404 error, it's unexpected - hard stop
             message = `### ⚠️ Cannot proceed with deployment\n\n- ref: \`${ref}\`\n\n> An unexpected error occurred while checking if the branch exists: \`${apiError.message}\``;
-            core_error(`unexpected error checking if branch exists: ${apiError.message}`);
+            actions_core_error(`unexpected error checking if branch exists: ${apiError.message}`);
             return { message: message, status: false };
         }
     }
@@ -47427,7 +44599,7 @@ async function prechecks(context, octokit, data) {
     if (data.environmentObj.stable_branch_used) {
         message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`;
         info(message);
-        core_debug('note: deployments to the stable branch do not require PR review or passing CI checks on the working branch');
+        debug('note: deployments to the stable branch do not require PR review or passing CI checks on the working branch');
         // If allow_sha_deployments are enabled and the sha is not null, always allow the deployment
         // note: this is an "unsafe" option
         // this option is "unsafe" because it bypasses all checks and we cannot guarantee that the sha being deployed has...
@@ -47441,7 +44613,7 @@ async function prechecks(context, octokit, data) {
         message = `✅ deployment requested using an exact ${COLORS.highlight}sha${COLORS.reset}`;
         info(message);
         warning(`⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md`);
-        core_debug(`an exact sha was used, using sha instead of ref`);
+        debug(`an exact sha was used, using sha instead of ref`);
         // since an exact sha was used, we overwrite both the ref and sha values with the exact sha that was provided by the user
         sha = data.environmentObj.sha;
         ref = data.environmentObj.sha;
@@ -47464,7 +44636,7 @@ async function prechecks(context, octokit, data) {
         (reviewDecision === 'REVIEW_REQUIRED' ||
             reviewDecision === 'CHANGES_REQUESTED')) {
         message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.`;
-        core_debug(`rejecting deployment from fork without required reviews - noopMode: ${noopMode}`);
+        debug(`rejecting deployment from fork without required reviews - noopMode: ${noopMode}`);
         return { message: message, status: false };
         // If allow_sha_deployments are not enabled and a sha was provided, exit
     }
@@ -47486,7 +44658,7 @@ async function prechecks(context, octokit, data) {
         }
         // Execute the logic below only if update_branch is set to "force"
         // This logic will attempt to update the pull request's branch so that it is no longer 'behind'
-        core_debug(`update_branch is set to ${COLORS.highlight}${data.inputs.update_branch}${COLORS.reset}`);
+        debug(`update_branch is set to ${COLORS.highlight}${data.inputs.update_branch}${COLORS.reset}`);
         // Make an API call to update the PR branch
         try {
             const result = await octokit.rest.pulls.updateBranch({
@@ -47588,7 +44760,7 @@ async function prechecks(context, octokit, data) {
         noopMode) {
         message = `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`;
         info(message);
-        core_debug('note: noop deployments do not require pr review and ignore "changes requested" reviews');
+        debug('note: noop deployments do not require pr review and ignore "changes requested" reviews');
         // If CI is passing and the deployer is an admin
     }
     else if (commitStatus === 'SUCCESS' && userIsAdmin) {
@@ -47737,9 +44909,9 @@ async function prechecks(context, octokit, data) {
 function filterChecks(checks, checkResults, ignoredChecks, required) {
     const healthyCheckStatuses = ['SUCCESS', 'SKIPPED', 'NEUTRAL'];
     const checksDisplay = typeof checks === 'string' ? checks : checks.join(',');
-    core_debug(`filterChecks() - checks: ${checksDisplay}`);
-    core_debug(`filterChecks() - ignoredChecks: ${ignoredChecks.join(',')}`);
-    core_debug(`filterChecks() - required: ${required}`);
+    debug(`filterChecks() - checks: ${checksDisplay}`);
+    debug(`filterChecks() - ignoredChecks: ${ignoredChecks.join(',')}`);
+    debug(`filterChecks() - required: ${required}`);
     // If checks is an array (meaning it isn't just `required` or `all`) and it contains items
     const checksProvided = typeof checks !== 'string' && checks.length > 0;
     // If a set of values is provided for the `checks` input option, ensure all of them exist in checkResults
@@ -47762,10 +44934,10 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
             const name = checkName(check);
             const isIncluded = checks.some(checkName => checkName === name);
             if (isIncluded) {
-                core_debug(`filterChecks() - explicitly including ci check: ${String(name)}`);
+                debug(`filterChecks() - explicitly including ci check: ${String(name)}`);
             }
             else {
-                core_debug(`filterChecks() - ${String(name)} is not in the explicit list of checks to include (${checksDisplay})`);
+                debug(`filterChecks() - ${String(name)} is not in the explicit list of checks to include (${checksDisplay})`);
             }
             return isIncluded;
         }
@@ -47779,7 +44951,7 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
         const name = checkName(check);
         const isIgnored = ignoredChecks.some(ignoredCheck => ignoredCheck === name);
         if (isIgnored) {
-            core_debug(`filterChecks() - ignoring ci check: ${String(name)}`);
+            debug(`filterChecks() - ignoring ci check: ${String(name)}`);
         }
         // If required is true, only keep checks that are required
         return !isIgnored && (required ? check.isRequired : true);
@@ -47789,7 +44961,7 @@ function filterChecks(checks, checkResults, ignoredChecks, required) {
     // If no checks remain after filtering, default to SUCCESS
     if (filteredChecks.length === 0) {
         const message = 'filterChecks() - after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined';
-        core_debug(message);
+        debug(message);
         return { message: message, status: 'SUCCESS' };
     }
     return {
@@ -47868,7 +45040,7 @@ async function branchRulesetChecks(context, octokit, data) {
             branch,
             headers: API_HEADERS
         });
-        core_debug(`branch ${COLORS.highlight}rulesets${COLORS.reset}: ${JSON.stringify(branchRules)}`);
+        debug(`branch ${COLORS.highlight}rulesets${COLORS.reset}: ${JSON.stringify(branchRules)}`);
         const failed_checks = [];
         // Leave a warning if no rulesets are defined
         if (branchRules.length === 0) {
@@ -47899,7 +45071,7 @@ async function branchRulesetChecks(context, octokit, data) {
         const apiError = legacyApiError(error);
         if (apiError.status === ERROR.messages.upgrade_or_public.status &&
             apiError.message.includes(ERROR.messages.upgrade_or_public.message)) {
-            core_debug(ERROR.messages.upgrade_or_public.help_text);
+            debug(ERROR.messages.upgrade_or_public.help_text);
             return { success: false, failed_checks: ['upgrade_or_public_required'] };
         }
         else {
@@ -47931,7 +45103,7 @@ function handleReviewCountMismatch(branch, ruleType, branchRule, failed_checks) 
         failed_checks.push(`mismatch_${ruleType}_required_approving_review_count`);
     }
     else {
-        core_debug(`required_approving_review_count is ${String(parameters['required_approving_review_count'])} - OK`);
+        debug(`required_approving_review_count is ${String(parameters['required_approving_review_count'])} - OK`);
     }
 }
 function logParameterMismatch(branch, ruleType, key, failed_checks) {
@@ -47948,7 +45120,7 @@ function logWarnings(failed_checks) {
 ;// CONCATENATED MODULE: ./src/functions/valid-branch-name.ts
 
 function constructValidBranchName(branch) {
-    core_debug(`constructing valid branch name: ${String(branch)}`);
+    debug(`constructing valid branch name: ${String(branch)}`);
     if (branch === null) {
         return null;
     }
@@ -47957,7 +45129,7 @@ function constructValidBranchName(branch) {
     }
     // If environment contains any spaces, replace all of them with a hyphen
     branch = branch.replace(/\s/g, '-');
-    core_debug(`constructed valid branch name: ${branch}`);
+    debug(`constructed valid branch name: ${branch}`);
     return branch;
 }
 
@@ -47976,7 +45148,7 @@ const LOCK_FILE = LOCK_METADATA.lockFile;
 // :return: The lock file contents if it exists, false if not
 async function checkLockFile(octokit, context, branchName) {
     branchName = constructValidBranchName(branchName);
-    core_debug(`checking if lock file exists on branch: ${branchName}`);
+    debug(`checking if lock file exists on branch: ${branchName}`);
     // If the lock branch exists, check if a lock file exists
     try {
         // Get the lock file contents
@@ -47992,13 +45164,13 @@ async function checkLockFile(octokit, context, branchName) {
     }
     catch (error) {
         const apiError = legacyApiError(error);
-        core_debug(`checkLockFile() error.status: ${String(apiError.status)}`);
+        debug(`checkLockFile() error.status: ${String(apiError.status)}`);
         // If the lock file doesn't exist, return false
         if (apiError.status === 404) {
             const lockFileNotFoundMsg = `🔍 lock file does not exist on branch: ${COLORS.highlight}${branchName}`;
             if (branchName === LOCK_METADATA.globalLockBranch) {
                 // since we jump out directly to the 'lock file' without checking the branch (only on global locks), we get this error often so we just want it to be a debug message
-                core_debug(lockFileNotFoundMsg);
+                debug(lockFileNotFoundMsg);
             }
             else {
                 info(lockFileNotFoundMsg);
@@ -48081,7 +45253,7 @@ function constructBranchName(environment, global) {
 // :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
 // :returns: The result of the createOrUpdateFileContents API call
 async function createLock(octokit, context, ref, reason, sticky, environment, global, reactionId, leaveComment) {
-    core_debug('attempting to create lock...');
+    debug('attempting to create lock...');
     // Deconstruct the context to obtain the owner and repo
     const { owner, repo } = context.repo;
     // Construct the file contents for the lock file
@@ -48245,7 +45417,7 @@ function findReason(context, sticky) {
         return null;
     }
     // Return the reason for the lock request
-    core_debug(`reason: ${reason}`);
+    debug(`reason: ${reason}`);
     return reason;
 }
 // Helper function to check if a given branch exists
@@ -48254,7 +45426,7 @@ function findReason(context, sticky) {
 // :param branchName: The name of the branch to check
 // :return: true if the branch exists, false if not
 async function checkBranch(octokit, context, branchName) {
-    core_debug(`checking if branch ${branchName} exists...`);
+    debug(`checking if branch ${branchName} exists...`);
     // Check if the lock branch already exists
     try {
         await octokit.rest.repos.getBranch({
@@ -48262,19 +45434,19 @@ async function checkBranch(octokit, context, branchName) {
             branch: branchName,
             headers: API_HEADERS
         });
-        core_debug(`branch '${branchName}' exists`);
+        debug(`branch '${branchName}' exists`);
         return true;
     }
     catch (error) {
         const apiError = legacyApiError(error);
-        core_debug(`checkBranch() error.status: ${String(apiError.status)}`);
+        debug(`checkBranch() error.status: ${String(apiError.status)}`);
         // Check if the error was due to the lock branch not existing
         if (apiError.status === 404) {
-            core_debug(`lock branch ${branchName} does not exist`);
+            debug(`lock branch ${branchName} does not exist`);
             return false;
         }
         else {
-            core_error('an unexpected status code was returned while checking for the lock branch');
+            actions_core_error('an unexpected status code was returned while checking for the lock branch');
             throw new Error(String(error));
         }
     }
@@ -48284,7 +45456,7 @@ async function checkBranch(octokit, context, branchName) {
 // :param context: The GitHub Actions event context
 // :param branchName: The name of the branch to create
 async function createBranch(octokit, context, branchName) {
-    core_debug(`attempting to create lock branch: ${branchName}...`);
+    debug(`attempting to create lock branch: ${branchName}...`);
     // Determine the default branch for the repo
     const repoData = await octokit.rest.repos.get({
         ...context.repo,
@@ -48314,7 +45486,7 @@ async function createBranch(octokit, context, branchName) {
 // :param leaveComment: A bool indicating whether to leave a comment or not (default: true)
 // :return: true if the lock owner is the requestor, false if not
 async function checkLockOwner(octokit, context, lockData, sticky, reactionId, leaveComment) {
-    core_debug('checking the owner of the lock...');
+    debug('checking the owner of the lock...');
     // If the requestor is the one who owns the lock, return 'owner'
     if (lockData.created_by === context.actor) {
         info(`✅ ${COLORS.highlight}${context.actor}${COLORS.reset} initiated this request and is also the owner of the current lock`);
@@ -48366,7 +45538,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId, le
         reasonText = formatLockReason(lockData.reason);
     }
     else {
-        core_debug('no reason detected');
+        debug('no reason detected');
     }
     // dynamic lock text
     let lockText = '';
@@ -48415,7 +45587,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId, le
     saveActionState('bypass', 'true');
     setFailed(comment);
     // Return false to indicate that the lock was not claimed
-    core_debug(`the lock was not claimed as it is owned by ${lockData.created_by}`);
+    debug(`the lock was not claimed as it is owned by ${lockData.created_by}`);
     return false;
 }
 // Helper function for claiming a deployment lock
@@ -48448,11 +45620,11 @@ async function lock(request) {
     let global;
     const detailsOnly = mode.type === 'details';
     const postDeployStep = mode.postDeployStep;
-    core_debug(`lock() called with ref: ${String(ref)}`);
-    core_debug(`lock() called with sticky: ${String(sticky)}`);
-    core_debug(`lock() called with environment: ${String(environment)}`);
-    core_debug(`lock() called with detailsOnly: ${detailsOnly}`);
-    core_debug(`lock() called with postDeployStep: ${postDeployStep}`);
+    debug(`lock() called with ref: ${String(ref)}`);
+    debug(`lock() called with sticky: ${String(sticky)}`);
+    debug(`lock() called with environment: ${String(environment)}`);
+    debug(`lock() called with detailsOnly: ${detailsOnly}`);
+    debug(`lock() called with postDeployStep: ${postDeployStep}`);
     // find the global flag for returning
     const globalFlag = getActionInput('global_lock_flag').trim();
     // Attempt to obtain a reason from the context for the lock - either a string or null
@@ -48470,9 +45642,9 @@ async function lock(request) {
     // construct the branch name for the lock
     const branchName = constructBranchName(environment, global);
     // lock debug info
-    core_debug(`detected lock env: ${String(environment)}`);
-    core_debug(`detected lock global: ${global}`);
-    core_debug(`constructed lock branch name: ${branchName}`);
+    debug(`detected lock env: ${String(environment)}`);
+    debug(`detected lock global: ${global}`);
+    debug(`constructed lock branch name: ${branchName}`);
     // Before we can process THIS lock request, we must first check for a global lock
     // If there is a global lock, we must check if the requestor is the owner of the lock
     // We can only proceed here if there is NO global lock or if the requestor is the owner of the global lock
@@ -48500,23 +45672,23 @@ async function lock(request) {
     }
     // If the global lock exists, check if the requestor is the owner
     if (legacyTruthy(globalLockData) && !postDeployStep) {
-        core_debug('global lock exists - checking if requestor is the owner');
+        debug('global lock exists - checking if requestor is the owner');
         // Check if the requestor is the owner of the global lock
         const globalLockOwner = await checkLockOwner(octokit, context, globalLockData, sticky, reactionId, leaveComment);
         if (!globalLockOwner) {
             // If the requestor is not the owner of the global lock, return false
-            core_debug('requestor is not the owner of the current global lock');
+            debug('requestor is not the owner of the current global lock');
             return { status: false, lockData: null, globalFlag, environment, global };
         }
         else {
-            core_debug('requestor is the owner of the global lock - continuing checks');
+            debug('requestor is the owner of the global lock - continuing checks');
         }
     }
     // Check if the lock branch exists
     const branchExists = await checkBranch(octokit, context, branchName);
     if (!branchExists && detailsOnly) {
         // If the lock branch doesn't exist and this is a detailsOnly request, return null
-        core_debug('lock branch does not exist and this is a detailsOnly request');
+        debug('lock branch does not exist and this is a detailsOnly request');
         return { status: null, lockData: null, globalFlag, environment, global };
     }
     if (branchExists) {
@@ -48599,9 +45771,9 @@ function unlock_findEnvironment(context) {
     let body = issueCommentContext(context).payload.comment.body.trim();
     // remove the --reason <text> from the body if it exists
     if (body.includes('--reason')) {
-        core_debug(`'--reason' found in unlock comment body: ${body} - attempting to remove for environment checks`);
+        debug(`'--reason' found in unlock comment body: ${body} - attempting to remove for environment checks`);
         body = legacyArrayElement(body.split('--reason')[0]);
-        core_debug(`comment body after '--reason' removal: ${body}`);
+        debug(`comment body after '--reason' removal: ${body}`);
     }
     // Get the global lock flag from the Action input
     const globalFlag = getActionInput('global_lock_flag').trim();
@@ -48669,7 +45841,7 @@ async function unlock(request) {
             info(`🔓 successfully ${COLORS.highlight}removed${COLORS.reset} lock`);
             // If silent, exit here
             if (silent) {
-                core_debug('removing lock silently');
+                debug('removing lock silently');
                 return 'removed lock - silent';
             }
             // If a global lock was successfully released, set the output
@@ -48709,14 +45881,14 @@ async function unlock(request) {
     catch (error) {
         // debug the error msg
         const apiError = legacyApiError(error);
-        core_debug(`unlock() error.status: ${String(apiError.status)}`);
-        core_debug(`unlock() error.message: ${apiError.message}`);
+        debug(`unlock() error.status: ${String(apiError.status)}`);
+        debug(`unlock() error.message: ${apiError.message}`);
         // The the error caught was a 422 - Reference does not exist, this is OK - It means the lock branch does not exist
         if (apiError.status === 422 &&
             apiError.message.startsWith('Reference does not exist')) {
             // If silent, exit here
             if (silent) {
-                core_debug('no deployment lock currently set - silent');
+                debug('no deployment lock currently set - silent');
                 return 'no deployment lock currently set - silent';
             }
             // Format the comment
@@ -48770,7 +45942,7 @@ async function label(context, octokit, labelsToAdd, labelsToRemove) {
     const removedLabels = []; // an array of labels that were actually removed
     // exit early if there are no labels to add or remove
     if (labelsToAdd.length === 0 && labelsToRemove.length === 0) {
-        core_debug('🏷️ no labels to add or remove');
+        debug('🏷️ no labels to add or remove');
         return {
             added: [],
             removed: []
@@ -48779,7 +45951,7 @@ async function label(context, octokit, labelsToAdd, labelsToRemove) {
     // first, find and cleanup labelsToRemove if any are provided
     if (labelsToRemove.length > 0) {
         // Fetch current labels on the issue
-        core_debug('fetching current labels on the issue');
+        debug('fetching current labels on the issue');
         const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
             owner: owner,
             repo: repo,
@@ -48787,8 +45959,8 @@ async function label(context, octokit, labelsToAdd, labelsToRemove) {
             headers: API_HEADERS
         });
         const currentLabels = currentLabelsResult.data.map(label => label.name);
-        core_debug(`current labels: ${currentLabels.join(',')}`);
-        core_debug(`labels to remove: ${labelsToRemove.join(',')}`);
+        debug(`current labels: ${currentLabels.join(',')}`);
+        debug(`labels to remove: ${labelsToRemove.join(',')}`);
         // Remove unwanted labels
         for (const label of labelsToRemove) {
             if (currentLabels.includes(label)) {
@@ -48803,13 +45975,13 @@ async function label(context, octokit, labelsToAdd, labelsToRemove) {
                 removedLabels.push(label);
             }
             else {
-                core_debug(`🏷️ label not found: '${label}' so it was not removed`);
+                debug(`🏷️ label not found: '${label}' so it was not removed`);
             }
         }
     }
     // now, add the labels if any are provided
     if (labelsToAdd.length > 0) {
-        core_debug(`attempting to apply labels: ${labelsToAdd.join(',')}`);
+        debug(`attempting to apply labels: ${labelsToAdd.join(',')}`);
         await octokit.rest.issues.addLabels({
             owner: owner,
             repo: repo,
@@ -48826,8 +45998,6 @@ async function label(context, octokit, labelsToAdd, labelsToRemove) {
     };
 }
 
-;// CONCATENATED MODULE: external "node:fs"
-const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs");
 // EXTERNAL MODULE: ./node_modules/nunjucks/index.js
 var nunjucks = __nccwpck_require__(8115);
 var nunjucks_default = /*#__PURE__*/__nccwpck_require__.n(nunjucks);
@@ -48937,13 +46107,13 @@ function postDeployMessage(context, data) {
     // the env var option can often fail if the message is too long so this is the preferred option
     if (deployMessagePath !== null) {
         if ((0,external_node_fs_namespaceObject.existsSync)(deployMessagePath)) {
-            core_debug('using deployMessagePath');
+            debug('using deployMessagePath');
             nunjucks_default().configure({ autoescape: true });
             return nunjucks_default().render(deployMessagePath, vars);
         }
     }
     else {
-        core_debug(`deployMessagePath is not set - ${String(deployMessagePath)}`);
+        debug(`deployMessagePath is not set - ${String(deployMessagePath)}`);
     }
     // If we get here, try to use the env var option with the default message structure
     const deployMessageEnvVar = checkInput(process.env['DEPLOY_MESSAGE']);
@@ -49054,7 +46224,7 @@ async function postDeploy(context, octokit, data) {
     // it is not the exact time the deployment ended, but it is very close
     const now = new Date();
     const deployment_end_time = now.toISOString();
-    core_debug(`deployment_end_time: ${deployment_end_time}`);
+    debug(`deployment_end_time: ${deployment_end_time}`);
     // calculate the total amount of seconds that the deployment took
     const total_seconds = calculateDeploymentTime(data.deployment_start_time, deployment_end_time);
     info(`🕒 deployment completed in ${COLORS.highlight}${total_seconds}${COLORS.reset} seconds`);
@@ -49110,10 +46280,10 @@ async function postDeploy(context, octokit, data) {
             labelsToRemove = data.labels.successful_deploy;
         }
     }
-    core_debug(`deploymentStatus: ${deploymentStatus}`);
+    debug(`deploymentStatus: ${deploymentStatus}`);
     // if the deployment mode is noop, return here
     if (data.noop) {
-        core_debug('deployment mode: noop');
+        debug('deployment mode: noop');
         // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
         const lockResponse = await lock({
             octokit,
@@ -49127,7 +46297,7 @@ async function postDeploy(context, octokit, data) {
         });
         // obtain the lockData from the lock response
         const lockData = lockResponse.lockData;
-        core_debug(JSON.stringify(lockData));
+        debug(JSON.stringify(lockData));
         // if the lock is sticky, we will NOT remove it
         if (lockData?.sticky === true) {
             info(stickyMsg);
@@ -49137,7 +46307,7 @@ async function postDeploy(context, octokit, data) {
         }
         else {
             info(nonStickyMsg);
-            core_debug(`lockData.sticky: ${String(lockData.sticky)}`);
+            debug(`lockData.sticky: ${String(lockData.sticky)}`);
             // remove the lock - use silent mode
             await unlock({
                 octokit,
@@ -49175,14 +46345,14 @@ async function postDeploy(context, octokit, data) {
     });
     // obtain the lockData from the lock response
     const lockData = lockResponse.lockData;
-    core_debug(JSON.stringify(lockData));
+    debug(JSON.stringify(lockData));
     // if the lock is sticky, we will NOT remove it
     if (lockData?.sticky === true) {
         info(stickyMsg);
     }
     else {
         info(nonStickyMsg);
-        core_debug(`lockData.sticky: ${String(lockData?.sticky)}`);
+        debug(`lockData.sticky: ${String(lockData?.sticky)}`);
         // remove the lock - use silent mode
         await unlock({
             octokit,
@@ -49311,14 +46481,14 @@ async function post() {
         info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`);
         // Set the environment_url
         if (data.environment_url === null) {
-            core_debug('environment_url not set, its value is null');
+            debug('environment_url not set, its value is null');
         }
         await postDeploy(actionContext, octokit, data);
         return;
     }
     catch (error) {
         const apiError = legacyApiError(error);
-        core_error(apiError.stack);
+        actions_core_error(apiError.stack);
         setFailed(apiError.message);
     }
 }
@@ -49344,7 +46514,7 @@ async function identicalCommitCheck(octokit, context, environment) {
         headers: API_HEADERS
     });
     const defaultBranchName = repoData.default_branch;
-    core_debug(`default branch name: ${defaultBranchName}`);
+    debug(`default branch name: ${defaultBranchName}`);
     // get the latest commit on the default branch of the repo
     const { data: defaultBranchData } = await octokit.rest.repos.getBranch({
         owner,
@@ -49353,7 +46523,7 @@ async function identicalCommitCheck(octokit, context, environment) {
         headers: API_HEADERS
     });
     const defaultBranchTreeSha = defaultBranchData.commit.commit.tree.sha;
-    core_debug(`default branch tree sha: ${defaultBranchTreeSha}`);
+    debug(`default branch tree sha: ${defaultBranchTreeSha}`);
     const latestDefaultBranchCommitSha = defaultBranchData.commit.sha;
     info(`📍 latest commit sha on ${COLORS.highlight}${defaultBranchName}${COLORS.reset}: ${COLORS.info}${latestDefaultBranchCommitSha}${COLORS.reset}`);
     // find the latest deployment with the payload type of branch-deploy
@@ -49386,15 +46556,15 @@ async function identicalCommitCheck(octokit, context, environment) {
             break;
         }
         else {
-            core_debug(`deployment.payload.type is not of the branch-deploy type: ${String(legacyDeploymentPayload(deployment.payload).type)} - skipping...`);
+            debug(`deployment.payload.type is not of the branch-deploy type: ${String(legacyDeploymentPayload(deployment.payload).type)} - skipping...`);
             continue;
         }
     }
     info(`🌲 latest default ${COLORS.info}branch${COLORS.reset} tree sha: ${COLORS.info}${defaultBranchTreeSha}${COLORS.reset}`);
     info(`🌲 latest ${COLORS.info}deployment${COLORS.reset} tree sha:     ${COLORS.info}${String(latestDeploymentTreeSha)}${COLORS.reset}`);
-    core_debug('💡 latest deployment with payload type of "branch-deploy"');
-    core_debug(`🕛 latest deployment created at: ${String(createdAt)}`);
-    core_debug(`🧮 latest deployment id: ${String(deploymentId)}`);
+    debug('💡 latest deployment with payload type of "branch-deploy"');
+    debug(`🕛 latest deployment created at: ${String(createdAt)}`);
+    debug(`🧮 latest deployment id: ${String(deploymentId)}`);
     // if the latest deployment sha is identical to the latest commit on the default branch then return true
     const result = latestDeploymentTreeSha === defaultBranchTreeSha;
     if (result) {
@@ -49483,7 +46653,7 @@ async function unlockOnMerge(octokit, context, environment_targets) {
                     releasedEnvironments.push(environment);
                 }
                 else {
-                    core_debug(`unlock result for unlock-on-merge: ${result}`);
+                    debug(`unlock result for unlock-on-merge: ${result}`);
                 }
                 // log the result and format the output as it will always be a string ending with '- silent'
                 const resultFmt = result.replace('- silent', '');
@@ -49694,7 +46864,7 @@ async function help(octokit, context, reactionId, inputs) {
 
   > View the full usage guide [here](${usageGuideLink}) for additional help
   `);
-    core_debug(comment);
+    debug(comment);
     // Put the help comment on the pull request
     await actionStatus({
         context,
@@ -49869,18 +47039,18 @@ async function validDeploymentOrder(octokit, context, enforced_deployment_order,
     }
     // determine all the previous environments in the enforced deployment order prior to the current environment
     const previous_environments = enforced_deployment_order.slice(0, enforced_deployment_order.indexOf(environment));
-    core_debug(`environments that require active deployments: ${previous_environments.join(',')}`);
+    debug(`environments that require active deployments: ${previous_environments.join(',')}`);
     // iterate over the previous environments and check to see if they have an active deployment
     const results = [];
     for (const previous_environment of previous_environments) {
-        core_debug(`checking if ${previous_environment} has an active deployment`);
+        debug(`checking if ${previous_environment} has an active deployment`);
         const is_active = await activeDeployment(octokit, context, previous_environment, sha);
         if (!is_active) {
-            core_error(`🚦 deployment order checks failed as ${COLORS.highlight}${previous_environment}${COLORS.reset} does not have an active deployment at sha: ${sha}`);
+            actions_core_error(`🚦 deployment order checks failed as ${COLORS.highlight}${previous_environment}${COLORS.reset} does not have an active deployment at sha: ${sha}`);
             results.push({ environment: previous_environment, active: false });
             continue;
         }
-        core_debug(`deployment for ${previous_environment} is active at sha: ${sha}`);
+        debug(`deployment for ${previous_environment} is active at sha: ${sha}`);
         results.push({ environment: previous_environment, active: true });
     }
     // if all previous environments have active deployments, we can proceed with the deployment
@@ -49941,15 +47111,15 @@ function isTimestampOlder(timestampA, timestampB) {
         Number.isNaN(timestampBDate.getTime()) ||
         toStrictISOString(timestampADate) !== timestampA ||
         toStrictISOString(timestampBDate) !== timestampB) {
-        core_error(`Invalid date parsing. Received: '${timestampA}' => ${String(timestampADate)}, '${timestampB}' => ${String(timestampBDate)}`);
+        actions_core_error(`Invalid date parsing. Received: '${timestampA}' => ${String(timestampADate)}, '${timestampB}' => ${String(timestampBDate)}`);
         throw new Error(`Invalid date format. Please ensure the dates are valid UTC timestamps. Received: '${timestampA}', '${timestampB}'`);
     }
     const result = timestampADate.getTime() < timestampBDate.getTime();
     if (result) {
-        core_debug(`${timestampA} is older than ${timestampB}`);
+        debug(`${timestampA} is older than ${timestampB}`);
     }
     else {
-        core_debug(`${timestampA} is not older than ${timestampB}`);
+        debug(`${timestampA} is not older than ${timestampB}`);
     }
     return result;
 }
@@ -49971,9 +47141,9 @@ function commitSafetyChecks(context, data) {
     const comment_created_at = legacyIssueCommentCreatedAt(context);
     const commit_created_at = commit?.author?.date; // fetch the timestamp that the commit was authored (format: "2024-10-21T19:10:24Z" - String)
     const verified_at = commit?.verification?.verified_at;
-    core_debug(`comment_created_at: ${String(comment_created_at)}`);
-    core_debug(`commit_created_at: ${String(commit_created_at)}`);
-    core_debug(`verified_at: ${String(verified_at)}`);
+    debug(`comment_created_at: ${String(comment_created_at)}`);
+    debug(`commit_created_at: ${String(commit_created_at)}`);
+    debug(`verified_at: ${String(verified_at)}`);
     // Defensive: Ensure required fields exist
     if (!legacyTruthy(comment_created_at)) {
         throw new Error('Missing context.payload.comment.created_at');
@@ -49982,7 +47152,7 @@ function commitSafetyChecks(context, data) {
         throw new Error('Missing commit.author.date');
     }
     const isVerified = commit?.verification?.verified === true;
-    core_debug(`isVerified: ${isVerified}`);
+    debug(`isVerified: ${isVerified}`);
     setActionOutput('commit_verified', isVerified);
     saveActionState('commit_verified', isVerified);
     // check to ensure that the commit was authored before the comment was created
@@ -50002,7 +47172,7 @@ function commitSafetyChecks(context, data) {
     }
     else {
         // if we make it here, the commit is not valid but that is okay because commit verification is not enabled
-        core_debug(`🔑 commit does not contain a verified signature but ${COLORS.highlight}commit signing is not required${COLORS.reset} - ${COLORS.success}OK${COLORS.reset}`);
+        debug(`🔑 commit does not contain a verified signature but ${COLORS.highlight}commit signing is not required${COLORS.reset} - ${COLORS.success}OK${COLORS.reset}`);
     }
     // If commit verification is enabled and the commit signature is not valid (or it is missing / undefined), exit
     if (inputs.commit_verification && !isVerified) {
@@ -50124,7 +47294,7 @@ async function deploymentConfirmation(context, octokit, data) {
         headers: API_HEADERS
     });
     const commentId = comment.data.id;
-    core_debug(`deployment confirmation comment id: ${commentId}`);
+    debug(`deployment confirmation comment id: ${commentId}`);
     info(`⏰ waiting ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds for deployment confirmation`);
     // Convert timeout to milliseconds for setTimeout
     const timeoutMs = data.deployment_confirmation_timeout * 1000;
@@ -50166,11 +47336,11 @@ async function deploymentConfirmation(context, octokit, data) {
                         return false;
                     }
                     else {
-                        core_debug(`ignoring reaction: ${reaction.content}`);
+                        debug(`ignoring reaction: ${reaction.content}`);
                     }
                 }
                 else {
-                    core_debug(`ignoring reaction from ${reactionUser.login}, expected ${context.actor}`);
+                    debug(`ignoring reaction from ${reactionUser.login}, expected ${context.actor}`);
                 }
             }
             // Wait before checking again
@@ -50233,7 +47403,7 @@ async function deploymentConfirmation(context, octokit, data) {
 async function run() {
     try {
         info(`🛸 github/branch-deploy ${COLORS.info}${src_version_VERSION}${COLORS.reset}`);
-        core_debug(`context: ${JSON.stringify(github_context)}`);
+        debug(`context: ${JSON.stringify(github_context)}`);
         // Get the inputs for the branch-deploy Action
         const token = getActionInput('github_token', { required: true });
         // get all the Actions inputs and roll up them into a single object
@@ -50334,7 +47504,7 @@ async function run() {
         setActionOutput('actor_handle', issueComment.payload.comment.user.login);
         // If the command is a help request
         if (isHelp) {
-            core_debug('help command detected');
+            debug('help command detected');
             // Check to ensure the user has valid permissions
             const validPermissionsRes = await validPermissions(octokit, github_context, inputs.permissions);
             // If the user doesn't have valid permissions, return an error
@@ -50387,7 +47557,7 @@ async function run() {
             const lockEnvTargetCheck = lockEnvTargetCheckObj.environment;
             // If the environment targets are not valid, then exit
             if (lockEnvTargetCheck === false) {
-                core_debug('No valid environment targets found for lock/unlock request');
+                debug('No valid environment targets found for lock/unlock request');
                 return 'safe-exit';
             }
             // If it is a lock or lock info releated request
@@ -50395,7 +47565,7 @@ async function run() {
                 // If the lock request is only for details
                 if (LOCK_METADATA.lockInfoFlags.some(substring => body.includes(substring)) ||
                     isLockInfoAlias) {
-                    core_debug('detailsOnly lock request detected');
+                    debug('detailsOnly lock request detected');
                     // Get the lock details from the lock file
                     const lockResponse = await lock({
                         octokit,
@@ -50520,7 +47690,7 @@ async function run() {
             }
             else {
                 // if it isn't a lock or lock info command, it must be an unlock command
-                core_debug('running unlock command logic');
+                debug('running unlock command logic');
                 await unlock({
                     octokit,
                     context: actionContext,
@@ -50547,14 +47717,14 @@ async function run() {
             paramSeparator: inputs.param_separator
         });
         // convert the environmentObj to a json string and debug log it
-        core_debug(`environmentObj: ${JSON.stringify(environmentObj)}`);
+        debug(`environmentObj: ${JSON.stringify(environmentObj)}`);
         // If the environment targets are not valid, then exit
         if (environmentObj.environment === false) {
-            core_debug('No valid environment targets found');
+            debug('No valid environment targets found');
             return 'safe-exit';
         }
         if (!legacyTruthy(environmentObj.environment)) {
-            core_debug('No valid environment targets found');
+            debug('No valid environment targets found');
             return 'safe-exit';
         }
         // deconstruct the environment object to get the environment
@@ -50579,7 +47749,7 @@ async function run() {
         saveActionState('ref', precheckResults.ref);
         setActionOutput('sha', precheckResults.sha);
         saveActionState('sha', precheckResults.sha);
-        core_debug(`precheckResults.sha: ${String(precheckResults.sha)}`);
+        debug(`precheckResults.sha: ${String(precheckResults.sha)}`);
         // If the prechecks failed, run the actionStatus function and return
         // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
         if (!precheckResults.status) {
@@ -50687,15 +47857,15 @@ async function run() {
             else {
                 stickyLocks = false;
             }
-            core_debug(`🔒 noop mode detected and using stickyLocks: ${stickyLocks}`);
+            debug(`🔒 noop mode detected and using stickyLocks: ${stickyLocks}`);
         }
         else {
             stickyLocks = inputs.sticky_locks;
         }
         // if we are using sticky_locks in deployments, don't leave a comment as this is inferred by the user
         const leaveComment = !stickyLocks ? true : false;
-        core_debug(`🔒 stickyLocks: ${stickyLocks}`);
-        core_debug(`💬 leaveComment: ${leaveComment}`);
+        debug(`🔒 stickyLocks: ${stickyLocks}`);
+        debug(`💬 leaveComment: ${leaveComment}`);
         // Aquire the branch-deploy lock
         const lockResponse = await lock({
             octokit,
@@ -50741,19 +47911,19 @@ async function run() {
                 commit_html_url: commit_html_url
             });
             if (deploymentConfirmed) {
-                core_debug(`deploymentConfirmation() was successful - continuing with the deployment`);
+                debug(`deploymentConfirmation() was successful - continuing with the deployment`);
             }
             else {
                 // Set the bypass state to true so that the post run logic will not run
                 saveActionState('bypass', 'true');
-                core_debug(`❌ deployment not confirmed - exiting`);
+                debug(`❌ deployment not confirmed - exiting`);
                 return 'failure';
             }
         }
         // this is the timestamp that we consider the deployment to have "started" at for logging and auditing purposes
         // it is not the exact time the deployment started, but it is very close
         const deployment_start_time = timestamp();
-        core_debug(`deployment_start_time: ${deployment_start_time}`);
+        debug(`deployment_start_time: ${deployment_start_time}`);
         saveActionState('deployment_start_time', deployment_start_time);
         const environmentUrlJson = environmentObj.environmentUrl !== null &&
             environmentObj.environmentUrl !== ''
@@ -50848,7 +48018,7 @@ async function run() {
         }
         // Check if the environment is a production environment
         const isProductionEnvironment = inputs.production_environments.includes(environment);
-        core_debug(`production_environment: ${isProductionEnvironment}`);
+        debug(`production_environment: ${isProductionEnvironment}`);
         // if environmentObj.environmentObj.sha is not null, set auto_merge to false,
         // otherwise if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
         // this is important as we cannot reliably merge into the base branch if we are using a SHA
@@ -50914,10 +48084,10 @@ async function run() {
         }
         // Debug log information about the deployment that was just created
         info(`📓 deployment id: ${COLORS.highlight}${String(createDeploy.id)}${COLORS.reset}`);
-        core_debug(`deployment.url: ${String(createDeploy.url)}`);
-        core_debug(`deployment.created_at: ${String(createDeploy.created_at)}`);
-        core_debug(`deployment.updated_at: ${String(createDeploy.updated_at)}`);
-        core_debug(`deployment.statuses_url: ${String(createDeploy.statuses_url)}`);
+        debug(`deployment.url: ${String(createDeploy.url)}`);
+        debug(`deployment.created_at: ${String(createDeploy.created_at)}`);
+        debug(`deployment.updated_at: ${String(createDeploy.updated_at)}`);
+        debug(`deployment.statuses_url: ${String(createDeploy.statuses_url)}`);
         // Set the deployment status to in_progress
         await createDeploymentStatus(octokit, github_context, precheckResults.ref, 'in_progress', legacyDeploymentId(createDeploy.id), environment, environmentObj.environmentUrl // environment_url (can be null)
         );
@@ -50929,7 +48099,7 @@ async function run() {
     catch (error) {
         saveActionState('bypass', 'true');
         const apiError = legacyApiError(error);
-        core_error(apiError.stack);
+        actions_core_error(apiError.stack);
         setFailed(apiError.message);
         return undefined;
     }

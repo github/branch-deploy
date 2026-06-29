@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 
 import {actionStatus} from './action-status.ts'
 import {label} from './label.ts'

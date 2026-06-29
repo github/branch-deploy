@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {COLORS} from './colors.ts'
 
 // A simple function that checks the body of the message against the trigger

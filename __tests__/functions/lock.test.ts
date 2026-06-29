@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
 import {
   lock,

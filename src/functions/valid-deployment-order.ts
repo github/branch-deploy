@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {COLORS} from './colors.ts'
 import {activeDeployment} from './deployment.ts'
 import type {DeploymentGraphqlOctokit} from './deployment.ts'

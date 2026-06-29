@@ -1,6 +1,6 @@
 import {branchRulesetChecks} from '../../src/functions/branch-ruleset-checks.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import {COLORS} from '../../src/functions/colors.ts'
 import {ERROR} from '../../src/functions/templates/error.ts'
 import type {BranchRule} from '../../src/types.ts'

@@ -3,7 +3,7 @@ import {
   type DeprecatedChecksOctokit
 } from '../../src/functions/deprecated-checks.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import {createIssueCommentContext} from '../test-helpers.ts'
 
 const docsLink =
