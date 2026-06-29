@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import {actionStatus} from './action-status.ts'
-import dedent from 'dedent-js'
+import {dedent} from './dedent.ts'
 import {LOCK_METADATA} from './lock-metadata.ts'
 import {constructValidBranchName} from './valid-branch-name.ts'
 import {COLORS} from './colors.ts'

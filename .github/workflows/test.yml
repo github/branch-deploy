@@ -23,7 +23,7 @@ jobs:
           cache: 'npm'
 
       - name: install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: test
         run: npm run ci-test

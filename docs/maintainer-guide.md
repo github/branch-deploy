@@ -12,7 +12,7 @@ To prepare a release:
 2. Install the locked dependencies, run the complete project check, and regenerate the committed action bundle:
 
    ```bash
-   npm ci
+   npm ci --ignore-scripts --no-audit --no-fund
    npm run all
    ```
 

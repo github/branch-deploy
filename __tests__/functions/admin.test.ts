@@ -97,18 +97,21 @@ test.each([
   {admin: `${'a'.repeat(40)}_company`, valid: true},
   {admin: 'mona_lisa-smith', valid: false},
   {admin: 'mona__lisa', valid: false}
-])('preserves legacy username validation for $admin', async ({admin, valid}) => {
-  vi.stubEnv('INPUT_ADMINS', admin)
-  const usernameContext = createContext({actor: admin})
+])(
+  'preserves legacy username validation for $admin',
+  async ({admin, valid}) => {
+    vi.stubEnv('INPUT_ADMINS', admin)
+    const usernameContext = createContext({actor: admin})
 
-  expect(await isAdmin(usernameContext)).toStrictEqual(valid)
+    expect(await isAdmin(usernameContext)).toStrictEqual(valid)
 
-  if (!valid) {
-    expect(debugMock).toHaveBeenCalledWith(
-      `${admin} is not a valid GitHub username... skipping admin check`
-    )
+    if (!valid) {
+      expect(debugMock).toHaveBeenCalledWith(
+        `${admin} is not a valid GitHub username... skipping admin check`
+      )
+    }
   }
-})
+)
 
 test('runs isAdmin checks and does not find a valid admin due to a bad GitHub handle', async () => {
   vi.stubEnv('INPUT_ADMINS', 'mona%lisa-')

@@ -1,4 +1,3 @@
-import githubUsernameRegex from 'github-username-regex-js'
 import nunjucks from 'nunjucks'
 import yargsParser from 'yargs-parser'
 import {expectTypeOf, test} from 'vitest'
@@ -133,7 +132,6 @@ test('entrypoints retain their literal result contracts', () => {
 })
 
 test('local vendor declarations stay intentionally narrow', () => {
-  expectTypeOf(githubUsernameRegex).toEqualTypeOf<RegExp>()
   expectTypeOf<typeof nunjucks.configure>().parameter(0).toEqualTypeOf<{
     autoescape?: boolean
   }>()

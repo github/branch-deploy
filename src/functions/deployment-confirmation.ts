@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import dedent from 'dedent-js'
+import {dedent} from './dedent.ts'
 import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
 import {timestamp} from './timestamp.ts'

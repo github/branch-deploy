@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import {COLORS} from './colors.ts'
-import dedent from 'dedent-js'
+import {dedent} from './dedent.ts'
 import {LOCK_METADATA} from './lock-metadata.ts'
 import {API_HEADERS} from './api-headers.ts'
 import {getActionInput} from '../action-io.ts'

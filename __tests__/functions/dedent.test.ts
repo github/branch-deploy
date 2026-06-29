@@ -1,5 +1,7 @@
-import dedent from 'dedent-js'
 import {expect, test} from 'vitest'
+import {dedent} from '../../src/functions/dedent.ts'
+
+const interpolatedLines = 'beta\n  gamma'
 
 test.each([
   {
@@ -54,7 +56,7 @@ test.each([
   },
   {
     name: 'includes already-interpolated lines when finding indentation',
-    input: `\n  alpha\n  ${'beta\n  gamma'}\n`,
+    input: `\n  alpha\n  ${interpolatedLines}\n`,
     expected: 'alpha\nbeta\ngamma'
   },
   {

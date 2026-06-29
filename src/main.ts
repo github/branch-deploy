@@ -2,7 +2,7 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import {context} from '@actions/github'
 import {retry} from '@octokit/plugin-retry'
-import dedent from 'dedent-js'
+import {dedent} from './functions/dedent.ts'
 
 import {VERSION} from './version.ts'
 import {triggerCheck} from './functions/trigger-check.ts'

@@ -5,7 +5,7 @@ import {
 } from '../../src/functions/environment-targets.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
-import dedent from 'dedent-js'
+import {dedent} from '../../src/functions/dedent.ts'
 import {COLORS} from '../../src/functions/colors.ts'
 import * as actionStatus from '../../src/functions/action-status.ts'
 import {createIssueCommentContext, createOctokit} from '../test-helpers.ts'

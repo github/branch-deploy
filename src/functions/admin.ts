@@ -1,12 +1,14 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import githubUsernameRegex from 'github-username-regex-js'
 import {retry} from '@octokit/plugin-retry'
 import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
 import {getActionInput} from '../action-io.ts'
 import {legacyApiError, legacyArrayElement} from '../trust-boundaries.ts'
 import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
+
+const GITHUB_USERNAME_REGEX =
+  /^(?:[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}|[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(_[a-zA-Z0-9]+))$/i
 
 type GetOrganizationMethod = BranchDeployOctokit['rest']['orgs']['get']
 type GetOrganizationParameters = Parameters<GetOrganizationMethod>[0]
@@ -138,7 +140,7 @@ export async function isAdmin(
     // Otherwise, it is a github handle
     else {
       // Check if the github handle is valid
-      if (githubUsernameRegex.test(admin)) {
+      if (GITHUB_USERNAME_REGEX.test(admin)) {
         // Add the handle to the list of handles and remove @ from the start of the handle
         handles.push(admin.replace('@', ''))
       } else {

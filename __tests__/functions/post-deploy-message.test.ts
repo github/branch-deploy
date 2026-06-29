@@ -1,7 +1,7 @@
 import {postDeployMessage} from '../../src/functions/post-deploy-message.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
 import * as core from '@actions/core'
-import dedent from 'dedent-js'
+import {dedent} from '../../src/functions/dedent.ts'
 import type {PostDeployMessageData} from '../../src/types.ts'
 import {createContext} from '../test-helpers.ts'
 import {unsafeInvalidValue} from '../unsafe-fixtures.ts'

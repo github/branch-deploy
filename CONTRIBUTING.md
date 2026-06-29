@@ -38,9 +38,9 @@ Run the complete non-mutating formatting, typecheck, lint, and test suite with:
 npm run check
 ```
 
-> Note: these commands require that you have already run `npm ci`
+> Note: these commands require that you have already run `npm ci --ignore-scripts --no-audit --no-fund`
 
-`npm run test` does not update the tracked coverage badge. Maintainers can refresh it explicitly with `npm run test:update-badge` when needed.
+`npm run test` does not update the tracked coverage badge. The badge reflects the four enforced 100% coverage thresholds.
 
 ### Testing directly with IssueOps
 

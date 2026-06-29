@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import dedent from 'dedent-js'
+import {dedent} from './dedent.ts'
 import {API_HEADERS} from './api-headers.ts'
 import {issueCommentContext} from '../trust-boundaries.ts'
 import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
