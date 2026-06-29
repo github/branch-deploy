@@ -2,7 +2,7 @@ import * as github from '@actions/github'
 import {createOctokit} from '../test-helpers.ts'
 import {unsafeInvalidValue} from '../unsafe-fixtures.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import * as actionIo from '../../src/action-io.ts'
 import type {ActionInputKey, ActionStateKey} from '../../src/action-io.ts'
 

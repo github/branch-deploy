@@ -1,12 +1,20 @@
-import * as core from '@actions/core'
+import * as core from '../src/actions-core.ts'
 import crypto from 'node:crypto'
 import {mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {EOL, tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {syncBuiltinESMExports} from 'node:module'
-import {afterEach, beforeEach, describe, expect, test, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  test,
+  vi
+} from 'vitest'
 
-vi.unmock('@actions/core')
+vi.unmock('../src/actions-core.ts')
 
 const originalExitCode = process.exitCode
 let testDirectory: string
@@ -100,6 +108,16 @@ describe('action inputs', () => {
         'Support boolean input list: `true | True | TRUE | false | False | FALSE`'
     )
   })
+
+  test('trims boolean inputs unless trimming is disabled', () => {
+    vi.stubEnv('INPUT_ENABLED', ' true ')
+    expect(core.getBooleanInput('enabled')).toBe(true)
+    expect(() =>
+      core.getBooleanInput('enabled', {trimWhitespace: false})
+    ).toThrow(
+      'Input does not meet YAML 1.2 "Core Schema" specification: enabled'
+    )
+  })
 })
 
 describe('file commands', () => {
@@ -107,6 +125,8 @@ describe('file commands', () => {
     ['string', 'plain', 'plain'],
     ['boxed string', new String('boxed'), 'boxed'],
     ['number', 42, '42'],
+    ['not-a-number', Number.NaN, 'null'],
+    ['infinity', Number.POSITIVE_INFINITY, 'null'],
     ['boolean', false, 'false'],
     ['object', {environment: 'production'}, '{"environment":"production"}'],
     ['array', ['production', 2], '["production",2]'],
@@ -136,6 +156,11 @@ describe('file commands', () => {
     expect(() => {
       core.setOutput('result', 'value')
     }).toThrow(`Missing file at path: ${join(testDirectory, 'missing')}`)
+
+    vi.stubEnv('GITHUB_STATE', join(testDirectory, 'missing-state'))
+    expect(() => {
+      core.saveState('result', 'value')
+    }).toThrow(`Missing file at path: ${join(testDirectory, 'missing-state')}`)
   })
 
   test('rejects delimiter collisions in names and values', () => {
@@ -156,12 +181,17 @@ describe('file commands', () => {
     }).toThrow(
       `Unexpected input: value should not contain the delimiter "${delimiter}"`
     )
+    expect(() => {
+      core.setOutput('name', Symbol('value'))
+    }).toThrow("Cannot read properties of undefined (reading 'includes')")
   })
 })
 
 describe('stdout commands and logging', () => {
   test('preserves output and state fallback bytes and escaping', () => {
     const output = captureStdout()
+    vi.stubEnv('GITHUB_OUTPUT', '')
+    vi.stubEnv('GITHUB_STATE', '')
 
     core.setOutput('name:part,rest', 'line%\r\nend')
     core.saveState('name:part,rest', 'line%\r\nend')
@@ -177,13 +207,17 @@ describe('stdout commands and logging', () => {
 
     core.debug('debug%\r\nmessage')
     core.warning(new Error('warning'))
+    core.warning('warning string')
     core.error(new Error('error'))
+    core.error('error string')
     core.info('plain%\r\ninfo')
 
     expect(output.read()).toBe(
       `::debug::debug%25%0D%0Amessage${EOL}` +
         `::warning::Error: warning${EOL}` +
+        `::warning::warning string${EOL}` +
         `::error::Error: error${EOL}` +
+        `::error::error string${EOL}` +
         `plain%\r\ninfo${EOL}`
     )
   })
@@ -204,4 +238,17 @@ test('state reads preserve the exact state environment key and value', () => {
 
   expect(core.getState('mixed-name')).toBe(' raw state ')
   expect(core.getState('MIXED-NAME')).toBe('')
+})
+
+test('exports only the narrow consumed type surface', () => {
+  expectTypeOf<core.InputOptions>().toEqualTypeOf<{
+    required?: boolean
+    trimWhitespace?: boolean
+  }>()
+  expectTypeOf(core.getInput).returns.toBeString()
+  expectTypeOf(core.getBooleanInput).returns.toBeBoolean()
+  expectTypeOf(core.setOutput).returns.toBeVoid()
+  expectTypeOf(core.saveState).returns.toBeVoid()
+  expectTypeOf(core.getState).returns.toBeString()
+  expectTypeOf(core.setFailed).returns.toBeVoid()
 })

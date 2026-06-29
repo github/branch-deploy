@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import * as github from '@actions/github'
 import {retry} from '@octokit/plugin-retry'
 import {COLORS} from './colors.ts'

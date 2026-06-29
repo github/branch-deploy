@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 
 // Helper function to create a valid branch name that will pass GitHub's API ref validation
 // :param branch: The branch name

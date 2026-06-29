@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {dedent} from './dedent.ts'
 import {actionStatus} from './action-status.ts'
 import {legacyAllowForksValue} from '../trust-boundaries.ts'

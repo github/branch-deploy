@@ -1,6 +1,6 @@
 import {triggerCheck} from '../../src/functions/trigger-check.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import {COLORS} from '../../src/functions/colors.ts'
 
 const color = COLORS.highlight

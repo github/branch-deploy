@@ -4,7 +4,7 @@ import {
   type LockEnvironmentRequest
 } from '../../src/functions/environment-targets.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import {dedent} from '../../src/functions/dedent.ts'
 import {COLORS} from '../../src/functions/colors.ts'
 import * as actionStatus from '../../src/functions/action-status.ts'

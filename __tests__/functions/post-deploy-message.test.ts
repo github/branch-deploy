@@ -1,6 +1,6 @@
 import {postDeployMessage} from '../../src/functions/post-deploy-message.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import {dedent} from '../../src/functions/dedent.ts'
 import type {PostDeployMessageData} from '../../src/types.ts'
 import {createContext} from '../test-helpers.ts'

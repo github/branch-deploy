@@ -8,7 +8,7 @@ import {vi, expect, test, beforeEach, type Mock} from 'vitest'
 import {COLORS} from '../../src/functions/colors.ts'
 import * as isAdmin from '../../src/functions/admin.ts'
 import * as isOutdated from '../../src/functions/outdated-check.ts'
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import type {
   BranchDeployContext,
   PrecheckData,

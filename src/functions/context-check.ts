@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {saveActionState} from '../action-io.ts'
 import {issueCommentContext} from '../trust-boundaries.ts'
 import type {BranchDeployContext} from '../types.ts'

@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../src/actions-core.ts'
 import {beforeEach, expect, test, vi} from 'vitest'
 import {
   getActionInput,

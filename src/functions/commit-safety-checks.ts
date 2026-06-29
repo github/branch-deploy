@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {COLORS} from './colors.ts'
 import {isTimestampOlder} from './is-timestamp-older.ts'
 import {saveActionState, setActionOutput} from '../action-io.ts'

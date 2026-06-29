@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import {vi, expect, test, beforeEach} from 'vitest'
 import {COLORS} from '../../src/functions/colors.ts'
 import {validDeploymentOrder} from '../../src/functions/valid-deployment-order.ts'

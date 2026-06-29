@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {unlock} from './unlock.ts'
 import {LOCK_METADATA} from './lock-metadata.ts'
 import {checkLockFile} from './check-lock-file.ts'

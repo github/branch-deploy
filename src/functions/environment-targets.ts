@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {dedent} from './dedent.ts'
 import {checkInput} from './check-input.ts'
 import {actionStatus} from './action-status.ts'

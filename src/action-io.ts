@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from './actions-core.ts'
 
 export const ACTION_INPUT_KEYS = [
   'github_token',

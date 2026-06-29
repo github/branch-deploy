@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import {legacyTruthy} from '../trust-boundaries.ts'
 
 // A helper method that checks if timestamp A is older than timestamp B

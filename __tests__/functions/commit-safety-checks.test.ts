@@ -1,7 +1,7 @@
 import {vi, expect, test, beforeEach} from 'vitest'
 import {commitSafetyChecks} from '../../src/functions/commit-safety-checks.ts'
 import {COLORS} from '../../src/functions/colors.ts'
-import * as core from '@actions/core'
+import * as core from '../../src/actions-core.ts'
 import {
   createActionInputs,
   createContext,

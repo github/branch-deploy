@@ -1,4 +1,4 @@
-import * as core from '@actions/core'
+import * as core from '../actions-core.ts'
 import parse from 'yargs-parser'
 import type {ParsedParams} from '../types.ts'
 
