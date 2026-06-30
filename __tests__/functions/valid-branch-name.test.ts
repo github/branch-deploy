@@ -1,56 +1,71 @@
-import {constructValidBranchName} from '../../src/functions/valid-branch-name.ts'
-import {vi, expect, test, beforeEach} from 'vitest'
-import * as core from '../../src/actions-core.ts'
+import assert from 'node:assert/strict'
+import {beforeEach, mock, test} from 'node:test'
+import {installModuleMock} from '../node-test-helpers.ts'
 
-const debugMock = vi.spyOn(core, 'debug')
+type ActionsCore = typeof import('../../src/actions-core.ts')
+
+const debugMock = mock.fn<ActionsCore['debug']>()
+
+installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
+  debug: debugMock
+})
+
+const {constructValidBranchName} =
+  await import('../../src/functions/valid-branch-name.ts')
 
 const branchName = 'production'
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  debugMock.mock.resetCalls()
 })
 
 test('does not make any modifications to a valid branch name', () => {
-  expect(constructValidBranchName(branchName)).toBe(branchName)
-  expect(debugMock).toHaveBeenCalledWith(
-    `constructing valid branch name: ${branchName}`
-  )
-  expect(debugMock).toHaveBeenCalledWith(
-    `constructed valid branch name: ${branchName}`
+  assert.strictEqual(constructValidBranchName(branchName), branchName)
+  assert.deepStrictEqual(
+    debugMock.mock.calls.map(call => call.arguments),
+    [
+      [`constructing valid branch name: ${branchName}`],
+      [`constructed valid branch name: ${branchName}`]
+    ]
   )
 })
 
 test('replaces spaces with hyphens', () => {
-  expect(constructValidBranchName(`super ${branchName}`)).toBe(
+  assert.strictEqual(
+    constructValidBranchName(`super ${branchName}`),
     `super-${branchName}`
   )
-  expect(debugMock).toHaveBeenCalledWith(
-    `constructing valid branch name: super ${branchName}`
-  )
-  expect(debugMock).toHaveBeenCalledWith(
-    `constructed valid branch name: super-${branchName}`
+  assert.deepStrictEqual(
+    debugMock.mock.calls.map(call => call.arguments),
+    [
+      [`constructing valid branch name: super ${branchName}`],
+      [`constructed valid branch name: super-${branchName}`]
+    ]
   )
 })
 
 test('replaces multiple spaces with hyphens', () => {
-  expect(constructValidBranchName(`super duper ${branchName}`)).toBe(
+  assert.strictEqual(
+    constructValidBranchName(`super duper ${branchName}`),
     `super-duper-${branchName}`
   )
-  expect(debugMock).toHaveBeenCalledWith(
-    `constructing valid branch name: super duper ${branchName}`
-  )
-  expect(debugMock).toHaveBeenCalledWith(
-    `constructed valid branch name: super-duper-${branchName}`
+  assert.deepStrictEqual(
+    debugMock.mock.calls.map(call => call.arguments),
+    [
+      [`constructing valid branch name: super duper ${branchName}`],
+      [`constructed valid branch name: super-duper-${branchName}`]
+    ]
   )
 })
 
 test('returns null if the branch is null', () => {
-  expect(constructValidBranchName(null)).toBe(null)
+  assert.strictEqual(constructValidBranchName(null), null)
 })
 
 test('returns undefined if the branch is undefined', () => {
   constructValidBranchName(undefined)
-  expect(debugMock).toHaveBeenCalledWith(
-    'constructing valid branch name: undefined'
+  assert.deepStrictEqual(
+    debugMock.mock.calls.map(call => call.arguments),
+    [['constructing valid branch name: undefined']]
   )
 })

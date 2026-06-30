@@ -1,253 +1,257 @@
-import * as core from '../../src/actions-core.ts'
-import {vi, expect, test, beforeEach} from 'vitest'
+import assert from 'node:assert/strict'
+import {beforeEach, mock, test} from 'node:test'
 import {COLORS} from '../../src/functions/colors.ts'
-import {validDeploymentOrder} from '../../src/functions/valid-deployment-order.ts'
-import * as activeDeployment from '../../src/functions/deployment.ts'
 import {createContext} from '../test-helpers.ts'
+import {
+  assertCalledWith,
+  createMock,
+  queueMockImplementation,
+  installModuleMock
+} from '../node-test-helpers.ts'
 
-const setOutputMock = vi.spyOn(core, 'setOutput')
-const warningMock = vi.spyOn(core, 'warning')
-const infoMock = vi.spyOn(core, 'info')
-const errorMock = vi.spyOn(core, 'error')
-const activeDeploymentMock = vi.spyOn(activeDeployment, 'activeDeployment')
+type ActionsCore = typeof import('../../src/actions-core.ts')
+type ActiveDeployment = typeof import('../../src/functions/deployment.ts')
+
+const setOutputMock = createMock<ActionsCore['setOutput']>()
+const warningMock = createMock<ActionsCore['warning']>()
+const infoMock = createMock<ActionsCore['info']>()
+const errorMock = createMock<ActionsCore['error']>()
+const debugMock = createMock<ActionsCore['debug']>()
+const activeDeploymentMock = createMock<ActiveDeployment['activeDeployment']>()
+
+installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
+  debug: debugMock,
+  error: errorMock,
+  info: infoMock,
+  setOutput: setOutputMock,
+  warning: warningMock
+})
+installModuleMock(
+  mock,
+  new URL('../../src/functions/deployment.ts', import.meta.url),
+  {activeDeployment: activeDeploymentMock}
+)
+
+const {validDeploymentOrder} =
+  await import('../../src/functions/valid-deployment-order.ts')
 
 let octokit: Parameters<typeof validDeploymentOrder>[0]
 let context: Parameters<typeof validDeploymentOrder>[1]
 const environment: Parameters<typeof validDeploymentOrder>[3] = 'production'
 const sha: Parameters<typeof validDeploymentOrder>[4] = 'deadbeef'
 const graphqlMock =
-  vi.fn<Parameters<typeof validDeploymentOrder>[0]['graphql']>()
+  createMock<Parameters<typeof validDeploymentOrder>[0]['graphql']>()
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  setOutputMock.mock.resetCalls()
+  warningMock.mock.resetCalls()
+  infoMock.mock.resetCalls()
+  errorMock.mock.resetCalls()
+  debugMock.mock.resetCalls()
+  activeDeploymentMock.mock.resetCalls()
+  graphqlMock.mock.resetCalls()
 
   context = createContext()
   octokit = {graphql: graphqlMock}
 
-  activeDeploymentMock.mockResolvedValue(true)
+  activeDeploymentMock.mock.mockImplementation(() => Promise.resolve(true))
 })
 
 test('when the enforced deployment order is only one item and it is the requested environment', async () => {
-  expect(
+  assert.deepStrictEqual(
     await validDeploymentOrder(
       octokit,
       context,
       ['production'],
       environment,
       sha
-    )
-  ).toStrictEqual({
-    valid: true,
-    results: []
-  })
+    ),
+    {valid: true, results: []}
+  )
 
-  expect(
-    warningMock.mock.calls.some(([message]) =>
-      String(message).includes(
+  assert.ok(
+    warningMock.mock.calls.some(call =>
+      String(call.arguments[0]).includes(
         'Having only one environment in the enforced deployment order will always cause the deployment order checks to pass if the environment names match'
       )
     )
-  ).toBe(true)
+  )
 })
 
 test('when the enforced deployment order passes for all previous environments', async () => {
-  expect(
+  assert.deepStrictEqual(
     await validDeploymentOrder(
       octokit,
       context,
       ['development', 'staging', 'production'],
       environment,
       sha
-    )
-  ).toStrictEqual({
-    valid: true,
-    results: [
-      {
-        environment: 'development',
-        active: true
-      },
-      {
-        environment: 'staging',
-        active: true
-      }
-    ]
-  })
+    ),
+    {
+      valid: true,
+      results: [
+        {environment: 'development', active: true},
+        {environment: 'staging', active: true}
+      ]
+    }
+  )
 
-  expect(
-    infoMock.mock.calls.some(([message]) =>
-      message.includes(
+  assert.ok(
+    infoMock.mock.calls.some(call =>
+      call.arguments[0].includes(
         'deployment order checks passed as all previous environments have active deployments'
       )
     )
-  ).toBe(true)
+  )
 })
 
 test('when the enforced deployment order fails because one out of two environments (the first one) is not active in the order', async () => {
-  activeDeploymentMock.mockResolvedValueOnce(false)
+  queueMockImplementation(activeDeploymentMock, () => Promise.resolve(false))
 
-  expect(
+  assert.deepStrictEqual(
     await validDeploymentOrder(
       octokit,
       context,
       ['development', 'staging', 'production'],
       environment,
       sha
-    )
-  ).toStrictEqual({
-    valid: false,
-    results: [
-      {
-        environment: 'development',
-        active: false
-      },
-      {
-        environment: 'staging',
-        active: true
-      }
-    ]
-  })
+    ),
+    {
+      valid: false,
+      results: [
+        {environment: 'development', active: false},
+        {environment: 'staging', active: true}
+      ]
+    }
+  )
 
-  expect(
-    errorMock.mock.calls.some(([message]) =>
-      String(message).includes(
+  assert.ok(
+    errorMock.mock.calls.some(call =>
+      String(call.arguments[0]).includes(
         `${COLORS.highlight}development${COLORS.reset} does not have an active deployment at sha: deadbeef`
       )
     )
-  ).toBe(true)
-
-  expect(setOutputMock).toHaveBeenCalledWith(
-    'needs_to_be_deployed',
-    'development'
   )
+  assertCalledWith(setOutputMock, 'needs_to_be_deployed', 'development')
 })
 
 test('when the enforced deployment order fails because one out of two environments (the previous one) is not active in the order', async () => {
-  activeDeploymentMock.mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+  activeDeploymentMock.mock.mockImplementationOnce(
+    () => Promise.resolve(true),
+    0
+  )
+  activeDeploymentMock.mock.mockImplementationOnce(
+    () => Promise.resolve(false),
+    1
+  )
 
-  expect(
+  assert.deepStrictEqual(
     await validDeploymentOrder(
       octokit,
       context,
       ['development', 'staging', 'production'],
       environment,
       sha
-    )
-  ).toStrictEqual({
-    valid: false,
-    results: [
-      {
-        environment: 'development',
-        active: true
-      },
-      {
-        environment: 'staging',
-        active: false
-      }
-    ]
-  })
+    ),
+    {
+      valid: false,
+      results: [
+        {environment: 'development', active: true},
+        {environment: 'staging', active: false}
+      ]
+    }
+  )
 
-  expect(
-    errorMock.mock.calls.some(([message]) =>
-      String(message).includes(
+  assert.ok(
+    errorMock.mock.calls.some(call =>
+      String(call.arguments[0]).includes(
         `${COLORS.highlight}staging${COLORS.reset} does not have an active deployment at sha: deadbeef`
       )
     )
-  ).toBe(true)
-
-  expect(setOutputMock).toHaveBeenCalledWith('needs_to_be_deployed', 'staging')
+  )
+  assertCalledWith(setOutputMock, 'needs_to_be_deployed', 'staging')
 })
 
 test('when the enforced deployment order fails because both of the environments are not active in the enforced order', async () => {
-  activeDeploymentMock.mockResolvedValueOnce(false).mockResolvedValueOnce(false)
+  activeDeploymentMock.mock.mockImplementationOnce(
+    () => Promise.resolve(false),
+    0
+  )
+  activeDeploymentMock.mock.mockImplementationOnce(
+    () => Promise.resolve(false),
+    1
+  )
 
-  expect(
+  assert.deepStrictEqual(
     await validDeploymentOrder(
       octokit,
       context,
       ['development', 'staging', 'production'],
       environment,
       sha
-    )
-  ).toStrictEqual({
-    valid: false,
-    results: [
-      {
-        environment: 'development',
-        active: false
-      },
-      {
-        environment: 'staging',
-        active: false
-      }
-    ]
-  })
-
-  expect(
-    errorMock.mock.calls.some(([message]) =>
-      String(message).includes(
-        `${COLORS.highlight}development${COLORS.reset} does not have an active deployment at sha: deadbeef`
-      )
-    )
-  ).toBe(true)
-  expect(
-    errorMock.mock.calls.some(([message]) =>
-      String(message).includes(
-        `${COLORS.highlight}staging${COLORS.reset} does not have an active deployment at sha: deadbeef`
-      )
-    )
-  ).toBe(true)
-
-  expect(setOutputMock).toHaveBeenCalledWith(
-    'needs_to_be_deployed',
-    'development,staging'
+    ),
+    {
+      valid: false,
+      results: [
+        {environment: 'development', active: false},
+        {environment: 'staging', active: false}
+      ]
+    }
   )
+
+  for (const failedEnvironment of ['development', 'staging']) {
+    assert.ok(
+      errorMock.mock.calls.some(call =>
+        String(call.arguments[0]).includes(
+          `${COLORS.highlight}${failedEnvironment}${COLORS.reset} does not have an active deployment at sha: deadbeef`
+        )
+      )
+    )
+  }
+  assertCalledWith(setOutputMock, 'needs_to_be_deployed', 'development,staging')
 })
 
 test('when the enforced deployment order passes due to the environment being the first in the order', async () => {
-  expect(
+  assert.deepStrictEqual(
     await validDeploymentOrder(
       octokit,
       context,
       ['development', 'staging', 'production'],
       'development',
       sha
-    )
-  ).toStrictEqual({
-    valid: true,
-    results: []
-  })
+    ),
+    {valid: true, results: []}
+  )
 
-  expect(
-    infoMock.mock.calls.some(([message]) =>
-      message.includes('the first environment in the enforced deployment order')
+  assert.ok(
+    infoMock.mock.calls.some(call =>
+      call.arguments[0].includes(
+        'the first environment in the enforced deployment order'
+      )
     )
-  ).toBe(true)
+  )
 })
 
 test('when the enforced deployment order passes and the requested environment is the second in the order and all after that item are not checked by design', async () => {
-  expect(
+  assert.deepStrictEqual(
     await validDeploymentOrder(
       octokit,
       context,
       ['development', 'staging', 'production'],
       'staging',
       sha
-    )
-  ).toStrictEqual({
-    valid: true,
-    results: [
-      {
-        environment: 'development',
-        active: true
-      }
-    ]
-  })
+    ),
+    {
+      valid: true,
+      results: [{environment: 'development', active: true}]
+    }
+  )
 
-  expect(
-    infoMock.mock.calls.some(([message]) =>
-      message.includes(
+  assert.ok(
+    infoMock.mock.calls.some(call =>
+      call.arguments[0].includes(
         'deployment order checks passed as all previous environments have active deployments'
       )
     )
-  ).toBe(true)
+  )
 })

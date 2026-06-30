@@ -1,8 +1,9 @@
+import assert from 'node:assert/strict'
+import {mock, test} from 'node:test'
 import {
   reactEmote,
   type ReactEmoteOctokit
 } from '../../src/functions/react-emote.ts'
-import {vi, expect, test} from 'vitest'
 import {unsafeInvalidValue} from '../unsafe-fixtures.ts'
 import {createIssueCommentContext} from '../test-helpers.ts'
 
@@ -14,30 +15,31 @@ const context = createIssueCommentContext({
 const octokit = {
   rest: {
     reactions: {
-      createForIssueComment: vi.fn().mockResolvedValue({data: {id: 1}})
+      createForIssueComment: mock.fn(() => Promise.resolve({data: {id: 1}}))
     }
   }
 } satisfies ReactEmoteOctokit
 
 test('adds a reaction emote to a comment', async () => {
-  expect(await reactEmote('eyes', context, octokit)).toStrictEqual({
+  assert.deepStrictEqual(await reactEmote('eyes', context, octokit), {
     data: {id: 1}
   })
 })
 
 test('returns if no reaction is specified', async () => {
-  expect(await reactEmote('', context, octokit)).toBe(undefined)
-  expect(
+  assert.strictEqual(await reactEmote('', context, octokit), undefined)
+  assert.strictEqual(
     await reactEmote(
       unsafeInvalidValue<Parameters<typeof reactEmote>[0]>(null),
       context,
       octokit
-    )
-  ).toBe(undefined)
+    ),
+    undefined
+  )
 })
 
 test('throws an error if a bad emote is used', async () => {
-  await expect(reactEmote('bad', context, octokit)).rejects.toThrow(
-    'Reaction "bad" is not a valid preset'
-  )
+  await assert.rejects(reactEmote('bad', context, octokit), {
+    message: 'Reaction "bad" is not a valid preset'
+  })
 })

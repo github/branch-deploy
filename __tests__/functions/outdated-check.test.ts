@@ -1,20 +1,41 @@
-import * as core from '../../src/actions-core.ts'
-import {vi, expect, test, beforeEach} from 'vitest'
-import {isOutdated} from '../../src/functions/outdated-check.ts'
+import assert from 'node:assert/strict'
+import {beforeEach, mock, test} from 'node:test'
 import {COLORS} from '../../src/functions/colors.ts'
 import {createContext} from '../test-helpers.ts'
+import {
+  assertCalledWith,
+  createMock,
+  installModuleMock
+} from '../node-test-helpers.ts'
 
-const debugMock = vi.spyOn(core, 'debug')
-const warningMock = vi.spyOn(core, 'warning')
+type ActionsCore = typeof import('../../src/actions-core.ts')
+type OutdatedCheckModule =
+  typeof import('../../src/functions/outdated-check.ts')
 
-let context: Parameters<typeof isOutdated>[0]
-let octokit: Parameters<typeof isOutdated>[1]
-let data: Parameters<typeof isOutdated>[2]
+const debugMock = createMock<ActionsCore['debug']>()
+const warningMock = createMock<ActionsCore['warning']>()
+
+installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
+  debug: debugMock,
+  warning: warningMock
+})
+
+const {isOutdated} = await import('../../src/functions/outdated-check.ts')
+
+let context: Parameters<OutdatedCheckModule['isOutdated']>[0]
+let octokit: Parameters<OutdatedCheckModule['isOutdated']>[1]
+let data: Parameters<OutdatedCheckModule['isOutdated']>[2]
 const compareCommitsMock =
-  vi.fn<Parameters<typeof isOutdated>[1]['rest']['repos']['compareCommits']>()
+  createMock<
+    Parameters<
+      OutdatedCheckModule['isOutdated']
+    >[1]['rest']['repos']['compareCommits']
+  >()
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  debugMock.mock.resetCalls()
+  warningMock.mock.resetCalls()
+  compareCommitsMock.mock.resetCalls()
 
   data = {
     outdated_mode: 'strict',
@@ -41,7 +62,11 @@ beforeEach(() => {
     }
   })
 
-  compareCommitsMock.mockResolvedValue({data: {behind_by: 0}})
+  compareCommitsMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      data: {behind_by: 0}
+    })
+  )
   octokit = {
     rest: {
       repos: {
@@ -52,7 +77,7 @@ beforeEach(() => {
 })
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is not', async () => {
-  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+  assert.deepStrictEqual(await isOutdated(context, octokit, data), {
     branch: 'test-branch|stable-branch',
     outdated: false
   })
@@ -60,7 +85,7 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is not, when the stable branch and base branch are the same (i.e a PR to main)', async () => {
   data.baseBranch = data.stableBaseBranch
-  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+  assert.deepStrictEqual(await isOutdated(context, octokit, data), {
     branch: 'stable-branch|stable-branch',
     outdated: false
   })
@@ -69,9 +94,13 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
 test('checks if the branch is out-of-date via commit comparison and finds that it is, when the stable branch and base branch are the same (i.e a PR to main)', async () => {
   data.baseBranch = data.stableBaseBranch
 
-  compareCommitsMock.mockResolvedValue({data: {behind_by: 1}})
+  compareCommitsMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      data: {behind_by: 1}
+    })
+  )
 
-  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+  assert.deepStrictEqual(await isOutdated(context, octokit, data), {
     branch: 'stable-branch',
     outdated: true
   })
@@ -79,68 +108,80 @@ test('checks if the branch is out-of-date via commit comparison and finds that i
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is not using outdated_mode pr_base', async () => {
   data.outdated_mode = 'pr_base'
-  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+  assert.deepStrictEqual(await isOutdated(context, octokit, data), {
     branch: 'test-branch',
     outdated: false
   })
-  expect(debugMock).toHaveBeenCalledWith(
-    'checking isOutdated with pr_base mode'
-  )
+  assertCalledWith(debugMock, 'checking isOutdated with pr_base mode')
 })
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is not using outdated_mode default_branch', async () => {
   data.outdated_mode = 'default_branch'
-  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+  assert.deepStrictEqual(await isOutdated(context, octokit, data), {
     branch: 'stable-branch',
     outdated: false
   })
-  expect(debugMock).toHaveBeenCalledWith(
-    'checking isOutdated with default_branch mode'
-  )
+  assertCalledWith(debugMock, 'checking isOutdated with default_branch mode')
 })
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is', async () => {
-  compareCommitsMock.mockResolvedValue({data: {behind_by: 1}})
-  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+  compareCommitsMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      data: {behind_by: 1}
+    })
+  )
+  assert.deepStrictEqual(await isOutdated(context, octokit, data), {
     branch: 'test-branch',
     outdated: true
   })
-  expect(debugMock).toHaveBeenCalledWith('checking isOutdated with strict mode')
-  expect(warningMock).toHaveBeenCalledWith(
+  assertCalledWith(debugMock, 'checking isOutdated with strict mode')
+  assertCalledWith(
+    warningMock,
     `The PR branch is behind the base branch by ${COLORS.highlight}1 commit${COLORS.reset}`
   )
 })
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is by many commits', async () => {
-  compareCommitsMock.mockResolvedValue({data: {behind_by: 45}})
-  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+  compareCommitsMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      data: {behind_by: 45}
+    })
+  )
+  assert.deepStrictEqual(await isOutdated(context, octokit, data), {
     branch: 'test-branch',
     outdated: true
   })
-  expect(debugMock).toHaveBeenCalledWith('checking isOutdated with strict mode')
-  expect(warningMock).toHaveBeenCalledWith(
+  assertCalledWith(debugMock, 'checking isOutdated with strict mode')
+  assertCalledWith(
+    warningMock,
     `The PR branch is behind the base branch by ${COLORS.highlight}45 commits${COLORS.reset}`
   )
 })
 
 test('checks if the branch is out-of-date via commit comparison and finds that it is only behind the stable branch', async () => {
-  compareCommitsMock
-    .mockResolvedValueOnce({data: {behind_by: 0}})
-    .mockResolvedValueOnce({data: {behind_by: 1}})
-  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+  compareCommitsMock.mock.mockImplementationOnce(
+    () => Promise.resolve({data: {behind_by: 0}}),
+    0
+  )
+  compareCommitsMock.mock.mockImplementationOnce(
+    () => Promise.resolve({data: {behind_by: 1}}),
+    1
+  )
+  assert.deepStrictEqual(await isOutdated(context, octokit, data), {
     branch: 'stable-branch',
     outdated: true
   })
-  expect(debugMock).toHaveBeenCalledWith('checking isOutdated with strict mode')
+  assertCalledWith(debugMock, 'checking isOutdated with strict mode')
 })
 
 test('checks the mergeStateStatus and finds that it is BEHIND', async () => {
   data.mergeStateStatus = 'BEHIND'
-  expect(await isOutdated(context, octokit, data)).toStrictEqual({
+  assert.deepStrictEqual(await isOutdated(context, octokit, data), {
     branch: 'test-branch',
     outdated: true
   })
-  expect(debugMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    debugMock,
     'mergeStateStatus is BEHIND - exiting isOutdated logic early'
   )
 })

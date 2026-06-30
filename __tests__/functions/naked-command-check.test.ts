@@ -1,25 +1,47 @@
-import * as core from '../../src/actions-core.ts'
-import {vi, expect, test, beforeEach} from 'vitest'
-import {
-  nakedCommandCheck,
-  type NakedCommandOctokit
-} from '../../src/functions/naked-command-check.ts'
+import assert from 'node:assert/strict'
+import {beforeEach, mock, test} from 'node:test'
 import {COLORS} from '../../src/functions/colors.ts'
+import type {NakedCommandOctokit} from '../../src/functions/naked-command-check.ts'
 import {createIssueCommentContext} from '../test-helpers.ts'
+import {
+  assertCalledWith,
+  createMock,
+  installModuleMock
+} from '../node-test-helpers.ts'
+
+type ActionsCore = typeof import('../../src/actions-core.ts')
+type ActionIo = typeof import('../../src/action-io.ts')
+type NakedCommandModule =
+  typeof import('../../src/functions/naked-command-check.ts')
+
+const debugMock = createMock<ActionsCore['debug']>()
+const warningMock = createMock<ActionsCore['warning']>()
+const getActionInputMock = createMock<ActionIo['getActionInput']>()
+
+installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
+  debug: debugMock,
+  warning: warningMock
+})
+installModuleMock(mock, new URL('../../src/action-io.ts', import.meta.url), {
+  getActionInput: getActionInputMock
+})
+
+const {nakedCommandCheck} =
+  await import('../../src/functions/naked-command-check.ts')
 
 const docs =
   'https://github.com/github/branch-deploy/blob/main/docs/naked-commands.md'
-const warningMock = vi.spyOn(core, 'warning')
 
-let context: Parameters<typeof nakedCommandCheck>[4]
-let octokit: Parameters<typeof nakedCommandCheck>[3]
-let triggers: Parameters<typeof nakedCommandCheck>[2]
-let param_separator: Parameters<typeof nakedCommandCheck>[1]
+let context: Parameters<NakedCommandModule['nakedCommandCheck']>[4]
+let octokit: Parameters<NakedCommandModule['nakedCommandCheck']>[3]
+let triggers: Parameters<NakedCommandModule['nakedCommandCheck']>[2]
+let param_separator: Parameters<NakedCommandModule['nakedCommandCheck']>[1]
 
 beforeEach(() => {
-  vi.clearAllMocks()
-
-  vi.stubEnv('INPUT_GLOBAL_LOCK_FLAG', '--global')
+  debugMock.mock.resetCalls()
+  warningMock.mock.resetCalls()
+  getActionInputMock.mock.resetCalls()
+  getActionInputMock.mock.mockImplementation(() => '--global')
 
   triggers = ['.deploy', '.noop', '.lock', '.unlock', '.wcid']
   param_separator = '|'
@@ -34,13 +56,13 @@ beforeEach(() => {
     rest: {
       reactions: {
         createForIssueComment:
-          vi.fn<
+          createMock<
             NakedCommandOctokit['rest']['reactions']['createForIssueComment']
           >()
       },
       issues: {
         createComment:
-          vi.fn<NakedCommandOctokit['rest']['issues']['createComment']>()
+          createMock<NakedCommandOctokit['rest']['issues']['createComment']>()
       }
     }
   } satisfies NakedCommandOctokit
@@ -48,104 +70,120 @@ beforeEach(() => {
 
 test('checks the command and finds that it is naked', async () => {
   const body = '.deploy'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(true)
-  expect(warningMock).toHaveBeenCalledWith(
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    true
+  )
+  assertCalledWith(
+    warningMock,
     `🩲 naked commands are ${COLORS.warning}not${COLORS.reset} allowed based on your configuration: ${COLORS.highlight}${body}${COLORS.reset}`
   )
-  expect(warningMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    warningMock,
     `📚 view the documentation around ${COLORS.highlight}naked commands${COLORS.reset} to learn more: ${docs}`
   )
 })
 
 test('checks the command and finds that it is naked (noop)', async () => {
   const body = '.noop'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(true)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    true
+  )
 })
 
 test('checks the command and finds that it is naked (lock)', async () => {
   const body = '.lock'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(true)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    true
+  )
 })
 
 test('checks the command and finds that it is naked (lock) with a reason', async () => {
   const body = '.lock --reason I am testing a big change'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(true)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    true
+  )
 })
 
 test('checks the command and finds that it is NOT naked (lock) with a reason', async () => {
   const body = '.lock production --reason I am testing a big change'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(false)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    false
+  )
 })
 
 test('checks the command and finds that it is naked (unlock)', async () => {
   const body = '.unlock'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(true)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    true
+  )
 })
 
 test('checks the command and finds that it is NOT naked because it is global', async () => {
   const body = '.unlock --global'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(false)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    false
+  )
 })
 
 test('checks the command and finds that it is naked (alias)', async () => {
   const body = '.wcid'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(true)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    true
+  )
 })
 
 test('checks the command and finds that it is naked (whitespaces)', async () => {
   const body = '.deploy     '
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(true)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    true
+  )
 })
 
 test('checks the command and finds that it is not naked', async () => {
   const body = '.deploy production'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(false)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    false
+  )
 })
 
 test('checks the command and finds that it is not naked with "to"', async () => {
   const body = '.deploy to production'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(false)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    false
+  )
 })
 
 test('checks the command and finds that it is not naked with an alias lock command', async () => {
   const body = '.wcid staging '
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(false)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    false
+  )
 })
 
 test('checks the command and finds that it is naked with params', async () => {
   const body = '.deploy | cpus=1 memory=2g,3g env=production'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(true)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    true
+  )
 })
 
 test('checks the command and finds that it is naked with params and extra whitespace', async () => {
   const body = '.deploy  | cpus=1 memory=2g,3g env=production'
-  expect(
-    await nakedCommandCheck(body, param_separator, triggers, octokit, context)
-  ).toBe(true)
+  assert.strictEqual(
+    await nakedCommandCheck(body, param_separator, triggers, octokit, context),
+    true
+  )
 })

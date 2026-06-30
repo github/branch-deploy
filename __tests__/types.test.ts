@@ -1,6 +1,7 @@
 import nunjucks from 'nunjucks'
 import yargsParser from 'yargs-parser'
-import {expectTypeOf, test} from 'vitest'
+import assert from 'node:assert/strict'
+import {test} from 'node:test'
 import {
   ACTION_INPUT_KEYS,
   ACTION_OUTPUT_KEYS,
@@ -32,24 +33,22 @@ import type {
 import {post} from '../src/functions/post.ts'
 import {run} from '../src/main.ts'
 import type {LockResponse, PrecheckResult, RunResult} from '../src/types.ts'
+import type {Assert, Equal, Extends, Not} from './node-test-helpers.ts'
+
+function assertType<Condition extends true>(
+  condition: Assert<Condition>
+): void {
+  assert.strictEqual(condition, true)
+}
 
 test('action registries expose only their literal key unions', () => {
-  expectTypeOf<
-    (typeof ACTION_INPUT_KEYS)[number]
-  >().toEqualTypeOf<ActionInputKey>()
-  expectTypeOf<
-    (typeof ACTION_OUTPUT_KEYS)[number]
-  >().toEqualTypeOf<ActionOutputKey>()
-  expectTypeOf<
-    (typeof ACTION_STATE_KEYS)[number]
-  >().toEqualTypeOf<ActionStateKey>()
+  assertType<Equal<(typeof ACTION_INPUT_KEYS)[number], ActionInputKey>>(true)
+  assertType<Equal<(typeof ACTION_OUTPUT_KEYS)[number], ActionOutputKey>>(true)
+  assertType<Equal<(typeof ACTION_STATE_KEYS)[number], ActionStateKey>>(true)
 })
 
 test('typed input registries expose exact ActionInputKey subsets', () => {
-  expectTypeOf<
-    (typeof BOOLEAN_ACTION_INPUT_KEYS)[number]
-  >().toEqualTypeOf<BooleanActionInputKey>()
-  expectTypeOf<BooleanActionInputKey>().toEqualTypeOf<
+  type ExpectedBooleanInputKey =
     | 'allow_forks'
     | 'allow_non_default_target_branch_deployments'
     | 'allow_sha_deployments'
@@ -65,81 +64,102 @@ test('typed input registries expose exact ActionInputKey subsets', () => {
     | 'sticky_locks_for_noop'
     | 'unlock_on_merge_mode'
     | 'use_security_warnings'
-  >()
-  expectTypeOf<BooleanActionInputKey>().toExtend<ActionInputKey>()
 
-  expectTypeOf<
-    (typeof INTEGER_ACTION_INPUT_KEYS)[number]
-  >().toEqualTypeOf<IntegerActionInputKey>()
-  expectTypeOf<IntegerActionInputKey>().toEqualTypeOf<'deployment_confirmation_timeout'>()
-  expectTypeOf<IntegerActionInputKey>().toExtend<ActionInputKey>()
-
-  expectTypeOf<
-    (typeof LITERAL_ACTION_INPUT_KEYS)[number]
-  >().toEqualTypeOf<LiteralActionInputKey>()
-  expectTypeOf<LiteralActionInputKey>().toEqualTypeOf<
-    'checks' | 'outdated_mode' | 'update_branch'
-  >()
-  expectTypeOf<LiteralActionInputKey>().toExtend<ActionInputKey>()
-  expectTypeOf<
-    (typeof LITERAL_ACTION_INPUT_VALUES)['update_branch'][number]
-  >().toEqualTypeOf<'disabled' | 'force' | 'warn'>()
-  expectTypeOf<
-    (typeof LITERAL_ACTION_INPUT_VALUES)['outdated_mode'][number]
-  >().toEqualTypeOf<'default_branch' | 'pr_base' | 'strict'>()
-  expectTypeOf<
-    (typeof LITERAL_ACTION_INPUT_VALUES)['checks'][number]
-  >().toEqualTypeOf<'all' | 'required'>()
+  assertType<
+    Equal<(typeof BOOLEAN_ACTION_INPUT_KEYS)[number], BooleanActionInputKey>
+  >(true)
+  assertType<Equal<BooleanActionInputKey, ExpectedBooleanInputKey>>(true)
+  assertType<Extends<BooleanActionInputKey, ActionInputKey>>(true)
+  assertType<
+    Equal<(typeof INTEGER_ACTION_INPUT_KEYS)[number], IntegerActionInputKey>
+  >(true)
+  assertType<Equal<IntegerActionInputKey, 'deployment_confirmation_timeout'>>(
+    true
+  )
+  assertType<Extends<IntegerActionInputKey, ActionInputKey>>(true)
+  assertType<
+    Equal<(typeof LITERAL_ACTION_INPUT_KEYS)[number], LiteralActionInputKey>
+  >(true)
+  assertType<
+    Equal<LiteralActionInputKey, 'checks' | 'outdated_mode' | 'update_branch'>
+  >(true)
+  assertType<Extends<LiteralActionInputKey, ActionInputKey>>(true)
+  assertType<
+    Equal<
+      (typeof LITERAL_ACTION_INPUT_VALUES)['update_branch'][number],
+      'disabled' | 'force' | 'warn'
+    >
+  >(true)
+  assertType<
+    Equal<
+      (typeof LITERAL_ACTION_INPUT_VALUES)['outdated_mode'][number],
+      'default_branch' | 'pr_base' | 'strict'
+    >
+  >(true)
+  assertType<
+    Equal<
+      (typeof LITERAL_ACTION_INPUT_VALUES)['checks'][number],
+      'all' | 'required'
+    >
+  >(true)
 })
 
 test('state-machine results retain correlated discriminants', () => {
-  expectTypeOf<
-    Extract<PrecheckResult, {status: true}>['sha']
-  >().toEqualTypeOf<string>()
-  expectTypeOf<
-    Extract<PrecheckResult, {status: false}>['sha']
-  >().toEqualTypeOf<undefined>()
-  expectTypeOf<
-    Extract<LockResponse, {status: 'owner'}>['lockData']
-  >().not.toEqualTypeOf<null>()
-  expectTypeOf<
-    Extract<LockResponse, {status: null | true}>['lockData']
-  >().toEqualTypeOf<null>()
+  assertType<Equal<Extract<PrecheckResult, {status: true}>['sha'], string>>(
+    true
+  )
+  assertType<Equal<Extract<PrecheckResult, {status: false}>['sha'], undefined>>(
+    true
+  )
+  assertType<
+    Not<Equal<Extract<LockResponse, {status: 'owner'}>['lockData'], null>>
+  >(true)
+  assertType<
+    Equal<Extract<LockResponse, {status: null | true}>['lockData'], null>
+  >(true)
 })
 
 test('request objects select behavior through literal modes', () => {
-  expectTypeOf<
-    Extract<EnvironmentTargetsRequest, {mode: 'deployment'}>
-  >().toEqualTypeOf<DeploymentEnvironmentRequest>()
-  expectTypeOf<
-    Extract<EnvironmentTargetsRequest, {mode: 'lock'}>
-  >().toEqualTypeOf<LockEnvironmentRequest>()
-  expectTypeOf<ActionStatusRequest['result']>().toEqualTypeOf<
-    'alternate-success' | 'failure' | 'success' | undefined
-  >()
-  expectTypeOf<LockRequest['mode']['type']>().toEqualTypeOf<
-    'acquire' | 'details'
-  >()
-  expectTypeOf<
-    InteractiveUnlockRequest['mode']
-  >().toEqualTypeOf<'interactive'>()
-  expectTypeOf<SilentUnlockRequest['mode']>().toEqualTypeOf<'silent'>()
+  assertType<
+    Equal<
+      Extract<EnvironmentTargetsRequest, {mode: 'deployment'}>,
+      DeploymentEnvironmentRequest
+    >
+  >(true)
+  assertType<
+    Equal<
+      Extract<EnvironmentTargetsRequest, {mode: 'lock'}>,
+      LockEnvironmentRequest
+    >
+  >(true)
+  assertType<
+    Equal<
+      ActionStatusRequest['result'],
+      'alternate-success' | 'failure' | 'success' | undefined
+    >
+  >(true)
+  assertType<Equal<LockRequest['mode']['type'], 'acquire' | 'details'>>(true)
+  assertType<Equal<InteractiveUnlockRequest['mode'], 'interactive'>>(true)
+  assertType<Equal<SilentUnlockRequest['mode'], 'silent'>>(true)
 })
 
 test('entrypoints retain their literal result contracts', () => {
-  expectTypeOf<Awaited<ReturnType<typeof run>>>().toEqualTypeOf<RunResult>()
-  expectTypeOf(post).returns.resolves.toBeVoid()
+  assertType<Equal<Awaited<ReturnType<typeof run>>, RunResult>>(true)
+  assertType<Equal<Awaited<ReturnType<typeof post>>, void>>(true)
 })
 
 test('local vendor declarations stay intentionally narrow', () => {
-  expectTypeOf<typeof nunjucks.configure>().parameter(0).toEqualTypeOf<{
-    autoescape?: boolean
-  }>()
-  expectTypeOf<typeof nunjucks.render>().parameters.toEqualTypeOf<
-    [path: string, context: Record<string, unknown>]
-  >()
-  expectTypeOf(yargsParser).parameter(0).toEqualTypeOf<string>()
-  expectTypeOf(yargsParser)
-    .returns.toHaveProperty('_')
-    .toEqualTypeOf<(number | string)[]>()
+  assertType<
+    Equal<Parameters<typeof nunjucks.configure>[0], {autoescape?: boolean}>
+  >(true)
+  assertType<
+    Equal<
+      Parameters<typeof nunjucks.render>,
+      [path: string, context: Record<string, unknown>]
+    >
+  >(true)
+  assertType<Equal<Parameters<typeof yargsParser>[0], string>>(true)
+  assertType<Equal<ReturnType<typeof yargsParser>['_'], (number | string)[]>>(
+    true
+  )
 })
