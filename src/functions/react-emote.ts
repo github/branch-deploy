@@ -1,5 +1,6 @@
 import {API_HEADERS} from './api-headers.ts'
-import {issueCommentContext} from '../trust-boundaries.ts'
+import * as core from '../actions-core.ts'
+import {issueCommentContext, legacyApiError} from '../trust-boundaries.ts'
 import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
 
 type CreateReactionMethod =
@@ -35,18 +36,18 @@ const presets = [
 // :param reaction: A string which determines the reaction to use (String)
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
-// :returns: The reactRes object which contains the reaction ID among other things. Returns nil if no reaction was specified, or throws an error if it fails
+// :returns: The reaction ID, or null when reactions are disabled or unavailable
 export async function reactEmote(
   reaction: string,
   context: BranchDeployContext,
   octokit: ReactEmoteOctokit
-): Promise<{readonly data: {readonly id: number}} | undefined> {
+): Promise<number | null> {
   // Get the owner and repo from the context
   const {owner, repo} = context.repo
 
   // If the reaction is not specified, return
   if (!reaction || reaction.trim() === '') {
-    return
+    return null
   }
 
   // Find the reaction in the list of presets, otherwise throw an error
@@ -56,14 +57,20 @@ export async function reactEmote(
   }
 
   // Add the reaction to the issue_comment
-  const reactRes = await octokit.rest.reactions.createForIssueComment({
-    owner,
-    repo,
-    comment_id: issueCommentContext(context).payload.comment.id,
-    content: preset,
-    headers: API_HEADERS
-  })
+  try {
+    const reactRes = await octokit.rest.reactions.createForIssueComment({
+      owner,
+      repo,
+      comment_id: issueCommentContext(context).payload.comment.id,
+      content: preset,
+      headers: API_HEADERS
+    })
 
-  // Return the reactRes which contains the id for reference later
-  return reactRes
+    return reactRes.data.id
+  } catch (error) {
+    core.warning(
+      `failed to add the initial reaction; continuing without decorative reactions: ${legacyApiError(error).message}`
+    )
+    return null
+  }
 }

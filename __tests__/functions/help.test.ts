@@ -72,7 +72,7 @@ test('successfully calls help with defaults', async () => {
 
   assertDebugMatches(/## 📚 Branch Deployment Help/)
   assertDebugIncludes(
-    '`allowForks: true` - This Action will not run on forked repositories'
+    '`allowForks: true` - This Action will run on forked repositories'
   )
 })
 

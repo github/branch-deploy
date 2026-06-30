@@ -49,3 +49,128 @@ A lock branch that exists without a readable `lock.json` is now treated as an am
 - If Branch Deploy reports an ambiguous lock, open the lock branch named in the message and inspect its contents.
 - If the branch is stale or corrupt, use the normal `.unlock <environment>` command, or `.unlock --global` for a global lock, after confirming that removing it is safe.
 - Do not interpret idempotent lock acquisition as exactly-once execution for deployment scripts that run after the Action.
+
+## Main action decisions are available as structured outputs
+
+### What changed
+
+Branch Deploy now writes three additive outputs on every terminal path through the main action:
+
+- `decision` is one of `continue`, `complete`, `stop`, or `failure`.
+- `reason_code` is a stable machine-readable explanation for that decision.
+- `result` is a deterministic JSON string containing the same decision and reason plus the operation and deployment details that were known at that point.
+
+The version-one `result` object has this shape:
+
+```json
+{
+  "schema_version": 1,
+  "decision": "continue",
+  "reason_code": "deployment_ready",
+  "operation": "deploy",
+  "deployment_type": "branch",
+  "environment": "production",
+  "ref": "feature-branch",
+  "sha": "0123456789abcdef0123456789abcdef01234567",
+  "deployment_id": 123456
+}
+```
+
+The `operation` value is one of `deploy`, `noop`, `lock`, `unlock`, `lock_info`, `help`, `merge_deploy`, `unlock_on_merge`, or `none`. Fields that are not known or do not apply are `null`.
+
+Version one defines these reason codes:
+
+- `unlock_on_merge_completed`
+- `merge_deploy_required`
+- `merge_deploy_not_required`
+- `unsupported_event`
+- `deprecated_command`
+- `naked_command_disabled`
+- `no_trigger`
+- `permission_denied`
+- `help_completed`
+- `invalid_environment`
+- `lock_info_completed`
+- `lock_acquired`
+- `lock_already_owned`
+- `lock_conflict`
+- `unlock_completed`
+- `unlock_failed`
+- `prechecks_failed`
+- `commit_safety_failed`
+- `deployment_order_failed`
+- `confirmation_rejected`
+- `confirmation_timed_out`
+- `noop_ready`
+- `base_branch_update_required`
+- `deployment_ready`
+- `unexpected_error`
+
+The result describes the decision made during the action's main phase. It does not report whether a consumer's later deployment steps succeeded or whether the post action subsequently completed a GitHub deployment.
+
+### Who is affected
+
+Existing workflows do not need to change because all previous scalar outputs and their values remain available. Workflows that infer outcomes from log text or combine several older outputs can use the new outputs for a more stable contract.
+
+### What should I do?
+
+Give the Branch Deploy step an `id`, then consume either the scalar aliases or the JSON object:
+
+```yaml
+- name: Prepare branch deployment
+  id: branch-deploy
+  uses: github/branch-deploy@v12
+
+- name: Run deployment
+  if: steps.branch-deploy.outputs.decision == 'continue'
+  env:
+    BRANCH_DEPLOY_RESULT: ${{ steps.branch-deploy.outputs.result }}
+  run: |
+    echo "reason: ${{ steps.branch-deploy.outputs.reason_code }}"
+    echo "environment: ${{ fromJSON(steps.branch-deploy.outputs.result).environment }}"
+```
+
+Treat `schema_version` as the compatibility boundary when parsing `result`. Prefer `reason_code` over matching human-readable comments or logs.
+
+## Decorative reactions are best-effort
+
+### What changed
+
+An empty `reaction` input now disables the initial and final decorative reactions instead of causing the action to fail. In that configuration, the `initial_reaction_id` output and saved reaction state are empty.
+
+Failures while creating the initial reaction, removing it, or adding the final success or failure reaction now produce warnings and do not suppress the requested command or its required status comment. An invalid configured reaction name remains a fatal input error.
+
+Deployment confirmation reactions are different: when `deployment_confirmation` is enabled, the original actor's approval is an authorization decision and remains fail-closed. Confirmation now checks every page of reactions, ignores entries without a user, polls immediately, and uses bounded deadline-aware backoff. Temporary network failures, HTTP 408, 409, 429, and 5xx responses are retried within the configured timeout; other permanent 4xx responses fail immediately.
+
+### Who is affected
+
+Workflows that leave `reaction` empty no longer need a workaround. A custom post-processing workflow that directly deletes the initial reaction must allow `initial_reaction_id` to be empty and skip deletion in that case.
+
+### What should I do?
+
+- Leave `reaction` empty if decorative reaction updates are not wanted.
+- Guard any direct use of `initial_reaction_id` with a non-empty check.
+- Keep `deployment_confirmation` enabled only where the workflow can wait for the original actor's explicit decision.
+- Retry a command after a transient confirmation API failure; do not treat decorative-reaction tolerance as a bypass for confirmation.
+
+If confirmation is rejected, times out, or errors, a non-sticky deployment lock is released before post mode is bypassed. Sticky locks retain their established persistence behavior.
+
+## Unlock failures and generated metadata fail more reliably
+
+### What changed
+
+An interactive `.unlock` command now fails the action when GitHub returns a response showing that the lock branch was not deleted. It is no longer reported as a successful safe exit.
+
+The help message now reports the real boolean value of `allow_forks` instead of applying the previous string comparison.
+
+Default pre-deploy, confirmation, and post-deploy metadata blocks are generated from typed objects with `JSON.stringify`. Quotes, backslashes, newlines, Unicode, and backticks in user-controlled values can no longer break the JSON or close its Markdown code fence. Field names, field ordering, marker comments, and null semantics remain stable. Custom Nunjucks deployment templates are unchanged.
+
+### Who is affected
+
+Users may notice a failed `.unlock` step where an earlier version printed a failure comment but still returned a safe exit. Consumers that scrape the default metadata's exact whitespace or assume a three-backtick fence may also need an update.
+
+### What should I do?
+
+- Investigate a failed `.unlock` command and retry it after resolving the GitHub API or permission problem.
+- Parse the JSON between the `pre-deploy-metadata`, `deployment-confirmation-metadata`, or `post-deploy-metadata` marker comments instead of depending on indentation or fence length.
+- Continue using a custom Nunjucks template if exact custom comment bytes are required; this change does not alter those templates.

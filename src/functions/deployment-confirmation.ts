@@ -3,15 +3,13 @@ import {dedent} from './dedent.ts'
 import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
 import {timestamp} from './timestamp.ts'
-import {
-  issueCommentContext,
-  legacyApiError,
-  legacyReactionUser
-} from '../trust-boundaries.ts'
+import {jsonCodeBlock} from './json-code-block.ts'
+import {issueCommentContext, legacyApiError} from '../trust-boundaries.ts'
 import type {
   BranchDeployContext,
   BranchDeployOctokit,
-  DeploymentConfirmationData
+  DeploymentConfirmationData,
+  DeploymentConfirmationResult
 } from '../types.ts'
 
 const thumbsUp = '+1'
@@ -57,14 +55,50 @@ export interface DeploymentConfirmationOctokit {
 // Helper function to allow the original actor to confirm the deployment by adding a reaction to a comment
 // :param context: The context of the action
 // :param octokit: The octokit object
-// :returns: true if the deployment has been confirmed by the original actor, false otherwise
+// :returns: the original actor's confirmation decision or a timeout result
 export async function deploymentConfirmation(
   context: BranchDeployContext,
   octokit: DeploymentConfirmationOctokit,
   data: DeploymentConfirmationData
-): Promise<boolean> {
+): Promise<DeploymentConfirmationResult> {
   const issueComment = issueCommentContext(context)
-  const message = dedent(`
+  const metadata = {
+    type: data.deploymentType.toLowerCase(),
+    environment: {
+      name: data.environment,
+      url:
+        data.environmentUrl !== null && data.environmentUrl !== ''
+          ? data.environmentUrl
+          : null
+    },
+    deployment: {
+      logs: data.log_url
+    },
+    git: {
+      branch: data.ref,
+      commit: data.sha,
+      verified: data.isVerified,
+      committer: String(data.committer),
+      html_url: data.commit_html_url
+    },
+    context: {
+      actor: context.actor,
+      noop: data.noopMode,
+      fork: data.isFork,
+      comment: {
+        created_at: issueComment.payload.comment.created_at,
+        updated_at: issueComment.payload.comment.updated_at,
+        body: data.body,
+        html_url: issueComment.payload.comment.html_url
+      }
+    },
+    parameters: {
+      raw: data.params !== null && data.params !== '' ? data.params : null,
+      parsed: data.parsed_params
+    }
+  }
+  const metadataBlock = jsonCodeBlock(metadata)
+  const messageHeader = dedent(`
     ### Deployment Confirmation Required 🚦
 
     In order to proceed with this deployment, __${context.actor}__ must react to this comment with either a 👍 or a 👎.
@@ -77,49 +111,20 @@ export async function deploymentConfirmation(
 
     > You will have \`${data.deployment_confirmation_timeout}\` seconds to confirm this deployment ([logs](${data.log_url})).
 
-    <details><summary>Details</summary>
-
-    <!--- deployment-confirmation-metadata-start -->
-
-    \`\`\`json
-    {
-      "type": "${data.deploymentType.toLowerCase()}",
-      "environment": {
-        "name": "${data.environment}",
-        "url": ${data.environmentUrl !== null && data.environmentUrl !== '' ? `"${data.environmentUrl}"` : 'null'}
-      },
-      "deployment": {
-        "logs": "${data.log_url}"
-      },
-      "git": {
-        "branch": "${data.ref}",
-        "commit": "${data.sha}",
-        "verified": ${data.isVerified},
-        "committer": "${String(data.committer)}",
-        "html_url": "${data.commit_html_url}"
-      },
-      "context": {
-        "actor": "${context.actor}",
-        "noop": ${data.noopMode},
-        "fork": ${data.isFork},
-        "comment": {
-          "created_at": "${issueComment.payload.comment.created_at}",
-          "updated_at": "${issueComment.payload.comment.updated_at}",
-          "body": "${data.body}",
-          "html_url": "${issueComment.payload.comment.html_url}"
-        }
-      },
-      "parameters": {
-        "raw": ${data.params !== null && data.params !== '' ? `"${data.params}"` : 'null'},
-        "parsed": ${data.parsed_params !== null ? JSON.stringify(data.parsed_params) : 'null'}
-      }
-    }
-    \`\`\`
-
-    <!--- deployment-confirmation-metadata-end -->
-
-    </details>
   `)
+  const message = [
+    messageHeader,
+    '',
+    '<details><summary>Details</summary>',
+    '',
+    '<!--- deployment-confirmation-metadata-start -->',
+    '',
+    metadataBlock,
+    '',
+    '<!--- deployment-confirmation-metadata-end -->',
+    '',
+    '</details>'
+  ].join('\n')
 
   const comment = await octokit.rest.issues.createComment({
     ...context.repo,
@@ -138,68 +143,62 @@ export async function deploymentConfirmation(
   // Convert timeout to milliseconds for setTimeout
   const timeoutMs = data.deployment_confirmation_timeout * 1000
   const startTime = Date.now()
-  const pollInterval = 2000 // Check every 2 seconds
+  const deadline = startTime + timeoutMs
+  let pollInterval = 2000
+  let firstPoll = true
 
   // Poll for reactions until we find a valid one or timeout
-  while (Date.now() - startTime < timeoutMs) {
+  while (firstPoll || Date.now() < deadline) {
+    firstPoll = false
     try {
-      // Get all reactions on the confirmation comment
-      const reactions = await octokit.rest.reactions.listForIssueComment({
-        ...context.repo,
-        comment_id: commentId,
-        headers: API_HEADERS
-      })
+      const decision = await findConfirmationReaction(
+        context,
+        octokit,
+        commentId
+      )
+      if (decision === 'confirmed') {
+        await octokit.rest.issues.updateComment({
+          ...context.repo,
+          comment_id: commentId,
+          body: `${message}\n\n✅ Deployment confirmed by __${context.actor}__ at \`${timestamp()}\` UTC.`,
+          headers: API_HEADERS
+        })
 
-      // Look for thumbs up or thumbs down from the original actor
-      for (const reaction of reactions.data) {
-        const reactionUser = legacyReactionUser(reaction.user)
-        if (reactionUser.login === context.actor) {
-          if (reaction.content === thumbsUp) {
-            // Update confirmation comment with success message
-            await octokit.rest.issues.updateComment({
-              ...context.repo,
-              comment_id: commentId,
-              body: `${message}\n\n✅ Deployment confirmed by __${context.actor}__ at \`${timestamp()}\` UTC.`,
-              headers: API_HEADERS
-            })
-
-            core.info(
-              `✅ deployment confirmed by ${COLORS.highlight}${context.actor}${COLORS.reset} - sha: ${COLORS.highlight}${data.sha}${COLORS.reset}`
-            )
-
-            return true
-          } else if (reaction.content === thumbsDown) {
-            // Update confirmation comment with cancellation message
-            await octokit.rest.issues.updateComment({
-              ...context.repo,
-              comment_id: commentId,
-              body: `${message}\n\n❌ Deployment rejected by __${context.actor}__ at \`${timestamp()}\` UTC.`,
-              headers: API_HEADERS
-            })
-
-            core.setFailed(
-              `❌ deployment rejected by ${COLORS.highlight}${context.actor}${COLORS.reset}`
-            )
-
-            return false
-          } else {
-            core.debug(`ignoring reaction: ${reaction.content}`)
-          }
-        } else {
-          core.debug(
-            `ignoring reaction from ${reactionUser.login}, expected ${context.actor}`
-          )
-        }
+        core.info(
+          `✅ deployment confirmed by ${COLORS.highlight}${context.actor}${COLORS.reset} - sha: ${COLORS.highlight}${data.sha}${COLORS.reset}`
+        )
+        return 'confirmed'
       }
+      if (decision === 'rejected') {
+        await octokit.rest.issues.updateComment({
+          ...context.repo,
+          comment_id: commentId,
+          body: `${message}\n\n❌ Deployment rejected by __${context.actor}__ at \`${timestamp()}\` UTC.`,
+          headers: API_HEADERS
+        })
 
-      // Wait before checking again
-      await new Promise(resolve => setTimeout(resolve, pollInterval))
+        core.setFailed(
+          `❌ deployment rejected by ${COLORS.highlight}${context.actor}${COLORS.reset}`
+        )
+        return 'rejected'
+      }
     } catch (error) {
+      if (!isRetryableConfirmationError(error)) {
+        throw error
+      }
       core.warning(
         `temporary failure when checking for reactions on the deployment confirmation comment: ${legacyApiError(error).message}`
       )
-      await new Promise(resolve => setTimeout(resolve, pollInterval))
     }
+
+    const remainingMs = deadline - Date.now()
+    if (remainingMs <= 0) {
+      break
+    }
+    await new Promise<void>(resolve =>
+      setTimeout(resolve, Math.min(pollInterval, remainingMs))
+    )
+    pollInterval = Math.min(pollInterval * 2, 10_000)
   }
 
   // Timeout reached without confirmation
@@ -213,5 +212,54 @@ export async function deploymentConfirmation(
   core.setFailed(
     `⏱️ deployment confirmation timed out after ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds`
   )
-  return false
+  return 'timed_out'
+}
+
+async function findConfirmationReaction(
+  context: BranchDeployContext,
+  octokit: DeploymentConfirmationOctokit,
+  commentId: number
+): Promise<'confirmed' | 'rejected' | null> {
+  let page = 1
+  while (true) {
+    const reactions = await octokit.rest.reactions.listForIssueComment({
+      ...context.repo,
+      comment_id: commentId,
+      per_page: 100,
+      page,
+      headers: API_HEADERS
+    })
+
+    for (const reaction of reactions.data) {
+      if (reaction.user === null) {
+        core.debug('ignoring reaction from an unknown user')
+      } else if (reaction.user.login !== context.actor) {
+        core.debug(
+          `ignoring reaction from ${reaction.user.login}, expected ${context.actor}`
+        )
+      } else if (reaction.content === thumbsUp) {
+        return 'confirmed'
+      } else if (reaction.content === thumbsDown) {
+        return 'rejected'
+      } else {
+        core.debug(`ignoring reaction: ${reaction.content}`)
+      }
+    }
+
+    if (reactions.data.length < 100) {
+      return null
+    }
+    page += 1
+  }
+}
+
+function isRetryableConfirmationError(error: unknown): boolean {
+  const status = legacyApiError(error).status
+  if (status === undefined) {
+    return true
+  }
+  if ([408, 409, 429].includes(status)) {
+    return true
+  }
+  return status >= 500 && status < 600
 }

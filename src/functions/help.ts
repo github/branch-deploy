@@ -1,7 +1,6 @@
 import * as core from '../actions-core.ts'
 import {dedent} from './dedent.ts'
 import {actionStatus} from './action-status.ts'
-import {legacyAllowForksValue} from '../trust-boundaries.ts'
 import type {
   ActionInputs,
   BranchDeployContext,
@@ -20,7 +19,7 @@ function isChecksArray(value: ChecksInput): value is readonly string[] {
 export async function help(
   octokit: BranchDeployOctokit,
   context: BranchDeployContext,
-  reactionId: number,
+  reactionId: number | null,
   inputs: ActionInputs
 ): Promise<void> {
   let update_branch_message = defaultSpecificMessage
@@ -245,7 +244,7 @@ export async function help(
     inputs.required_contexts
   }\` - ${required_contexts_message}
   - \`allowForks: ${inputs.allowForks}\` - This Action will ${
-    legacyAllowForksValue(inputs.allowForks) === 'true' ? 'run' : 'not run'
+    inputs.allowForks ? 'run' : 'not run'
   } on forked repositories
   - \`skipCi: ${skipCiDisplay}\` - ${skip_ci_message}
   - \`checks: ${checksDisplay}\` - ${checks_message}

@@ -32,7 +32,16 @@ import type {
 } from '../src/functions/unlock.ts'
 import {post} from '../src/functions/post.ts'
 import {run} from '../src/main.ts'
-import type {LockResponse, PrecheckResult, RunResult} from '../src/types.ts'
+import {OPERATION_REASON_CODES} from '../src/operation-result.ts'
+import type {
+  DeploymentConfirmationResult,
+  LockResponse,
+  OperationDecision,
+  OperationReasonCode,
+  OperationResultV1,
+  PrecheckResult,
+  RunResult
+} from '../src/types.ts'
 import type {Assert, Equal, Extends, Not} from './node-test-helpers.ts'
 
 function assertType<Condition extends true>(
@@ -116,6 +125,14 @@ test('state-machine results retain correlated discriminants', () => {
   >(true)
   assertType<
     Equal<Extract<LockResponse, {status: null | true}>['lockData'], null>
+  >(true)
+  assertType<
+    Equal<(typeof OPERATION_REASON_CODES)[number], OperationReasonCode>
+  >(true)
+  assertType<Equal<OperationResultV1['schema_version'], 1>>(true)
+  assertType<Equal<OperationResultV1['decision'], OperationDecision>>(true)
+  assertType<
+    Equal<DeploymentConfirmationResult, 'confirmed' | 'rejected' | 'timed_out'>
   >(true)
 })
 

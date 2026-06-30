@@ -278,6 +278,12 @@ outputs:
     description: 'The total number of seconds that the deployment took to complete (Integer)'
   non_default_target_branch_used:
     description: 'The string "true" if the pull request is targeting a branch other than the default branch (aka stable branch) for the merge, otherwise unset'
+  decision:
+    description: 'The main action decision: continue, complete, stop, or failure'
+  reason_code:
+    description: 'A stable machine-readable reason code for the main action decision'
+  result:
+    description: 'A deterministic JSON object describing the versioned main action result'
 runs:
   using: "node24"
   main: "dist/index.js"

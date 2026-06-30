@@ -371,7 +371,7 @@ export interface DeploymentConfirmationData {
   readonly commit_html_url: string
   readonly committer: string | null | undefined
   readonly deployment_confirmation_timeout: number
-  readonly deploymentType: string
+  readonly deploymentType: OperationDeploymentType
   readonly environment: string
   readonly environmentUrl: string | null
   readonly github_run_id: number
@@ -384,6 +384,11 @@ export interface DeploymentConfirmationData {
   readonly ref: string
   readonly sha: string
 }
+
+export type DeploymentConfirmationResult =
+  | 'confirmed'
+  | 'rejected'
+  | 'timed_out'
 
 export interface PostDeployLabels {
   readonly failed_deploy: readonly string[]
@@ -429,7 +434,7 @@ export interface PostDeployData {
   readonly noop: boolean
   readonly params: string
   readonly parsed_params: string
-  readonly reaction_id: string
+  readonly reaction_id: string | null | undefined
   readonly ref: string
   readonly review_decision: string
   readonly sha: string
@@ -468,6 +473,57 @@ export type BranchRuleWithParameters = Extract<
 >
 
 export type RuleParameters = Record<string, boolean | number>
+
+export type OperationReasonCode =
+  | 'base_branch_update_required'
+  | 'commit_safety_failed'
+  | 'confirmation_rejected'
+  | 'confirmation_timed_out'
+  | 'deprecated_command'
+  | 'deployment_order_failed'
+  | 'deployment_ready'
+  | 'help_completed'
+  | 'invalid_environment'
+  | 'lock_acquired'
+  | 'lock_already_owned'
+  | 'lock_conflict'
+  | 'lock_info_completed'
+  | 'merge_deploy_not_required'
+  | 'merge_deploy_required'
+  | 'naked_command_disabled'
+  | 'no_trigger'
+  | 'noop_ready'
+  | 'permission_denied'
+  | 'prechecks_failed'
+  | 'unexpected_error'
+  | 'unlock_completed'
+  | 'unlock_failed'
+  | 'unlock_on_merge_completed'
+  | 'unsupported_event'
+export type OperationDecision = 'complete' | 'continue' | 'failure' | 'stop'
+export type Operation =
+  | 'deploy'
+  | 'help'
+  | 'lock'
+  | 'lock_info'
+  | 'merge_deploy'
+  | 'none'
+  | 'noop'
+  | 'unlock'
+  | 'unlock_on_merge'
+export type OperationDeploymentType = 'branch' | 'noop' | 'sha'
+
+export interface OperationResultV1 {
+  readonly schema_version: 1
+  readonly decision: OperationDecision
+  readonly reason_code: OperationReasonCode
+  readonly operation: Operation
+  readonly deployment_type: OperationDeploymentType | null
+  readonly environment: string | null
+  readonly ref: string | null
+  readonly sha: string | null
+  readonly deployment_id: number | null
+}
 
 export type RunResult =
   | 'failure'

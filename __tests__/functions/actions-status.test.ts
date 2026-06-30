@@ -6,6 +6,7 @@ import type {
 import {API_HEADERS} from '../../src/functions/api-headers.ts'
 import {createIssueCommentContext} from '../test-helpers.ts'
 import {
+  assertNotCalled,
   assertCalledWith,
   createMock,
   stubEnv,
@@ -249,4 +250,76 @@ test('truncates the message when it is too large for an issue comment', async ()
     repo: 'test',
     headers: API_HEADERS
   })
+})
+
+test('skips decorative reaction changes when no initial reaction exists', async () => {
+  await actionStatus({
+    context,
+    octokit,
+    reactionId: null,
+    message: 'Everything worked!',
+    result: 'success'
+  })
+
+  assertCalledWith(createCommentMock, {
+    body: 'Everything worked!',
+    issue_number: 1,
+    owner: 'corp',
+    repo: 'test',
+    headers: API_HEADERS
+  })
+  assertNotCalled(deleteForIssueCommentMock)
+  assertNotCalled(createForIssueCommentMock)
+})
+
+test('continues to add the final reaction when initial reaction deletion fails', async () => {
+  deleteForIssueCommentMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('delete unavailable'))
+  )
+
+  await actionStatus({
+    context,
+    octokit,
+    reactionId: 123,
+    message: 'Everything worked!',
+    result: 'success'
+  })
+
+  assertCalledWith(
+    warningMock,
+    'failed to remove the initial decorative reaction: delete unavailable'
+  )
+  assertCalledWith(createForIssueCommentMock, {
+    comment_id: 1,
+    content: 'rocket',
+    owner: 'corp',
+    repo: 'test',
+    headers: API_HEADERS
+  })
+})
+
+test('keeps the required status comment when the final reaction fails', async () => {
+  createForIssueCommentMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('create unavailable'))
+  )
+
+  await actionStatus({
+    context,
+    octokit,
+    reactionId: 123,
+    message: 'Everything worked!',
+    result: 'success'
+  })
+
+  assertCalledWith(createCommentMock, {
+    body: 'Everything worked!',
+    issue_number: 1,
+    owner: 'corp',
+    repo: 'test',
+    headers: API_HEADERS
+  })
+  assertCalledWith(
+    warningMock,
+    'failed to add the final decorative reaction: create unavailable'
+  )
 })

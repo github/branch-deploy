@@ -118,7 +118,10 @@ export const ACTION_OUTPUT_KEYS = [
   'needs_to_be_deployed',
   'commit_verified',
   'total_seconds',
-  'non_default_target_branch_used'
+  'non_default_target_branch_used',
+  'decision',
+  'reason_code',
+  'result'
 ] as const satisfies readonly string[]
 
 export type ActionOutputKey = (typeof ACTION_OUTPUT_KEYS)[number]

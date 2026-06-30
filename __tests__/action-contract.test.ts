@@ -168,7 +168,7 @@ test('action input and output registries exactly match action.yml', () => {
     Object.keys(outputs).sort()
   )
   assert.strictEqual(ACTION_INPUT_KEYS.length, 49)
-  assert.strictEqual(ACTION_OUTPUT_KEYS.length, 38)
+  assert.strictEqual(ACTION_OUTPUT_KEYS.length, 41)
 })
 
 test('action input defaults, required flags, and accepted literals stay fixed', () => {
