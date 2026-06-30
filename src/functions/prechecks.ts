@@ -460,7 +460,7 @@ export async function prechecks(
     try {
       core.debug('raw graphql result for debugging:')
       core.debug(legacyDebugValue(result))
-    } /* istanbul ignore next */ catch {
+    } /* node:coverage ignore next */ catch {
       core.debug(
         'Could not output raw graphql result for debugging - This is bad'
       )

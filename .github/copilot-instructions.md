@@ -18,13 +18,13 @@ Run the complete non-mutating project check before bundling:
 npm run check
 ```
 
-This verifies formatting, the full project and runtime-only TypeScript configurations, type-aware linting, and the complete Vitest suite. The project requires 100% line, function, branch, and statement coverage.
+This verifies formatting, the full project and runtime-only TypeScript configurations, the project-owned TypeScript safety policy, and the complete native Node test suite. Every test must pass, and executable first-party code must maintain 100% line, function, and branch coverage.
 
-The full-project `tsconfig.json` keeps `skipLibCheck` enabled only because Vitest 4.1's declarations conflict with `exactOptionalPropertyTypes`. `tsconfig.runtime.json` excludes test tooling and restores full declaration checking for all runtime source and local declarations.
+Both TypeScript projects check third-party declarations. `tsconfig.runtime.json` separately proves that runtime source and local declarations do not depend on test tooling.
 
 `npm run test` must not rewrite tracked files. The tracked 100% coverage badge reflects the enforced coverage thresholds and does not need a separate update command.
 
-Unit tests should exist in the `__tests__` directory. They are powered by Vitest.
+Unit tests should exist in the `__tests__` directory. They use `node:test`, `node:assert/strict`, and the exact Node version in `.node-version`. Native ESM module mocking and coverage are experimental test-only boundaries; keep their use inside the typed test helpers.
 
 ## Bundling
 
@@ -43,9 +43,9 @@ This uses Vercel's `ncc` to bundle TypeScript source into ES2022 JavaScript for 
 - Base new work on latest `main` branch
 - Changes should maintain consistency with existing patterns and style.
 - Prefer small, typed functions and the simplest design that expresses the domain. Do not introduce classes, object-oriented patterns, or abstractions unless the behavior genuinely requires them.
-- Keep strict compiler and lint rules enabled. Model correlated states with discriminated unions, use readonly data where production does not mutate it, and give exported state-machine or literal-significant functions explicit return types.
+- Keep strict compiler and TypeScript safety-policy checks enabled. Model correlated states with discriminated unions, use readonly data where production does not mutate it, and give exported state-machine or literal-significant functions explicit return types.
 - Treat GitHub payloads, saved state, decoded JSON, and external API responses as untrusted boundary values. Keep unavoidable assertions in the named trust-boundary module; do not scatter double assertions, non-null assertions, `any`, `@ts-ignore`, or `@ts-nocheck` through project code.
-- Use typed Vitest mocks (`vi.mocked`, `vi.spyOn`, and typed module factories) and fixtures derived from production `Parameters` and `ReturnType` types. Use the single named unsafe fixture helper only for tests intentionally passing values outside the TypeScript contract.
+- Use native typed mocks (`mock.fn`, `mock.method`, and the narrow ESM module-mock helper) and fixtures derived from production `Parameters` and `ReturnType` types. Use the single named unsafe fixture helper only for tests intentionally passing values outside the TypeScript contract.
 - Preserve the complete `action.yml` input, output, lifecycle, state-serialization, and ESM bundle contracts unless a change explicitly authorizes a public behavior change.
 - Document changes clearly and thoroughly, including updates to existing comments when appropriate. Try to use the same "voice" as the other comments, mimicking their tone and style.
 - When responding to code refactoring suggestions, function suggestions, or other code changes, keep responses concise. After refactoring, run `npm run check`.
@@ -63,7 +63,7 @@ This uses Vercel's `ncc` to bundle TypeScript source into ES2022 JavaScript for 
 ## Pull Request Requirements
 
 - All tests must pass.
-- The linter must pass.
+- The TypeScript safety policy must pass.
 - Documentation must be up-to-date.
 - The body of the Pull Request should:
   - contain a summary of the changes

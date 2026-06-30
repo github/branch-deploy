@@ -1,20 +1,55 @@
-import {vi, expect, test, beforeEach} from 'vitest'
-import {
-  actionStatus,
-  type ActionStatusOctokit,
-  type ActionStatusRequest
+import {beforeEach, mock, test, type Mock} from 'node:test'
+import type {
+  ActionStatusOctokit,
+  ActionStatusRequest
 } from '../../src/functions/action-status.ts'
-import {truncateCommentBody} from '../../src/functions/truncate-comment-body.ts'
 import {API_HEADERS} from '../../src/functions/api-headers.ts'
 import {createIssueCommentContext} from '../test-helpers.ts'
+import {
+  assertCalledWith,
+  createMock,
+  stubEnv,
+  installModuleMock
+} from '../node-test-helpers.ts'
+
+type ActionsCore = typeof import('../../src/actions-core.ts')
+
+const debugMock = createMock<ActionsCore['debug']>()
+const warningMock = createMock<ActionsCore['warning']>()
+
+installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
+  debug: debugMock,
+  warning: warningMock
+})
+
+const {actionStatus} = await import('../../src/functions/action-status.ts')
+const {truncateCommentBody} =
+  await import('../../src/functions/truncate-comment-body.ts')
 
 let context: ActionStatusRequest['context']
 let octokit: ActionStatusRequest['octokit']
-beforeEach(() => {
-  vi.clearAllMocks()
+let createForIssueCommentMock: Mock<
+  ActionStatusOctokit['rest']['reactions']['createForIssueComment']
+>
+let deleteForIssueCommentMock: Mock<
+  ActionStatusOctokit['rest']['reactions']['deleteForIssueComment']
+>
+let createCommentMock: Mock<
+  ActionStatusOctokit['rest']['issues']['createComment']
+>
 
-  vi.stubEnv('GITHUB_SERVER_URL', 'https://github.com')
-  vi.stubEnv('GITHUB_RUN_ID', '12345')
+beforeEach(testContext => {
+  if (!('after' in testContext)) {
+    throw new TypeError('expected a test context')
+  }
+  debugMock.mock.resetCalls()
+  warningMock.mock.resetCalls()
+  createForIssueCommentMock = createMock()
+  deleteForIssueCommentMock = createMock()
+  createCommentMock = createMock()
+
+  stubEnv(testContext, 'GITHUB_SERVER_URL', 'https://github.com')
+  stubEnv(testContext, 'GITHUB_RUN_ID', '12345')
 
   context = createIssueCommentContext({
     repo: {owner: 'corp', repo: 'test'},
@@ -25,48 +60,39 @@ beforeEach(() => {
   octokit = {
     rest: {
       reactions: {
-        createForIssueComment:
-          vi.fn<
-            ActionStatusOctokit['rest']['reactions']['createForIssueComment']
-          >(),
-        deleteForIssueComment:
-          vi.fn<
-            ActionStatusOctokit['rest']['reactions']['deleteForIssueComment']
-          >()
+        createForIssueComment: createForIssueCommentMock,
+        deleteForIssueComment: deleteForIssueCommentMock
       },
       issues: {
-        createComment:
-          vi.fn<ActionStatusOctokit['rest']['issues']['createComment']>()
+        createComment: createCommentMock
       }
     }
   } satisfies ActionStatusOctokit
 })
 
 test('adds a successful status message for a deployment', async () => {
-  await expect(
-    actionStatus({
-      context,
-      octokit,
-      reactionId: 123,
-      message: 'Everything worked!',
-      result: 'success'
-    })
-  ).resolves.toBeUndefined()
-  expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
+  await actionStatus({
+    context,
+    octokit,
+    reactionId: 123,
+    message: 'Everything worked!',
+    result: 'success'
+  })
+  assertCalledWith(createCommentMock, {
     body: 'Everything worked!',
     issue_number: 1,
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(createForIssueCommentMock, {
     comment_id: 1,
     content: 'rocket',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(deleteForIssueCommentMock, {
     comment_id: 1,
     owner: 'corp',
     reaction_id: 123,
@@ -76,30 +102,28 @@ test('adds a successful status message for a deployment', async () => {
 })
 
 test('adds a successful status message for a deployment (with alt message)', async () => {
-  await expect(
-    actionStatus({
-      context,
-      octokit,
-      reactionId: 123,
-      message: 'Everything worked!',
-      result: 'alternate-success'
-    })
-  ).resolves.toBeUndefined()
-  expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
+  await actionStatus({
+    context,
+    octokit,
+    reactionId: 123,
+    message: 'Everything worked!',
+    result: 'alternate-success'
+  })
+  assertCalledWith(createCommentMock, {
     body: 'Everything worked!',
     issue_number: 1,
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(createForIssueCommentMock, {
     comment_id: 1,
     content: '+1',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(deleteForIssueCommentMock, {
     comment_id: 1,
     owner: 'corp',
     reaction_id: 123,
@@ -109,30 +133,28 @@ test('adds a successful status message for a deployment (with alt message)', asy
 })
 
 test('adds a failure status message for a deployment', async () => {
-  await expect(
-    actionStatus({
-      context,
-      octokit,
-      reactionId: 123,
-      message: 'Everything failed!',
-      result: 'failure'
-    })
-  ).resolves.toBeUndefined()
-  expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
+  await actionStatus({
+    context,
+    octokit,
+    reactionId: 123,
+    message: 'Everything failed!',
+    result: 'failure'
+  })
+  assertCalledWith(createCommentMock, {
     body: 'Everything failed!',
     issue_number: 1,
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(createForIssueCommentMock, {
     comment_id: 1,
     content: '-1',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(deleteForIssueCommentMock, {
     comment_id: 1,
     owner: 'corp',
     reaction_id: 123,
@@ -142,24 +164,22 @@ test('adds a failure status message for a deployment', async () => {
 })
 
 test('uses default log url when the "message" variable is empty for failures', async () => {
-  await expect(
-    actionStatus({context, octokit, reactionId: 123, message: ''})
-  ).resolves.toBeUndefined()
-  expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
+  await actionStatus({context, octokit, reactionId: 123, message: ''})
+  assertCalledWith(createCommentMock, {
     body: 'Unknown error, [check logs](https://github.com/corp/test/actions/runs/12345) for more details.',
     issue_number: 1,
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(createForIssueCommentMock, {
     comment_id: 1,
     content: '-1',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(deleteForIssueCommentMock, {
     comment_id: 1,
     owner: 'corp',
     reaction_id: 123,
@@ -169,30 +189,28 @@ test('uses default log url when the "message" variable is empty for failures', a
 })
 
 test('uses default log url when the "message" variable is empty for a success', async () => {
-  await expect(
-    actionStatus({
-      context,
-      octokit,
-      reactionId: 123,
-      message: '',
-      result: 'success'
-    })
-  ).resolves.toBeUndefined()
-  expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
+  await actionStatus({
+    context,
+    octokit,
+    reactionId: 123,
+    message: '',
+    result: 'success'
+  })
+  assertCalledWith(createCommentMock, {
     body: 'Unknown error, [check logs](https://github.com/corp/test/actions/runs/12345) for more details.',
     issue_number: 1,
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(createForIssueCommentMock, {
     comment_id: 1,
     content: 'rocket',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(deleteForIssueCommentMock, {
     comment_id: 1,
     owner: 'corp',
     reaction_id: 123,
@@ -203,30 +221,28 @@ test('uses default log url when the "message" variable is empty for a success', 
 
 test('truncates the message when it is too large for an issue comment', async () => {
   const message = 'a'.repeat(65538)
-  await expect(
-    actionStatus({
-      context,
-      octokit,
-      reactionId: 123,
-      message,
-      result: 'success'
-    })
-  ).resolves.toBeUndefined()
-  expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
+  await actionStatus({
+    context,
+    octokit,
+    reactionId: 123,
+    message,
+    result: 'success'
+  })
+  assertCalledWith(createCommentMock, {
     body: truncateCommentBody(message),
     issue_number: 1,
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(createForIssueCommentMock, {
     comment_id: 1,
     content: 'rocket',
     owner: 'corp',
     repo: 'test',
     headers: API_HEADERS
   })
-  expect(octokit.rest.reactions.deleteForIssueComment).toHaveBeenCalledWith({
+  assertCalledWith(deleteForIssueCommentMock, {
     comment_id: 1,
     owner: 'corp',
     reaction_id: 123,

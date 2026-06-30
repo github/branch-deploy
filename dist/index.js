@@ -41762,7 +41762,7 @@ function getActionState(name) {
 }
 
 ;// CONCATENATED MODULE: ./src/trust-boundaries.ts
-/* eslint-disable eqeqeq -- This module preserves the action's reviewed legacy coercion boundaries. */
+// This module preserves the action's reviewed legacy coercion boundaries.
 function branchDeployContext(context) {
     return context;
 }
@@ -44520,7 +44520,7 @@ async function prechecks(context, octokit, data) {
         try {
             debug('raw graphql result for debugging:');
             debug(legacyDebugValue(result));
-        } /* istanbul ignore next */
+        } /* node:coverage ignore next */
         catch {
             debug('Could not output raw graphql result for debugging - This is bad');
         }
@@ -48104,12 +48104,12 @@ async function run() {
         return undefined;
     }
 }
-/* istanbul ignore next */
+/* node:coverage ignore next */
 if (getActionState('isPost') === 'true') {
     void post();
 }
 else {
-    /* istanbul ignore next */
+    /* node:coverage ignore next */
     if (process.env['CI'] === 'true' &&
         process.env['BRANCH_DEPLOY_VITEST_TEST'] !== 'true') {
         void run();

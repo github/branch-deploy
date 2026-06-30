@@ -1,7 +1,8 @@
+import assert from 'node:assert/strict'
 import {readFileSync, readdirSync} from 'node:fs'
 import {resolve} from 'node:path'
+import {test} from 'node:test'
 import {load} from 'js-yaml'
-import {expect, test} from 'vitest'
 import {
   ACTION_INPUT_KEYS,
   ACTION_OUTPUT_KEYS,
@@ -158,14 +159,16 @@ test('action input and output registries exactly match action.yml', () => {
   const inputs = requireRecord(metadata['inputs'], 'action.yml inputs')
   const outputs = requireRecord(metadata['outputs'], 'action.yml outputs')
 
-  expect([...ACTION_INPUT_KEYS].sort()).toStrictEqual(
+  assert.deepStrictEqual(
+    [...ACTION_INPUT_KEYS].sort(),
     Object.keys(inputs).sort()
   )
-  expect([...ACTION_OUTPUT_KEYS].sort()).toStrictEqual(
+  assert.deepStrictEqual(
+    [...ACTION_OUTPUT_KEYS].sort(),
     Object.keys(outputs).sort()
   )
-  expect(ACTION_INPUT_KEYS).toHaveLength(49)
-  expect(ACTION_OUTPUT_KEYS).toHaveLength(38)
+  assert.strictEqual(ACTION_INPUT_KEYS.length, 49)
+  assert.strictEqual(ACTION_OUTPUT_KEYS.length, 38)
 })
 
 test('action input defaults, required flags, and accepted literals stay fixed', () => {
@@ -180,22 +183,22 @@ test('action input defaults, required flags, and accepted literals stay fixed', 
     })
   )
 
-  expect(inputContract).toStrictEqual(expectedInputContract)
-  expect(UPDATE_BRANCH_VALUES).toStrictEqual(['disabled', 'warn', 'force'])
-  expect(OUTDATED_MODE_VALUES).toStrictEqual([
+  assert.deepStrictEqual(inputContract, expectedInputContract)
+  assert.deepStrictEqual(UPDATE_BRANCH_VALUES, ['disabled', 'warn', 'force'])
+  assert.deepStrictEqual(OUTDATED_MODE_VALUES, [
     'pr_base',
     'default_branch',
     'strict'
   ])
-  expect(CHECKS_MODE_VALUES).toStrictEqual(['all', 'required'])
+  assert.deepStrictEqual(CHECKS_MODE_VALUES, ['all', 'required'])
 })
 
 test('typed input registries stay complete and exact', () => {
-  expect(BOOLEAN_ACTION_INPUT_KEYS).toStrictEqual(expectedBooleanInputKeys)
-  expect(BOOLEAN_ACTION_INPUT_KEYS).toHaveLength(15)
-  expect(INTEGER_ACTION_INPUT_KEYS).toStrictEqual(expectedIntegerInputKeys)
-  expect(LITERAL_ACTION_INPUT_KEYS).toStrictEqual(expectedLiteralInputKeys)
-  expect(LITERAL_ACTION_INPUT_VALUES).toStrictEqual({
+  assert.deepStrictEqual(BOOLEAN_ACTION_INPUT_KEYS, expectedBooleanInputKeys)
+  assert.strictEqual(BOOLEAN_ACTION_INPUT_KEYS.length, 15)
+  assert.deepStrictEqual(INTEGER_ACTION_INPUT_KEYS, expectedIntegerInputKeys)
+  assert.deepStrictEqual(LITERAL_ACTION_INPUT_KEYS, expectedLiteralInputKeys)
+  assert.deepStrictEqual(LITERAL_ACTION_INPUT_VALUES, {
     update_branch: ['disabled', 'warn', 'force'],
     outdated_mode: ['pr_base', 'default_branch', 'strict'],
     checks: ['all', 'required']
@@ -207,24 +210,28 @@ test('typed input registries stay complete and exact', () => {
     ...INTEGER_ACTION_INPUT_KEYS,
     ...LITERAL_ACTION_INPUT_KEYS
   ]) {
-    expect(registeredInputs.has(key)).toBe(true)
+    assert.strictEqual(registeredInputs.has(key), true)
   }
 })
 
 test('runner entrypoints remain the Node 24 committed ESM bundle', () => {
   const runs = requireRecord(actionMetadata()['runs'], 'action.yml runs')
-  expect(runs).toMatchObject({
-    using: 'node24',
-    main: 'dist/index.js',
-    post: 'dist/index.js'
-  })
+  assert.deepStrictEqual(
+    {using: runs['using'], main: runs['main'], post: runs['post']},
+    {
+      using: 'node24',
+      main: 'dist/index.js',
+      post: 'dist/index.js'
+    }
+  )
 })
 
 test('declared outputs and written outputs are exactly equal', () => {
   const writtenOutputs = calledKeys(
     /\b(?:setActionOutput|core\.setOutput)\(\s*['"](?<key>[^'"]+)['"]/g
   )
-  expect([...writtenOutputs].sort()).toStrictEqual(
+  assert.deepStrictEqual(
+    [...writtenOutputs].sort(),
     [...ACTION_OUTPUT_KEYS].sort()
   )
 })
@@ -238,15 +245,24 @@ test('all post state has a producer and only initial_comment_id is write-only', 
   )
   const registeredState: ReadonlySet<string> = new Set(ACTION_STATE_KEYS)
 
-  expect([...consumedState].filter(key => !producedState.has(key))).toEqual([])
-  expect([...producedState].sort()).toStrictEqual([...ACTION_STATE_KEYS].sort())
-  expect([...producedState].filter(key => !registeredState.has(key))).toEqual(
+  assert.deepStrictEqual(
+    [...consumedState].filter(key => !producedState.has(key)),
     []
   )
-  expect([...consumedState].filter(key => !registeredState.has(key))).toEqual(
+  assert.deepStrictEqual(
+    [...producedState].sort(),
+    [...ACTION_STATE_KEYS].sort()
+  )
+  assert.deepStrictEqual(
+    [...producedState].filter(key => !registeredState.has(key)),
     []
   )
-  expect([...producedState].filter(key => !consumedState.has(key))).toEqual([
-    'initial_comment_id'
-  ])
+  assert.deepStrictEqual(
+    [...consumedState].filter(key => !registeredState.has(key)),
+    []
+  )
+  assert.deepStrictEqual(
+    [...producedState].filter(key => !consumedState.has(key)),
+    ['initial_comment_id']
+  )
 })

@@ -1,16 +1,11 @@
-import {
-  postDeploy,
-  type PostDeployOctokit
-} from '../../src/functions/post-deploy.ts'
-import {vi, expect, test, beforeEach} from 'vitest'
+import assert from 'node:assert/strict'
+import {beforeEach, mock, test} from 'node:test'
 import {COLORS} from '../../src/functions/colors.ts'
-import * as actionStatus from '../../src/functions/action-status.ts'
-import * as lock from '../../src/functions/lock.ts'
-import * as unlock from '../../src/functions/unlock.ts'
-import * as createDeploymentStatus from '../../src/functions/deployment.ts'
-import * as postDeployMessage from '../../src/functions/post-deploy-message.ts'
-import * as core from '../../src/actions-core.ts'
-import * as label from '../../src/functions/label.ts'
+import type {PostDeployOctokit} from '../../src/functions/post-deploy.ts'
+import type {
+  SilentUnlockRequest,
+  SilentUnlockResult
+} from '../../src/functions/unlock.ts'
 import type {
   IssueCommentContext,
   PostDeployLabels,
@@ -21,17 +16,80 @@ import {
   createOctokit,
   type DeepMutable
 } from '../test-helpers.ts'
+import {
+  assertCalledTimes,
+  assertCalledWith,
+  createMock,
+  installModuleMock
+} from '../node-test-helpers.ts'
 import {unsafeInvalidValue} from '../unsafe-fixtures.ts'
 
-const infoMock = vi.spyOn(core, 'info')
-const debugMock = vi.spyOn(core, 'debug')
-const warningMock = vi.spyOn(core, 'warning')
+type ActionsCore = typeof import('../../src/actions-core.ts')
+type ActionStatus = typeof import('../../src/functions/action-status.ts')
+type CreateDeploymentStatus = typeof import('../../src/functions/deployment.ts')
+type Label = typeof import('../../src/functions/label.ts')
+type Lock = typeof import('../../src/functions/lock.ts')
+type PostDeployMessage =
+  typeof import('../../src/functions/post-deploy-message.ts')
+
+const debugMock = createMock<ActionsCore['debug']>()
+const infoMock = createMock<ActionsCore['info']>()
+const warningMock = createMock<ActionsCore['warning']>()
+const setOutputMock = createMock<ActionsCore['setOutput']>()
+const actionStatusMock = createMock<ActionStatus['actionStatus']>()
+const createDeploymentStatusMock =
+  createMock<CreateDeploymentStatus['createDeploymentStatus']>()
+const labelMock = createMock<Label['label']>()
+const lockMock = createMock<Lock['lock']>()
+const postDeployMessageMock =
+  createMock<PostDeployMessage['postDeployMessage']>()
+const unlockMock =
+  createMock<(request: SilentUnlockRequest) => Promise<SilentUnlockResult>>()
+
+installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
+  debug: debugMock,
+  info: infoMock,
+  setOutput: setOutputMock,
+  warning: warningMock
+})
+installModuleMock(
+  mock,
+  new URL('../../src/functions/action-status.ts', import.meta.url),
+  {actionStatus: actionStatusMock}
+)
+installModuleMock(
+  mock,
+  new URL('../../src/functions/deployment.ts', import.meta.url),
+  {createDeploymentStatus: createDeploymentStatusMock}
+)
+installModuleMock(
+  mock,
+  new URL('../../src/functions/label.ts', import.meta.url),
+  {label: labelMock}
+)
+installModuleMock(
+  mock,
+  new URL('../../src/functions/lock.ts', import.meta.url),
+  {lock: lockMock}
+)
+installModuleMock(
+  mock,
+  new URL('../../src/functions/post-deploy-message.ts', import.meta.url),
+  {postDeployMessage: postDeployMessageMock}
+)
+installModuleMock(
+  mock,
+  new URL('../../src/functions/unlock.ts', import.meta.url),
+  {unlock: unlockMock}
+)
+
+const {postDeploy} = await import('../../src/functions/post-deploy.ts')
 
 const review_decision = 'APPROVED'
 
 function createLockResponse(
   sticky: boolean
-): Awaited<ReturnType<typeof lock.lock>> {
+): Awaited<ReturnType<Lock['lock']>> {
   return {
     environment: 'production',
     global: false,
@@ -57,22 +115,38 @@ let labels: DeepMutable<PostDeployLabels>
 let data: DeepMutable<RawPostDeployData>
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  for (const mockFunction of [
+    debugMock,
+    infoMock,
+    warningMock,
+    setOutputMock,
+    actionStatusMock,
+    createDeploymentStatusMock,
+    labelMock,
+    lockMock,
+    postDeployMessageMock,
+    unlockMock
+  ]) {
+    mockFunction.mock.resetCalls()
+  }
 
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-
-  vi.spyOn(label, 'label').mockResolvedValue({added: [], removed: []})
-
-  vi.spyOn(postDeployMessage, 'postDeployMessage').mockReturnValue(
-    'Updated 1 server'
+  actionStatusMock.mock.mockImplementation(() => Promise.resolve(undefined))
+  labelMock.mock.mockImplementation(() =>
+    Promise.resolve({added: [], removed: []})
   )
-
-  vi.spyOn(lock, 'lock').mockResolvedValue(createLockResponse(true))
-
-  vi.spyOn(createDeploymentStatus, 'createDeploymentStatus').mockResolvedValue({
-    url: 'https://api.github.com/deployment-status/1',
-    id: 1
-  })
+  postDeployMessageMock.mock.mockImplementation(() => 'Updated 1 server')
+  lockMock.mock.mockImplementation(() =>
+    Promise.resolve(createLockResponse(true))
+  )
+  createDeploymentStatusMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      url: 'https://api.github.com/deployment-status/1',
+      id: 1
+    })
+  )
+  unlockMock.mock.mockImplementation(() =>
+    Promise.resolve('removed lock - silent')
+  )
 
   context = {
     ...createIssueCommentContext({
@@ -106,8 +180,8 @@ beforeEach(() => {
     environment: 'production',
     environment_url: null,
     approved_reviews_count: '1',
-    labels: labels,
-    review_decision: review_decision,
+    labels,
+    review_decision,
     fork: false,
     params: 'LOG_LEVEL=debug --config.db.host=localhost --config.db.port=5432',
     parsed_params: JSON.stringify({
@@ -120,82 +194,64 @@ beforeEach(() => {
 })
 
 test('successfully completes a production branch deployment', async () => {
-  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
-  const createDeploymentStatusSpy = vi.spyOn(
-    createDeploymentStatus,
-    'createDeploymentStatus'
-  )
-  expect(await postDeploy(context, octokit, data)).toBe('success')
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success')
 
-  expect(actionStatusSpy).toHaveBeenCalled()
-  expect(actionStatusSpy).toHaveBeenCalledWith({
+  assertCalledWith(actionStatusMock, {
     context,
     octokit,
     reactionId: 12345,
     message: 'Updated 1 server',
     result: 'success'
   })
-  expect(createDeploymentStatusSpy).toHaveBeenCalled()
-  expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
+  assertCalledWith(
+    createDeploymentStatusMock,
     octokit,
     context,
     'test-ref',
     'success',
     '456',
     'production',
-    null // environment_url
+    null
   )
 })
 
 test('successfully completes a production branch deployment that fails', async () => {
-  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
-  const createDeploymentStatusSpy = vi.spyOn(
-    createDeploymentStatus,
-    'createDeploymentStatus'
-  )
-
   data.status = 'failure'
 
-  expect(await postDeploy(context, octokit, data)).toBe('success')
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success')
 
-  expect(actionStatusSpy).toHaveBeenCalled()
-  expect(actionStatusSpy).toHaveBeenCalledWith({
+  assertCalledWith(actionStatusMock, {
     context,
     octokit,
     reactionId: 12345,
     message: 'Updated 1 server',
     result: 'failure'
   })
-  expect(createDeploymentStatusSpy).toHaveBeenCalled()
-  expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
+  assertCalledWith(
+    createDeploymentStatusMock,
     octokit,
     context,
     'test-ref',
     'failure',
     '456',
     'production',
-    null // environment_url
+    null
   )
 })
 
 test('successfully completes a production branch deployment with an environment url', async () => {
-  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
-  const createDeploymentStatusSpy = vi.spyOn(
-    createDeploymentStatus,
-    'createDeploymentStatus'
-  )
-
   data.environment_url = 'https://example.com'
 
-  expect(await postDeploy(context, octokit, data)).toBe('success')
-  expect(actionStatusSpy).toHaveBeenCalledWith({
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success')
+  assertCalledWith(actionStatusMock, {
     context,
     octokit,
     reactionId: 12345,
     message: 'Updated 1 server',
     result: 'success'
   })
-  expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
+  assertCalledWith(
+    createDeploymentStatusMock,
     octokit,
     context,
     'test-ref',
@@ -207,104 +263,89 @@ test('successfully completes a production branch deployment with an environment 
 })
 
 test('successfully completes a production branch deployment and removes a non-sticky lock', async () => {
-  const lockSpy = vi
-    .spyOn(lock, 'lock')
-    .mockResolvedValue(createLockResponse(false))
-
-  vi.spyOn(unlock, 'unlock').mockResolvedValue(true)
-
-  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
-  const createDeploymentStatusSpy = vi.spyOn(
-    createDeploymentStatus,
-    'createDeploymentStatus'
+  lockMock.mock.mockImplementation(() =>
+    Promise.resolve(createLockResponse(false))
   )
-  expect(await postDeploy(context, octokit, data)).toBe('success')
 
-  expect(lockSpy).toHaveBeenCalled()
-  expect(actionStatusSpy).toHaveBeenCalled()
-  expect(actionStatusSpy).toHaveBeenCalledWith({
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success')
+
+  assertCalledTimes(lockMock, 1)
+  assertCalledWith(actionStatusMock, {
     context,
     octokit,
     reactionId: 12345,
     message: 'Updated 1 server',
     result: 'success'
   })
-  expect(createDeploymentStatusSpy).toHaveBeenCalled()
-  expect(createDeploymentStatusSpy).toHaveBeenCalledWith(
+  assertCalledWith(
+    createDeploymentStatusMock,
     octokit,
     context,
     'test-ref',
     'success',
     '456',
     'production',
-    null // environment_url
+    null
   )
-  expect(infoMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    infoMock,
     `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
   )
 })
 
 test('successfully completes a noop branch deployment and removes a non-sticky lock', async () => {
-  const lockSpy = vi
-    .spyOn(lock, 'lock')
-    .mockResolvedValue(createLockResponse(false))
-
-  vi.spyOn(unlock, 'unlock').mockResolvedValue(true)
-
-  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
-
+  lockMock.mock.mockImplementation(() =>
+    Promise.resolve(createLockResponse(false))
+  )
   data.noop = true
 
-  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success - noop')
 
-  expect(lockSpy).toHaveBeenCalled()
-  expect(actionStatusSpy).toHaveBeenCalled()
-  expect(actionStatusSpy).toHaveBeenCalledWith({
+  assertCalledTimes(lockMock, 1)
+  assertCalledWith(actionStatusMock, {
     context,
     octokit,
     reactionId: 12345,
     message: 'Updated 1 server',
     result: 'success'
   })
-  expect(infoMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    infoMock,
     `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
   )
 })
 
 test('successfully completes a noop branch deployment but does not get any lock data', async () => {
-  const lockSpy = vi.spyOn(lock, 'lock').mockResolvedValue({
-    environment: 'production',
-    global: false,
-    globalFlag: '',
-    lockData: null,
-    status: null
-  })
-
-  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
-
+  lockMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      environment: 'production',
+      global: false,
+      globalFlag: '',
+      lockData: null,
+      status: null
+    })
+  )
   data.noop = true
 
-  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success - noop')
 
-  expect(lockSpy).toHaveBeenCalled()
-  expect(actionStatusSpy).toHaveBeenCalled()
-  expect(actionStatusSpy).toHaveBeenCalledWith({
+  assertCalledTimes(lockMock, 1)
+  assertCalledWith(actionStatusMock, {
     context,
     octokit,
     reactionId: 12345,
     message: 'Updated 1 server',
     result: 'success'
   })
-  expect(warningMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    warningMock,
     '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
   )
 })
 
 test('successfully completes a production branch deployment with no custom message', async () => {
-  const actionStatusSpy = vi.spyOn(actionStatus, 'actionStatus')
-  expect(await postDeploy(context, octokit, data)).toBe('success')
-  expect(actionStatusSpy).toHaveBeenCalled()
-  expect(actionStatusSpy).toHaveBeenCalledWith({
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success')
+  assertCalledWith(actionStatusMock, {
     context,
     octokit,
     reactionId: 12345,
@@ -315,13 +356,13 @@ test('successfully completes a production branch deployment with no custom messa
 
 test('successfully completes a noop branch deployment', async () => {
   data.noop = true
-  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success - noop')
 })
 
 test('successfully completes a noop branch deployment and applies success labels', async () => {
   data.labels.successful_noop = ['ready-for-review', 'noop-success']
   data.noop = true
-  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success - noop')
 })
 
 test('successfully completes a noop branch deployment and does not apply labels due to skip config', async () => {
@@ -329,9 +370,10 @@ test('successfully completes a noop branch deployment and does not apply labels 
   data.labels.skip_successful_noop_labels_if_approved = true
   data.noop = true
 
-  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success - noop')
 
-  expect(infoMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    infoMock,
     `⏩ skipping noop labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
   )
 })
@@ -340,9 +382,10 @@ test('successfully completes a branch deployment and does not apply labels due t
   data.labels.successful_deploy = ['ready-to-merge', 'deploy-success']
   data.labels.skip_successful_deploy_labels_if_approved = true
 
-  expect(await postDeploy(context, octokit, data)).toBe('success')
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success')
 
-  expect(infoMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    infoMock,
     `⏩ skipping deploy labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
   )
 })
@@ -352,83 +395,78 @@ test('successfully completes a noop branch deployment that fails and applies fai
   data.noop = true
   data.status = 'failure'
 
-  expect(await postDeploy(context, octokit, data)).toBe('success - noop')
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success - noop')
 
-  expect(debugMock).toHaveBeenCalledWith('deploymentStatus: failure')
-  expect(debugMock).toHaveBeenCalledWith('deployment mode: noop')
+  assertCalledWith(debugMock, 'deploymentStatus: failure')
+  assertCalledWith(debugMock, 'deployment mode: noop')
 })
 
 test('updates with a failure for a production branch deployment', async () => {
   data.status = 'failure'
 
-  expect(await postDeploy(context, octokit, data)).toBe('success')
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success')
 })
 
 test('updates with an unknown for a production branch deployment', async () => {
   data.status = 'unknown'
 
-  expect(await postDeploy(context, octokit, data)).toBe('success')
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success')
 })
 
 test('fails due to no comment_id', async () => {
   data.comment_id = ''
 
-  await expect(postDeploy(context, octokit, data)).rejects.toThrow(
-    'no comment_id provided'
-  )
+  await assert.rejects(postDeploy(context, octokit, data), {
+    message: 'no comment_id provided'
+  })
 })
 
 test('fails due to no status', async () => {
   data.status = ''
-  await expect(postDeploy(context, octokit, data)).rejects.toThrow(
-    'no status provided'
-  )
+  await assert.rejects(postDeploy(context, octokit, data), {
+    message: 'no status provided'
+  })
 })
 
 test('fails due to no ref', async () => {
   data.ref = ''
-  await expect(postDeploy(context, octokit, data)).rejects.toThrow(
-    'no ref provided'
-  )
+  await assert.rejects(postDeploy(context, octokit, data), {
+    message: 'no ref provided'
+  })
 })
 
 test('fails due to no deployment_id', async () => {
-  vi.resetAllMocks()
   data.deployment_id = ''
-  await expect(postDeploy(context, octokit, data)).rejects.toThrow(
-    'no deployment_id provided'
-  )
+  await assert.rejects(postDeploy(context, octokit, data), {
+    message: 'no deployment_id provided'
+  })
 })
 
 test('fails due to no environment', async () => {
-  vi.resetAllMocks()
   data.environment = ''
-  await expect(postDeploy(context, octokit, data)).rejects.toThrow(
-    'no environment provided'
-  )
+  await assert.rejects(postDeploy(context, octokit, data), {
+    message: 'no environment provided'
+  })
 })
 
 test('fails due to no reaction_id', async () => {
-  vi.resetAllMocks()
   data.reaction_id = ''
-  await expect(postDeploy(context, octokit, data)).rejects.toThrow(
-    'no reaction_id provided'
-  )
+  await assert.rejects(postDeploy(context, octokit, data), {
+    message: 'no reaction_id provided'
+  })
 })
 
 test('fails due to no environment (noop)', async () => {
-  vi.resetAllMocks()
   data.environment = ''
   data.noop = true
-  await expect(postDeploy(context, octokit, data)).rejects.toThrow(
-    'no environment provided'
-  )
+  await assert.rejects(postDeploy(context, octokit, data), {
+    message: 'no environment provided'
+  })
 })
 
 test('fails due to no noop', async () => {
-  vi.resetAllMocks()
   data.noop = unsafeInvalidValue<boolean>(null)
-  await expect(postDeploy(context, octokit, data)).rejects.toThrow(
-    'no noop value provided'
-  )
+  await assert.rejects(postDeploy(context, octokit, data), {
+    message: 'no noop value provided'
+  })
 })

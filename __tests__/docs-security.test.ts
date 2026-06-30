@@ -1,6 +1,7 @@
+import assert from 'node:assert/strict'
 import {readFileSync, readdirSync} from 'node:fs'
 import {join} from 'node:path'
-import {expect, test} from 'vitest'
+import {test} from 'node:test'
 
 const markdownFiles = [
   'README.md',
@@ -52,6 +53,6 @@ test('documented checkout steps do not persist credentials', () => {
     )
     .map(({path, line}) => `${path}:${line}`)
 
-  expect(checkouts.length).toBeGreaterThan(0)
-  expect(unsafeCheckouts).toEqual([])
+  assert.ok(checkouts.length > 0)
+  assert.deepStrictEqual(unsafeCheckouts, [])
 })

@@ -1,20 +1,49 @@
-import * as core from '../../src/actions-core.ts'
-import {vi, expect, test, beforeEach} from 'vitest'
-import {help} from '../../src/functions/help.ts'
-import * as actionStatus from '../../src/functions/action-status.ts'
+import assert from 'node:assert/strict'
+import {beforeEach, mock, test} from 'node:test'
 import {
   createActionInputs,
   createIssueCommentContext,
   createOctokit
 } from '../test-helpers.ts'
 import {unsafeInvalidValue} from '../unsafe-fixtures.ts'
+import {createMock, installModuleMock} from '../node-test-helpers.ts'
 
-const debugMock = vi.spyOn(core, 'debug')
+type ActionsCore = typeof import('../../src/actions-core.ts')
+type ActionStatus = typeof import('../../src/functions/action-status.ts')
+
+const debugMock = createMock<ActionsCore['debug']>()
+const actionStatusMock = createMock<ActionStatus['actionStatus']>()
+
+installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
+  debug: debugMock
+})
+installModuleMock(
+  mock,
+  new URL('../../src/functions/action-status.ts', import.meta.url),
+  {actionStatus: actionStatusMock}
+)
+
+const {help} = await import('../../src/functions/help.ts')
 
 beforeEach(() => {
-  vi.clearAllMocks()
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
+  debugMock.mock.resetCalls()
+  actionStatusMock.mock.resetCalls()
+  actionStatusMock.mock.mockImplementation(() => Promise.resolve(undefined))
 })
+
+function assertDebugMatches(pattern: RegExp): void {
+  assert.ok(
+    debugMock.mock.calls.some(call => pattern.test(call.arguments[0])),
+    `expected a debug call matching ${pattern.source}`
+  )
+}
+
+function assertDebugIncludes(expected: string): void {
+  assert.ok(
+    debugMock.mock.calls.some(call => call.arguments[0].includes(expected)),
+    `expected a debug call containing ${expected}`
+  )
+}
 
 const context = createIssueCommentContext({
   repo: {
@@ -36,17 +65,14 @@ const defaultInputs = createActionInputs({
 })
 
 test('successfully calls help with defaults', async () => {
-  await expect(
-    help(octokit, context, 123, defaultInputs)
-  ).resolves.toBeUndefined()
-
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringMatching(/## 📚 Branch Deployment Help/)
+  assert.strictEqual(
+    await help(octokit, context, 123, defaultInputs),
+    undefined
   )
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringContaining(
-      '`allowForks: true` - This Action will not run on forked repositories'
-    )
+
+  assertDebugMatches(/## 📚 Branch Deployment Help/)
+  assertDebugIncludes(
+    '`allowForks: true` - This Action will not run on forked repositories'
   )
 })
 
@@ -83,11 +109,9 @@ test('successfully calls help with non-defaults', async () => {
     deployment_confirmation: true
   })
 
-  await expect(help(octokit, context, 123, inputs)).resolves.toBeUndefined()
+  assert.strictEqual(await help(octokit, context, 123, inputs), undefined)
 
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringMatching(/## 📚 Branch Deployment Help/)
-  )
+  assertDebugMatches(/## 📚 Branch Deployment Help/)
 })
 
 test('successfully calls help with non-defaults again', async () => {
@@ -122,24 +146,16 @@ test('successfully calls help with non-defaults again', async () => {
     allow_non_default_target_branch_deployments: false
   })
 
-  await expect(help(octokit, context, 123, inputs)).resolves.toBeUndefined()
+  assert.strictEqual(await help(octokit, context, 123, inputs), undefined)
 
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringMatching(/## 📚 Branch Deployment Help/)
-  )
+  assertDebugMatches(/## 📚 Branch Deployment Help/)
 
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringMatching(/a specific deployment order by environment/)
-  )
+  assertDebugMatches(/a specific deployment order by environment/)
 
   const inputsSecond = {...inputs, update_branch: 'disabled'} as const
-  await expect(
-    help(octokit, context, 123, inputsSecond)
-  ).resolves.toBeUndefined()
+  assert.strictEqual(await help(octokit, context, 123, inputsSecond), undefined)
 
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringMatching(/## 📚 Branch Deployment Help/)
-  )
+  assertDebugMatches(/## 📚 Branch Deployment Help/)
 })
 
 test('successfully calls help with non-defaults and unknown update_branch setting', async () => {
@@ -174,28 +190,16 @@ test('successfully calls help with non-defaults and unknown update_branch settin
     allow_non_default_target_branch_deployments: true
   })
 
-  await expect(help(octokit, context, 123, inputs)).resolves.toBeUndefined()
+  assert.strictEqual(await help(octokit, context, 123, inputs), undefined)
 
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringMatching(/## 📚 Branch Deployment Help/)
-  )
+  assertDebugMatches(/## 📚 Branch Deployment Help/)
 
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /Deployments can be made to any environment in any order/
-    )
-  )
+  assertDebugMatches(/Deployments can be made to any environment in any order/)
 
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringMatching(/Unknown value for update_branch/)
-  )
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringMatching(/not use security warnings/)
-  )
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /will allow the deployments of pull requests that target a branch other than the default branch/
-    )
+  assertDebugMatches(/Unknown value for update_branch/)
+  assertDebugMatches(/not use security warnings/)
+  assertDebugMatches(
+    /will allow the deployments of pull requests that target a branch other than the default branch/
   )
 })
 
@@ -205,11 +209,9 @@ test('renders a custom string-valued checks input without mutating it', async ()
       unsafeInvalidValue<Parameters<typeof help>[3]['checks']>('custom-check')
   })
 
-  await expect(help(octokit, context, 123, inputs)).resolves.toBeUndefined()
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringContaining(
-      'The following CI checks must pass before a deployment can be requested: `custom-check`'
-    )
+  assert.strictEqual(await help(octokit, context, 123, inputs), undefined)
+  assertDebugIncludes(
+    'The following CI checks must pass before a deployment can be requested: `custom-check`'
   )
 })
 
@@ -218,10 +220,8 @@ test('preserves legacy rendering for the string-valued allowForks input', async 
     allowForks: unsafeInvalidValue<boolean>('true')
   })
 
-  await expect(help(octokit, context, 123, inputs)).resolves.toBeUndefined()
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringContaining(
-      '`allowForks: true` - This Action will run on forked repositories'
-    )
+  assert.strictEqual(await help(octokit, context, 123, inputs), undefined)
+  assertDebugIncludes(
+    '`allowForks: true` - This Action will run on forked repositories'
   )
 })

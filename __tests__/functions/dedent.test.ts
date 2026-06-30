@@ -1,9 +1,10 @@
-import {expect, test} from 'vitest'
+import assert from 'node:assert/strict'
+import {test} from 'node:test'
 import {dedent} from '../../src/functions/dedent.ts'
 
 const interpolatedLines = 'beta\n  gamma'
 
-test.each([
+const cases = [
   {
     name: 'removes a leading newline, common indentation, and trailing newline',
     input: '\n  alpha\n  beta\n',
@@ -64,6 +65,10 @@ test.each([
     input: 'alpha beta',
     expected: 'alpha beta'
   }
-])('$name', ({input, expected}) => {
-  expect(dedent(input)).toBe(expected)
-})
+] as const
+
+for (const {name, input, expected} of cases) {
+  test(name, () => {
+    assert.strictEqual(dedent(input), expected)
+  })
+}

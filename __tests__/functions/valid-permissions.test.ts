@@ -1,30 +1,50 @@
-import * as core from '../../src/actions-core.ts'
-import {vi, expect, test, beforeEach} from 'vitest'
-import {validPermissions} from '../../src/functions/valid-permissions.ts'
+import assert from 'node:assert/strict'
+import {beforeEach, mock, test} from 'node:test'
 import {createContext} from '../test-helpers.ts'
+import {
+  assertCalledWith,
+  createMock,
+  installModuleMock
+} from '../node-test-helpers.ts'
 
-const setOutputMock = vi.spyOn(core, 'setOutput')
+type ActionIo = typeof import('../../src/action-io.ts')
+type ValidPermissionsModule =
+  typeof import('../../src/functions/valid-permissions.ts')
 
-let octokit: Parameters<typeof validPermissions>[0]
-let context: Parameters<typeof validPermissions>[1]
-const permissions: Parameters<typeof validPermissions>[2] = ['write', 'admin']
+const setActionOutputMock = createMock<ActionIo['setActionOutput']>()
+
+installModuleMock(mock, new URL('../../src/action-io.ts', import.meta.url), {
+  setActionOutput: setActionOutputMock
+})
+
+const {validPermissions} =
+  await import('../../src/functions/valid-permissions.ts')
+
+let octokit: Parameters<ValidPermissionsModule['validPermissions']>[0]
+let context: Parameters<ValidPermissionsModule['validPermissions']>[1]
+const permissions: Parameters<ValidPermissionsModule['validPermissions']>[2] = [
+  'write',
+  'admin'
+]
 const getPermissionMock =
-  vi.fn<
+  createMock<
     Parameters<
-      typeof validPermissions
+      ValidPermissionsModule['validPermissions']
     >[0]['rest']['repos']['getCollaboratorPermissionLevel']
   >()
 
 beforeEach(() => {
-  vi.clearAllMocks()
-  vi.stubEnv('INPUT_PERMISSIONS', 'write,admin')
+  setActionOutputMock.mock.resetCalls()
+  getPermissionMock.mock.resetCalls()
 
   context = createContext({actor: 'monalisa'})
 
-  getPermissionMock.mockResolvedValue({
-    status: 200,
-    data: {permission: 'write'}
-  })
+  getPermissionMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      status: 200,
+      data: {permission: 'write'}
+    })
+  )
   octokit = {
     rest: {
       repos: {
@@ -35,27 +55,39 @@ beforeEach(() => {
 })
 
 test('determines that a user has valid permissions to invoke the Action', async () => {
-  expect(await validPermissions(octokit, context, permissions)).toEqual(true)
-  expect(setOutputMock).toHaveBeenCalledWith('actor', 'monalisa')
+  assert.strictEqual(
+    await validPermissions(octokit, context, permissions),
+    true
+  )
+  assertCalledWith(setActionOutputMock, 'actor', 'monalisa')
 })
 
 test('determines that a user has does not valid permissions to invoke the Action', async () => {
-  getPermissionMock.mockResolvedValue({
-    status: 200,
-    data: {permission: 'read'}
-  })
+  getPermissionMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      status: 200,
+      data: {permission: 'read'}
+    })
+  )
 
-  expect(await validPermissions(octokit, context, permissions)).toEqual(
+  assert.strictEqual(
+    await validPermissions(octokit, context, permissions),
     '👋 @monalisa, that command requires the following permission(s): `write/admin`\n\nYour current permissions: `read`'
   )
-  expect(setOutputMock).toHaveBeenCalledWith('actor', 'monalisa')
+  assertCalledWith(setActionOutputMock, 'actor', 'monalisa')
 })
 
 test('fails to get actor permissions due to a bad status code', async () => {
-  getPermissionMock.mockResolvedValue({status: 500, data: {permission: 'none'}})
+  getPermissionMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      status: 500,
+      data: {permission: 'none'}
+    })
+  )
 
-  expect(await validPermissions(octokit, context, permissions)).toEqual(
+  assert.strictEqual(
+    await validPermissions(octokit, context, permissions),
     'Permission check returns non-200 status: 500'
   )
-  expect(setOutputMock).toHaveBeenCalledWith('actor', 'monalisa')
+  assertCalledWith(setActionOutputMock, 'actor', 'monalisa')
 })

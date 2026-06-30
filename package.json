@@ -8,9 +8,9 @@
     "format-check": "prettier --check '**/*.{js,ts}'",
     "typecheck": "tsc --noEmit",
     "typecheck:runtime": "tsc --project tsconfig.runtime.json",
-    "lint": "eslint .",
+    "lint": "node --input-type=module --eval \"const {runPolicy} = await import('./tools/typescript-policy.ts'); process.exitCode = runPolicy()\"",
     "package": "ncc build src/main.ts -o dist --source-map --license licenses.txt --target es2022",
-    "test": "BRANCH_DEPLOY_VITEST_TEST=true vitest run --coverage",
+    "test": "script/test",
     "ci-test": "npm run test",
     "check": "npm run format-check && npm run typecheck && npm run typecheck:runtime && npm run lint && npm run test",
     "all": "npm run check && npm run package",
@@ -36,20 +36,13 @@
     "yargs-parser": "22.0.0"
   },
   "devDependencies": {
-    "@eslint/js": "9.39.2",
-    "@types/node": "24.3.0",
+    "@types/node": "24.13.2",
     "@vercel/ncc": "0.44.0",
-    "@vitest/coverage-v8": "4.1.0",
-    "eslint": "9.39.2",
     "js-yaml": "4.2.0",
     "prettier": "3.8.1",
-    "typescript": "5.9.3",
-    "typescript-eslint": "8.61.1",
-    "vitest": "4.1.0"
+    "typescript": "5.9.3"
   },
   "overrides": {
-    "flatted": "3.4.2",
-    "undici": "6.27.0",
-    "vite": "8.0.16"
+    "undici": "6.27.0"
   }
 }

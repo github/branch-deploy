@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+IFS= read -r expected_version < .node-version
+actual_version="$(node --version)"
+if [[ "$actual_version" != "v$expected_version" ]]; then
+  echo "error: expected Node v$expected_version, found $actual_version" >&2
+  exit 1
+fi
+
+rm -rf -- coverage
+mkdir -p -- coverage
+
+test_files=()
+while IFS= read -r test_file; do
+  test_files+=("$test_file")
+done < <(find __tests__ -type f -name '*.test.ts' -print | LC_ALL=C sort)
+
+if (( ${#test_files[@]} == 0 )); then
+  echo 'error: no test files found' >&2
+  exit 1
+fi
+
+export BRANCH_DEPLOY_VITEST_TEST=true
+
+exec node \
+  --experimental-test-module-mocks \
+  --experimental-test-coverage \
+  --test \
+  --test-isolation=process \
+  --test-concurrency=1 \
+  --test-coverage-lines=100 \
+  --test-coverage-branches=100 \
+  --test-coverage-functions=100 \
+  '--test-coverage-exclude=__tests__/**' \
+  --test-reporter=./tools/coverage-reporter.ts \
+  --test-reporter=lcov \
+  --test-reporter-destination=stdout \
+  --test-reporter-destination=coverage/lcov.info \
+  "${test_files[@]}"

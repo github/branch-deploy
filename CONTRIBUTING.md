@@ -20,7 +20,7 @@ The maintainers of this repository will create a new release with your changes s
 
 ## Testing 🧪
 
-This project requires **100%** test coverage
+This project requires every test to pass and **100%** line, branch, and function coverage
 
 > The branch-deploy Action is used by enterprises, governments, and open source organizations - it is critical that we have 100% test coverage to ensure that we are not introducing any regressions. All changes will be throughly tested by maintainers of this repository before a new release is created.
 
@@ -32,7 +32,7 @@ Simply run the following command to execute the entire test suite:
 npm run test
 ```
 
-Run the complete non-mutating formatting, typecheck, lint, and test suite with:
+Run the complete non-mutating formatting, typecheck, safety-policy, and test suite with:
 
 ```bash
 npm run check
@@ -40,7 +40,9 @@ npm run check
 
 > Note: these commands require that you have already run `npm ci --ignore-scripts --no-audit --no-fund`
 
-`npm run test` does not update the tracked coverage badge. The badge reflects the four enforced 100% coverage thresholds.
+`npm run test` does not update the tracked coverage badge. The badge reflects the three enforced native Node coverage thresholds and the requirement that every test passes.
+
+The suite uses `node:test`, native V8 coverage, and the exact Node version in `.node-version`. ESM module mocking and coverage are experimental test-only features pinned to that development runtime. `npm run lint` runs the repository's TypeScript compiler-API safety policy; formatting remains the responsibility of Prettier.
 
 ### Testing directly with IssueOps
 

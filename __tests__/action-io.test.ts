@@ -1,38 +1,65 @@
-import * as core from '../src/actions-core.ts'
-import {beforeEach, expect, test, vi} from 'vitest'
+import assert from 'node:assert/strict'
+import {beforeEach, mock, test} from 'node:test'
 import {
+  assertCalledWith,
+  createMock,
+  installModuleMock
+} from './node-test-helpers.ts'
+
+type ActionsCore = typeof import('../src/actions-core.ts')
+
+const getInputMock = createMock<ActionsCore['getInput']>()
+const getBooleanInputMock = createMock<ActionsCore['getBooleanInput']>()
+const setOutputMock = createMock<ActionsCore['setOutput']>()
+const saveStateMock = createMock<ActionsCore['saveState']>()
+const getStateMock = createMock<ActionsCore['getState']>()
+
+installModuleMock(mock, new URL('../src/actions-core.ts', import.meta.url), {
+  getInput: getInputMock,
+  getBooleanInput: getBooleanInputMock,
+  setOutput: setOutputMock,
+  saveState: saveStateMock,
+  getState: getStateMock
+})
+
+const {
   getActionInput,
   getActionState,
   getBooleanActionInput,
   saveActionState,
   setActionOutput
-} from '../src/action-io.ts'
+} = await import('../src/action-io.ts')
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  getInputMock.mock.resetCalls()
+  getBooleanInputMock.mock.resetCalls()
+  setOutputMock.mock.resetCalls()
+  saveStateMock.mock.resetCalls()
+  getStateMock.mock.resetCalls()
 })
 
 test('typed input wrappers preserve toolkit arguments and results', () => {
-  vi.spyOn(core, 'getInput').mockReturnValue('production')
-  vi.spyOn(core, 'getBooleanInput').mockReturnValue(true)
+  getInputMock.mock.mockImplementation(() => 'production')
+  getBooleanInputMock.mock.mockImplementation(() => true)
 
-  expect(getActionInput('environment', {required: true})).toBe('production')
-  expect(getBooleanActionInput('allow_forks')).toBe(true)
-  expect(core.getInput).toHaveBeenCalledWith('environment', {required: true})
-  expect(core.getBooleanInput).toHaveBeenCalledWith('allow_forks', undefined)
+  assert.strictEqual(
+    getActionInput('environment', {required: true}),
+    'production'
+  )
+  assert.strictEqual(getBooleanActionInput('allow_forks'), true)
+  assertCalledWith(getInputMock, 'environment', {required: true})
+  assertCalledWith(getBooleanInputMock, 'allow_forks', undefined)
 })
 
 test('typed output and state wrappers preserve toolkit value serialization', () => {
   const structuredValue = {environment: 'production', noop: false}
-  vi.spyOn(core, 'setOutput').mockImplementation(() => undefined)
-  vi.spyOn(core, 'saveState').mockImplementation(() => undefined)
-  vi.spyOn(core, 'getState').mockReturnValue('false')
+  getStateMock.mock.mockImplementation(() => 'false')
 
   setActionOutput('parsed_params', structuredValue)
   saveActionState('noop', false)
 
-  expect(core.setOutput).toHaveBeenCalledWith('parsed_params', structuredValue)
-  expect(core.saveState).toHaveBeenCalledWith('noop', false)
-  expect(getActionState('noop')).toBe('false')
-  expect(core.getState).toHaveBeenCalledWith('noop')
+  assertCalledWith(setOutputMock, 'parsed_params', structuredValue)
+  assertCalledWith(saveStateMock, 'noop', false)
+  assert.strictEqual(getActionState('noop'), 'false')
+  assertCalledWith(getStateMock, 'noop')
 })

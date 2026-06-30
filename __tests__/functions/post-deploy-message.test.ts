@@ -1,12 +1,41 @@
-import {postDeployMessage} from '../../src/functions/post-deploy-message.ts'
-import {vi, expect, test, beforeEach} from 'vitest'
-import * as core from '../../src/actions-core.ts'
+import assert from 'node:assert/strict'
+import {beforeEach, mock, test} from 'node:test'
 import {dedent} from '../../src/functions/dedent.ts'
 import type {PostDeployMessageData} from '../../src/types.ts'
 import {createContext} from '../test-helpers.ts'
 import {unsafeInvalidValue} from '../unsafe-fixtures.ts'
+import {
+  assertCalledWith,
+  createMock,
+  stubEnv,
+  installModuleMock
+} from '../node-test-helpers.ts'
 
-const debugMock = vi.spyOn(core, 'debug')
+type ActionsCore = typeof import('../../src/actions-core.ts')
+
+function readInput(name: string, trimWhitespace = true): string {
+  const value =
+    process.env[`INPUT_${name.replace(/ /gu, '_').toUpperCase()}`] ?? ''
+  return trimWhitespace ? value.trim() : value
+}
+
+const debugMock = createMock<ActionsCore['debug']>()
+const getInputMock = createMock<ActionsCore['getInput']>((name, options) =>
+  readInput(name, options?.trimWhitespace !== false)
+)
+const getBooleanInputMock = createMock<ActionsCore['getBooleanInput']>(
+  (name, options) =>
+    readInput(name, options?.trimWhitespace !== false) === 'true'
+)
+
+installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
+  debug: debugMock,
+  getBooleanInput: getBooleanInputMock,
+  getInput: getInputMock
+})
+
+const {postDeployMessage} =
+  await import('../../src/functions/post-deploy-message.ts')
 
 let context: Parameters<typeof postDeployMessage>[0]
 let environment: string
@@ -88,15 +117,25 @@ function renderDeploymentMetadata(data: PostDeployMessageData): string {
   `)
 }
 
-beforeEach(() => {
-  vi.clearAllMocks()
+beforeEach(testContext => {
+  if (!('after' in testContext)) {
+    throw new Error('expected a test context')
+  }
 
-  vi.stubEnv('GITHUB_SERVER_URL', 'https://github.com')
-  vi.stubEnv('GITHUB_RUN_ID', '12345')
+  debugMock.mock.resetCalls()
+  getInputMock.mock.resetCalls()
+  getBooleanInputMock.mock.resetCalls()
 
-  vi.stubEnv('DEPLOY_MESSAGE', undefined)
-  vi.stubEnv('INPUT_ENVIRONMENT_URL_IN_COMMENT', 'true')
-  vi.stubEnv('INPUT_DEPLOY_MESSAGE_PATH', '.github/deployment_message.md')
+  stubEnv(testContext, 'GITHUB_SERVER_URL', 'https://github.com')
+  stubEnv(testContext, 'GITHUB_RUN_ID', '12345')
+
+  stubEnv(testContext, 'DEPLOY_MESSAGE', undefined)
+  stubEnv(testContext, 'INPUT_ENVIRONMENT_URL_IN_COMMENT', 'true')
+  stubEnv(
+    testContext,
+    'INPUT_DEPLOY_MESSAGE_PATH',
+    '.github/deployment_message.md'
+  )
 
   environment = 'production'
   environment_url = 'https://example.com'
@@ -155,7 +194,8 @@ beforeEach(() => {
 })
 
 test('successfully constructs a post deploy message with the defaults', () => {
-  expect(postDeployMessage(context, data)).toStrictEqual(
+  assert.strictEqual(
+    postDeployMessage(context, data),
     dedent(`
     ### Deployment Results ✅
 
@@ -171,7 +211,8 @@ test('successfully constructs a post deploy message with the defaults', () => {
 test('successfully constructs a post deploy message with the defaults during a "noop" deploy', () => {
   data = {...data, noop: true}
   deployment_metadata = renderDeploymentMetadata(data)
-  expect(postDeployMessage(context, data)).toStrictEqual(
+  assert.strictEqual(
+    postDeployMessage(context, data),
     dedent(`
     ### Deployment Results ✅
 
@@ -184,7 +225,8 @@ test('successfully constructs a post deploy message with the defaults during a "
 test('successfully constructs a post deploy message with the defaults during a deployment failure', () => {
   data = {...data, status: 'failure'}
   deployment_metadata = renderDeploymentMetadata(data)
-  expect(postDeployMessage(context, data)).toStrictEqual(
+  assert.strictEqual(
+    postDeployMessage(context, data),
     dedent(`
     ### Deployment Results ❌
 
@@ -199,7 +241,8 @@ test('successfully constructs a post deploy message with the defaults during a d
   data = {...data, status: 'unknown'}
   deployment_metadata = renderDeploymentMetadata(data)
 
-  expect(postDeployMessage(context, data)).toStrictEqual(
+  assert.strictEqual(
+    postDeployMessage(context, data),
     dedent(`
     ### Deployment Results ⚠️
 
@@ -209,12 +252,13 @@ test('successfully constructs a post deploy message with the defaults during a d
   )
 })
 
-test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status and the DEPLOY_MESSAGE_PATH is unset', () => {
-  vi.stubEnv('INPUT_DEPLOY_MESSAGE_PATH', '')
+test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status and the DEPLOY_MESSAGE_PATH is unset', testContext => {
+  stubEnv(testContext, 'INPUT_DEPLOY_MESSAGE_PATH', '')
   data = {...data, status: 'unknown'}
   deployment_metadata = renderDeploymentMetadata(data)
 
-  expect(postDeployMessage(context, data)).toStrictEqual(
+  assert.strictEqual(
+    postDeployMessage(context, data),
     dedent(`
     ### Deployment Results ⚠️
 
@@ -224,13 +268,14 @@ test('successfully constructs a post deploy message with the defaults during a d
     `)
   )
 
-  expect(debugMock).toHaveBeenCalledWith('deployMessagePath is not set - null')
+  assertCalledWith(debugMock, 'deployMessagePath is not set - null')
 })
 
-test('successfully constructs a post deploy message with a custom env var', () => {
-  vi.stubEnv('DEPLOY_MESSAGE', 'Deployed 1 shiny new server')
+test('successfully constructs a post deploy message with a custom env var', testContext => {
+  stubEnv(testContext, 'DEPLOY_MESSAGE', 'Deployed 1 shiny new server')
 
-  expect(postDeployMessage(context, data)).toStrictEqual(
+  assert.strictEqual(
+    postDeployMessage(context, data),
     dedent(`
     ### Deployment Results ✅
 
@@ -248,8 +293,8 @@ test('successfully constructs a post deploy message with a custom env var', () =
   )
 })
 
-test('successfully constructs a post deploy message with a custom env var when certain values are undefined', () => {
-  vi.stubEnv('DEPLOY_MESSAGE', 'Deployed 1 shiny new server')
+test('successfully constructs a post deploy message with a custom env var when certain values are undefined', testContext => {
+  stubEnv(testContext, 'DEPLOY_MESSAGE', 'Deployed 1 shiny new server')
 
   data = unsafeInvalidValue<PostDeployMessageData>({
     ...data,
@@ -263,7 +308,8 @@ test('successfully constructs a post deploy message with a custom env var when c
 
   deployment_metadata = renderDeploymentMetadata(data)
 
-  expect(postDeployMessage(context, data)).toStrictEqual(
+  assert.strictEqual(
+    postDeployMessage(context, data),
     dedent(`
     ### Deployment Results ✅
 
@@ -282,15 +328,17 @@ test('successfully constructs a post deploy message with a custom env var when c
 test('renders an empty review decision as null metadata', () => {
   data = {...data, review_decision: ''}
 
-  expect(postDeployMessage(context, data)).toContain('"decision": null')
+  assert.ok(postDeployMessage(context, data).includes('"decision": null'))
 })
 
-test('successfully constructs a post deploy message with a custom markdown file', () => {
-  vi.stubEnv(
+test('successfully constructs a post deploy message with a custom markdown file', testContext => {
+  stubEnv(
+    testContext,
     'INPUT_DEPLOY_MESSAGE_PATH',
     '__tests__/templates/test_deployment_message.md'
   )
-  expect(postDeployMessage(context, data)).toStrictEqual(
+  assert.strictEqual(
+    postDeployMessage(context, data),
     dedent(`### Deployment Results :rocket:
 
     The following variables are available to use in this template:

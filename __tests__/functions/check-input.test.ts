@@ -1,24 +1,25 @@
+import assert from 'node:assert/strict'
+import {test} from 'node:test'
 import {checkInput} from '../../src/functions/check-input.ts'
-import {expect, test} from 'vitest'
 
 test('checks an input an finds that it is valid', () => {
-  expect(checkInput('production')).toStrictEqual('production')
+  assert.strictEqual(checkInput('production'), 'production')
 })
 
 test('checks an input an finds that it is valid with true/false strings', () => {
-  expect(checkInput('true')).toStrictEqual('true')
+  assert.strictEqual(checkInput('true'), 'true')
 
-  expect(checkInput('false')).toStrictEqual('false')
+  assert.strictEqual(checkInput('false'), 'false')
 })
 
 test('checks an empty string input an finds that it is invalid', () => {
-  expect(checkInput('')).toStrictEqual(null)
+  assert.strictEqual(checkInput(''), null)
 })
 
 test('checks a null object input an finds that it is invalid', () => {
-  expect(checkInput(null)).toStrictEqual(null)
+  assert.strictEqual(checkInput(null), null)
 })
 
 test('checks a string of null input an finds that it is invalid', () => {
-  expect(checkInput('null')).toStrictEqual(null)
+  assert.strictEqual(checkInput('null'), null)
 })

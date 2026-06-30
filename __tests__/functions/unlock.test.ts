@@ -1,14 +1,52 @@
-import {beforeEach, expect, test, vi, type Mock} from 'vitest'
-import {
-  unlock,
-  type InteractiveUnlockRequest,
-  type SilentUnlockRequest,
-  type UnlockOctokit
+import assert from 'node:assert/strict'
+import {beforeEach, mock, test, type Mock} from 'node:test'
+import type {
+  InteractiveUnlockRequest,
+  SilentUnlockRequest,
+  UnlockOctokit
 } from '../../src/functions/unlock.ts'
-import * as actionStatus from '../../src/functions/action-status.ts'
 import {API_HEADERS} from '../../src/functions/api-headers.ts'
 import {createIssueCommentContext} from '../test-helpers.ts'
 import type {IssueCommentContext} from '../../src/types.ts'
+import {
+  assertCalledWith,
+  createMock,
+  stubEnv,
+  installModuleMock
+} from '../node-test-helpers.ts'
+
+type ActionsCore = typeof import('../../src/actions-core.ts')
+type ActionStatus = typeof import('../../src/functions/action-status.ts')
+
+function readInput(name: string, trimWhitespace = true): string {
+  const value =
+    process.env[`INPUT_${name.replace(/ /gu, '_').toUpperCase()}`] ?? ''
+  return trimWhitespace ? value.trim() : value
+}
+
+const debugMock = createMock<ActionsCore['debug']>()
+const infoMock = createMock<ActionsCore['info']>()
+const warningMock = createMock<ActionsCore['warning']>()
+const setOutputMock = createMock<ActionsCore['setOutput']>()
+const getInputMock = createMock<ActionsCore['getInput']>((name, options) =>
+  readInput(name, options?.trimWhitespace !== false)
+)
+const actionStatusMock = createMock<ActionStatus['actionStatus']>()
+
+installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
+  debug: debugMock,
+  getInput: getInputMock,
+  info: infoMock,
+  setOutput: setOutputMock,
+  warning: warningMock
+})
+installModuleMock(
+  mock,
+  new URL('../../src/functions/action-status.ts', import.meta.url),
+  {actionStatus: actionStatusMock}
+)
+
+const {unlock} = await import('../../src/functions/unlock.ts')
 
 class NotFoundError extends Error {
   declare status: number
@@ -37,10 +75,10 @@ function createUnlockOctokit(
   return {
     rest: {
       git: {deleteRef},
-      issues: {createComment: vi.fn()},
+      issues: {createComment: createMock()},
       reactions: {
-        createForIssueComment: vi.fn(),
-        deleteForIssueComment: vi.fn()
+        createForIssueComment: createMock(),
+        deleteForIssueComment: createMock()
       }
     }
   } satisfies UnlockOctokit
@@ -82,24 +120,33 @@ function silentRequest(
   }
 }
 
-beforeEach(() => {
-  vi.clearAllMocks()
+beforeEach(testContext => {
+  if (!('after' in testContext)) {
+    throw new Error('expected a test context')
+  }
 
-  vi.stubEnv('INPUT_ENVIRONMENT', 'production')
-  vi.stubEnv('INPUT_UNLOCK_TRIGGER', '.unlock')
-  vi.stubEnv('INPUT_GLOBAL_LOCK_FLAG', '--global')
+  debugMock.mock.resetCalls()
+  infoMock.mock.resetCalls()
+  warningMock.mock.resetCalls()
+  setOutputMock.mock.resetCalls()
+  getInputMock.mock.resetCalls()
+  actionStatusMock.mock.resetCalls()
+  actionStatusMock.mock.mockImplementation(() => Promise.resolve(undefined))
+
+  stubEnv(testContext, 'INPUT_ENVIRONMENT', 'production')
+  stubEnv(testContext, 'INPUT_UNLOCK_TRIGGER', '.unlock')
+  stubEnv(testContext, 'INPUT_GLOBAL_LOCK_FLAG', '--global')
 
   context = contextFor('.unlock')
-  deleteRefMock = vi
-    .fn<UnlockOctokit['rest']['git']['deleteRef']>()
-    .mockResolvedValue(deletedResponse)
+  deleteRefMock = createMock<UnlockOctokit['rest']['git']['deleteRef']>(() =>
+    Promise.resolve(deletedResponse)
+  )
   octokit = createUnlockOctokit(deleteRefMock)
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
 })
 
 test('successfully releases a deployment lock with the unlock function', async () => {
-  expect(await unlock(interactiveRequest())).toBe(true)
-  expect(deleteRefMock).toHaveBeenCalledWith({
+  assert.strictEqual(await unlock(interactiveRequest()), true)
+  assertCalledWith(deleteRefMock, {
     owner: 'corp',
     repo: 'test',
     ref: 'heads/production-branch-deploy-lock',
@@ -108,14 +155,15 @@ test('successfully releases a deployment lock with the unlock function', async (
 })
 
 test('successfully releases a deployment lock with a passed environment', async () => {
-  expect(
+  assert.strictEqual(
     await unlock(
       interactiveRequest({
         target: {environment: 'staging', type: 'environment'}
       })
-    )
-  ).toBe(true)
-  expect(deleteRefMock).toHaveBeenCalledWith({
+    ),
+    true
+  )
+  assertCalledWith(deleteRefMock, {
     owner: 'corp',
     repo: 'test',
     ref: 'heads/staging-branch-deploy-lock',
@@ -125,8 +173,8 @@ test('successfully releases a deployment lock with a passed environment', async 
 
 test('successfully releases a global deployment lock', async () => {
   context = contextFor('.unlock --global')
-  expect(await unlock(interactiveRequest())).toBe(true)
-  expect(deleteRefMock).toHaveBeenCalledWith({
+  assert.strictEqual(await unlock(interactiveRequest()), true)
+  assertCalledWith(deleteRefMock, {
     owner: 'corp',
     repo: 'test',
     ref: 'heads/global-branch-deploy-lock',
@@ -136,8 +184,8 @@ test('successfully releases a global deployment lock', async () => {
 
 test('successfully releases a development environment deployment lock', async () => {
   context = contextFor('.unlock development')
-  expect(await unlock(interactiveRequest())).toBe(true)
-  expect(deleteRefMock).toHaveBeenCalledWith({
+  assert.strictEqual(await unlock(interactiveRequest()), true)
+  assertCalledWith(deleteRefMock, {
     owner: 'corp',
     repo: 'test',
     ref: 'heads/development-branch-deploy-lock',
@@ -147,8 +195,8 @@ test('successfully releases a development environment deployment lock', async ()
 
 test('ignores an unnecessary --reason flag while releasing an environment lock', async () => {
   context = contextFor('.unlock development --reason because i said so')
-  expect(await unlock(interactiveRequest())).toBe(true)
-  expect(deleteRefMock).toHaveBeenCalledWith({
+  assert.strictEqual(await unlock(interactiveRequest()), true)
+  assertCalledWith(deleteRefMock, {
     owner: 'corp',
     repo: 'test',
     ref: 'heads/development-branch-deploy-lock',
@@ -157,8 +205,8 @@ test('ignores an unnecessary --reason flag while releasing an environment lock',
 })
 
 test('successfully releases a deployment lock in silent mode', async () => {
-  expect(await unlock(silentRequest())).toBe('removed lock - silent')
-  expect(deleteRefMock).toHaveBeenCalledWith({
+  assert.strictEqual(await unlock(silentRequest()), 'removed lock - silent')
+  assertCalledWith(deleteRefMock, {
     owner: 'corp',
     repo: 'test',
     ref: 'heads/production-branch-deploy-lock',
@@ -167,47 +215,58 @@ test('successfully releases a deployment lock in silent mode', async () => {
 })
 
 test('reports a bad GitHub API status in silent mode', async () => {
-  deleteRefMock.mockResolvedValue({...deletedResponse, status: 500})
+  deleteRefMock.mock.mockImplementation(() =>
+    Promise.resolve({...deletedResponse, status: 500})
+  )
 
-  expect(await unlock(silentRequest())).toBe(
+  assert.strictEqual(
+    await unlock(silentRequest()),
     'failed to delete lock (bad status code) - silent'
   )
 })
 
 test('throws an unhandled exception in silent mode', async () => {
-  deleteRefMock.mockRejectedValue(new Error('oh no'))
+  deleteRefMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('oh no'))
+  )
 
-  await expect(unlock(silentRequest())).rejects.toThrow('Error: oh no')
+  await assert.rejects(unlock(silentRequest()), {message: 'Error: oh no'})
 })
 
 test('reports a missing deployment lock branch in silent mode', async () => {
-  deleteRefMock.mockRejectedValue(
-    new NotFoundError(
-      'Reference does not exist - https://docs.github.com/rest/git/refs#delete-a-reference'
+  deleteRefMock.mock.mockImplementation(() =>
+    Promise.reject(
+      new NotFoundError(
+        'Reference does not exist - https://docs.github.com/rest/git/refs#delete-a-reference'
+      )
     )
   )
 
-  expect(await unlock(silentRequest())).toBe(
+  assert.strictEqual(
+    await unlock(silentRequest()),
     'no deployment lock currently set - silent'
   )
 })
 
 test('returns false for a bad GitHub API status in interactive mode', async () => {
-  deleteRefMock.mockResolvedValue({...deletedResponse, status: 500})
+  deleteRefMock.mock.mockImplementation(() =>
+    Promise.resolve({...deletedResponse, status: 500})
+  )
 
-  expect(await unlock(interactiveRequest())).toBe(false)
+  assert.strictEqual(await unlock(interactiveRequest()), false)
 })
 
 test('reports a missing deployment lock branch in interactive mode', async () => {
-  const actionStatusSpy = vi.mocked(actionStatus.actionStatus)
-  deleteRefMock.mockRejectedValue(
-    new NotFoundError(
-      'Reference does not exist - https://docs.github.com/rest/git/refs#delete-a-reference'
+  deleteRefMock.mock.mockImplementation(() =>
+    Promise.reject(
+      new NotFoundError(
+        'Reference does not exist - https://docs.github.com/rest/git/refs#delete-a-reference'
+      )
     )
   )
 
-  expect(await unlock(interactiveRequest())).toBe(true)
-  expect(actionStatusSpy).toHaveBeenCalledWith({
+  assert.strictEqual(await unlock(interactiveRequest()), true)
+  assertCalledWith(actionStatusMock, {
     context,
     message: '🔓 There is currently no `production` deployment lock set',
     octokit,
@@ -217,16 +276,17 @@ test('reports a missing deployment lock branch in interactive mode', async () =>
 })
 
 test('reports a missing global deployment lock branch', async () => {
-  const actionStatusSpy = vi.mocked(actionStatus.actionStatus)
   context = contextFor('.unlock --global')
-  deleteRefMock.mockRejectedValue(
-    new NotFoundError(
-      'Reference does not exist - https://docs.github.com/rest/git/refs#delete-a-reference'
+  deleteRefMock.mock.mockImplementation(() =>
+    Promise.reject(
+      new NotFoundError(
+        'Reference does not exist - https://docs.github.com/rest/git/refs#delete-a-reference'
+      )
     )
   )
 
-  expect(await unlock(interactiveRequest())).toBe(true)
-  expect(actionStatusSpy).toHaveBeenCalledWith({
+  assert.strictEqual(await unlock(interactiveRequest()), true)
+  assertCalledWith(actionStatusMock, {
     context,
     message: '🔓 There is currently no `global` deployment lock set',
     octokit,
@@ -236,7 +296,9 @@ test('reports a missing global deployment lock branch', async () => {
 })
 
 test('throws an unhandled exception in interactive mode', async () => {
-  deleteRefMock.mockRejectedValue(new Error('oh no'))
+  deleteRefMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('oh no'))
+  )
 
-  await expect(unlock(interactiveRequest())).rejects.toThrow('Error: oh no')
+  await assert.rejects(unlock(interactiveRequest()), {message: 'Error: oh no'})
 })

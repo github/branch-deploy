@@ -903,11 +903,11 @@ export async function run(): Promise<RunResult> {
   }
 }
 
-/* istanbul ignore next */
+/* node:coverage ignore next */
 if (getActionState('isPost') === 'true') {
   void post()
 } else {
-  /* istanbul ignore next */
+  /* node:coverage ignore next */
   if (
     process.env['CI'] === 'true' &&
     process.env['BRANCH_DEPLOY_VITEST_TEST'] !== 'true'
