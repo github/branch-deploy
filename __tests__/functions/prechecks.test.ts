@@ -9,6 +9,7 @@ import {COLORS} from '../../src/functions/colors.ts'
 import type {
   BranchDeployContext,
   PrecheckData,
+  PrechecksGraphqlContextsPageResult,
   PrechecksGraphqlResult,
   RawCheckResult
 } from '../../src/types.ts'
@@ -108,6 +109,8 @@ type TestStatusCheckRollup = Exclude<
   TestCommitNode['commit']['statusCheckRollup'],
   undefined
 >
+
+const LAST_PAGE = {endCursor: null, hasNextPage: false} as const
 
 let context: BranchDeployContext
 let getCollabOK: Mock<
@@ -231,6 +234,7 @@ beforeEach(testContext => {
                   statusCheckRollup: {
                     state: 'SUCCESS',
                     contexts: {
+                      pageInfo: LAST_PAGE,
                       nodes: [
                         {
                           isRequired: true,
@@ -318,6 +322,77 @@ function mockApprovedCi(
   )
 }
 
+function initialCheckPage(
+  nodes: readonly RawCheckResult[],
+  pageInfo: {readonly endCursor: string | null; readonly hasNextPage: boolean},
+  state = 'FAILURE'
+): PrechecksGraphqlResult {
+  return {
+    repository: {
+      pullRequest: {
+        commits: {
+          nodes: [
+            {
+              commit: {
+                id: 'commit-node',
+                oid: 'abc123',
+                statusCheckRollup: {contexts: {nodes, pageInfo}, state}
+              }
+            }
+          ]
+        },
+        mergeStateStatus: 'CLEAN',
+        reviewDecision: 'APPROVED',
+        reviews: {totalCount: 1}
+      }
+    }
+  }
+}
+
+function additionalCheckPage(
+  nodes: readonly RawCheckResult[],
+  pageInfo: {readonly endCursor: string | null; readonly hasNextPage: boolean},
+  overrides: {
+    readonly id?: string
+    readonly oid?: string
+  } = {}
+): PrechecksGraphqlContextsPageResult {
+  return {
+    node: {
+      id: overrides.id ?? 'commit-node',
+      oid: overrides.oid ?? 'abc123',
+      statusCheckRollup: {
+        contexts: {nodes, pageInfo},
+        state: 'FAILURE'
+      }
+    }
+  }
+}
+
+function mockCheckPages(
+  first: PrechecksGraphqlResult,
+  ...pages: readonly (PrechecksGraphqlContextsPageResult | Error)[]
+): void {
+  queueMockImplementation(
+    graphQLOK,
+    () => Promise.resolve(first),
+    ...pages.map(page =>
+      page instanceof Error
+        ? () => Promise.reject(page)
+        : () => Promise.resolve(page)
+    )
+  )
+}
+
+async function assertChecksUnavailable(): Promise<void> {
+  assert.deepStrictEqual(await prechecks(context, octokit, data), {
+    message:
+      "### ⚠️ Cannot proceed with deployment\n\n- commitStatus: `UNAVAILABLE`\n\n> The Action could not verify all CI checks for this pull request, so no deployment was started. Retry the command after GitHub's check data is available, or explicitly configure `skip_ci` for this environment.",
+    status: false
+  })
+  assertCalledWith(setOutputMock, 'commit_status', 'UNAVAILABLE')
+}
+
 test('treats an unfinished check run without a conclusion as unhealthy', () => {
   assert.deepStrictEqual(
     filterChecks(
@@ -350,7 +425,7 @@ test('preserves nullish fallbacks for a malformed hybrid check node', () => {
   )
 })
 
-test('preserves the optional commit lookup for a malformed GraphQL node', async () => {
+test('fails closed for a malformed GraphQL commit node', async () => {
   graphQLOK.mock.mockImplementation(() =>
     Promise.resolve(
       unsafeInvalidValue<PrechecksGraphqlResult>({
@@ -366,14 +441,10 @@ test('preserves the optional commit lookup for a malformed GraphQL node', async 
     )
   )
 
-  assert.deepStrictEqual(await prechecks(context, octokit, data), {
-    message:
-      '### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: `abc123`\n- commit_oid: `undefined`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.',
-    status: false
-  })
+  await assertChecksUnavailable()
 })
 
-test('preserves the missing GraphQL nodes error', async () => {
+test('fails closed when GraphQL commit nodes are missing', async () => {
   graphQLOK.mock.mockImplementation(() =>
     Promise.resolve(
       unsafeInvalidValue<PrechecksGraphqlResult>({
@@ -389,12 +460,10 @@ test('preserves the missing GraphQL nodes error', async () => {
     )
   )
 
-  await assert.rejects(prechecks(context, octokit, data), {
-    message: "Cannot read properties of undefined (reading '0')"
-  })
+  await assertChecksUnavailable()
 })
 
-test('preserves the caught error text for a missing GraphQL commit collection', async () => {
+test('fails closed when the GraphQL commit collection is missing', async () => {
   graphQLOK.mock.mockImplementation(() =>
     Promise.resolve({
       repository: {
@@ -412,8 +481,13 @@ test('preserves the caught error text for a missing GraphQL commit collection', 
   })
   assertCalledWith(
     debugMock,
-    `could not retrieve PR commit status: TypeError: Cannot read properties of undefined (reading 'nodes') - Handled: ${COLORS.success}OK`
+    'could not retrieve PR commit status: Error: The GraphQL response did not include a commit'
   )
+  assertCalledWith(
+    warningMock,
+    'CI check verification is unavailable; deployment will not proceed'
+  )
+  assertCalledWith(setOutputMock, 'commit_status', 'UNAVAILABLE')
 })
 
 test('preserves the fallback when raw GraphQL debug output throws', async () => {
@@ -483,6 +557,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
                   statusCheckRollup: {
                     state: 'FAILURE',
                     contexts: {
+                      pageInfo: LAST_PAGE,
                       nodes: [
                         {
                           isRequired: true,
@@ -541,6 +616,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
                   statusCheckRollup: {
                     state: 'FAILURE',
                     contexts: {
+                      pageInfo: LAST_PAGE,
                       nodes: [
                         {
                           isRequired: true,
@@ -610,6 +686,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
                   statusCheckRollup: {
                     state: 'FAILURE',
                     contexts: {
+                      pageInfo: LAST_PAGE,
                       nodes: [
                         {
                           isRequired: true,
@@ -701,6 +778,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
                   statusCheckRollup: {
                     state: 'FAILURE',
                     contexts: {
+                      pageInfo: LAST_PAGE,
                       nodes: [
                         {
                           isRequired: true,
@@ -793,6 +871,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
                   statusCheckRollup: {
                     state: 'FAILURE',
                     contexts: {
+                      pageInfo: LAST_PAGE,
                       nodes: [
                         {
                           isRequired: true,
@@ -910,6 +989,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
                   statusCheckRollup: {
                     state: 'FAILURE',
                     contexts: {
+                      pageInfo: LAST_PAGE,
                       nodes: [
                         {
                           isRequired: true,
@@ -985,6 +1065,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
                   statusCheckRollup: {
                     state: 'FAILURE',
                     contexts: {
+                      pageInfo: LAST_PAGE,
                       nodes: [
                         {
                           isRequired: true,
@@ -1058,6 +1139,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
                   statusCheckRollup: {
                     state: 'FAILURE',
                     contexts: {
+                      pageInfo: LAST_PAGE,
                       nodes: [
                         {
                           isRequired: true,
@@ -1130,6 +1212,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
                   statusCheckRollup: {
                     state: 'FAILURE',
                     contexts: {
+                      pageInfo: LAST_PAGE,
                       nodes: [
                         {
                           isRequired: true,
@@ -1309,6 +1392,7 @@ for (const [checkSuiteCount, aggregateState, checks] of [
       {
         state: aggregateState,
         contexts: {
+          pageInfo: LAST_PAGE,
           nodes: [
             {
               isRequired: true,
@@ -1343,6 +1427,7 @@ test('accepts a requested healthy legacy status context without CheckSuites', as
     {
       state: 'SUCCESS',
       contexts: {
+        pageInfo: LAST_PAGE,
         nodes: [
           {
             isRequired: true,
@@ -1375,6 +1460,7 @@ test('allows checks=required when only an optional CI check is failing', async (
   mockApprovedCi({
     state: 'FAILURE',
     contexts: {
+      pageInfo: LAST_PAGE,
       nodes: [
         {
           isRequired: false,
@@ -1399,6 +1485,279 @@ test('allows checks=required when only an optional CI check is failing', async (
     debugMock,
     'filterChecks() - after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined'
   )
+})
+
+test('rejects a required failing check after the first 100 contexts', async () => {
+  const firstPage = Array.from({length: 100}, (_, index) => ({
+    conclusion: 'SUCCESS',
+    isRequired: true,
+    name: `healthy-${String(index)}`
+  }))
+  mockCheckPages(
+    initialCheckPage(firstPage, {
+      endCursor: 'cursor-1',
+      hasNextPage: true
+    }),
+    additionalCheckPage(
+      [{conclusion: 'FAILURE', isRequired: true, name: 'required-101'}],
+      LAST_PAGE
+    )
+  )
+  data.inputs.checks = 'required'
+
+  assert.deepStrictEqual(await prechecks(context, octokit, data), {
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
+    status: false
+  })
+  assert.deepStrictEqual(graphQLOK.mock.calls[1]?.arguments[1], {
+    commitId: 'commit-node',
+    cursor: 'cursor-1',
+    number: 123
+  })
+  assert.ok(
+    graphQLOK.mock.calls[1]?.arguments[0].includes(
+      'contexts(first:100, after:$cursor)'
+    )
+  )
+})
+
+test('rejects a failing legacy status context on a later page', async () => {
+  mockCheckPages(
+    initialCheckPage(
+      [{context: 'first-status', isRequired: true, state: 'SUCCESS'}],
+      {endCursor: 'cursor-1', hasNextPage: true}
+    ),
+    additionalCheckPage(
+      [{context: 'legacy-ci', isRequired: true, state: 'FAILURE'}],
+      LAST_PAGE
+    )
+  )
+  data.inputs.checks = ['legacy-ci']
+
+  assert.deepStrictEqual(await prechecks(context, octokit, data), {
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILURE`\n\n> Your pull request is approved but CI checks are failing',
+    status: false
+  })
+})
+
+test('finds an explicitly requested healthy check on a later page', async () => {
+  mockCheckPages(
+    initialCheckPage(
+      [{conclusion: 'SUCCESS', isRequired: true, name: 'first-check'}],
+      {endCursor: 'cursor-1', hasNextPage: true}
+    ),
+    additionalCheckPage(
+      [{conclusion: 'SUCCESS', isRequired: true, name: 'security'}],
+      LAST_PAGE
+    )
+  )
+  data.inputs.checks = ['security']
+
+  assert.partialDeepStrictEqual(await prechecks(context, octokit, data), {
+    status: true
+  })
+})
+
+test('ignores a failing check discovered on a later page', async () => {
+  mockCheckPages(
+    initialCheckPage(
+      [{conclusion: 'SUCCESS', isRequired: true, name: 'first-check'}],
+      {endCursor: 'cursor-1', hasNextPage: true}
+    ),
+    additionalCheckPage(
+      [{conclusion: 'FAILURE', isRequired: false, name: 'optional-ci'}],
+      LAST_PAGE
+    )
+  )
+  data.inputs.ignored_checks = ['optional-ci']
+
+  assert.partialDeepStrictEqual(await prechecks(context, octokit, data), {
+    status: true
+  })
+})
+
+test('accepts healthy required checks spanning several pages', async () => {
+  mockCheckPages(
+    initialCheckPage(
+      [{conclusion: 'SUCCESS', isRequired: true, name: 'first-check'}],
+      {endCursor: 'cursor-1', hasNextPage: true}
+    ),
+    additionalCheckPage(
+      [{conclusion: 'SUCCESS', isRequired: true, name: 'second-check'}],
+      {endCursor: 'cursor-2', hasNextPage: true}
+    ),
+    additionalCheckPage(
+      [{conclusion: 'SUCCESS', isRequired: true, name: 'third-check'}],
+      LAST_PAGE
+    )
+  )
+  data.inputs.checks = 'required'
+
+  assert.partialDeepStrictEqual(await prechecks(context, octokit, data), {
+    status: true
+  })
+  assertCalledTimes(graphQLOK, 3)
+})
+
+test('does not paginate the aggregate checks=all fast path', async () => {
+  graphQLOK.mock.mockImplementation(() =>
+    Promise.resolve(
+      initialCheckPage(
+        [{conclusion: 'SUCCESS', isRequired: true, name: 'first-check'}],
+        {endCursor: 'cursor-1', hasNextPage: true},
+        'SUCCESS'
+      )
+    )
+  )
+
+  assert.partialDeepStrictEqual(await prechecks(context, octokit, data), {
+    status: true
+  })
+  assertCalledTimes(graphQLOK, 1)
+})
+
+test('skip_ci bypasses malformed paginated check data', async () => {
+  graphQLOK.mock.mockImplementation(() =>
+    Promise.resolve(
+      unsafeInvalidValue<PrechecksGraphqlResult>({
+        repository: {
+          pullRequest: {
+            commits: {nodes: [{commit: {oid: 'abc123'}}]},
+            mergeStateStatus: 'CLEAN',
+            reviewDecision: 'APPROVED',
+            reviews: {totalCount: 1}
+          }
+        }
+      })
+    )
+  )
+  data.inputs.checks = 'required'
+  data.inputs.skipCi = 'production'
+
+  assert.partialDeepStrictEqual(await prechecks(context, octokit, data), {
+    status: true
+  })
+  assertCalledTimes(graphQLOK, 1)
+  assertCalledWith(setOutputMock, 'commit_status', 'skip_ci')
+})
+
+for (const [name, pageInfo] of [
+  ['missing', {endCursor: null, hasNextPage: true}],
+  ['empty', {endCursor: '', hasNextPage: true}]
+] as const) {
+  test(`fails closed when a next-page cursor is ${name}`, async () => {
+    graphQLOK.mock.mockImplementation(() =>
+      Promise.resolve(initialCheckPage([], pageInfo))
+    )
+    data.inputs.checks = 'required'
+
+    await assertChecksUnavailable()
+    assertCalledTimes(graphQLOK, 1)
+  })
+}
+
+test('fails closed when a pagination cursor repeats', async () => {
+  mockCheckPages(
+    initialCheckPage([], {endCursor: 'cursor-1', hasNextPage: true}),
+    additionalCheckPage([], {
+      endCursor: 'cursor-1',
+      hasNextPage: true
+    })
+  )
+  data.inputs.checks = 'required'
+
+  await assertChecksUnavailable()
+  assertCalledTimes(graphQLOK, 2)
+})
+
+test('fails closed when a later check page cannot be retrieved', async () => {
+  mockCheckPages(
+    initialCheckPage([], {endCursor: 'cursor-1', hasNextPage: true}),
+    new Error('pagination failed')
+  )
+  data.inputs.checks = 'required'
+
+  await assertChecksUnavailable()
+})
+
+for (const [name, page] of [
+  [
+    'commit node ID changes',
+    additionalCheckPage([], LAST_PAGE, {id: 'different-node'})
+  ],
+  [
+    'commit OID changes',
+    additionalCheckPage([], LAST_PAGE, {oid: 'different-oid'})
+  ],
+  ['the commit node is absent', {node: null}],
+  [
+    'the check rollup disappears',
+    {node: {id: 'commit-node', oid: 'abc123', statusCheckRollup: null}}
+  ]
+] as const satisfies readonly (readonly [
+  string,
+  PrechecksGraphqlContextsPageResult
+])[]) {
+  test(`fails closed when ${name}`, async () => {
+    mockCheckPages(
+      initialCheckPage([], {endCursor: 'cursor-1', hasNextPage: true}),
+      page
+    )
+    data.inputs.checks = 'required'
+
+    await assertChecksUnavailable()
+  })
+}
+
+test('fails closed when the initial page omits page information', async () => {
+  const result = unsafeInvalidValue<{
+    repository: {
+      pullRequest: {
+        commits: {
+          nodes: {
+            commit: {statusCheckRollup: {contexts: {pageInfo?: unknown}}}
+          }[]
+        }
+      }
+    }
+  }>(initialCheckPage([], LAST_PAGE, 'FAILURE'))
+  delete result.repository.pullRequest.commits.nodes[0]?.commit
+    .statusCheckRollup.contexts.pageInfo
+  graphQLOK.mock.mockImplementation(() => Promise.resolve(result))
+  data.inputs.checks = 'required'
+
+  await assertChecksUnavailable()
+})
+
+test('fails closed when a paginated response omits page information', async () => {
+  const page = additionalCheckPage([], LAST_PAGE)
+  const malformedPage = unsafeInvalidValue<{
+    node: {statusCheckRollup: {contexts: {pageInfo?: unknown}}}
+  }>(page)
+  delete malformedPage.node.statusCheckRollup.contexts.pageInfo
+  mockCheckPages(
+    initialCheckPage([], {endCursor: 'cursor-1', hasNextPage: true}),
+    unsafeInvalidValue<PrechecksGraphqlContextsPageResult>(malformedPage)
+  )
+  data.inputs.checks = 'required'
+
+  await assertChecksUnavailable()
+})
+
+test('fails closed when pagination is required without a commit node ID', async () => {
+  const result = initialCheckPage([], {
+    endCursor: 'cursor-1',
+    hasNextPage: true
+  })
+  const mutableResult =
+    unsafeInvalidValue<DeepMutable<PrechecksGraphqlResult>>(result)
+  delete mutableResult.repository.pullRequest.commits?.nodes?.[0]?.commit.id
+  graphQLOK.mock.mockImplementation(() => Promise.resolve(mutableResult))
+  data.inputs.checks = 'required'
+
+  await assertChecksUnavailable()
 })
 
 test('rejects explicitly requested checks when the combined CI rollup is absent', async () => {
@@ -2579,6 +2938,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
                   statusCheckRollup: {
                     state: 'FAILURE',
                     contexts: {
+                      pageInfo: LAST_PAGE,
                       nodes: [
                         {
                           isRequired: true,

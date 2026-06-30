@@ -41858,11 +41858,13 @@ function legacyBranchTreeSha(value) {
     return value?.data?.commit?.commit?.tree?.sha;
 }
 function legacyPrechecksCommitOid(value) {
-    return value?.repository?.pullRequest?.commits?.nodes[0]?.commit?.oid;
+    return value?.repository?.pullRequest?.commits?.nodes?.[0]?.commit?.oid;
 }
-function legacyPrechecksStatusCheckRollup(value) {
-    const node = value.repository.pullRequest.commits.nodes[0];
-    return node.commit.statusCheckRollup;
+function prechecksGraphqlResult(value) {
+    return value;
+}
+function prechecksGraphqlContextsPageResult(value) {
+    return value;
 }
 function legacyPrechecksPullData(value) {
     return value;
@@ -44400,6 +44402,7 @@ async function prechecks(context, octokit, data) {
                       commits(last: 1) {
                         nodes {
                           commit {
+                            id
                             oid
                             statusCheckRollup {
                               state
@@ -44415,6 +44418,10 @@ async function prechecks(context, octokit, data) {
                                     state
                                     context
                                   }
+                                }
+                                pageInfo {
+                                  endCursor
+                                  hasNextPage
                                 }
                               }
                             }
@@ -44434,7 +44441,7 @@ async function prechecks(context, octokit, data) {
         }
     };
     // Make the GraphQL query
-    const result = await octokit.graphql(query, variables);
+    const result = prechecksGraphqlResult(await octokit.graphql(query, variables));
     // Fetch the commit oid which is the SHA1 hash of the commit
     const commit_oid = legacyPrechecksCommitOid(result);
     // Check the reviewDecision
@@ -44466,56 +44473,23 @@ async function prechecks(context, octokit, data) {
     else if (legacyTruthy(isDraft) && allowDraftDeploy) {
         info(`📓 deployment requested on a ${COLORS.highlight}draft${COLORS.reset} pull request from an ${COLORS.highlight}allowed${COLORS.reset} environment`);
     }
-    // Grab the statusCheckRollup state from the GraphQL result
-    let commitStatus;
-    let filterChecksResults;
-    try {
-        const statusCheckRollup = legacyPrechecksStatusCheckRollup(result);
-        const checkResults = statusCheckRollup?.contexts?.nodes ?? [];
-        const explicitChecks = Array.isArray(checks) && checks.length > 0;
-        // Check to see if skipCi is set for the environment being used
-        if (skipCi) {
-            info(`⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${data.environment}${COLORS.reset} environment`);
-            commitStatus = 'skip_ci';
-            // Explicitly requested checks must exist even when the combined rollup is absent
-        }
-        else if (explicitChecks) {
-            filterChecksResults = filterChecks(checks, checkResults, ignoredChecks, false);
-            commitStatus = filterChecksResults.status;
-            // A null combined rollup means no CheckRun or legacy StatusContext exists
-        }
-        else if (statusCheckRollup === null) {
-            info('💡 no CI checks have been defined for this pull request');
-            commitStatus = null;
-            // If only the required checks need to pass
-        }
-        else if (checks === 'required') {
-            filterChecksResults = filterChecks(checks, checkResults, ignoredChecks, true);
-            commitStatus = filterChecksResults.status;
-            // If there are CI checked defined, we need to check for the 'state' of the latest commit
-        }
-        else if (checks === 'all') {
-            // if there are no ignored checks, we can just check the state of the latest commit
-            if (ignoredChecks.length === 0) {
-                commitStatus = legacyArrayElement(statusCheckRollup).state;
-                // if there are ignored checks, we need to filter out the ignored checks from the graphql result
-            }
-            else {
-                filterChecksResults = filterChecks(checks, checkResults, ignoredChecks, false);
-                commitStatus = filterChecksResults.status;
-            }
-            // An empty checks array means include all checks while still applying ignoredChecks
-        }
-        else {
-            filterChecksResults = filterChecks(checks, checkResults, ignoredChecks, false);
-            commitStatus = filterChecksResults.status;
-        }
-    }
-    catch (e) {
-        debug(`could not retrieve PR commit status: ${String(e)} - Handled: ${COLORS.success}OK`);
-        debug('this repo may not have any CI checks defined');
-        debug('skipping commit status check and proceeding...');
-        commitStatus = null;
+    const checkEvaluation = await evaluateCommitChecks({
+        checks,
+        environment: data.environment,
+        ignoredChecks,
+        octokit,
+        pullRequestNumber: context.issue.number,
+        result,
+        skipCi
+    });
+    const commitStatus = checkEvaluation.commitStatus;
+    const filterChecksResults = 'filterChecksResult' in checkEvaluation
+        ? checkEvaluation.filterChecksResult
+        : undefined;
+    const checksUnavailableMessage = `### ⚠️ Cannot proceed with deployment\n\n- commitStatus: \`UNAVAILABLE\`\n\n> The Action could not verify all CI checks for this pull request, so no deployment was started. Retry the command after GitHub's check data is available, or explicitly configure \`skip_ci\` for this environment.`;
+    if (checkEvaluation.kind === 'unavailable') {
+        debug(`could not retrieve PR commit status: ${String(checkEvaluation.error)}`);
+        warning('CI check verification is unavailable; deployment will not proceed');
         // Try to display the raw GraphQL result for debugging purposes
         try {
             debug('raw graphql result for debugging:');
@@ -44618,12 +44592,22 @@ async function prechecks(context, octokit, data) {
         sha = data.environmentObj.sha;
         ref = data.environmentObj.sha;
         setActionOutput('sha_deployment', sha);
+        // A missing rollup is allowed, but incomplete or malformed check data cannot be treated as an empty rollup
+    }
+    else if (commitStatus === 'UNAVAILABLE' && commit_oid === undefined) {
+        message = checksUnavailableMessage;
+        return { message: message, status: false };
         // If the commit sha (from the PR head) does not exactly match the sha returned from the graphql query, something is wrong
         // This could occur if the branch had a commit pushed to it in between the rest call and the graphql query
         // In this case, we should not proceed with the deployment as we cannot guarantee the sha is safe for a variety of reasons
     }
     else if (sha !== commit_oid) {
         message = `### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: \`${sha}\`\n- commit_oid: \`${String(commit_oid)}\`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.`;
+        return { message: message, status: false };
+        // The commit identity was verified, but its complete check state was not
+    }
+    else if (commitStatus === 'UNAVAILABLE') {
+        message = checksUnavailableMessage;
         return { message: message, status: false };
         // If the requested operation (deploy or noop) is taking place on a fork, that fork is NOT using the stable branch (i.e. `.deploy main`), the PR is...
         // not approved -> do not allow bypassing the lack of reviews. Enforce that ALL PRs originating from forks must have the required reviews.
@@ -44897,6 +44881,137 @@ async function prechecks(context, octokit, data) {
         sha: sha,
         isFork: isFork
     };
+}
+async function evaluateCommitChecks({ checks, environment, ignoredChecks, octokit, pullRequestNumber, result, skipCi }) {
+    if (skipCi) {
+        info(`⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${environment}${COLORS.reset} environment`);
+        return { commitStatus: 'skip_ci', kind: 'skipped' };
+    }
+    try {
+        const commit = result.repository.pullRequest.commits?.nodes?.[0]?.commit;
+        if (commit === undefined) {
+            throw new Error('The GraphQL response did not include a commit');
+        }
+        const statusCheckRollup = commit.statusCheckRollup;
+        const explicitChecks = Array.isArray(checks) && checks.length > 0;
+        if (explicitChecks && statusCheckRollup === null) {
+            const filterChecksResult = filterChecks(checks, [], ignoredChecks, false);
+            return {
+                commitStatus: 'MISSING',
+                filterChecksResult,
+                kind: 'missing'
+            };
+        }
+        if (statusCheckRollup === null) {
+            info('💡 no CI checks have been defined for this pull request');
+            return { commitStatus: null, kind: 'no-checks' };
+        }
+        if (statusCheckRollup === undefined) {
+            throw new Error('The GraphQL response did not include a check rollup');
+        }
+        if (checks === 'all' && ignoredChecks.length === 0) {
+            return statusCheckRollup.state === 'SUCCESS'
+                ? { commitStatus: 'SUCCESS', kind: 'passed' }
+                : { commitStatus: statusCheckRollup.state, kind: 'failed' };
+        }
+        const checkResults = await loadAllCheckResults(octokit, pullRequestNumber, commit, statusCheckRollup);
+        const filterChecksResult = filterChecks(checks, checkResults, ignoredChecks, checks === 'required');
+        if (filterChecksResult.status === 'SUCCESS') {
+            return {
+                commitStatus: 'SUCCESS',
+                filterChecksResult,
+                kind: 'passed'
+            };
+        }
+        if (filterChecksResult.status === 'MISSING') {
+            return {
+                commitStatus: 'MISSING',
+                filterChecksResult,
+                kind: 'missing'
+            };
+        }
+        return {
+            commitStatus: 'FAILURE',
+            filterChecksResult,
+            kind: 'failed'
+        };
+    }
+    catch (error) {
+        return { commitStatus: 'UNAVAILABLE', error, kind: 'unavailable' };
+    }
+}
+async function loadAllCheckResults(octokit, pullRequestNumber, commit, statusCheckRollup) {
+    const checkResults = [...statusCheckRollup.contexts.nodes];
+    let pageInfo = statusCheckRollup.contexts.pageInfo;
+    if (!pageInfo) {
+        throw new Error('The GraphQL response did not include check page info');
+    }
+    if (!pageInfo.hasNextPage) {
+        return checkResults;
+    }
+    if (commit.id === undefined || commit.id === '') {
+        throw new Error('The GraphQL response did not include a commit node ID');
+    }
+    const query = `query($commitId:ID!, $cursor:String!, $number:Int!) {
+                  node(id:$commitId) {
+                    ... on Commit {
+                      id
+                      oid
+                      statusCheckRollup {
+                        state
+                        contexts(first:100, after:$cursor) {
+                          nodes {
+                            ... on CheckRun {
+                              isRequired(pullRequestNumber:$number)
+                              conclusion
+                              name
+                            }
+                            ... on StatusContext {
+                              isRequired(pullRequestNumber:$number)
+                              state
+                              context
+                            }
+                          }
+                          pageInfo {
+                            endCursor
+                            hasNextPage
+                          }
+                        }
+                      }
+                    }
+                  }
+                }`;
+    const seenCursors = new Set();
+    while (pageInfo.hasNextPage) {
+        const cursor = pageInfo.endCursor;
+        if (cursor === null || cursor === '') {
+            throw new Error('The check page has no end cursor');
+        }
+        if (seenCursors.has(cursor)) {
+            throw new Error('The check page cursor did not advance');
+        }
+        seenCursors.add(cursor);
+        const page = prechecksGraphqlContextsPageResult(await octokit.graphql(query, {
+            commitId: commit.id,
+            cursor,
+            number: pullRequestNumber
+        }));
+        if (!page.node) {
+            throw new Error('The paginated commit node is unavailable');
+        }
+        if (page.node.id !== commit.id || page.node.oid !== commit.oid) {
+            throw new Error('The paginated check data belongs to another commit');
+        }
+        if (page.node.statusCheckRollup === null) {
+            throw new Error('The paginated check rollup is unavailable');
+        }
+        checkResults.push(...page.node.statusCheckRollup.contexts.nodes);
+        pageInfo = page.node.statusCheckRollup.contexts.pageInfo;
+        if (!pageInfo) {
+            throw new Error('The paginated check response has no page info');
+        }
+    }
+    return checkResults;
 }
 // A helper function to filter out ignored checks and return the combined status of the remaining checks
 // :param checks: the checks input option
