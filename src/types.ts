@@ -160,6 +160,7 @@ export type LockEnvironmentResult =
 
 export interface LockData {
   readonly branch: string | null
+  readonly claim_id?: string
   readonly created_at: string
   readonly created_by: string
   readonly environment: string | null

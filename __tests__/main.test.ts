@@ -1098,6 +1098,22 @@ test('successfully runs the action in lock mode and finds no GLOBAL lock - detai
   assertNotCalled(validDeploymentOrderMock)
 })
 
+test('fails a lock details request when the lock state is ambiguous', async () => {
+  setValidPermissionsResult(true)
+  setLockResult({
+    status: false,
+    lockData: null,
+    environment: 'production',
+    global: false,
+    globalFlag: '--global'
+  })
+  setCommentBody('.wcid')
+
+  assert.strictEqual(await run(), 'failure')
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+  assertNotCalled(validDeploymentOrderMock)
+})
+
 test('fails to aquire the lock on a deploy so it exits', async () => {
   setLockResult({
     status: false,

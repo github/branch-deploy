@@ -29,6 +29,35 @@ export interface LockFileOctokit {
   }
 }
 
+export class InvalidLockFileError extends Error {}
+
+function isLockData(value: unknown): value is LockData {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'reason' in value &&
+    'branch' in value &&
+    (typeof value.branch === 'string' || value.branch === null) &&
+    'created_at' in value &&
+    typeof value.created_at === 'string' &&
+    'created_by' in value &&
+    typeof value.created_by === 'string' &&
+    'sticky' in value &&
+    (typeof value.sticky === 'boolean' || value.sticky === null) &&
+    'environment' in value &&
+    (typeof value.environment === 'string' || value.environment === null) &&
+    'global' in value &&
+    typeof value.global === 'boolean' &&
+    'unlock_command' in value &&
+    typeof value.unlock_command === 'string' &&
+    'link' in value &&
+    typeof value.link === 'string' &&
+    (!('claim_id' in value) ||
+      (typeof value.claim_id === 'string' &&
+        /^sha256:[0-9a-f]{64}$/u.test(value.claim_id)))
+  )
+}
+
 // Helper function to check if a lock file exists and decodes it if it does
 // :param octokit: The octokit client
 // :param context: The GitHub Actions event context
@@ -42,22 +71,17 @@ export async function checkLockFile(
   branchName = constructValidBranchName(branchName)
 
   core.debug(`checking if lock file exists on branch: ${branchName}`)
+  let response: {readonly data: unknown}
+
   // If the lock branch exists, check if a lock file exists
   try {
     // Get the lock file contents
-    const response = await octokit.rest.repos.getContent({
+    response = await octokit.rest.repos.getContent({
       ...context.repo,
       path: LOCK_FILE,
       ref: branchName,
       headers: API_HEADERS
     })
-
-    // decode the file contents to json
-    const lockData = decodedLockData(
-      Buffer.from(repositoryFileContent(response.data), 'base64').toString()
-    )
-
-    return lockData
   } catch (error) {
     const apiError = legacyApiError(error)
     core.debug(`checkLockFile() error.status: ${String(apiError.status)}`)
@@ -76,4 +100,20 @@ export async function checkLockFile(
     // If some other error occurred, throw it
     throw new Error(String(error))
   }
+
+  let lockData: LockData
+  try {
+    // decode the file contents to json
+    lockData = decodedLockData(
+      Buffer.from(repositoryFileContent(response.data), 'base64').toString()
+    )
+  } catch (error) {
+    throw new InvalidLockFileError(String(error))
+  }
+  if (!isLockData(lockData)) {
+    throw new InvalidLockFileError(
+      'Lock data does not match the expected shape'
+    )
+  }
+  return lockData
 }

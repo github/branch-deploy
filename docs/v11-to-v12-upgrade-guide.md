@@ -26,3 +26,26 @@ For example, if a commit has 100 successful checks on the first page and one req
 - If a workflow consumes `commit_status`, allow for the new `UNAVAILABLE` value and treat it as a deployment-blocking result.
 
 Deployments that explicitly use the configured stable branch or an enabled exact-SHA deployment retain their existing documented bypass behavior.
+
+## Deployment locks are created atomically
+
+### What changed
+
+New deployment lock branches are now published only after their first commit already contains a complete `lock.json`. This removes the short-lived state in which a lock branch could be visible before its lock file was written.
+
+New lock files also contain an additive `claim_id` field. It is a deterministic SHA-256 identifier for the repository, pull request comment, environment or global target, requested ref, and sticky-lock mode. If the same workflow event retries after acquiring its lock, Branch Deploy recognizes the same claim without rewriting the lock or posting a duplicate lock-acquired comment.
+
+The lock protocol is idempotent at acquisition time. It does not guarantee that arbitrary deployment commands in later workflow steps run exactly once; workflow authors should continue to make those steps safe to retry where practical.
+
+### Who is affected
+
+Most users do not need to change anything. Integrations that parse `lock.json` with a strict schema must allow the optional `claim_id` string. Existing lock files without this field remain supported and keep their current ownership behavior.
+
+A lock branch that exists without a readable `lock.json` is now treated as an ambiguous lock and blocks the operation. Branch Deploy no longer repairs or claims that branch automatically because doing so could overwrite another request during a race or hide repository corruption.
+
+### What should I do?
+
+- If your tooling validates lock JSON, allow an optional `claim_id` matching `sha256:` followed by 64 lowercase hexadecimal characters.
+- If Branch Deploy reports an ambiguous lock, open the lock branch named in the message and inspect its contents.
+- If the branch is stale or corrupt, use the normal `.unlock <environment>` command, or `.unlock --global` for a global lock, after confirming that removing it is safe.
+- Do not interpret idempotent lock acquisition as exactly-once execution for deployment scripts that run after the Action.
