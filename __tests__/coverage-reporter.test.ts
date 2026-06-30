@@ -62,7 +62,8 @@ function coverageEvent(records: readonly CoverageRecord[]): CoverageEvent {
 }
 
 function summaryEvent(
-  counts: Partial<SummaryEvent['data']['counts']> = {}
+  counts: Partial<SummaryEvent['data']['counts']> = {},
+  file: string | undefined = undefined
 ): SummaryEvent {
   return {
     type: 'test:summary',
@@ -78,7 +79,7 @@ function summaryEvent(
         ...counts
       },
       duration_ms: 1,
-      file: undefined,
+      file,
       success: true
     }
   }
@@ -249,21 +250,55 @@ test('reports successful complete source coverage', async () => {
   )
 })
 
-test('the default reporter delegates to the coverage policy', async () => {
+test('the default reporter combines spec output with the coverage policy', async () => {
   const root = process.cwd()
   const expected = inventoryExecutableSources(root)
   const records = expected.map(path => coverageRecord(resolve(root, path)))
   const output: string[] = []
 
   for await (const value of coverageReporter(
-    events(coverageEvent(records), summaryEvent())
+    events(
+      {type: 'test:watch:drained', data: undefined},
+      summaryEvent({}, 'suite.test.ts'),
+      coverageEvent(records),
+      summaryEvent()
+    )
   )) {
     output.push(value)
   }
 
-  assert.deepStrictEqual(output, [
-    `coverage policy: ${expected.length} executable source files have 100% line, branch, and function coverage\n`
-  ])
+  const rendered = output.join('')
+  const policyResult = `coverage policy: ${expected.length} executable source files have 100% line, branch, and function coverage`
+
+  assert.match(rendered, /start of coverage report/u)
+  assert.ok(rendered.includes(policyResult))
+  assert.ok(
+    rendered.indexOf('end of coverage report') < rendered.indexOf(policyResult)
+  )
+})
+
+test('the default reporter preserves coverage policy failures', async () => {
+  const root = process.cwd()
+  const expected = inventoryExecutableSources(root)
+  const records = expected
+    .slice(1)
+    .map(path => coverageRecord(resolve(root, path)))
+  const missingSource = expected[0]
+  assert.ok(missingSource !== undefined)
+
+  await assert.rejects(
+    async () => {
+      for await (const output of coverageReporter(
+        events(coverageEvent(records), summaryEvent())
+      )) {
+        assert.equal(typeof output, 'string')
+      }
+    },
+    new RegExp(
+      `coverage policy failed:\\n${missingSource}: missing coverage record`,
+      'u'
+    )
+  )
 })
 
 test('rejects a failed coverage policy', async () => {

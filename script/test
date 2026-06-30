@@ -37,10 +37,8 @@ exec node \
   --test-coverage-branches=100 \
   --test-coverage-functions=100 \
   '--test-coverage-exclude=__tests__/**' \
-  --test-reporter=spec \
-  --test-reporter=lcov \
   --test-reporter=./tools/coverage-reporter.ts \
+  --test-reporter=lcov \
   --test-reporter-destination=stdout \
   --test-reporter-destination=coverage/lcov.info \
-  --test-reporter-destination=stderr \
   "${test_files[@]}"

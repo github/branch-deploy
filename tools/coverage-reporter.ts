@@ -1,7 +1,8 @@
 import {readdirSync} from 'node:fs'
 import {isAbsolute, relative, resolve, sep} from 'node:path'
+import {Readable} from 'node:stream'
+import {spec, type TestEvent} from 'node:test/reporters'
 import {fileURLToPath} from 'node:url'
-import type {TestEvent} from 'node:test/reporters'
 
 export interface CoverageRecord {
   readonly path: string
@@ -242,8 +243,39 @@ export async function* reportCoverage(
   yield `coverage policy: ${expectedSources.length} executable source files have 100% line, branch, and function coverage\n`
 }
 
+async function* replayEvents(
+  events: readonly TestEvent[]
+): AsyncGenerator<TestEvent, void> {
+  yield* events
+}
+
+async function* capturePolicyEvents(
+  source: AsyncIterable<TestEvent>,
+  policyEvents: TestEvent[]
+): AsyncGenerator<TestEvent, void> {
+  for await (const event of source) {
+    if (
+      event.type === 'test:coverage' ||
+      (event.type === 'test:summary' && event.data.file === undefined)
+    ) {
+      policyEvents.push(event)
+    }
+
+    yield event
+  }
+}
+
 export default async function* coverageReporter(
   source: AsyncIterable<TestEvent>
 ): AsyncGenerator<string, void> {
-  yield* reportCoverage(source)
+  const policyEvents: TestEvent[] = []
+  const specReporter = Readable.from(
+    capturePolicyEvents(source, policyEvents)
+  ).pipe(spec())
+
+  for await (const output of specReporter) {
+    yield String(output)
+  }
+
+  yield* reportCoverage(replayEvents(policyEvents))
 }
