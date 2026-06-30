@@ -160,6 +160,7 @@ export type LockEnvironmentResult =
 
 export interface LockData {
   readonly branch: string | null
+  readonly claim_id?: string
   readonly created_at: string
   readonly created_by: string
   readonly environment: string | null
@@ -180,6 +181,10 @@ export type LockResponse =
   | (LockResponseBase & {
       readonly lockData: LockData
       readonly status: 'details-only' | 'owner'
+    })
+  | (LockResponseBase & {
+      readonly lockData: null
+      readonly status: 'ambiguous'
     })
   | (LockResponseBase & {
       readonly lockData: LockData | null

@@ -273,8 +273,14 @@ export async function run(): Promise<RunResult> {
             leaveComment: true
           })
           // extract values from the lock response
-          const lockData = legacyLockData(lockResponse.lockData)
           const lockStatus = lockResponse.status
+
+          if (lockStatus === false || lockStatus === 'ambiguous') {
+            saveActionState('bypass', 'true')
+            return 'failure'
+          }
+
+          const lockData = legacyLockData(lockResponse.lockData)
 
           // If a lock was found
           if (lockStatus !== null) {
@@ -629,7 +635,7 @@ export async function run(): Promise<RunResult> {
     })
 
     // If the lock request fails, exit the Action
-    if (lockResponse.status === false) {
+    if (lockResponse.status === false || lockResponse.status === 'ambiguous') {
       return 'safe-exit'
     }
 

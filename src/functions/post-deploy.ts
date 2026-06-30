@@ -154,6 +154,9 @@ export async function postDeploy(
       mode: {type: 'details', postDeployStep: false},
       leaveComment: true
     })
+    if (lockResponse.status === 'ambiguous') {
+      return undefined
+    }
 
     // obtain the lockData from the lock response
     const lockData = lockResponse.lockData
@@ -221,6 +224,9 @@ export async function postDeploy(
     mode: {type: 'details', postDeployStep: true},
     leaveComment: false
   })
+  if (lockResponse.status === 'ambiguous') {
+    return undefined
+  }
 
   // obtain the lockData from the lock response
   const lockData = lockResponse.lockData
