@@ -183,6 +183,10 @@ export type LockResponse =
       readonly status: 'details-only' | 'owner'
     })
   | (LockResponseBase & {
+      readonly lockData: null
+      readonly status: 'ambiguous'
+    })
+  | (LockResponseBase & {
       readonly lockData: LockData | null
       readonly status: false
     })

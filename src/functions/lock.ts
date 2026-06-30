@@ -711,7 +711,13 @@ async function ambiguousLockResponse({
   await actionStatus({context, octokit, reactionId, message})
   saveActionState('bypass', 'true')
   core.setFailed(message)
-  return {status: false, lockData: null, globalFlag, environment, global}
+  return {
+    status: 'ambiguous',
+    lockData: null,
+    globalFlag,
+    environment,
+    global
+  }
 }
 
 export interface LockRequest {
@@ -740,13 +746,14 @@ export interface LockRequest {
 // :returns: A lock repsponse object
 // Example:
 // {
-//   status: 'owner' | false | true | null | 'details-only',
+//   status: 'owner' | 'ambiguous' | false | true | null | 'details-only',
 //   lockData: Object,
 //   globalFlag: String (--global for example),
 //   environment: String (production for example)
 //   global: Boolean (true if the request is for a global lock)
 // }
 // status: 'owner' - the lock was already claimed by the requestor
+// status: 'ambiguous' - the lock branch exists without a readable lock file
 // status: false - the lock was not claimed
 // status: true - the lock was claimed
 // status: null - no lock exists
@@ -795,6 +802,7 @@ export async function lock(request: LockRequest): Promise<LockResponse> {
   // We can only proceed here if there is NO global lock or if the requestor is the owner of the global lock
   // We can just jump directly to checking the lock file
   let globalLockData: false | LockData
+  let globalBranchExists: boolean | undefined
   try {
     globalLockData = await checkLockFile(octokit, context, GLOBAL_LOCK_BRANCH)
   } catch (error) {
@@ -810,6 +818,20 @@ export async function lock(request: LockRequest): Promise<LockResponse> {
       })
     }
     throw error
+  }
+  if (globalLockData === false) {
+    globalBranchExists = await checkBranch(octokit, context, GLOBAL_LOCK_BRANCH)
+    if (globalBranchExists) {
+      return ambiguousLockResponse({
+        branchName: GLOBAL_LOCK_BRANCH,
+        context,
+        environment: null,
+        global: true,
+        globalFlag,
+        octokit,
+        reactionId
+      })
+    }
   }
 
   if (legacyTruthy(globalLockData) && detailsOnly && !postDeployStep) {
@@ -853,7 +875,10 @@ export async function lock(request: LockRequest): Promise<LockResponse> {
   }
 
   // Check if the lock branch exists
-  const branchExists = await checkBranch(octokit, context, branchName)
+  const branchExists =
+    branchName === GLOBAL_LOCK_BRANCH && globalBranchExists !== undefined
+      ? globalBranchExists
+      : await checkBranch(octokit, context, branchName)
 
   if (!branchExists && detailsOnly) {
     // If the lock branch doesn't exist and this is a detailsOnly request, return null

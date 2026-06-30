@@ -19,6 +19,7 @@ import {
 import {
   assertCalledTimes,
   assertCalledWith,
+  assertNotCalled,
   createMock,
   installModuleMock
 } from '../node-test-helpers.ts'
@@ -342,6 +343,30 @@ test('successfully completes a noop branch deployment but does not get any lock 
     '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
   )
 })
+
+for (const noop of [false, true]) {
+  test(`stops ${noop ? 'noop' : 'deployment'} post processing for an ambiguous lock`, async () => {
+    lockMock.mock.mockImplementation(() =>
+      Promise.resolve({
+        environment: 'production',
+        global: false,
+        globalFlag: '',
+        lockData: null,
+        status: 'ambiguous'
+      })
+    )
+    data.noop = noop
+
+    assert.strictEqual(await postDeploy(context, octokit, data), undefined)
+    assertNotCalled(unlockMock)
+    assertNotCalled(labelMock)
+    assert.ok(
+      !infoMock.mock.calls.some(call =>
+        String(call.arguments[0]).includes('post deploy completed')
+      )
+    )
+  })
+}
 
 test('successfully completes a production branch deployment with no custom message', async () => {
   assert.strictEqual(await postDeploy(context, octokit, data), 'success')

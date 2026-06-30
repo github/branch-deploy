@@ -1101,7 +1101,7 @@ test('successfully runs the action in lock mode and finds no GLOBAL lock - detai
 test('fails a lock details request when the lock state is ambiguous', async () => {
   setValidPermissionsResult(true)
   setLockResult({
-    status: false,
+    status: 'ambiguous',
     lockData: null,
     environment: 'production',
     global: false,

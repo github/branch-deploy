@@ -275,7 +275,7 @@ export async function run(): Promise<RunResult> {
           // extract values from the lock response
           const lockStatus = lockResponse.status
 
-          if (lockStatus === false) {
+          if (lockStatus === false || lockStatus === 'ambiguous') {
             saveActionState('bypass', 'true')
             return 'failure'
           }
@@ -635,7 +635,7 @@ export async function run(): Promise<RunResult> {
     })
 
     // If the lock request fails, exit the Action
-    if (lockResponse.status === false) {
+    if (lockResponse.status === false || lockResponse.status === 'ambiguous') {
       return 'safe-exit'
     }
 

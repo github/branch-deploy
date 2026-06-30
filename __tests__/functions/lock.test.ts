@@ -130,6 +130,7 @@ function encodeLockValue(value: unknown): string {
 
 interface LockOctokitOverrides {
   readonly git?: Partial<LockOctokit['rest']['git']>
+  readonly globalBranchExists?: boolean
   readonly issues?: Partial<LockOctokit['rest']['issues']>
   readonly reactions?: Partial<LockOctokit['rest']['reactions']>
   readonly repos?: Partial<LockOctokit['rest']['repos']>
@@ -173,6 +174,18 @@ function mockGetContent(
 }
 
 function createLockOctokit(overrides: LockOctokitOverrides = {}): LockOctokit {
+  const {getBranch: getBranchOverride, ...reposOverrides} =
+    overrides.repos ?? {}
+  const targetGetBranch =
+    getBranchOverride ??
+    createMock<LockOctokit['rest']['repos']['getBranch']>(() =>
+      Promise.resolve({
+        data: {
+          commit: {sha: 'abc123', commit: {tree: {sha: 'base-tree-sha'}}}
+        }
+      })
+    )
+
   return {
     rest: {
       git: {
@@ -209,17 +222,17 @@ function createLockOctokit(overrides: LockOctokitOverrides = {}): LockOctokit {
         get: createMock<LockOctokit['rest']['repos']['get']>(() =>
           Promise.resolve({data: {default_branch: 'main'}})
         ),
-        getBranch: createMock<LockOctokit['rest']['repos']['getBranch']>(() =>
-          Promise.resolve({
-            data: {
-              commit: {sha: 'abc123', commit: {tree: {sha: 'base-tree-sha'}}}
-            }
-          })
+        getBranch: createMock<LockOctokit['rest']['repos']['getBranch']>(
+          parameters =>
+            parameters?.branch === 'global-branch-deploy-lock' &&
+            overrides.globalBranchExists !== true
+              ? Promise.reject(new NotFoundError('Reference does not exist'))
+              : targetGetBranch(parameters)
         ),
         getContent: createMock<LockOctokit['rest']['repos']['getContent']>(() =>
           Promise.resolve({data: {content: lockBase64Octocat}})
         ),
-        ...overrides.repos
+        ...reposOverrides
       }
     }
   } satisfies LockOctokit
@@ -245,6 +258,7 @@ let createdLock: LockResponse
 let monalisaOwner: LockResponse
 let noLockFound: LockResponse
 let failedToCreateLock: LockResponse
+let ambiguousLock: LockResponse
 let createBlobMock: Mock<LockOctokit['rest']['git']['createBlob']>
 let createCommitMock: Mock<LockOctokit['rest']['git']['createCommit']>
 let createRefMock: Mock<LockOctokit['rest']['git']['createRef']>
@@ -358,6 +372,13 @@ beforeEach(() => {
     environment,
     global: false
   } satisfies LockResponse
+  ambiguousLock = {
+    lockData: null,
+    status: 'ambiguous',
+    globalFlag,
+    environment,
+    global: false
+  } satisfies LockResponse
 
   context = contextFor('.lock')
   createBlobMock = createMock<LockOctokit['rest']['git']['createBlob']>(() =>
@@ -372,18 +393,18 @@ beforeEach(() => {
   createTreeMock = createMock<LockOctokit['rest']['git']['createTree']>(() =>
     Promise.resolve({data: {sha: 'tree-sha'}})
   )
-  const getBranch = createMock<LockOctokit['rest']['repos']['getBranch']>(() =>
-    Promise.resolve({data: {commit: {sha: 'abc123'}}})
-  )
-  queueMockImplementation(
-    getBranch,
-    () => Promise.reject(new NotFoundError('Reference does not exist')),
-    () =>
-      Promise.resolve({
-        data: {
-          commit: {sha: 'abc123', commit: {tree: {sha: 'base-tree-sha'}}}
-        }
-      })
+  const getBranch = createMock<LockOctokit['rest']['repos']['getBranch']>(
+    parameters =>
+      parameters?.branch === 'main'
+        ? Promise.resolve({
+            data: {
+              commit: {
+                sha: 'abc123',
+                commit: {tree: {sha: 'base-tree-sha'}}
+              }
+            }
+          })
+        : Promise.reject(new NotFoundError('Reference does not exist'))
   )
   octokit = createLockOctokit({
     repos: {
@@ -752,10 +773,7 @@ for (const [name, finalContent] of [
       }
     })
 
-    assert.deepStrictEqual(
-      await lock(lockRequest({octokit})),
-      failedToCreateLock
-    )
+    assert.deepStrictEqual(await lock(lockRequest({octokit})), ambiguousLock)
     assertSetFailedMatches(/Cannot process deployment lock/u)
   })
 }
@@ -1058,7 +1076,7 @@ test('fails closed when lock JSON contains an invalid global field', async () =>
   })
 
   const result = await lock(lockRequest({octokit}))
-  assert.strictEqual(result.status, false)
+  assert.strictEqual(result.status, 'ambiguous')
   const message = latestActionStatusRequest().message
   assert.ok(message.includes('does not contain a readable `lock.json`'))
   assert.ok(message.includes('`.unlock production`'))
@@ -1074,9 +1092,7 @@ test('Determines that another user has the lock (GLOBAL) and exits - during a di
       get: createMock<LockOctokit['rest']['repos']['get']>(() =>
         Promise.resolve({data: {default_branch: 'main'}})
       ),
-      getContent: mockGetContent(new NotFoundError('file not found'), {
-        data: {content: lockBase64OctocatGlobal}
-      })
+      getContent: mockGetContent({data: {content: lockBase64OctocatGlobal}})
     }
   })
   assert.deepStrictEqual(
@@ -1536,7 +1552,7 @@ test('fails closed when a details request finds a lock branch without a lock fil
         sticky: null
       })
     ),
-    failedToCreateLock
+    ambiguousLock
   )
   assert.match(
     latestActionStatusRequest().message,
@@ -1549,6 +1565,36 @@ test('fails closed when a details request finds a lock branch without a lock fil
     debugMock,
     `constructed lock branch name: ${environment}-branch-deploy-lock`
   )
+})
+
+test('fails closed when the global lock branch exists without a lock file', async () => {
+  const createRef = createMock<LockOctokit['rest']['git']['createRef']>(() =>
+    Promise.resolve({status: 201})
+  )
+  const octokit = createLockOctokit({
+    globalBranchExists: true,
+    git: {createRef},
+    repos: {
+      getBranch: createMock<LockOctokit['rest']['repos']['getBranch']>(() =>
+        Promise.resolve({data: {commit: {sha: 'global-lock-sha'}}})
+      ),
+      getContent: mockGetContent(new NotFoundError('file not found'))
+    }
+  })
+
+  assert.deepStrictEqual(await lock(lockRequest({octokit})), {
+    lockData: null,
+    status: 'ambiguous',
+    environment: null,
+    globalFlag,
+    global: true
+  })
+  assertNotCalled(createRef)
+  assert.match(
+    latestActionStatusRequest().message,
+    /global-branch-deploy-lock.*does not contain a readable `lock\.json`/u
+  )
+  assertSetFailedMatches(/Cannot process deployment lock/u)
 })
 
 test('fails closed when the global lock file contains a non-object value', async () => {
@@ -1577,7 +1623,7 @@ test('fails closed when the global lock file contains a non-object value', async
     ),
     {
       lockData: null,
-      status: false,
+      status: 'ambiguous',
       environment: null,
       globalFlag,
       global: true
@@ -1593,7 +1639,7 @@ test('fails closed when the global lock file cannot be decoded', async () => {
 
   assert.deepStrictEqual(await lock(lockRequest({octokit})), {
     lockData: null,
-    status: false,
+    status: 'ambiguous',
     environment: null,
     globalFlag,
     global: true
@@ -1863,7 +1909,7 @@ test('fails closed when the lock file cannot be decoded', async () => {
 
   assert.deepStrictEqual(
     await lock(lockRequest({octokit, sticky: true})),
-    failedToCreateLock
+    ambiguousLock
   )
   assertSetFailedMatches(/Cannot process deployment lock/u)
   assertCalledWith(debugMock, `detected lock env: ${environment}`)
@@ -1909,7 +1955,7 @@ test('does not repair a lock branch that exists without a lock file', async () =
     },
     git: {createRef}
   })
-  assert.deepStrictEqual(await lock(lockRequest({octokit})), failedToCreateLock)
+  assert.deepStrictEqual(await lock(lockRequest({octokit})), ambiguousLock)
   assertCalledWith(debugMock, `detected lock env: ${environment}`)
   assertCalledWith(debugMock, `detected lock global: false`)
   assertCalledWith(
