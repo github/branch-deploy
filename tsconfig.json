@@ -23,19 +23,16 @@
     "erasableSyntaxOnly": true,
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
-    "allowJs": true,
-    "checkJs": true,
     "noEmit": true,
     "forceConsistentCasingInFileNames": true,
     "types": ["node"],
-    "skipLibCheck": true
+    "skipLibCheck": false
   },
   "include": [
     "src/**/*.ts",
     "__tests__/**/*.ts",
     "src/types/**/*.d.ts",
-    "vitest.config.ts",
-    "eslint.config.js"
+    "tools/**/*.ts"
   ],
   "exclude": ["coverage", "dist", "node_modules"]
 }

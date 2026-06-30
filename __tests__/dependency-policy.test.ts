@@ -1,5 +1,6 @@
 import {readFileSync} from 'node:fs'
-import {expect, test} from 'vitest'
+import assert from 'node:assert/strict'
+import {test} from 'node:test'
 
 const EXPECTED_RUNTIME_DEPENDENCIES = {
   '@actions/github': '9.0.0',
@@ -9,22 +10,15 @@ const EXPECTED_RUNTIME_DEPENDENCIES = {
 } as const satisfies Record<string, string>
 
 const EXPECTED_DEVELOPMENT_DEPENDENCIES = {
-  '@eslint/js': '9.39.2',
-  '@types/node': '24.3.0',
+  '@types/node': '24.13.2',
   '@vercel/ncc': '0.44.0',
-  '@vitest/coverage-v8': '4.1.0',
-  eslint: '9.39.2',
   'js-yaml': '4.2.0',
   prettier: '3.8.1',
-  typescript: '5.9.3',
-  'typescript-eslint': '8.61.1',
-  vitest: '4.1.0'
+  typescript: '5.9.3'
 } as const satisfies Record<string, string>
 
 const EXPECTED_OVERRIDES = {
-  flatted: '3.4.2',
-  undici: '6.27.0',
-  vite: '8.0.16'
+  undici: '6.27.0'
 } as const satisfies Record<string, string>
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -56,15 +50,21 @@ test('direct dependencies are approved, exact, and locked', () => {
     'package-lock.json root package'
   )
 
-  expect(packageJson['dependencies']).toStrictEqual(
+  assert.deepStrictEqual(
+    packageJson['dependencies'],
     EXPECTED_RUNTIME_DEPENDENCIES
   )
-  expect(packageJson['devDependencies']).toStrictEqual(
+  assert.deepStrictEqual(
+    packageJson['devDependencies'],
     EXPECTED_DEVELOPMENT_DEPENDENCIES
   )
-  expect(packageJson['overrides']).toStrictEqual(EXPECTED_OVERRIDES)
-  expect(lockRoot['dependencies']).toStrictEqual(EXPECTED_RUNTIME_DEPENDENCIES)
-  expect(lockRoot['devDependencies']).toStrictEqual(
+  assert.deepStrictEqual(packageJson['overrides'], EXPECTED_OVERRIDES)
+  assert.deepStrictEqual(
+    lockRoot['dependencies'],
+    EXPECTED_RUNTIME_DEPENDENCIES
+  )
+  assert.deepStrictEqual(
+    lockRoot['devDependencies'],
     EXPECTED_DEVELOPMENT_DEPENDENCIES
   )
 })
@@ -106,8 +106,24 @@ test('resolved packages preserve public integrity and install-script policy', ()
     }
   }
 
-  expect(violations).toStrictEqual([])
-  expect(installScripts).toStrictEqual([
-    {path: 'node_modules/fsevents', dev: true, optional: true}
-  ])
+  const resolved = Object.entries(lockPackages).filter(([path]) => path !== '')
+  const runtime = resolved.filter(([, value]) => {
+    const entry = requireRecord(value, 'lockfile package')
+    return entry['dev'] !== true
+  })
+  const development = resolved.filter(([, value]) => {
+    const entry = requireRecord(value, 'lockfile package')
+    return entry['dev'] === true
+  })
+  const optional = resolved.filter(([, value]) => {
+    const entry = requireRecord(value, 'lockfile package')
+    return entry['optional'] === true
+  })
+
+  assert.deepStrictEqual(violations, [])
+  assert.deepStrictEqual(installScripts, [])
+  assert.strictEqual(resolved.length, 32)
+  assert.strictEqual(runtime.length, 25)
+  assert.strictEqual(development.length, 7)
+  assert.strictEqual(optional.length, 0)
 })
