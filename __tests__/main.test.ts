@@ -1,44 +1,184 @@
-import {vi, expect, test, beforeEach, type MockInstance} from 'vitest'
-import {run} from '../src/main.ts'
-import * as reactEmote from '../src/functions/react-emote.ts'
-import * as contextCheck from '../src/functions/context-check.ts'
-import * as prechecks from '../src/functions/prechecks.ts'
-import * as branchRulesetChecks from '../src/functions/branch-ruleset-checks.ts'
-import * as help from '../src/functions/help.ts'
-import * as validPermissions from '../src/functions/valid-permissions.ts'
-import * as identicalCommitCheck from '../src/functions/identical-commit-check.ts'
-import * as unlockOnMerge from '../src/functions/unlock-on-merge.ts'
-import * as lock from '../src/functions/lock.ts'
-import * as unlock from '../src/functions/unlock.ts'
-import * as actionStatus from '../src/functions/action-status.ts'
-import * as github from '@actions/github'
-import * as core from '../src/actions-core.ts'
-import * as isDeprecated from '../src/functions/deprecated-checks.ts'
-import * as nakedCommandCheck from '../src/functions/naked-command-check.ts'
-import * as validDeploymentOrder from '../src/functions/valid-deployment-order.ts'
-import * as commitSafetyChecks from '../src/functions/commit-safety-checks.ts'
-import * as timestamp from '../src/functions/timestamp.ts'
-import * as deploymentConfirmation from '../src/functions/deployment-confirmation.ts'
+import assert from 'node:assert/strict'
+import {afterEach, beforeEach, mock, test, type Mock} from 'node:test'
+import {isDeepStrictEqual} from 'node:util'
 import {COLORS} from '../src/functions/colors.ts'
-import {createOctokit} from './test-helpers.ts'
 import type {BranchDeployOctokit} from '../src/types.ts'
+import {
+  assertCalledWith,
+  assertNotCalled,
+  createMock,
+  installModuleMock
+} from './node-test-helpers.ts'
 
-vi.mock(import('@actions/github'), {spy: true})
+type ActionsCore = typeof import('../src/actions-core.ts')
+type ActionStatusModule = typeof import('../src/functions/action-status.ts')
+type BranchRulesetChecksModule =
+  typeof import('../src/functions/branch-ruleset-checks.ts')
+type CommitSafetyChecksModule =
+  typeof import('../src/functions/commit-safety-checks.ts')
+type ContextCheckModule = typeof import('../src/functions/context-check.ts')
+type DeploymentConfirmationModule =
+  typeof import('../src/functions/deployment-confirmation.ts')
+type DeprecatedChecksModule =
+  typeof import('../src/functions/deprecated-checks.ts')
+type HelpModule = typeof import('../src/functions/help.ts')
+type IdenticalCommitCheckModule =
+  typeof import('../src/functions/identical-commit-check.ts')
+type LockModule = typeof import('../src/functions/lock.ts')
+type NakedCommandCheckModule =
+  typeof import('../src/functions/naked-command-check.ts')
+type PrechecksModule = typeof import('../src/functions/prechecks.ts')
+type ReactEmoteModule = typeof import('../src/functions/react-emote.ts')
+type TimestampModule = typeof import('../src/functions/timestamp.ts')
+type UnlockModule = typeof import('../src/functions/unlock.ts')
+type UnlockOnMergeModule = typeof import('../src/functions/unlock-on-merge.ts')
+type ValidDeploymentOrderModule =
+  typeof import('../src/functions/valid-deployment-order.ts')
+type ValidPermissionsModule =
+  typeof import('../src/functions/valid-permissions.ts')
 
-const setOutputMock = vi.spyOn(core, 'setOutput')
-const saveStateMock = vi.spyOn(core, 'saveState')
-const setFailedMock = vi.spyOn(core, 'setFailed')
-const infoMock = vi.spyOn(core, 'info')
-const debugMock = vi.spyOn(core, 'debug')
-const warningMock = vi.spyOn(core, 'warning')
-const errorMock = vi.spyOn(core, 'error')
-const validDeploymentOrderMock = vi.spyOn(
-  validDeploymentOrder,
-  'validDeploymentOrder'
+const actualCore = await import('../src/actions-core.ts')
+const actualGithub = await import('@actions/github')
+const githubContext = actualGithub.context
+
+const setOutputMock = createMock<ActionsCore['setOutput']>()
+const saveStateMock = createMock<ActionsCore['saveState']>()
+const setFailedMock = createMock<ActionsCore['setFailed']>()
+const infoMock = createMock<ActionsCore['info']>()
+const debugMock = createMock<ActionsCore['debug']>()
+const warningMock = createMock<ActionsCore['warning']>()
+const errorMock = createMock<ActionsCore['error']>()
+const actionStatusMock = createMock<ActionStatusModule['actionStatus']>()
+const branchRulesetChecksMock =
+  createMock<BranchRulesetChecksModule['branchRulesetChecks']>()
+const commitSafetyChecksMock =
+  createMock<CommitSafetyChecksModule['commitSafetyChecks']>()
+const contextCheckMock = createMock<ContextCheckModule['contextCheck']>()
+const deploymentConfirmationMock =
+  createMock<DeploymentConfirmationModule['deploymentConfirmation']>()
+const isDeprecatedMock = createMock<DeprecatedChecksModule['isDeprecated']>()
+const helpMock = createMock<HelpModule['help']>()
+const identicalCommitCheckMock =
+  createMock<IdenticalCommitCheckModule['identicalCommitCheck']>()
+const lockMock = createMock<LockModule['lock']>()
+const nakedCommandCheckMock =
+  createMock<NakedCommandCheckModule['nakedCommandCheck']>()
+const prechecksMock = createMock<PrechecksModule['prechecks']>()
+const reactEmoteMock = createMock<ReactEmoteModule['reactEmote']>()
+const timestampMock = createMock<TimestampModule['timestamp']>()
+const unlockMock = createMock<UnlockModule['unlock']>()
+const unlockOnMergeMock = createMock<UnlockOnMergeModule['unlockOnMerge']>()
+const validDeploymentOrderMock =
+  createMock<ValidDeploymentOrderModule['validDeploymentOrder']>()
+const validPermissionsMock =
+  createMock<ValidPermissionsModule['validPermissions']>()
+
+let octokit: BranchDeployOctokit = actualGithub.getOctokit('test-token')
+const getOctokitMock = createMock<typeof actualGithub.getOctokit>(() => octokit)
+
+installModuleMock(mock, '@actions/github', {
+  context: githubContext,
+  getOctokit: getOctokitMock
+})
+installModuleMock(mock, new URL('../src/actions-core.ts', import.meta.url), {
+  ...actualCore,
+  debug: debugMock,
+  error: errorMock,
+  info: infoMock,
+  saveState: saveStateMock,
+  setFailed: setFailedMock,
+  setOutput: setOutputMock,
+  warning: warningMock
+})
+installModuleMock(
+  mock,
+  new URL('../src/functions/action-status.ts', import.meta.url),
+  {actionStatus: actionStatusMock}
 )
+installModuleMock(
+  mock,
+  new URL('../src/functions/branch-ruleset-checks.ts', import.meta.url),
+  {branchRulesetChecks: branchRulesetChecksMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/commit-safety-checks.ts', import.meta.url),
+  {commitSafetyChecks: commitSafetyChecksMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/context-check.ts', import.meta.url),
+  {contextCheck: contextCheckMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/deployment-confirmation.ts', import.meta.url),
+  {deploymentConfirmation: deploymentConfirmationMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/deprecated-checks.ts', import.meta.url),
+  {isDeprecated: isDeprecatedMock}
+)
+installModuleMock(mock, new URL('../src/functions/help.ts', import.meta.url), {
+  help: helpMock
+})
+installModuleMock(
+  mock,
+  new URL('../src/functions/identical-commit-check.ts', import.meta.url),
+  {identicalCommitCheck: identicalCommitCheckMock}
+)
+installModuleMock(mock, new URL('../src/functions/lock.ts', import.meta.url), {
+  lock: lockMock
+})
+installModuleMock(
+  mock,
+  new URL('../src/functions/naked-command-check.ts', import.meta.url),
+  {nakedCommandCheck: nakedCommandCheckMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/prechecks.ts', import.meta.url),
+  {prechecks: prechecksMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/react-emote.ts', import.meta.url),
+  {reactEmote: reactEmoteMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/timestamp.ts', import.meta.url),
+  {timestamp: timestampMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/unlock.ts', import.meta.url),
+  {unlock: unlockMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/unlock-on-merge.ts', import.meta.url),
+  {unlockOnMerge: unlockOnMergeMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/valid-deployment-order.ts', import.meta.url),
+  {validDeploymentOrder: validDeploymentOrderMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/valid-permissions.ts', import.meta.url),
+  {validPermissions: validPermissionsMock}
+)
+
+const {run} = await import('../src/main.ts')
+
 type CreateDeployment = BranchDeployOctokit['rest']['repos']['createDeployment']
-let createDeploymentMock: MockInstance<CreateDeployment> =
-  vi.fn<CreateDeployment>()
+let createDeploymentMock: Mock<CreateDeployment> = mock.method(
+  octokit.rest.repos,
+  'createDeployment'
+)
 
 const permissionsMsg =
   '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
@@ -56,61 +196,134 @@ const no_verification = {
 }
 
 function setCommentBody(body: string): void {
-  const comment = github.context.payload.comment
+  const comment = githubContext.payload.comment
   if (comment === undefined) throw new Error('missing test comment')
   comment['body'] = body
+}
+
+const environmentDefaults = {
+  GITHUB_SERVER_URL: 'https://github.com',
+  GITHUB_RUN_ID: '12345',
+  INPUT_GITHUB_TOKEN: 'faketoken',
+  INPUT_TRIGGER: '.deploy',
+  INPUT_REACTION: 'eyes',
+  INPUT_UPDATE_BRANCH: 'warn',
+  INPUT_ENVIRONMENT: 'production',
+  INPUT_ENVIRONMENT_TARGETS: 'production,development,staging',
+  INPUT_ENVIRONMENT_URLS: '',
+  INPUT_PARAM_SEPARATOR: '|',
+  INPUT_PRODUCTION_ENVIRONMENTS: 'production',
+  INPUT_STABLE_BRANCH: 'main',
+  INPUT_NOOP_TRIGGER: '.noop',
+  INPUT_LOCK_TRIGGER: '.lock',
+  INPUT_UNLOCK_TRIGGER: '.unlock',
+  INPUT_HELP_TRIGGER: '.help',
+  INPUT_LOCK_INFO_ALIAS: '.wcid',
+  INPUT_REQUIRED_CONTEXTS: 'false',
+  INPUT_ALLOW_FORKS: 'true',
+  GITHUB_REPOSITORY: 'corp/test',
+  INPUT_GLOBAL_LOCK_FLAG: '--global',
+  INPUT_MERGE_DEPLOY_MODE: 'false',
+  INPUT_UNLOCK_ON_MERGE_MODE: 'false',
+  INPUT_STICKY_LOCKS: 'false',
+  INPUT_STICKY_LOCKS_FOR_NOOP: 'false',
+  INPUT_ALLOW_SHA_DEPLOYMENTS: 'false',
+  INPUT_DISABLE_NAKED_COMMANDS: 'false',
+  INPUT_OUTDATED_MODE: 'default_branch',
+  INPUT_CHECKS: 'all',
+  INPUT_ENFORCED_DEPLOYMENT_ORDER: '',
+  INPUT_COMMIT_VERIFICATION: 'false',
+  INPUT_IGNORED_CHECKS: '',
+  INPUT_USE_SECURITY_WARNINGS: 'true',
+  INPUT_ALLOW_NON_DEFAULT_TARGET_BRANCH_DEPLOYMENTS: 'false',
+  INPUT_DEPLOYMENT_CONFIRMATION: 'false',
+  INPUT_DEPLOYMENT_CONFIRMATION_TIMEOUT: '60'
+} as const
+
+const originalEnvironment = new Map(
+  Object.keys(environmentDefaults).map(name => [name, process.env[name]])
+)
+
+function setEnv(name: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[name]
+  else process.env[name] = value
+}
+
+function assertNotCalledWith<
+  FunctionType extends (...arguments_: never[]) => unknown
+>(mockFunction: Mock<FunctionType>, ...expected: readonly unknown[]): void {
+  assert.ok(
+    !mockFunction.mock.calls.some(call =>
+      assertPartialArguments(call.arguments, expected)
+    ),
+    'expected mock not to have been called with the supplied arguments'
+  )
+}
+
+function assertPartialArguments(
+  actual: readonly unknown[],
+  expected: readonly unknown[]
+): boolean {
+  return expected.every((value, index) => {
+    if (value === String) return typeof actual[index] === 'string'
+    return isDeepStrictEqual(actual[index], value)
+  })
+}
+
+function setLockResult(result: Awaited<ReturnType<LockModule['lock']>>): void {
+  lockMock.mock.mockImplementation(() => Promise.resolve(result))
+}
+
+function setPrechecksResult(
+  result: Awaited<ReturnType<PrechecksModule['prechecks']>>
+): void {
+  prechecksMock.mock.mockImplementation(() => Promise.resolve(result))
+}
+
+function setValidPermissionsResult(
+  result: Awaited<ReturnType<ValidPermissionsModule['validPermissions']>>
+): void {
+  validPermissionsMock.mock.mockImplementation(() => Promise.resolve(result))
 }
 
 beforeEach(() => {
   commitLogin = 'monalisa'
   deploymentMessage = null
-  // Clear only the module-level mocks
-  setOutputMock.mockClear()
-  setFailedMock.mockClear()
-  saveStateMock.mockClear()
-  infoMock.mockClear()
-  debugMock.mockClear()
-  warningMock.mockClear()
-  errorMock.mockClear()
-  validDeploymentOrderMock.mockClear()
-  vi.stubEnv('GITHUB_SERVER_URL', 'https://github.com')
-  vi.stubEnv('GITHUB_RUN_ID', '12345')
-  vi.stubEnv('INPUT_GITHUB_TOKEN', 'faketoken')
-  vi.stubEnv('INPUT_TRIGGER', '.deploy')
-  vi.stubEnv('INPUT_REACTION', 'eyes')
-  vi.stubEnv('INPUT_UPDATE_BRANCH', 'warn')
-  vi.stubEnv('INPUT_ENVIRONMENT', 'production')
-  vi.stubEnv('INPUT_ENVIRONMENT_TARGETS', 'production,development,staging')
-  vi.stubEnv('INPUT_ENVIRONMENT_URLS', '')
-  vi.stubEnv('INPUT_PARAM_SEPARATOR', '|')
-  vi.stubEnv('INPUT_PRODUCTION_ENVIRONMENTS', 'production')
-  vi.stubEnv('INPUT_STABLE_BRANCH', 'main')
-  vi.stubEnv('INPUT_NOOP_TRIGGER', '.noop')
-  vi.stubEnv('INPUT_LOCK_TRIGGER', '.lock')
-  vi.stubEnv('INPUT_UNLOCK_TRIGGER', '.unlock')
-  vi.stubEnv('INPUT_HELP_TRIGGER', '.help')
-  vi.stubEnv('INPUT_LOCK_INFO_ALIAS', '.wcid')
-  vi.stubEnv('INPUT_REQUIRED_CONTEXTS', 'false')
-  vi.stubEnv('INPUT_ALLOW_FORKS', 'true')
-  vi.stubEnv('GITHUB_REPOSITORY', 'corp/test')
-  vi.stubEnv('INPUT_GLOBAL_LOCK_FLAG', '--global')
-  vi.stubEnv('INPUT_MERGE_DEPLOY_MODE', 'false')
-  vi.stubEnv('INPUT_UNLOCK_ON_MERGE_MODE', 'false')
-  vi.stubEnv('INPUT_STICKY_LOCKS', 'false')
-  vi.stubEnv('INPUT_STICKY_LOCKS_FOR_NOOP', 'false')
-  vi.stubEnv('INPUT_ALLOW_SHA_DEPLOYMENTS', 'false')
-  vi.stubEnv('INPUT_DISABLE_NAKED_COMMANDS', 'false')
-  vi.stubEnv('INPUT_OUTDATED_MODE', 'default_branch')
-  vi.stubEnv('INPUT_CHECKS', 'all')
-  vi.stubEnv('INPUT_ENFORCED_DEPLOYMENT_ORDER', '')
-  vi.stubEnv('INPUT_COMMIT_VERIFICATION', 'false')
-  vi.stubEnv('INPUT_IGNORED_CHECKS', '')
-  vi.stubEnv('INPUT_USE_SECURITY_WARNINGS', 'true')
-  vi.stubEnv('INPUT_ALLOW_NON_DEFAULT_TARGET_BRANCH_DEPLOYMENTS', 'false')
-  vi.stubEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'false')
-  vi.stubEnv('INPUT_DEPLOYMENT_CONFIRMATION_TIMEOUT', '60')
+  for (const [name, value] of Object.entries(environmentDefaults)) {
+    process.env[name] = value
+  }
 
-  github.context.payload = {
+  for (const mockFunction of [
+    setOutputMock,
+    setFailedMock,
+    saveStateMock,
+    infoMock,
+    debugMock,
+    warningMock,
+    errorMock,
+    actionStatusMock,
+    branchRulesetChecksMock,
+    commitSafetyChecksMock,
+    contextCheckMock,
+    deploymentConfirmationMock,
+    isDeprecatedMock,
+    helpMock,
+    identicalCommitCheckMock,
+    lockMock,
+    nakedCommandCheckMock,
+    prechecksMock,
+    reactEmoteMock,
+    timestampMock,
+    unlockMock,
+    unlockOnMergeMock,
+    validDeploymentOrderMock,
+    validPermissionsMock,
+    getOctokitMock
+  ]) {
+    mockFunction.mock.resetCalls()
+  }
+
+  githubContext.payload = {
     issue: {
       number: 123
     },
@@ -126,9 +339,9 @@ beforeEach(() => {
     }
   }
 
-  github.context.actor = 'monalisa'
+  githubContext.actor = 'monalisa'
 
-  const octokit = createOctokit()
+  octokit = actualGithub.getOctokit('test-token')
   octokit.hook.wrap('request', (_request, options) => {
     let data: unknown = {}
     if (options.url.endsWith('/issues/{issue_number}/comments')) {
@@ -152,455 +365,464 @@ beforeEach(() => {
 
     return {data, headers: {}, status: 200, url: options.url}
   })
-  createDeploymentMock = vi.spyOn(octokit.rest.repos, 'createDeployment')
-  vi.spyOn(github, 'getOctokit').mockReturnValue(octokit)
-  vi.spyOn(isDeprecated, 'isDeprecated').mockResolvedValue(false)
-  vi.spyOn(deploymentConfirmation, 'deploymentConfirmation').mockResolvedValue(
-    true
+  createDeploymentMock = mock.method(octokit.rest.repos, 'createDeployment')
+  getOctokitMock.mock.mockImplementation(() => octokit)
+  isDeprecatedMock.mock.mockImplementation(() => Promise.resolve(false))
+  deploymentConfirmationMock.mock.mockImplementation(() =>
+    Promise.resolve(true)
   )
-  vi.spyOn(lock, 'lock').mockResolvedValue({
-    environment: 'production',
-    global: false,
-    globalFlag: '',
-    lockData: null,
-    status: true
-  })
-  vi.spyOn(contextCheck, 'contextCheck').mockReturnValue(true)
-  vi.spyOn(reactEmote, 'reactEmote').mockResolvedValue({
-    data: {
-      id: 123
-    }
-  })
-  vi.spyOn(timestamp, 'timestamp').mockImplementation(() => {
-    return '2025-01-01T00:00:00.000Z'
-  })
-  vi.spyOn(prechecks, 'prechecks').mockResolvedValue({
-    ref: 'test-ref',
-    status: true,
-    message: '✔️ PR is approved and all CI checks passed - OK',
-    noopMode: false,
-    sha: mock_sha,
-    isFork: false
-  })
-  vi.spyOn(branchRulesetChecks, 'branchRulesetChecks').mockResolvedValue({
-    success: true
-  })
-  vi.spyOn(commitSafetyChecks, 'commitSafetyChecks').mockReturnValue({
+  lockMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      environment: 'production',
+      global: false,
+      globalFlag: '',
+      lockData: null,
+      status: true
+    })
+  )
+  contextCheckMock.mock.mockImplementation(() => true)
+  reactEmoteMock.mock.mockImplementation(() =>
+    Promise.resolve({data: {id: 123}})
+  )
+  timestampMock.mock.mockImplementation(() => '2025-01-01T00:00:00.000Z')
+  prechecksMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      ref: 'test-ref',
+      status: true,
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: false,
+      sha: mock_sha,
+      isFork: false
+    })
+  )
+  branchRulesetChecksMock.mock.mockImplementation(() =>
+    Promise.resolve({success: true})
+  )
+  commitSafetyChecksMock.mock.mockImplementation(() => ({
     status: true,
     message: 'success',
     isVerified: true
-  })
-  validDeploymentOrderMock.mockResolvedValue({valid: true, results: []})
+  }))
+  actionStatusMock.mock.mockImplementation(() => Promise.resolve())
+  helpMock.mock.mockImplementation(() => Promise.resolve())
+  identicalCommitCheckMock.mock.mockImplementation(() => Promise.resolve(true))
+  nakedCommandCheckMock.mock.mockImplementation(() => Promise.resolve(false))
+  unlockOnMergeMock.mock.mockImplementation(() => Promise.resolve(true))
+  validDeploymentOrderMock.mock.mockImplementation(() =>
+    Promise.resolve({valid: true, results: []})
+  )
+  validPermissionsMock.mock.mockImplementation(() => Promise.resolve(true))
+})
+
+afterEach(() => {
+  for (const [name, value] of originalEnvironment) setEnv(name, value)
 })
 
 test('successfully runs the action', async () => {
-  expect(await run()).toBe('success')
-  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
-  expect(debugMock).toHaveBeenCalledWith('production_environment: true')
-  expect(saveStateMock).not.toHaveBeenCalledWith('environment_url', String)
-  expect(setOutputMock).not.toHaveBeenCalledWith('environment_url', String)
-  expect(infoMock).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(setOutputMock, 'deployment_id', 123)
+  assertCalledWith(setOutputMock, 'comment_body', '.deploy')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'deployment_id', 123)
+  assertCalledWith(saveStateMock, 'sha', 'abc123')
+  assertCalledWith(debugMock, 'production_environment: true')
+  assertNotCalledWith(saveStateMock, 'environment_url', String)
+  assertNotCalledWith(setOutputMock, 'environment_url', String)
+  assertCalledWith(
+    infoMock,
     `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
   )
-  expect(infoMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    infoMock,
     `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
   )
 })
 
 test('preserves the missing run id fallback in the deployment payload', async () => {
-  vi.stubEnv('GITHUB_RUN_ID', undefined)
+  setEnv('GITHUB_RUN_ID', undefined)
 
-  expect(await run()).toBe('success')
-  expect(createDeploymentMock.mock.calls.at(-1)?.[0]).toMatchObject({
-    payload: {github_run_id: Number.NaN}
-  })
+  assert.strictEqual(await run(), 'success')
+  const request = createDeploymentMock.mock.calls.at(-1)?.arguments[0]
+  assert.ok(request !== undefined)
+  assert.ok(typeof request.payload === 'object' && request.payload !== null)
+  assert.ok(Number.isNaN(request.payload['github_run_id']))
 })
 
 test('fails the action early on when it fails to parse an int input', async () => {
-  vi.stubEnv('INPUT_DEPLOYMENT_CONFIRMATION_TIMEOUT', 'not-an-int')
+  setEnv('INPUT_DEPLOYMENT_CONFIRMATION_TIMEOUT', 'not-an-int')
 
-  expect(await run()).toBe(undefined)
-  expect(setFailedMock).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), undefined)
+  assertCalledWith(
+    setFailedMock,
     'Invalid value for deployment_confirmation_timeout: must be an integer'
   )
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  expect(infoMock).not.toHaveBeenCalledWith(
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+  assertNotCalledWith(
+    infoMock,
     `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
   )
-  expect(infoMock).not.toHaveBeenCalledWith(
+  assertNotCalledWith(
+    infoMock,
     `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
   )
 })
 
 test('successfully runs the action with deployment confirmation', async () => {
-  vi.stubEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
+  setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
 
-  vi.spyOn(deploymentConfirmation, 'deploymentConfirmation').mockResolvedValue(
-    true
+  deploymentConfirmationMock.mock.mockImplementation(() =>
+    Promise.resolve(true)
   )
 
-  expect(await run()).toBe('success')
-  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
-  expect(debugMock).toHaveBeenCalledWith('production_environment: true')
-  expect(debugMock).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(setOutputMock, 'deployment_id', 123)
+  assertCalledWith(setOutputMock, 'comment_body', '.deploy')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'deployment_id', 123)
+  assertCalledWith(saveStateMock, 'sha', 'abc123')
+  assertCalledWith(debugMock, 'production_environment: true')
+  assertCalledWith(
+    debugMock,
     'deploymentConfirmation() was successful - continuing with the deployment'
   )
-  expect(saveStateMock).not.toHaveBeenCalledWith('environment_url', String)
-  expect(setOutputMock).not.toHaveBeenCalledWith('environment_url', String)
-  expect(infoMock).toHaveBeenCalledWith(
+  assertNotCalledWith(saveStateMock, 'environment_url', String)
+  assertNotCalledWith(setOutputMock, 'environment_url', String)
+  assertCalledWith(
+    infoMock,
     `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
   )
-  expect(infoMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    infoMock,
     `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
   )
 })
 
 test('successfully runs the action with deployment confirmation and when the committer is not set', async () => {
-  vi.stubEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
+  setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
 
-  vi.spyOn(deploymentConfirmation, 'deploymentConfirmation').mockResolvedValue(
-    true
+  deploymentConfirmationMock.mock.mockImplementation(() =>
+    Promise.resolve(true)
   )
   commitLogin = null
 
-  expect(await run()).toBe('success')
-  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
-  expect(debugMock).toHaveBeenCalledWith('production_environment: true')
-  expect(debugMock).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(setOutputMock, 'deployment_id', 123)
+  assertCalledWith(setOutputMock, 'comment_body', '.deploy')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'deployment_id', 123)
+  assertCalledWith(saveStateMock, 'sha', 'abc123')
+  assertCalledWith(debugMock, 'production_environment: true')
+  assertCalledWith(
+    debugMock,
     'deploymentConfirmation() was successful - continuing with the deployment'
   )
-  expect(warningMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    warningMock,
     '⚠️ could not find the login of the committer - https://github.com/github/branch-deploy/issues/379'
   )
-  expect(saveStateMock).not.toHaveBeenCalledWith('environment_url', String)
-  expect(setOutputMock).not.toHaveBeenCalledWith('environment_url', String)
-  expect(infoMock).toHaveBeenCalledWith(
+  assertNotCalledWith(saveStateMock, 'environment_url', String)
+  assertNotCalledWith(setOutputMock, 'environment_url', String)
+  assertCalledWith(
+    infoMock,
     `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
   )
-  expect(infoMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    infoMock,
     `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
   )
 })
 
 test('rejects the deployment when deployment confirmation is set, but does not succeed', async () => {
-  vi.stubEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
+  setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
 
-  vi.spyOn(deploymentConfirmation, 'deploymentConfirmation').mockResolvedValue(
-    false
+  deploymentConfirmationMock.mock.mockImplementation(() =>
+    Promise.resolve(false)
   )
 
-  expect(await run()).toBe('failure')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).not.toHaveBeenCalledWith('continue', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).not.toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
-  expect(debugMock).not.toHaveBeenCalledWith('production_environment: true')
-  expect(debugMock).toHaveBeenCalledWith(
-    '❌ deployment not confirmed - exiting'
-  )
-  expect(saveStateMock).not.toHaveBeenCalledWith('environment_url', String)
-  expect(setOutputMock).not.toHaveBeenCalledWith('environment_url', String)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  expect(infoMock).not.toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'failure')
+  assertCalledWith(setOutputMock, 'comment_body', '.deploy')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertNotCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertNotCalledWith(saveStateMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'sha', 'abc123')
+  assertNotCalledWith(debugMock, 'production_environment: true')
+  assertCalledWith(debugMock, '❌ deployment not confirmed - exiting')
+  assertNotCalledWith(saveStateMock, 'environment_url', String)
+  assertNotCalledWith(setOutputMock, 'environment_url', String)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+  assertNotCalledWith(
+    infoMock,
     `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
   )
 })
 
 test('successfully runs the action on a deployment to development and with branch updates disabled', async () => {
-  vi.stubEnv('INPUT_UPDATE_BRANCH', 'disabled')
+  setEnv('INPUT_UPDATE_BRANCH', 'disabled')
   setCommentBody('.deploy to development')
 
-  expect(await run()).toBe('success')
-  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith(
-    'comment_body',
-    '.deploy to development'
-  )
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'development')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(debugMock).toHaveBeenCalledWith('production_environment: false')
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(setOutputMock, 'deployment_id', 123)
+  assertCalledWith(setOutputMock, 'comment_body', '.deploy to development')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'development')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'deployment_id', 123)
+  assertCalledWith(debugMock, 'production_environment: false')
 })
 
 test('successfully runs the action in noop mode', async () => {
-  vi.spyOn(prechecks, 'prechecks').mockResolvedValue({
-    ref: 'test-ref',
-    status: true,
-    message: '✔️ PR is approved and all CI checks passed - OK',
-    noopMode: true,
-    sha: 'deadbeef',
-    isFork: false
-  })
+  prechecksMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      ref: 'test-ref',
+      status: true,
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: true,
+      sha: 'deadbeef',
+      isFork: false
+    })
+  )
 
   setCommentBody('.noop')
 
-  expect(await run()).toBe('success - noop')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.noop')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', true)
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', true)
-  expect(infoMock).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'success - noop')
+  assertCalledWith(setOutputMock, 'comment_body', '.noop')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', true)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', true)
+  assertCalledWith(
+    infoMock,
     `🧑‍🚀 commit sha to noop: ${COLORS.highlight}deadbeef${COLORS.reset}`
   )
-  expect(infoMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    infoMock,
     `🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`
   )
 })
 
 test('successfully runs the action in noop mode when using sticky_locks_for_noop set to true', async () => {
-  vi.stubEnv('INPUT_STICKY_LOCKS_FOR_NOOP', 'true')
-  vi.spyOn(prechecks, 'prechecks').mockResolvedValue({
-    ref: 'test-ref',
-    status: true,
-    message: '✔️ PR is approved and all CI checks passed - OK',
-    noopMode: true,
-    sha: mock_sha,
-    isFork: false
-  })
+  setEnv('INPUT_STICKY_LOCKS_FOR_NOOP', 'true')
+  prechecksMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      ref: 'test-ref',
+      status: true,
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: true,
+      sha: mock_sha,
+      isFork: false
+    })
+  )
 
   setCommentBody('.noop')
 
-  expect(await run()).toBe('success - noop')
-  expect(debugMock).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'success - noop')
+  assertCalledWith(
+    debugMock,
     `🔒 noop mode detected and using stickyLocks: true`
   )
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.noop')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', true)
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', true)
+  assertCalledWith(setOutputMock, 'comment_body', '.noop')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', true)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', true)
 })
 
 test('successfully runs the action with an environment url used', async () => {
-  vi.stubEnv('INPUT_ENVIRONMENT_URLS', 'production|https://example.com')
-  expect(await run()).toBe('success')
-  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('sha', 'abc123')
-  expect(saveStateMock).toHaveBeenCalledWith(
-    'environment_url',
-    'https://example.com'
-  )
-  expect(setOutputMock).toHaveBeenCalledWith(
-    'environment_url',
-    'https://example.com'
-  )
-  expect(debugMock).toHaveBeenCalledWith('production_environment: true')
-  expect(infoMock).toHaveBeenCalledWith(
+  setEnv('INPUT_ENVIRONMENT_URLS', 'production|https://example.com')
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(setOutputMock, 'deployment_id', 123)
+  assertCalledWith(setOutputMock, 'comment_body', '.deploy')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'deployment_id', 123)
+  assertCalledWith(saveStateMock, 'sha', 'abc123')
+  assertCalledWith(saveStateMock, 'environment_url', 'https://example.com')
+  assertCalledWith(setOutputMock, 'environment_url', 'https://example.com')
+  assertCalledWith(debugMock, 'production_environment: true')
+  assertCalledWith(
+    infoMock,
     `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
   )
-  expect(infoMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    infoMock,
     `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
   )
 })
 
 test('runs the action and fails due to invalid environment deployment order', async () => {
-  vi.stubEnv(
-    'INPUT_ENFORCED_DEPLOYMENT_ORDER',
-    'development,staging,production'
+  setEnv('INPUT_ENFORCED_DEPLOYMENT_ORDER', 'development,staging,production')
+
+  validDeploymentOrderMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      valid: false,
+      results: [
+        {environment: 'development', active: true},
+        {environment: 'staging', active: false}
+      ]
+    })
   )
 
-  validDeploymentOrderMock.mockResolvedValue({
-    valid: false,
-    results: [
-      {
-        environment: 'development',
-        active: true
-      },
-      {
-        environment: 'staging',
-        active: false
-      }
-    ]
-  })
+  prechecksMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      ref: 'test-ref',
+      status: true,
+      message: '✔️ PR is approved and all CI checks passed - OK',
+      noopMode: false,
+      sha: 'deadbeef',
+      isFork: false
+    })
+  )
 
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
+  assert.strictEqual(await run(), 'failure')
+  assertCalledWith(setOutputMock, 'comment_body', '.deploy')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'type', 'deploy')
 
-  vi.spyOn(prechecks, 'prechecks').mockResolvedValue({
-    ref: 'test-ref',
-    status: true,
-    message: '✔️ PR is approved and all CI checks passed - OK',
-    noopMode: false,
-    sha: 'deadbeef',
-    isFork: false
-  })
-
-  expect(await run()).toBe('failure')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-
-  expect(validDeploymentOrderMock).toHaveBeenCalledWith(
-    expect.any(Object),
-    expect.any(Object),
+  const deploymentOrderCall = validDeploymentOrderMock.mock.calls.at(-1)
+  assert.ok(deploymentOrderCall !== undefined)
+  assert.strictEqual(deploymentOrderCall.arguments[0], octokit)
+  assert.strictEqual(deploymentOrderCall.arguments[1], githubContext)
+  assert.deepStrictEqual(deploymentOrderCall.arguments.slice(2), [
     ['development', 'staging', 'production'],
     'production',
     'deadbeef'
-  )
+  ])
 })
 
 test('runs the action and passes environment deployment order checks', async () => {
-  vi.stubEnv(
-    'INPUT_ENFORCED_DEPLOYMENT_ORDER',
-    'development,staging,production'
+  setEnv('INPUT_ENFORCED_DEPLOYMENT_ORDER', 'development,staging,production')
+
+  validDeploymentOrderMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      valid: true,
+      results: [
+        {environment: 'development', active: true},
+        {environment: 'staging', active: true}
+      ]
+    })
   )
 
-  validDeploymentOrderMock.mockResolvedValue({
-    valid: true,
-    results: [
-      {
-        environment: 'development',
-        active: true
-      },
-      {
-        environment: 'staging',
-        active: true
-      }
-    ]
-  })
-
-  expect(await run()).toBe('success')
-  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(debugMock).toHaveBeenCalledWith('production_environment: true')
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(setOutputMock, 'deployment_id', 123)
+  assertCalledWith(setOutputMock, 'comment_body', '.deploy')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'deployment_id', 123)
+  assertCalledWith(debugMock, 'production_environment: true')
 })
 
 test('runs the action in lock mode and fails due to bad permissions', async () => {
-  vi.spyOn(validPermissions, 'validPermissions').mockResolvedValue(
-    permissionsMsg
-  )
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
+  setValidPermissionsResult(permissionsMsg)
 
   setCommentBody('.lock')
 
-  expect(await run()).toBe('failure')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setFailedMock).toHaveBeenCalledWith(permissionsMsg)
+  assert.strictEqual(await run(), 'failure')
+  assertCalledWith(setOutputMock, 'comment_body', '.lock')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'lock')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(setFailedMock, permissionsMsg)
 })
 
 test('successfully runs the action in lock mode with a reason', async () => {
-  vi.spyOn(validPermissions, 'validPermissions').mockResolvedValue(true)
-  vi.spyOn(lock, 'lock').mockResolvedValue({
+  setValidPermissionsResult(true)
+  setLockResult({
     environment: 'production',
     global: false,
     globalFlag: '',
@@ -610,27 +832,26 @@ test('successfully runs the action in lock mode with a reason', async () => {
 
   setCommentBody('.lock --reason testing a new feature')
 
-  expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(
+    setOutputMock,
     'comment_body',
     '.lock --reason testing a new feature'
   )
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'lock')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
 })
 
 test('successfully runs the action in lock mode - details only', async () => {
-  const infoSpy = vi.spyOn(core, 'info').mockImplementation(() => undefined)
-  const actionStatusSpy = vi
-    .spyOn(actionStatus, 'actionStatus')
-    .mockResolvedValue(undefined)
-  vi.spyOn(validPermissions, 'validPermissions').mockResolvedValue(true)
-  vi.spyOn(lock, 'lock').mockResolvedValue({
+  const infoSpy = infoMock
+  const actionStatusSpy = actionStatusMock
+  setValidPermissionsResult(true)
+  setLockResult({
     lockData: {
       branch: 'octocats-everywhere',
       created_at: '2022-06-14T21:12:14.041Z',
@@ -651,31 +872,33 @@ test('successfully runs the action in lock mode - details only', async () => {
 
   setCommentBody('.lock --details')
 
-  expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --details')
-  expect(infoSpy).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(setOutputMock, 'comment_body', '.lock --details')
+  assertCalledWith(
+    infoSpy,
     `🔒 the deployment lock is currently claimed by ${COLORS.highlight}octocat`
   )
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  const comment = actionStatusSpy.mock.calls.at(-1)?.[0].message ?? ''
-  expect(comment).toContain(
-    '- __Reason__:\n\n      routine `\n      \n      ## Deployment approved\n      [continue](https://example.com)\n\n- __Branch__: `octocats-everywhere`'
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'lock')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+  const comment = actionStatusSpy.mock.calls.at(-1)?.arguments[0].message ?? ''
+  assert.ok(
+    comment.includes(
+      '- __Reason__:\n\n      routine `\n      \n      ## Deployment approved\n      [continue](https://example.com)\n\n- __Branch__: `octocats-everywhere`'
+    )
   )
-  expect(comment).not.toContain('\n## Deployment approved')
-  expect(comment).not.toContain('\n[continue](https://example.com)')
+  assert.ok(!comment.includes('\n## Deployment approved'))
+  assert.ok(!comment.includes('\n[continue](https://example.com)'))
 })
 
 test('successfully runs the action in lock mode - details only - for the development environment', async () => {
-  const infoSpy = vi.spyOn(core, 'info').mockImplementation(() => undefined)
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-  vi.spyOn(validPermissions, 'validPermissions').mockResolvedValue(true)
-  vi.spyOn(lock, 'lock').mockResolvedValue({
+  const infoSpy = infoMock
+  setValidPermissionsResult(true)
+  setLockResult({
     lockData: {
       branch: 'octocats-everywhere',
       created_at: '2022-06-14T21:12:14.041Z',
@@ -693,28 +916,25 @@ test('successfully runs the action in lock mode - details only - for the develop
     environment: 'development'
   })
   setCommentBody('.lock development --details')
-  expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith(
-    'comment_body',
-    '.lock development --details'
-  )
-  expect(infoSpy).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(setOutputMock, 'comment_body', '.lock development --details')
+  assertCalledWith(
+    infoSpy,
     `🔒 the deployment lock is currently claimed by ${COLORS.highlight}octocat`
   )
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'lock')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
 })
 
 test('successfully runs the action in lock mode - details only - --info flag', async () => {
-  const infoSpy = vi.spyOn(core, 'info').mockImplementation(() => undefined)
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-  vi.spyOn(validPermissions, 'validPermissions').mockResolvedValue(true)
-  vi.spyOn(lock, 'lock').mockResolvedValue({
+  const infoSpy = infoMock
+  setValidPermissionsResult(true)
+  setLockResult({
     lockData: {
       branch: 'octocats-everywhere',
       created_at: '2022-06-14T21:12:14.041Z',
@@ -732,25 +952,25 @@ test('successfully runs the action in lock mode - details only - --info flag', a
     environment: 'production'
   })
   setCommentBody('.lock --info')
-  expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --info')
-  expect(infoSpy).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(setOutputMock, 'comment_body', '.lock --info')
+  assertCalledWith(
+    infoSpy,
     `🔒 the deployment lock is currently claimed by ${COLORS.highlight}octocat`
   )
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'lock')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
 })
 
 test('successfully runs the action in lock mode - details only - lock alias wcid', async () => {
-  const infoSpy = vi.spyOn(core, 'info').mockImplementation(() => undefined)
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-  vi.spyOn(validPermissions, 'validPermissions').mockResolvedValue(true)
-  vi.spyOn(lock, 'lock').mockResolvedValue({
+  const infoSpy = infoMock
+  setValidPermissionsResult(true)
+  setLockResult({
     lockData: {
       branch: 'octocats-everywhere',
       created_at: '2022-06-14T21:12:14.041Z',
@@ -769,27 +989,27 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
   })
 
   setCommentBody('.wcid')
-  expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.wcid')
-  expect(infoSpy).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(setOutputMock, 'comment_body', '.wcid')
+  assertCalledWith(
+    infoSpy,
     `🔒 the deployment lock is currently claimed by ${COLORS.highlight}octocat`
   )
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock-info-alias')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'lock-info-alias')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('successfully runs the action in lock mode - details only - lock alias wcid - and finds a global lock', async () => {
-  const infoSpy = vi.spyOn(core, 'info').mockImplementation(() => undefined)
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-  vi.spyOn(validPermissions, 'validPermissions').mockResolvedValue(true)
-  vi.spyOn(lock, 'lock').mockResolvedValue({
+  const infoSpy = infoMock
+  setValidPermissionsResult(true)
+  setLockResult({
     lockData: {
       branch: 'octocats-everywhere',
       created_at: '2022-06-14T21:12:14.041Z',
@@ -807,30 +1027,31 @@ test('successfully runs the action in lock mode - details only - lock alias wcid
     environment: null
   })
   setCommentBody('.wcid production')
-  expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.wcid production')
-  expect(infoSpy).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(setOutputMock, 'comment_body', '.wcid production')
+  assertCalledWith(
+    infoSpy,
     `🌏 there is a ${COLORS.highlight}global${COLORS.reset} deployment lock on this repository`
   )
-  expect(infoSpy).toHaveBeenCalledWith(
+  assertCalledWith(
+    infoSpy,
     `🔒 the deployment lock is currently claimed by ${COLORS.highlight}octocat`
   )
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock-info-alias')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'lock-info-alias')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('successfully runs the action in lock mode and finds no lock - details only', async () => {
-  const infoSpy = vi.spyOn(core, 'info').mockImplementation(() => undefined)
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-  vi.spyOn(validPermissions, 'validPermissions').mockResolvedValue(true)
-  vi.spyOn(lock, 'lock').mockResolvedValue({
+  const infoSpy = infoMock
+  setValidPermissionsResult(true)
+  setLockResult({
     status: null,
     lockData: null,
     environment: 'production',
@@ -838,25 +1059,24 @@ test('successfully runs the action in lock mode and finds no lock - details only
     globalFlag: '--global'
   })
   setCommentBody('.lock --details')
-  expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.lock --details')
-  expect(infoSpy).toHaveBeenCalledWith('✅ no active deployment locks found')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(setOutputMock, 'comment_body', '.lock --details')
+  assertCalledWith(infoSpy, '✅ no active deployment locks found')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'lock')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('successfully runs the action in lock mode and finds no GLOBAL lock - details only', async () => {
-  const infoSpy = vi.spyOn(core, 'info').mockImplementation(() => undefined)
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-  vi.spyOn(validPermissions, 'validPermissions').mockResolvedValue(true)
-  vi.spyOn(lock, 'lock').mockResolvedValue({
+  const infoSpy = infoMock
+  setValidPermissionsResult(true)
+  setLockResult({
     status: null,
     lockData: null,
     environment: null,
@@ -864,81 +1084,77 @@ test('successfully runs the action in lock mode and finds no GLOBAL lock - detai
     globalFlag: '--global'
   })
   setCommentBody('.lock --global --details')
-  expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith(
-    'comment_body',
-    '.lock --global --details'
-  )
-  expect(infoSpy).toHaveBeenCalledWith('✅ no active deployment locks found')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(setOutputMock, 'comment_body', '.lock --global --details')
+  assertCalledWith(infoSpy, '✅ no active deployment locks found')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'lock')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('fails to aquire the lock on a deploy so it exits', async () => {
-  vi.spyOn(lock, 'lock').mockResolvedValue({
+  setLockResult({
     status: false,
     lockData: null,
     environment: 'production',
     global: false,
     globalFlag: ''
   })
-  expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('runs with the unlock trigger', async () => {
   setCommentBody('.unlock')
-  vi.spyOn(unlock, 'unlock').mockResolvedValue(true)
-  expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'unlock')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'unlock')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('runs with the deprecated noop input', async () => {
   setCommentBody('.deploy noop')
-  vi.spyOn(isDeprecated, 'isDeprecated').mockResolvedValue(true)
-  expect(await run()).toBe('safe-exit')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  isDeprecatedMock.mock.mockImplementation(() => Promise.resolve(true))
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'bypass', 'true')
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('runs with a naked command when naked commands are NOT allowed', async () => {
-  vi.stubEnv('INPUT_DISABLE_NAKED_COMMANDS', 'true')
+  setEnv('INPUT_DISABLE_NAKED_COMMANDS', 'true')
   setCommentBody('.deploy')
-  vi.spyOn(nakedCommandCheck, 'nakedCommandCheck').mockResolvedValue(true)
-  expect(await run()).toBe('safe-exit')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  nakedCommandCheckMock.mock.mockImplementation(() => Promise.resolve(true))
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'bypass', 'true')
 })
 
 test('successfully runs the action on a deployment to an exact sha in development with params', async () => {
-  vi.stubEnv('INPUT_ALLOW_SHA_DEPLOYMENTS', 'true')
-  vi.spyOn(prechecks, 'prechecks').mockResolvedValue({
+  setEnv('INPUT_ALLOW_SHA_DEPLOYMENTS', 'true')
+  setPrechecksResult({
     ref: 'test-ref',
     status: true,
     message: '✔️ PR is approved and all CI checks passed - OK',
@@ -951,31 +1167,32 @@ test('successfully runs the action on a deployment to an exact sha in developmen
     '.deploy 82c238c277ca3df56fe9418a5913d9188eafe3bc development | something1 something2 something3'
   )
 
-  expect(await run()).toBe('success')
-  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(setOutputMock, 'deployment_id', 123)
+  assertCalledWith(
+    setOutputMock,
     'comment_body',
     '.deploy 82c238c277ca3df56fe9418a5913d9188eafe3bc development | something1 something2 something3'
   )
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'development')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(debugMock).toHaveBeenCalledWith('production_environment: false')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'development')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'deployment_id', 123)
+  assertCalledWith(debugMock, 'production_environment: false')
 })
 
 test('successfully runs the action on a deployment and parse the given parameters', async () => {
-  vi.stubEnv('INPUT_ALLOW_SHA_DEPLOYMENTS', 'true')
-  vi.spyOn(prechecks, 'prechecks').mockResolvedValue({
+  setEnv('INPUT_ALLOW_SHA_DEPLOYMENTS', 'true')
+  setPrechecksResult({
     ref: 'test-ref',
     status: true,
     message: '✔️ PR is approved and all CI checks passed - OK',
@@ -997,16 +1214,17 @@ test('successfully runs the action on a deployment and parse the given parameter
     q: 'my-queue'
   }
 
-  expect(await run()).toBe('success')
-  expect(setOutputMock).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(
+    setOutputMock,
     'params',
     '--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue'
   )
-  expect(setOutputMock).toHaveBeenCalledWith('parsed_params', expectedParams)
+  assertCalledWith(setOutputMock, 'parsed_params', expectedParams)
 })
 
 test('successfully runs the action after trimming the body', async () => {
-  vi.spyOn(prechecks, 'prechecks').mockResolvedValue({
+  setPrechecksResult({
     ref: 'test-ref',
     status: true,
     message: '✔️ PR is approved and all CI checks passed - OK',
@@ -1015,233 +1233,217 @@ test('successfully runs the action after trimming the body', async () => {
     isFork: false
   })
   setCommentBody('.noop    \n\t\n   ')
-  expect(await run()).toBe('success - noop')
+  assert.strictEqual(await run(), 'success - noop')
   // other expects are similar to previous tests.
 })
 
 test('successfully runs the action with required contexts', async () => {
-  vi.stubEnv('INPUT_REQUIRED_CONTEXTS', 'lint,test,build')
-  expect(await run()).toBe('success')
-  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
+  setEnv('INPUT_REQUIRED_CONTEXTS', 'lint,test,build')
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(setOutputMock, 'deployment_id', 123)
+  assertCalledWith(setOutputMock, 'comment_body', '.deploy')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', false)
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('successfully runs the action with required contexts, explict checks, and some ignored checks', async () => {
-  vi.stubEnv('INPUT_CHECKS', 'test,build')
-  vi.stubEnv('INPUT_REQUIRED_CONTEXTS', 'lint,test,build')
-  vi.stubEnv('INPUT_IGNORED_CHECKS', 'lint,foo')
-  expect(await run()).toBe('success')
-  expect(setOutputMock).toHaveBeenCalledWith('deployment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('continue', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
+  setEnv('INPUT_CHECKS', 'test,build')
+  setEnv('INPUT_REQUIRED_CONTEXTS', 'lint,test,build')
+  setEnv('INPUT_IGNORED_CHECKS', 'lint,foo')
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(setOutputMock, 'deployment_id', 123)
+  assertCalledWith(setOutputMock, 'comment_body', '.deploy')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', false)
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('detects an out of date branch and exits', async () => {
   deploymentMessage = 'Auto-merged'
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-  expect(await run()).toBe('safe-exit')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_body', '.deploy')
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(setOutputMock).toHaveBeenCalledWith('noop', false)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'deploy')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('environment', 'production')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('ref', 'test-ref')
-  expect(saveStateMock).toHaveBeenCalledWith('noop', false)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(setOutputMock, 'comment_body', '.deploy')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'noop', false)
+  assertCalledWith(setOutputMock, 'type', 'deploy')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'environment', 'production')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'noop', false)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('fails due to a bad context', async () => {
-  vi.spyOn(contextCheck, 'contextCheck').mockReturnValue(false)
-  expect(await run()).toBe('safe-exit')
+  contextCheckMock.mock.mockImplementation(() => false)
+  assert.strictEqual(await run(), 'safe-exit')
 })
 
 test('fails due to no valid environment targets being found in the comment body', async () => {
   setCommentBody('.deploy to chaos')
-  expect(await run()).toBe('safe-exit')
-  expect(debugMock).toHaveBeenCalledWith('No valid environment targets found')
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(debugMock, 'No valid environment targets found')
 })
 
 test('fails due to no trigger being found', async () => {
-  vi.stubEnv('INPUT_TRIGGER', '.shipit')
-  expect(await run()).toBe('safe-exit')
-  // Note: core.info() spy doesn't work with Vitest + ESM module caching
-  // The actual function DOES log correctly in production, the spy just can't track it
-  // expect(infoMock).toHaveBeenCalledWith(
-  //   '⛔ no trigger detected in comment - exiting'
-  // )
+  setEnv('INPUT_TRIGGER', '.shipit')
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(infoMock, '⛔ no trigger detected in comment - exiting')
 })
 
 test('fails prechecks', async () => {
-  vi.spyOn(prechecks, 'prechecks').mockResolvedValue({
+  setPrechecksResult({
     status: false,
     message: '### ⚠️ Cannot proceed with deployment... something went wrong'
   })
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-  expect(await run()).toBe('failure')
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  expect(setFailedMock).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'failure')
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+  assertCalledWith(
+    setFailedMock,
     '### ⚠️ Cannot proceed with deployment... something went wrong'
   )
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('fails commitSafetyChecks', async () => {
-  vi.spyOn(commitSafetyChecks, 'commitSafetyChecks').mockReturnValue({
+  commitSafetyChecksMock.mock.mockImplementation(() => ({
     status: false,
     message:
       '### ⚠️ Cannot proceed with deployment... a scary commit was found',
     isVerified: false
-  })
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-  expect(await run()).toBe('failure')
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  expect(setFailedMock).toHaveBeenCalledWith(
+  }))
+  assert.strictEqual(await run(), 'failure')
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+  assertCalledWith(
+    setFailedMock,
     '### ⚠️ Cannot proceed with deployment... a scary commit was found'
   )
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('fails commitSafetyChecks but proceeds because the operation is on the stable branch', async () => {
   setCommentBody('.deploy main')
-  vi.spyOn(commitSafetyChecks, 'commitSafetyChecks').mockReturnValue({
+  commitSafetyChecksMock.mock.mockImplementation(() => ({
     status: false,
     message:
       '### ⚠️ Cannot proceed with deployment... a scary commit was found',
     isVerified: false
-  })
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-  expect(await run()).toBe('success')
-  expect(warningMock).toHaveBeenCalledWith(
+  }))
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(
+    warningMock,
     'commit safety checks failed but the stable branch is being used so the workflow will continue - you should inspect recent commits on this branch as a precaution'
   )
 })
 
 test('runs the .help command successfully', async () => {
   setCommentBody('.help')
-  vi.spyOn(help, 'help').mockResolvedValue(undefined)
-  expect(await run()).toBe('safe-exit')
-  expect(debugMock).toHaveBeenCalledWith('help command detected')
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(debugMock, 'help command detected')
 
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('runs the .help command successfully', async () => {
-  vi.spyOn(validPermissions, 'validPermissions').mockResolvedValue(
-    permissionsMsg
-  )
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
+  setValidPermissionsResult(permissionsMsg)
   setCommentBody('.help')
 
-  vi.spyOn(help, 'help').mockResolvedValue(undefined)
-
-  expect(await run()).toBe('failure')
-  expect(debugMock).toHaveBeenCalledWith('help command detected')
-  expect(setFailedMock).toHaveBeenCalledWith(permissionsMsg)
+  assert.strictEqual(await run(), 'failure')
+  assertCalledWith(debugMock, 'help command detected')
+  assertCalledWith(setFailedMock, permissionsMsg)
 })
 
 test('runs the action in lock mode and fails due to an invalid environment', async () => {
-  vi.spyOn(actionStatus, 'actionStatus').mockResolvedValue(undefined)
-  vi.spyOn(validPermissions, 'validPermissions').mockResolvedValue(true)
+  setValidPermissionsResult(true)
   setCommentBody('.lock --details super-production')
-  expect(await run()).toBe('safe-exit')
-  expect(debugMock).toHaveBeenCalledWith(
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(
+    debugMock,
     'No valid environment targets found for lock/unlock request'
   )
-  expect(setOutputMock).toHaveBeenCalledWith(
+  assertCalledWith(
+    setOutputMock,
     'comment_body',
     '.lock --details super-production'
   )
-  expect(setOutputMock).toHaveBeenCalledWith('triggered', 'true')
-  expect(setOutputMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(setOutputMock).toHaveBeenCalledWith('type', 'lock')
-  expect(saveStateMock).toHaveBeenCalledWith('isPost', 'true')
-  expect(saveStateMock).toHaveBeenCalledWith('actionsToken', 'faketoken')
-  expect(saveStateMock).toHaveBeenCalledWith('comment_id', 123)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  vi.stubEnv('INPUT_GLOBAL_LOCK_FLAG', '')
+  assertCalledWith(setOutputMock, 'triggered', 'true')
+  assertCalledWith(setOutputMock, 'comment_id', 123)
+  assertCalledWith(setOutputMock, 'type', 'lock')
+  assertCalledWith(saveStateMock, 'isPost', 'true')
+  assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+  setEnv('INPUT_GLOBAL_LOCK_FLAG', '')
 })
 
 test('successfully runs in mergeDeployMode', async () => {
-  vi.stubEnv('INPUT_MERGE_DEPLOY_MODE', 'true')
-  vi.spyOn(identicalCommitCheck, 'identicalCommitCheck').mockResolvedValue(true)
-  expect(await run()).toBe('success - merge deploy mode')
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  // Note: core.info() spy doesn't work with Vitest + ESM module caching
-  // The actual function DOES log correctly in production, the spy just can't track it
-  // expect(infoMock).toHaveBeenCalledWith(`🏃 running in 'merge deploy' mode`)
+  setEnv('INPUT_MERGE_DEPLOY_MODE', 'true')
+  assert.strictEqual(await run(), 'success - merge deploy mode')
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+  assertCalledWith(infoMock, `🏃 running in 'merge deploy' mode`)
 })
 
 test('successfully runs in unlockOnMergeMode', async () => {
-  vi.stubEnv('INPUT_UNLOCK_ON_MERGE_MODE', 'true')
-  vi.spyOn(unlockOnMerge, 'unlockOnMerge').mockResolvedValue(true)
-  expect(await run()).toBe('success - unlock on merge mode')
-  // Note: core.info() spy doesn't work with Vitest + ESM module caching
-  // The actual function DOES log correctly in production, the spy just can't track it
-  // expect(infoMock).toHaveBeenCalledWith(`🏃 running in 'unlock on merge' mode`)
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  expect(validDeploymentOrderMock).not.toHaveBeenCalled()
+  setEnv('INPUT_UNLOCK_ON_MERGE_MODE', 'true')
+  assert.strictEqual(await run(), 'success - unlock on merge mode')
+  assertCalledWith(infoMock, `🏃 running in 'unlock on merge' mode`)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+  assertNotCalled(validDeploymentOrderMock)
 })
 
 test('handles an input validation error and exits', async () => {
-  vi.stubEnv('INPUT_UPDATE_BRANCH', 'badvalue')
-  await expect(run()).resolves.toBeUndefined()
-  expect(setFailedMock).toHaveBeenCalled()
+  setEnv('INPUT_UPDATE_BRANCH', 'badvalue')
+  assert.strictEqual(await run(), undefined)
+  assert.ok(setFailedMock.mock.callCount() > 0)
 })
 
 test('handles an unexpected error and exits', async () => {
-  github.context.payload = {}
-  await expect(run()).resolves.toBeUndefined()
-  expect(setFailedMock).toHaveBeenCalled()
+  githubContext.payload = {}
+  assert.strictEqual(await run(), undefined)
+  assert.ok(setFailedMock.mock.callCount() > 0)
 })
 
 test('preserves the failure path when reaction creation returns undefined', async () => {
-  vi.mocked(reactEmote.reactEmote).mockResolvedValueOnce(undefined)
-  await expect(run()).resolves.toBeUndefined()
-  expect(saveStateMock).toHaveBeenCalledWith('bypass', 'true')
-  expect(setFailedMock).toHaveBeenCalled()
+  reactEmoteMock.mock.mockImplementation(() => Promise.resolve(undefined))
+  assert.strictEqual(await run(), undefined)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+  assert.ok(setFailedMock.mock.callCount() > 0)
 })
 
 test('safe-exits when environment target parsing returns an empty target', async () => {
-  vi.stubEnv('INPUT_ENVIRONMENT_TARGETS', '')
-  await expect(run()).resolves.toBe('safe-exit')
-  expect(debugMock).toHaveBeenCalledWith('No valid environment targets found')
-  expect(vi.mocked(prechecks.prechecks)).not.toHaveBeenCalled()
+  setEnv('INPUT_ENVIRONMENT_TARGETS', '')
+  assert.strictEqual(await run(), 'safe-exit')
+  assertCalledWith(debugMock, 'No valid environment targets found')
+  assertNotCalled(prechecksMock)
 })
 
 test('stores params and parsed params into context', async () => {
@@ -1251,7 +1453,10 @@ test('stores params and parsed params into context', async () => {
     _: ['something1'],
     foo: 'bar'
   }
-  const data = expect.objectContaining({
+  assert.strictEqual(await run(), 'success')
+  const request = createDeploymentMock.mock.calls.at(-1)?.arguments[0]
+  assert.ok(request !== undefined)
+  assert.partialDeepStrictEqual(request, {
     auto_merge: true,
     ref: 'test-ref',
     environment: 'production',
@@ -1259,22 +1464,20 @@ test('stores params and parsed params into context', async () => {
     repo: 'test',
     production_environment: true,
     required_contexts: [],
-    payload: expect.objectContaining({
+    payload: {
       params,
       parsed_params,
       sha: 'abc123',
       type: 'branch-deploy',
       github_run_id: 12345
-    }) as unknown
-  }) as unknown
-  expect(await run()).toBe('success')
-  expect(createDeploymentMock).toHaveBeenCalledWith(data)
-  expect(setOutputMock).toHaveBeenCalledWith('params', params)
-  expect(setOutputMock).toHaveBeenCalledWith('parsed_params', parsed_params)
+    }
+  })
+  assertCalledWith(setOutputMock, 'params', params)
+  assertCalledWith(setOutputMock, 'parsed_params', parsed_params)
 })
 
 test('stores params and parsed params into context with complex params', async () => {
-  vi.spyOn(prechecks, 'prechecks').mockResolvedValue({
+  setPrechecksResult({
     ref: 'test-ref',
     status: true,
     message: '✔️ PR is approved and all CI checks passed - OK',
@@ -1302,7 +1505,10 @@ test('stores params and parsed params into context with complex params', async (
       }
     }
   }
-  const data = expect.objectContaining({
+  assert.strictEqual(await run(), 'success')
+  const request = createDeploymentMock.mock.calls.at(-1)?.arguments[0]
+  assert.ok(request !== undefined)
+  assert.partialDeepStrictEqual(request, {
     auto_merge: true,
     ref: 'test-ref',
     environment: 'production',
@@ -1310,7 +1516,7 @@ test('stores params and parsed params into context with complex params', async (
     repo: 'test',
     production_environment: true,
     required_contexts: [],
-    payload: expect.objectContaining({
+    payload: {
       params,
       parsed_params,
       sha: 'deadbeef',
@@ -1323,10 +1529,8 @@ test('stores params and parsed params into context with complex params', async (
       commit_verified: true,
       actor: 'monalisa',
       stable_branch_used: false
-    }) as unknown
-  }) as unknown
-  expect(await run()).toBe('success')
-  expect(createDeploymentMock).toHaveBeenCalledWith(data)
-  expect(setOutputMock).toHaveBeenCalledWith('params', params)
-  expect(setOutputMock).toHaveBeenCalledWith('parsed_params', parsed_params)
+    }
+  })
+  assertCalledWith(setOutputMock, 'params', params)
+  assertCalledWith(setOutputMock, 'parsed_params', parsed_params)
 })
