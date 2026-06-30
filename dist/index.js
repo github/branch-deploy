@@ -41722,7 +41722,10 @@ const ACTION_OUTPUT_KEYS = (/* unused pure expression or super */ null && ([
     'needs_to_be_deployed',
     'commit_verified',
     'total_seconds',
-    'non_default_target_branch_used'
+    'non_default_target_branch_used',
+    'decision',
+    'reason_code',
+    'result'
 ]));
 const ACTION_STATE_KEYS = (/* unused pure expression or super */ null && ([
     'actionsToken',
@@ -41782,6 +41785,9 @@ function legacyApiError(error) {
 function decodedLockData(value) {
     return JSON.parse(value);
 }
+function decodedJsonValue(value) {
+    return JSON.parse(value);
+}
 function createdDeployment(value) {
     return value;
 }
@@ -41795,18 +41801,6 @@ function legacyEnvironmentUrl(value) {
     return value;
 }
 function legacyLockData(value) {
-    return value;
-}
-function legacyAllowForksValue(value) {
-    return value;
-}
-function legacyReactionResult(value) {
-    return value;
-}
-function legacyReactionUser(value) {
-    return value;
-}
-function legacyReactionId(value) {
     return value;
 }
 function legacyArrayElement(value) {
@@ -42010,6 +42004,7 @@ async function nakedCommandCheck(body, param_separator, triggers, octokit, conte
 ;// CONCATENATED MODULE: ./src/functions/react-emote.ts
 
 
+
 // Fixed presets of allowed emote types as defined by GitHub
 const presets = [
     '+1',
@@ -42025,13 +42020,13 @@ const presets = [
 // :param reaction: A string which determines the reaction to use (String)
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
-// :returns: The reactRes object which contains the reaction ID among other things. Returns nil if no reaction was specified, or throws an error if it fails
+// :returns: The reaction ID, or null when reactions are disabled or unavailable
 async function reactEmote(reaction, context, octokit) {
     // Get the owner and repo from the context
     const { owner, repo } = context.repo;
     // If the reaction is not specified, return
     if (!reaction || reaction.trim() === '') {
-        return;
+        return null;
     }
     // Find the reaction in the list of presets, otherwise throw an error
     const preset = presets.find(preset => preset === reaction.trim());
@@ -42039,15 +42034,20 @@ async function reactEmote(reaction, context, octokit) {
         throw new Error(`Reaction "${reaction}" is not a valid preset`);
     }
     // Add the reaction to the issue_comment
-    const reactRes = await octokit.rest.reactions.createForIssueComment({
-        owner,
-        repo,
-        comment_id: issueCommentContext(context).payload.comment.id,
-        content: preset,
-        headers: API_HEADERS
-    });
-    // Return the reactRes which contains the id for reference later
-    return reactRes;
+    try {
+        const reactRes = await octokit.rest.reactions.createForIssueComment({
+            owner,
+            repo,
+            comment_id: issueCommentContext(context).payload.comment.id,
+            content: preset,
+            headers: API_HEADERS
+        });
+        return reactRes.data.id;
+    }
+    catch (error) {
+        warning(`failed to add the initial reaction; continuing without decorative reactions: ${legacyApiError(error).message}`);
+        return null;
+    }
 }
 
 ;// CONCATENATED MODULE: ./src/functions/check-input.ts
@@ -42099,6 +42099,7 @@ function truncateCommentBody(message) {
 
 
 
+
 // Default failure reaction
 const action_status_thumbsDown = '-1';
 // Default success reaction
@@ -42140,20 +42141,30 @@ async function actionStatus({ context, message: originalMessage, octokit, reacti
     else {
         reaction = action_status_thumbsDown;
     }
-    // remove the initial reaction on the IssueOp comment that triggered this action
-    await octokit.rest.reactions.deleteForIssueComment({
-        ...context.repo,
-        comment_id: issueCommentContext(context).payload.comment.id,
-        reaction_id: legacyReactionId(reactionId),
-        headers: API_HEADERS
-    });
-    // add a reaction to the issue_comment to indicate success or failure
-    await octokit.rest.reactions.createForIssueComment({
-        ...context.repo,
-        comment_id: issueCommentContext(context).payload.comment.id,
-        content: reaction,
-        headers: API_HEADERS
-    });
+    if (reactionId !== null) {
+        try {
+            await octokit.rest.reactions.deleteForIssueComment({
+                ...context.repo,
+                comment_id: issueCommentContext(context).payload.comment.id,
+                reaction_id: reactionId,
+                headers: API_HEADERS
+            });
+        }
+        catch (error) {
+            warning(`failed to remove the initial decorative reaction: ${legacyApiError(error).message}`);
+        }
+        try {
+            await octokit.rest.reactions.createForIssueComment({
+                ...context.repo,
+                comment_id: issueCommentContext(context).payload.comment.id,
+                content: reaction,
+                headers: API_HEADERS
+            });
+        }
+        catch (error) {
+            warning(`failed to add the final decorative reaction: ${legacyApiError(error).message}`);
+        }
+    }
 }
 
 // EXTERNAL MODULE: external "util"
@@ -46293,7 +46304,19 @@ async function label(context, octokit, labelsToAdd, labelsToRemove) {
 // EXTERNAL MODULE: ./node_modules/nunjucks/index.js
 var nunjucks = __nccwpck_require__(8115);
 var nunjucks_default = /*#__PURE__*/__nccwpck_require__.n(nunjucks);
+;// CONCATENATED MODULE: ./src/functions/json-code-block.ts
+function jsonCodeBlock(value) {
+    const json = JSON.stringify(value, null, 2) ?? 'null';
+    let longestBacktickRun = 0;
+    for (const match of json.matchAll(/`+/g)) {
+        longestBacktickRun = Math.max(longestBacktickRun, match[0].length);
+    }
+    const fence = '`'.repeat(Math.max(3, longestBacktickRun + 1));
+    return `${fence}json\n${json}\n${fence}`;
+}
+
 ;// CONCATENATED MODULE: ./src/functions/post-deploy-message.ts
+
 
 
 
@@ -46344,57 +46367,6 @@ function postDeployMessage(context, data) {
         commit_verified: data.commit_verified,
         total_seconds: data.total_seconds
     };
-    const environmentUrlJson = vars.environment_url !== null && vars.environment_url !== ''
-        ? `"${vars.environment_url}"`
-        : 'null';
-    const reviewDecisionJson = vars.review_decision !== null && vars.review_decision !== ''
-        ? `"${vars.review_decision}"`
-        : 'null';
-    const paramsJson = vars.params !== null && vars.params !== '' ? `"${vars.params}"` : 'null';
-    // this is kinda gross but wrangling dedent() and nunjucks is a pain
-    const deployment_metadata = dedent(`
-    <details><summary>Details</summary>
-
-    <!--- post-deploy-metadata-start -->
-
-    \t\t\t\t\`\`\`json
-    \t\t\t\t{
-    \t\t\t\t  "status": "${vars.status}",
-    \t\t\t\t  "environment": {
-    \t\t\t\t    "name": "${vars.environment}",
-    \t\t\t\t    "url": ${environmentUrlJson}
-    \t\t\t\t  },
-    \t\t\t\t  "deployment": {
-    \t\t\t\t    "id": ${String(vars.deployment_id)},
-    \t\t\t\t    "timestamp": "${vars.deployment_end_time}",
-    \t\t\t\t    "logs": "${vars.logs}",
-    \t\t\t\t    "duration": ${vars.total_seconds}
-    \t\t\t\t  },
-    \t\t\t\t  "git": {
-    \t\t\t\t    "branch": "${vars.ref}",
-    \t\t\t\t    "commit": "${vars.sha}",
-    \t\t\t\t    "verified": ${vars.commit_verified}
-    \t\t\t\t  },
-    \t\t\t\t  "context": {
-    \t\t\t\t    "actor": "${vars.actor}",
-    \t\t\t\t    "noop": ${vars.noop},
-    \t\t\t\t    "fork": ${vars.fork}
-    \t\t\t\t  },
-    \t\t\t\t  "reviews": {
-    \t\t\t\t    "count": ${String(vars.approved_reviews_count)},
-    \t\t\t\t    "decision": ${reviewDecisionJson}
-    \t\t\t\t  },
-    \t\t\t\t  "parameters": {
-    \t\t\t\t    "raw": ${paramsJson},
-    \t\t\t\t    "parsed": ${String(vars.parsed_params)}
-    \t\t\t\t  }
-    \t\t\t\t}
-    \`\`\`
-
-    <!--- post-deploy-metadata-end -->
-
-    </details>
-  `);
     // if the 'deployMessagePath' exists, use that instead of the env var option
     // the env var option can often fail if the message is too long so this is the preferred option
     if (deployMessagePath !== null) {
@@ -46407,6 +46379,52 @@ function postDeployMessage(context, data) {
     else {
         debug(`deployMessagePath is not set - ${String(deployMessagePath)}`);
     }
+    const parsedParams = vars.parsed_params === null || vars.parsed_params === ''
+        ? null
+        : decodedJsonValue(vars.parsed_params);
+    const metadata = {
+        status: vars.status,
+        environment: {
+            name: vars.environment,
+            url: vars.environment_url
+        },
+        deployment: {
+            id: vars.deployment_id,
+            timestamp: vars.deployment_end_time,
+            logs: vars.logs,
+            duration: vars.total_seconds
+        },
+        git: {
+            branch: vars.ref,
+            commit: vars.sha,
+            verified: vars.commit_verified
+        },
+        context: {
+            actor: vars.actor,
+            noop: vars.noop,
+            fork: vars.fork
+        },
+        reviews: {
+            count: vars.approved_reviews_count,
+            decision: vars.review_decision
+        },
+        parameters: {
+            raw: vars.params,
+            parsed: parsedParams
+        }
+    };
+    const metadataBlock = jsonCodeBlock(metadata);
+    const deployment_metadata = [
+        '<details><summary>Details</summary>',
+        '',
+        '<!--- post-deploy-metadata-start -->',
+        '',
+        metadataBlock,
+        '',
+        '<!--- post-deploy-metadata-end -->',
+        '',
+        '</details>'
+    ].join('\n');
     // If we get here, try to use the env var option with the default message structure
     const deployMessageEnvVar = checkInput(process.env['DEPLOY_MESSAGE']);
     let deployTypeString = ' '; // a single space as a default
@@ -46435,27 +46453,28 @@ function postDeployMessage(context, data) {
         const customMessageFmt = deployMessageEnvVar
             .replace(/\\n/g, '\n')
             .replace(/\\t/g, '\t');
-        message_fmt = dedent(`
-    ### Deployment Results ${deployStatus}
-
-    ${message}
-
-    <details><summary>Show Results</summary>
-
-    ${customMessageFmt}
-
-    </details>
-
-    ${deployment_metadata}
-    `);
+        message_fmt = [
+            `### Deployment Results ${deployStatus}`,
+            '',
+            message,
+            '',
+            '<details><summary>Show Results</summary>',
+            '',
+            customMessageFmt,
+            '',
+            '</details>',
+            '',
+            deployment_metadata
+        ].join('\n');
     }
     else {
-        message_fmt = dedent(`
-    ### Deployment Results ${deployStatus}
-
-    ${message}
-    
-    ${deployment_metadata}`);
+        message_fmt = [
+            `### Deployment Results ${deployStatus}`,
+            '',
+            message,
+            '',
+            deployment_metadata
+        ].join('\n');
     }
     // Conditionally add the environment url to the message body
     // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
@@ -46538,11 +46557,16 @@ async function postDeploy(context, octokit, data) {
         commit_verified: data.commit_verified,
         total_seconds: total_seconds
     });
+    const reactionId = data.reaction_id === null ||
+        data.reaction_id === undefined ||
+        data.reaction_id === ''
+        ? null
+        : parseInt(data.reaction_id);
     // update the action status to indicate the result of the deployment as a comment
     await actionStatus({
         context,
         octokit,
-        reactionId: parseInt(data.reaction_id),
+        reactionId,
         message,
         result: success ? 'success' : 'failure'
     });
@@ -46684,7 +46708,6 @@ function validateInputs(data) {
         'status',
         'ref',
         'environment',
-        'reaction_id',
         'sha',
         'commit_verified'
     ];
@@ -46975,7 +46998,6 @@ async function unlockOnMerge(octokit, context, environment_targets) {
 
 
 
-
 const defaultSpecificMessage = '<something went wrong - please report this>';
 const usageGuideLink = 'https://github.com/github/branch-deploy/blob/main/docs/usage.md';
 function isChecksArray(value) {
@@ -47144,7 +47166,7 @@ async function help(octokit, context, reactionId, inputs) {
   - \`outdated_mode: ${inputs.outdated_mode}\`
   - \`commit_verification: ${inputs.commit_verification}\` - ${commit_verification_message}
   - \`required_contexts: ${inputs.required_contexts}\` - ${required_contexts_message}
-  - \`allowForks: ${inputs.allowForks}\` - This Action will ${legacyAllowForksValue(inputs.allowForks) === 'true' ? 'run' : 'not run'} on forked repositories
+  - \`allowForks: ${inputs.allowForks}\` - This Action will ${inputs.allowForks ? 'run' : 'not run'} on forked repositories
   - \`skipCi: ${skipCiDisplay}\` - ${skip_ci_message}
   - \`checks: ${checksDisplay}\` - ${checks_message}
   - \`use_security_warnings: ${inputs.use_security_warnings}\` - This Action will ${inputs.use_security_warnings ? 'use' : 'not use'} security warnings
@@ -47521,15 +47543,51 @@ function timestamp() {
 
 
 
+
 const deployment_confirmation_thumbsUp = '+1';
 const deployment_confirmation_thumbsDown = '-1';
 // Helper function to allow the original actor to confirm the deployment by adding a reaction to a comment
 // :param context: The context of the action
 // :param octokit: The octokit object
-// :returns: true if the deployment has been confirmed by the original actor, false otherwise
+// :returns: the original actor's confirmation decision or a timeout result
 async function deploymentConfirmation(context, octokit, data) {
     const issueComment = issueCommentContext(context);
-    const message = dedent(`
+    const metadata = {
+        type: data.deploymentType.toLowerCase(),
+        environment: {
+            name: data.environment,
+            url: data.environmentUrl !== null && data.environmentUrl !== ''
+                ? data.environmentUrl
+                : null
+        },
+        deployment: {
+            logs: data.log_url
+        },
+        git: {
+            branch: data.ref,
+            commit: data.sha,
+            verified: data.isVerified,
+            committer: String(data.committer),
+            html_url: data.commit_html_url
+        },
+        context: {
+            actor: context.actor,
+            noop: data.noopMode,
+            fork: data.isFork,
+            comment: {
+                created_at: issueComment.payload.comment.created_at,
+                updated_at: issueComment.payload.comment.updated_at,
+                body: data.body,
+                html_url: issueComment.payload.comment.html_url
+            }
+        },
+        parameters: {
+            raw: data.params !== null && data.params !== '' ? data.params : null,
+            parsed: data.parsed_params
+        }
+    };
+    const metadataBlock = jsonCodeBlock(metadata);
+    const messageHeader = dedent(`
     ### Deployment Confirmation Required 🚦
 
     In order to proceed with this deployment, __${context.actor}__ must react to this comment with either a 👍 or a 👎.
@@ -47542,49 +47600,20 @@ async function deploymentConfirmation(context, octokit, data) {
 
     > You will have \`${data.deployment_confirmation_timeout}\` seconds to confirm this deployment ([logs](${data.log_url})).
 
-    <details><summary>Details</summary>
-
-    <!--- deployment-confirmation-metadata-start -->
-
-    \`\`\`json
-    {
-      "type": "${data.deploymentType.toLowerCase()}",
-      "environment": {
-        "name": "${data.environment}",
-        "url": ${data.environmentUrl !== null && data.environmentUrl !== '' ? `"${data.environmentUrl}"` : 'null'}
-      },
-      "deployment": {
-        "logs": "${data.log_url}"
-      },
-      "git": {
-        "branch": "${data.ref}",
-        "commit": "${data.sha}",
-        "verified": ${data.isVerified},
-        "committer": "${String(data.committer)}",
-        "html_url": "${data.commit_html_url}"
-      },
-      "context": {
-        "actor": "${context.actor}",
-        "noop": ${data.noopMode},
-        "fork": ${data.isFork},
-        "comment": {
-          "created_at": "${issueComment.payload.comment.created_at}",
-          "updated_at": "${issueComment.payload.comment.updated_at}",
-          "body": "${data.body}",
-          "html_url": "${issueComment.payload.comment.html_url}"
-        }
-      },
-      "parameters": {
-        "raw": ${data.params !== null && data.params !== '' ? `"${data.params}"` : 'null'},
-        "parsed": ${data.parsed_params !== null ? JSON.stringify(data.parsed_params) : 'null'}
-      }
-    }
-    \`\`\`
-
-    <!--- deployment-confirmation-metadata-end -->
-
-    </details>
   `);
+    const message = [
+        messageHeader,
+        '',
+        '<details><summary>Details</summary>',
+        '',
+        '<!--- deployment-confirmation-metadata-start -->',
+        '',
+        metadataBlock,
+        '',
+        '<!--- deployment-confirmation-metadata-end -->',
+        '',
+        '</details>'
+    ].join('\n');
     const comment = await octokit.rest.issues.createComment({
         ...context.repo,
         issue_number: context.issue.number,
@@ -47597,57 +47626,47 @@ async function deploymentConfirmation(context, octokit, data) {
     // Convert timeout to milliseconds for setTimeout
     const timeoutMs = data.deployment_confirmation_timeout * 1000;
     const startTime = Date.now();
-    const pollInterval = 2000; // Check every 2 seconds
+    const deadline = startTime + timeoutMs;
+    let pollInterval = 2000;
+    let firstPoll = true;
     // Poll for reactions until we find a valid one or timeout
-    while (Date.now() - startTime < timeoutMs) {
+    while (firstPoll || Date.now() < deadline) {
+        firstPoll = false;
         try {
-            // Get all reactions on the confirmation comment
-            const reactions = await octokit.rest.reactions.listForIssueComment({
-                ...context.repo,
-                comment_id: commentId,
-                headers: API_HEADERS
-            });
-            // Look for thumbs up or thumbs down from the original actor
-            for (const reaction of reactions.data) {
-                const reactionUser = legacyReactionUser(reaction.user);
-                if (reactionUser.login === context.actor) {
-                    if (reaction.content === deployment_confirmation_thumbsUp) {
-                        // Update confirmation comment with success message
-                        await octokit.rest.issues.updateComment({
-                            ...context.repo,
-                            comment_id: commentId,
-                            body: `${message}\n\n✅ Deployment confirmed by __${context.actor}__ at \`${timestamp()}\` UTC.`,
-                            headers: API_HEADERS
-                        });
-                        info(`✅ deployment confirmed by ${COLORS.highlight}${context.actor}${COLORS.reset} - sha: ${COLORS.highlight}${data.sha}${COLORS.reset}`);
-                        return true;
-                    }
-                    else if (reaction.content === deployment_confirmation_thumbsDown) {
-                        // Update confirmation comment with cancellation message
-                        await octokit.rest.issues.updateComment({
-                            ...context.repo,
-                            comment_id: commentId,
-                            body: `${message}\n\n❌ Deployment rejected by __${context.actor}__ at \`${timestamp()}\` UTC.`,
-                            headers: API_HEADERS
-                        });
-                        setFailed(`❌ deployment rejected by ${COLORS.highlight}${context.actor}${COLORS.reset}`);
-                        return false;
-                    }
-                    else {
-                        debug(`ignoring reaction: ${reaction.content}`);
-                    }
-                }
-                else {
-                    debug(`ignoring reaction from ${reactionUser.login}, expected ${context.actor}`);
-                }
+            const decision = await findConfirmationReaction(context, octokit, commentId);
+            if (decision === 'confirmed') {
+                await octokit.rest.issues.updateComment({
+                    ...context.repo,
+                    comment_id: commentId,
+                    body: `${message}\n\n✅ Deployment confirmed by __${context.actor}__ at \`${timestamp()}\` UTC.`,
+                    headers: API_HEADERS
+                });
+                info(`✅ deployment confirmed by ${COLORS.highlight}${context.actor}${COLORS.reset} - sha: ${COLORS.highlight}${data.sha}${COLORS.reset}`);
+                return 'confirmed';
             }
-            // Wait before checking again
-            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            if (decision === 'rejected') {
+                await octokit.rest.issues.updateComment({
+                    ...context.repo,
+                    comment_id: commentId,
+                    body: `${message}\n\n❌ Deployment rejected by __${context.actor}__ at \`${timestamp()}\` UTC.`,
+                    headers: API_HEADERS
+                });
+                setFailed(`❌ deployment rejected by ${COLORS.highlight}${context.actor}${COLORS.reset}`);
+                return 'rejected';
+            }
         }
         catch (error) {
+            if (!isRetryableConfirmationError(error)) {
+                throw error;
+            }
             warning(`temporary failure when checking for reactions on the deployment confirmation comment: ${legacyApiError(error).message}`);
-            await new Promise(resolve => setTimeout(resolve, pollInterval));
         }
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) {
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, Math.min(pollInterval, remainingMs)));
+        pollInterval = Math.min(pollInterval * 2, 10_000);
     }
     // Timeout reached without confirmation
     await octokit.rest.issues.updateComment({
@@ -47657,7 +47676,86 @@ async function deploymentConfirmation(context, octokit, data) {
         headers: API_HEADERS
     });
     setFailed(`⏱️ deployment confirmation timed out after ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds`);
-    return false;
+    return 'timed_out';
+}
+async function findConfirmationReaction(context, octokit, commentId) {
+    let page = 1;
+    while (true) {
+        const reactions = await octokit.rest.reactions.listForIssueComment({
+            ...context.repo,
+            comment_id: commentId,
+            per_page: 100,
+            page,
+            headers: API_HEADERS
+        });
+        for (const reaction of reactions.data) {
+            if (reaction.user === null) {
+                debug('ignoring reaction from an unknown user');
+            }
+            else if (reaction.user.login !== context.actor) {
+                debug(`ignoring reaction from ${reaction.user.login}, expected ${context.actor}`);
+            }
+            else if (reaction.content === deployment_confirmation_thumbsUp) {
+                return 'confirmed';
+            }
+            else if (reaction.content === deployment_confirmation_thumbsDown) {
+                return 'rejected';
+            }
+            else {
+                debug(`ignoring reaction: ${reaction.content}`);
+            }
+        }
+        if (reactions.data.length < 100) {
+            return null;
+        }
+        page += 1;
+    }
+}
+function isRetryableConfirmationError(error) {
+    const status = legacyApiError(error).status;
+    if (status === undefined) {
+        return true;
+    }
+    if ([408, 409, 429].includes(status)) {
+        return true;
+    }
+    return status >= 500 && status < 600;
+}
+
+;// CONCATENATED MODULE: ./src/operation-result.ts
+
+const OPERATION_REASON_CODES = (/* unused pure expression or super */ null && ([
+    'unlock_on_merge_completed',
+    'merge_deploy_required',
+    'merge_deploy_not_required',
+    'unsupported_event',
+    'deprecated_command',
+    'naked_command_disabled',
+    'no_trigger',
+    'permission_denied',
+    'help_completed',
+    'invalid_environment',
+    'lock_info_completed',
+    'lock_acquired',
+    'lock_already_owned',
+    'lock_conflict',
+    'unlock_completed',
+    'unlock_failed',
+    'prechecks_failed',
+    'commit_safety_failed',
+    'deployment_order_failed',
+    'confirmation_rejected',
+    'confirmation_timed_out',
+    'noop_ready',
+    'base_branch_update_required',
+    'deployment_ready',
+    'unexpected_error'
+]));
+function finishOperation(runResult, result) {
+    setActionOutput('decision', result.decision);
+    setActionOutput('reason_code', result.reason_code);
+    setActionOutput('result', JSON.stringify(result));
+    return runResult;
 }
 
 ;// CONCATENATED MODULE: ./src/main.ts
@@ -47697,8 +47795,27 @@ async function deploymentConfirmation(context, octokit, data) {
 
 
 
+
+
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
+    let operation = 'none';
+    let deploymentType = null;
+    let resultEnvironment = null;
+    let resultRef = null;
+    let resultSha = null;
+    let resultDeploymentId = null;
+    const finish = (runResult, decision, reasonCode) => finishOperation(runResult, {
+        schema_version: 1,
+        decision,
+        reason_code: reasonCode,
+        operation,
+        deployment_type: deploymentType,
+        environment: resultEnvironment,
+        ref: resultRef,
+        sha: resultSha,
+        deployment_id: resultDeploymentId
+    });
     try {
         info(`🛸 github/branch-deploy ${COLORS.info}${src_version_VERSION}${COLORS.reset}`);
         debug(`context: ${JSON.stringify(github_context)}`);
@@ -47718,18 +47835,22 @@ async function run() {
         let environment = inputs.environment;
         // If we are running in the 'unlock on merge' mode, run auto-unlock logic
         if (inputs.unlockOnMergeMode) {
+            operation = 'unlock_on_merge';
+            resultEnvironment = inputs.environment;
             info(`🏃 running in 'unlock on merge' mode`);
             await unlockOnMerge(octokit, github_context, inputs.environment_targets);
             saveActionState('bypass', 'true');
-            return 'success - unlock on merge mode';
+            return finish('success - unlock on merge mode', 'complete', 'unlock_on_merge_completed');
         }
         // If we are running in the merge deploy mode, run commit checks
         if (inputs.mergeDeployMode) {
+            operation = 'merge_deploy';
+            resultEnvironment = environment;
             info(`🏃 running in 'merge deploy' mode`);
-            await identicalCommitCheck(octokit, github_context, environment);
+            const identical = await identicalCommitCheck(octokit, github_context, environment);
             // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
             saveActionState('bypass', 'true');
-            return 'success - merge deploy mode';
+            return finish('success - merge deploy mode', identical ? 'stop' : 'continue', identical ? 'merge_deploy_not_required' : 'merge_deploy_required');
         }
         // Get the body of the IssueOps command
         const actionContext = branchDeployContext(github_context);
@@ -47738,12 +47859,12 @@ async function run() {
         // Check the context of the event to ensure it is valid, return if it is not
         if (!contextCheck(github_context)) {
             saveActionState('bypass', 'true');
-            return 'safe-exit';
+            return finish('safe-exit', 'stop', 'unsupported_event');
         }
         // deprecated command/input checks
         if (await isDeprecated(body, octokit, github_context)) {
             saveActionState('bypass', 'true');
-            return 'safe-exit';
+            return finish('safe-exit', 'stop', 'deprecated_command');
         }
         if (inputs.disable_naked_commands &&
             (await nakedCommandCheck(body, inputs.param_separator, [
@@ -47754,7 +47875,7 @@ async function run() {
                 inputs.lock_info_alias
             ], octokit, github_context))) {
             saveActionState('bypass', 'true');
-            return 'safe-exit';
+            return finish('safe-exit', 'stop', 'naked_command_disabled');
         }
         // Get variables from the event context
         const issue_number = issueComment.payload.issue.number;
@@ -47770,18 +47891,25 @@ async function run() {
         const isHelp = triggerCheck(body, inputs.help_trigger);
         const isLockInfoAlias = triggerCheck(body, inputs.lock_info_alias);
         if (isDeploy || isNoopDeploy) {
+            operation = isNoopDeploy ? 'noop' : 'deploy';
             setActionOutput('type', 'deploy');
         }
         else if (isLock) {
+            operation = LOCK_METADATA.lockInfoFlags.some(flag => body.includes(flag))
+                ? 'lock_info'
+                : 'lock';
             setActionOutput('type', 'lock');
         }
         else if (isUnlock) {
+            operation = 'unlock';
             setActionOutput('type', 'unlock');
         }
         else if (isHelp) {
+            operation = 'help';
             setActionOutput('type', 'help');
         }
         else if (isLockInfoAlias) {
+            operation = 'lock_info';
             setActionOutput('type', 'lock-info-alias');
         }
         else {
@@ -47789,16 +47917,16 @@ async function run() {
             saveActionState('bypass', 'true');
             setActionOutput('triggered', 'false');
             info('⛔ no trigger detected in comment - exiting');
-            return 'safe-exit';
+            return finish('safe-exit', 'stop', 'no_trigger');
         }
         // If we made it this far, the action has been triggered in one manner or another
         setActionOutput('triggered', 'true');
         // Add the reaction to the issue_comment which triggered the Action
-        const reactRes = legacyReactionResult(await reactEmote(inputs.reaction, actionContext, octokit));
+        const reactionId = await reactEmote(inputs.reaction, actionContext, octokit);
         setActionOutput('comment_id', issueComment.payload.comment.id);
         saveActionState('comment_id', issueComment.payload.comment.id);
-        setActionOutput('initial_reaction_id', reactRes.data.id);
-        saveActionState('reaction_id', reactRes.data.id);
+        setActionOutput('initial_reaction_id', reactionId ?? '');
+        saveActionState('reaction_id', reactionId ?? '');
         setActionOutput('actor_handle', issueComment.payload.comment.user.login);
         // If the command is a help request
         if (isHelp) {
@@ -47810,18 +47938,18 @@ async function run() {
                 await actionStatus({
                     context: actionContext,
                     octokit,
-                    reactionId: reactRes.data.id,
+                    reactionId,
                     message: validPermissionsRes
                 });
                 // Set the bypass state to true so that the post run logic will not run
                 saveActionState('bypass', 'true');
                 setFailed(validPermissionsRes);
-                return 'failure';
+                return finish('failure', 'failure', 'permission_denied');
             }
             // Run the help command and exit
-            await help(octokit, github_context, reactRes.data.id, inputs);
+            await help(octokit, github_context, reactionId, inputs);
             saveActionState('bypass', 'true');
-            return 'safe-exit';
+            return finish('safe-exit', 'complete', 'help_completed');
         }
         // If the command is a lock/unlock request
         if (isLock || isUnlock || isLockInfoAlias) {
@@ -47832,13 +47960,13 @@ async function run() {
                 await actionStatus({
                     context: actionContext,
                     octokit,
-                    reactionId: reactRes.data.id,
+                    reactionId,
                     message: validPermissionsRes
                 });
                 // Set the bypass state to true so that the post run logic will not run
                 saveActionState('bypass', 'true');
                 setFailed(validPermissionsRes);
-                return 'failure';
+                return finish('failure', 'failure', 'permission_denied');
             }
             // Check if the environment being locked/unlocked is a valid environment
             const lockEnvTargetCheckObj = await environmentTargets({
@@ -47849,14 +47977,16 @@ async function run() {
                 alternateTrigger: inputs.unlock_trigger,
                 context: actionContext,
                 octokit,
-                reactionId: reactRes.data.id
+                reactionId
             });
             // extract the environment target from the lockEnvTargetCheckObj
             const lockEnvTargetCheck = lockEnvTargetCheckObj.environment;
+            resultEnvironment =
+                lockEnvTargetCheck === false ? null : lockEnvTargetCheck;
             // If the environment targets are not valid, then exit
             if (lockEnvTargetCheck === false) {
                 debug('No valid environment targets found for lock/unlock request');
-                return 'safe-exit';
+                return finish('safe-exit', 'stop', 'invalid_environment');
             }
             // If it is a lock or lock info releated request
             if (isLock || isLockInfoAlias) {
@@ -47869,7 +47999,7 @@ async function run() {
                         octokit,
                         context: actionContext,
                         ref: null,
-                        reactionId: reactRes.data.id,
+                        reactionId,
                         sticky: null,
                         environment: null,
                         mode: { type: 'details', postDeployStep: false },
@@ -47879,7 +48009,7 @@ async function run() {
                     const lockStatus = lockResponse.status;
                     if (lockStatus === false || lockStatus === 'ambiguous') {
                         saveActionState('bypass', 'true');
-                        return 'failure';
+                        return finish('failure', 'failure', 'lock_conflict');
                     }
                     const lockData = legacyLockData(lockResponse.lockData);
                     // If a lock was found
@@ -47931,7 +48061,7 @@ async function run() {
                         await actionStatus({
                             context: actionContext,
                             octokit,
-                            reactionId: reactRes.data.id,
+                            reactionId,
                             message: lockMessage,
                             result: 'alternate-success'
                         });
@@ -47959,7 +48089,7 @@ async function run() {
                         await actionStatus({
                             context: actionContext,
                             octokit,
-                            reactionId: reactRes.data.id,
+                            reactionId,
                             message: lockMessage,
                             result: 'alternate-success'
                         });
@@ -47967,7 +48097,7 @@ async function run() {
                     }
                     // Exit the action since we are done after obtaining only the lock details with --details
                     saveActionState('bypass', 'true');
-                    return 'safe-exit';
+                    return finish('safe-exit', 'complete', 'lock_info_completed');
                 }
                 // If the request is a lock request, attempt to claim the lock with a sticky request with the logic below
                 // Get the ref to use with the lock request
@@ -47976,32 +48106,43 @@ async function run() {
                     pull_number: github_context.issue.number,
                     headers: API_HEADERS
                 });
+                resultRef = pr.data.head.ref;
                 // Send the lock request
-                await lock({
+                const lockResponse = await lock({
                     octokit,
                     context: actionContext,
                     ref: pr.data.head.ref,
-                    reactionId: reactRes.data.id,
+                    reactionId,
                     sticky: true,
                     environment: null,
                     mode: { type: 'acquire', postDeployStep: false },
                     leaveComment: true
                 });
                 saveActionState('bypass', 'true');
-                return 'safe-exit';
+                if (lockResponse.status === true) {
+                    return finish('safe-exit', 'complete', 'lock_acquired');
+                }
+                if (lockResponse.status === 'owner') {
+                    return finish('safe-exit', 'complete', 'lock_already_owned');
+                }
+                return finish('safe-exit', 'stop', 'lock_conflict');
             }
             else {
                 // if it isn't a lock or lock info command, it must be an unlock command
                 debug('running unlock command logic');
-                await unlock({
+                const unlocked = await unlock({
                     octokit,
                     context: actionContext,
-                    reactionId: reactRes.data.id,
+                    reactionId,
                     target: { type: 'context' },
                     mode: 'interactive'
                 });
                 saveActionState('bypass', 'true');
-                return 'safe-exit';
+                if (unlocked) {
+                    return finish('safe-exit', 'complete', 'unlock_completed');
+                }
+                setFailed('failed to remove the deployment lock');
+                return finish('safe-exit', 'failure', 'unlock_failed');
             }
         }
         // Check if the default environment is being overwritten by an explicit environment
@@ -48014,7 +48155,7 @@ async function run() {
             stableBranch: inputs.stable_branch,
             context: actionContext,
             octokit,
-            reactionId: reactRes.data.id,
+            reactionId,
             environmentUrls: inputs.environment_urls,
             paramSeparator: inputs.param_separator
         });
@@ -48023,14 +48164,15 @@ async function run() {
         // If the environment targets are not valid, then exit
         if (environmentObj.environment === false) {
             debug('No valid environment targets found');
-            return 'safe-exit';
+            return finish('safe-exit', 'stop', 'invalid_environment');
         }
         if (!legacyTruthy(environmentObj.environment)) {
             debug('No valid environment targets found');
-            return 'safe-exit';
+            return finish('safe-exit', 'stop', 'invalid_environment');
         }
         // deconstruct the environment object to get the environment
         environment = environmentObj.environment;
+        resultEnvironment = environment;
         // deconstruct the environment object to get the stable_branch_used value
         const stableBranchUsed = environmentObj.environmentObj.stable_branch_used;
         // Final params computed by environment
@@ -48047,6 +48189,8 @@ async function run() {
         };
         // Execute prechecks to ensure the Action can proceed
         const precheckResults = await prechecks(actionContext, octokit, data);
+        resultRef = precheckResults.ref ?? null;
+        resultSha = precheckResults.sha ?? null;
         setActionOutput('ref', precheckResults.ref);
         saveActionState('ref', precheckResults.ref);
         setActionOutput('sha', precheckResults.sha);
@@ -48058,13 +48202,13 @@ async function run() {
             await actionStatus({
                 context: actionContext,
                 octokit,
-                reactionId: reactRes.data.id,
+                reactionId,
                 message: precheckResults.message
             });
             // Set the bypass state to true so that the post run logic will not run
             saveActionState('bypass', 'true');
             setFailed(precheckResults.message);
-            return 'failure';
+            return finish('failure', 'failure', 'prechecks_failed');
         }
         // run branch ruleset checks
         await branchRulesetChecks(github_context, octokit, {
@@ -48095,13 +48239,13 @@ async function run() {
             await actionStatus({
                 context: actionContext,
                 octokit,
-                reactionId: reactRes.data.id,
+                reactionId,
                 message: commitSafetyCheckResults.message
             });
             // Set the bypass state to true so that the post run logic will not run
             saveActionState('bypass', 'true');
             setFailed(commitSafetyCheckResults.message);
-            return 'failure';
+            return finish('failure', 'failure', 'commit_safety_failed');
         }
         else if (!commitSafetyCheckResults.status && stableBranchUsed) {
             warning('commit safety checks failed but the stable branch is being used so the workflow will continue - you should inspect recent commits on this branch as a precaution');
@@ -48135,13 +48279,13 @@ async function run() {
                 await actionStatus({
                     context: actionContext,
                     octokit,
-                    reactionId: reactRes.data.id,
+                    reactionId,
                     message: enforced_deployment_order_failure_message
                 });
                 // Set the bypass state to true so that the post run logic will not run
                 saveActionState('bypass', 'true');
                 setFailed(`🚦 deployment order checks failed as not all previous environments have active deployments: ${combined_environments}`);
-                return 'failure';
+                return finish('failure', 'failure', 'deployment_order_failed');
             }
         }
         // conditionally handle how we want to apply locks on deployments
@@ -48173,7 +48317,7 @@ async function run() {
             octokit,
             context: actionContext,
             ref: precheckResults.ref,
-            reactionId: reactRes.data.id,
+            reactionId,
             sticky: stickyLocks,
             environment,
             mode: { type: 'acquire', postDeployStep: false },
@@ -48181,45 +48325,76 @@ async function run() {
         });
         // If the lock request fails, exit the Action
         if (lockResponse.status === false || lockResponse.status === 'ambiguous') {
-            return 'safe-exit';
+            return finish('safe-exit', 'stop', 'lock_conflict');
         }
         const github_run_id = parseInt(process.env['GITHUB_RUN_ID'] ?? '');
         // Add a comment to the PR letting the user know that a deployment has been started
         // Format the success message
-        const deploymentType = precheckResults.noopMode
+        const currentDeploymentType = precheckResults.noopMode
             ? 'noop'
             : environmentObj.environmentObj.sha !== null
                 ? 'sha'
                 : 'branch';
+        deploymentType = currentDeploymentType;
         const log_url = `${String(process.env['GITHUB_SERVER_URL'])}/${github_context.repo.owner}/${github_context.repo.repo}/actions/runs/${github_run_id}`;
+        const cleanupRejectedConfirmation = async () => {
+            if (stickyLocks) {
+                return;
+            }
+            try {
+                const cleanupResult = await unlock({
+                    octokit,
+                    context: actionContext,
+                    reactionId: null,
+                    target: { type: 'environment', environment },
+                    mode: 'silent'
+                });
+                if (cleanupResult === 'failed to delete lock (bad status code) - silent') {
+                    warning('failed to release the non-sticky deployment lock after confirmation did not complete');
+                }
+            }
+            catch (error) {
+                warning(`failed to release the non-sticky deployment lock after confirmation did not complete: ${legacyApiError(error).message}`);
+            }
+        };
         // if the deployment_confirmation is set to 'true', then we will prompt the user to confirm the deployment
         if (inputs.deployment_confirmation) {
-            const deploymentConfirmed = await deploymentConfirmation(github_context, octokit, {
-                sha: precheckResults.sha,
-                ref: precheckResults.ref,
-                deploymentType: deploymentType,
-                environment: environment,
-                environmentUrl: environmentObj.environmentUrl,
-                deployment_confirmation_timeout: inputs.deployment_confirmation_timeout,
-                isVerified: commitSafetyCheckResults.isVerified,
-                log_url: log_url,
-                body: body,
-                params: params,
-                parsed_params: parsed_params,
-                github_run_id: github_run_id,
-                noopMode: precheckResults.noopMode,
-                isFork: precheckResults.isFork,
-                committer: committer,
-                commit_html_url: commit_html_url
-            });
-            if (deploymentConfirmed) {
+            let confirmationResult;
+            try {
+                confirmationResult = await deploymentConfirmation(github_context, octokit, {
+                    sha: precheckResults.sha,
+                    ref: precheckResults.ref,
+                    deploymentType: currentDeploymentType,
+                    environment: environment,
+                    environmentUrl: environmentObj.environmentUrl,
+                    deployment_confirmation_timeout: inputs.deployment_confirmation_timeout,
+                    isVerified: commitSafetyCheckResults.isVerified,
+                    log_url: log_url,
+                    body: body,
+                    params: params,
+                    parsed_params: parsed_params,
+                    github_run_id: github_run_id,
+                    noopMode: precheckResults.noopMode,
+                    isFork: precheckResults.isFork,
+                    committer: committer,
+                    commit_html_url: commit_html_url
+                });
+            }
+            catch (error) {
+                await cleanupRejectedConfirmation();
+                throw error;
+            }
+            if (confirmationResult === 'confirmed') {
                 debug(`deploymentConfirmation() was successful - continuing with the deployment`);
             }
             else {
+                await cleanupRejectedConfirmation();
                 // Set the bypass state to true so that the post run logic will not run
                 saveActionState('bypass', 'true');
                 debug(`❌ deployment not confirmed - exiting`);
-                return 'failure';
+                return finish('failure', 'failure', confirmationResult === 'rejected'
+                    ? 'confirmation_rejected'
+                    : 'confirmation_timed_out');
             }
         }
         // this is the timestamp that we consider the deployment to have "started" at for logging and auditing purposes
@@ -48227,63 +48402,64 @@ async function run() {
         const deployment_start_time = timestamp();
         debug(`deployment_start_time: ${deployment_start_time}`);
         saveActionState('deployment_start_time', deployment_start_time);
-        const environmentUrlJson = environmentObj.environmentUrl !== null &&
-            environmentObj.environmentUrl !== ''
-            ? `"${environmentObj.environmentUrl}"`
-            : 'null';
-        const paramsJson = params !== null && params !== '' ? `"${params}"` : 'null';
-        const parsedParamsJson = parsed_params !== null ? JSON.stringify(parsed_params) : 'null';
-        const commentBody = dedent(`
+        const preDeployMetadata = {
+            type: currentDeploymentType.toLowerCase(),
+            environment: {
+                name: environment,
+                url: environmentObj.environmentUrl !== null &&
+                    environmentObj.environmentUrl !== ''
+                    ? environmentObj.environmentUrl
+                    : null
+            },
+            deployment: {
+                timestamp: deployment_start_time,
+                logs: log_url
+            },
+            git: {
+                branch: precheckResults.ref,
+                commit: precheckResults.sha,
+                verified: commitSafetyCheckResults.isVerified,
+                committer: String(committer),
+                html_url: commit_html_url
+            },
+            context: {
+                actor: github_context.actor,
+                noop: precheckResults.noopMode,
+                fork: precheckResults.isFork,
+                comment: {
+                    created_at: issueComment.payload.comment.created_at,
+                    updated_at: issueComment.payload.comment.updated_at,
+                    body,
+                    html_url: issueComment.payload.comment.html_url
+                }
+            },
+            parameters: {
+                raw: params !== null && params !== '' ? params : null,
+                parsed: parsed_params
+            }
+        };
+        const preDeployMetadataBlock = jsonCodeBlock(preDeployMetadata);
+        const commentHeader = dedent(`
       ### Deployment Triggered 🚀
 
-      __${github_context.actor}__, started a __${deploymentType}__ deployment to __${environment}__ (${deploymentType}: \`${precheckResults.ref}\`)
+      __${github_context.actor}__, started a __${currentDeploymentType}__ deployment to __${environment}__ (${currentDeploymentType}: \`${precheckResults.ref}\`)
 
       You can watch the progress [here](${log_url}) 🔗
 
-      <details><summary>Details</summary>
-
-      <!--- pre-deploy-metadata-start -->
-
-      \`\`\`json
-      {
-        "type": "${deploymentType.toLowerCase()}",
-        "environment": {
-          "name": "${environment}",
-          "url": ${environmentUrlJson}
-        },
-        "deployment": {
-          "timestamp": "${deployment_start_time}",
-          "logs": "${log_url}"
-        },
-        "git": {
-          "branch": "${precheckResults.ref}",
-          "commit": "${precheckResults.sha}",
-          "verified": ${commitSafetyCheckResults.isVerified},
-          "committer": "${String(committer)}",
-          "html_url": "${commit_html_url}"
-        },
-        "context": {
-          "actor": "${github_context.actor}",
-          "noop": ${precheckResults.noopMode},
-          "fork": ${precheckResults.isFork},
-          "comment": {
-            "created_at": "${issueComment.payload.comment.created_at}",
-            "updated_at": "${issueComment.payload.comment.updated_at}",
-            "body": "${body}",
-            "html_url": "${issueComment.payload.comment.html_url}"
-          }
-        },
-        "parameters": {
-          "raw": ${paramsJson},
-          "parsed": ${parsedParamsJson}
-        }
-      }
-      \`\`\`
-
-      <!--- pre-deploy-metadata-end -->
-
-      </details>
     `);
+        const commentBody = [
+            commentHeader,
+            '',
+            '<details><summary>Details</summary>',
+            '',
+            '<!--- pre-deploy-metadata-start -->',
+            '',
+            preDeployMetadataBlock,
+            '',
+            '<!--- pre-deploy-metadata-end -->',
+            '',
+            '</details>'
+        ].join('\n');
         // Make a comment on the PR
         const deploymentStartedComment = await octokit.rest.issues.createComment({
             ...github_context.repo,
@@ -48302,7 +48478,7 @@ async function run() {
             info(`🧑‍🚀 commit sha to noop: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`);
             info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`);
             // If noop mode is enabled, return here
-            return 'success - noop';
+            return finish('success - noop', 'continue', 'noop_ready');
         }
         else {
             setActionOutput('noop', precheckResults.noopMode);
@@ -48337,7 +48513,7 @@ async function run() {
             parsed_params: parsed_params,
             github_run_id: github_run_id,
             initial_comment_id: issueComment.payload.comment.id,
-            initial_reaction_id: reactRes.data.id,
+            initial_reaction_id: reactionId,
             deployment_started_comment_id: deploymentStartedComment.data.id,
             timestamp: deployment_start_time,
             commit_verified: commitSafetyCheckResults.isVerified,
@@ -48362,6 +48538,7 @@ async function run() {
         const createDeploy = createdDeployment(createDeploymentResponse.data);
         setActionOutput('deployment_id', createDeploy.id);
         saveActionState('deployment_id', createDeploy.id);
+        resultDeploymentId = createDeploy.id ?? null;
         // If a merge to the base branch is required, let the user know and exit
         if (typeof createDeploy.id === 'undefined' &&
             createDeploy.message.includes('Auto-merged')) {
@@ -48376,13 +48553,13 @@ async function run() {
             await actionStatus({
                 context: actionContext,
                 octokit,
-                reactionId: reactRes.data.id,
+                reactionId,
                 message: mergeMessage
             });
             warning(mergeMessage);
             // Enable bypass for the post deploy step since the deployment is not complete
             saveActionState('bypass', 'true');
-            return 'safe-exit';
+            return finish('safe-exit', 'stop', 'base_branch_update_required');
         }
         // Debug log information about the deployment that was just created
         info(`📓 deployment id: ${COLORS.highlight}${String(createDeploy.id)}${COLORS.reset}`);
@@ -48396,14 +48573,14 @@ async function run() {
         info(`🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`);
         info(`🚀 ${COLORS.success}deployment started!${COLORS.reset}`);
         setActionOutput('continue', 'true');
-        return 'success';
+        return finish('success', 'continue', 'deployment_ready');
     }
     catch (error) {
         saveActionState('bypass', 'true');
         const apiError = legacyApiError(error);
         actions_core_error(apiError.stack);
         setFailed(apiError.message);
-        return undefined;
+        return finish(undefined, 'failure', 'unexpected_error');
     }
 }
 /* node:coverage ignore next */
