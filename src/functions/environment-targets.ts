@@ -427,7 +427,7 @@ interface EnvironmentRequestBase {
   readonly context: BranchDeployContext
   readonly environment: string
   readonly octokit: BranchDeployOctokit
-  readonly reactionId: number
+  readonly reactionId: number | null
   readonly trigger: string
 }
 

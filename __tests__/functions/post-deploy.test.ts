@@ -474,11 +474,11 @@ test('fails due to no environment', async () => {
   })
 })
 
-test('fails due to no reaction_id', async () => {
+test('skips decorative reaction handling when reaction_id is empty', async () => {
   data.reaction_id = ''
-  await assert.rejects(postDeploy(context, octokit, data), {
-    message: 'no reaction_id provided'
-  })
+  await postDeploy(context, octokit, data)
+  const actionStatusRequest = actionStatusMock.mock.calls.at(-1)?.arguments[0]
+  assert.strictEqual(actionStatusRequest?.reactionId, null)
 })
 
 test('fails due to no environment (noop)', async () => {

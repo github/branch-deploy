@@ -66,7 +66,7 @@ The package boundary is ESM. Preserve `"type": "module"`, ESM exports, import-ti
 
 ## Action contract
 
-The action metadata and typed registries define a deliberately stable public interface. Current contract tests enforce all 49 input names and all 38 output names.
+The action metadata and typed registries define a deliberately stable public interface. Current contract tests enforce all 49 input names and all 41 output names.
 
 When changing action inputs or outputs:
 

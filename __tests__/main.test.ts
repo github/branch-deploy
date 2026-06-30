@@ -2,7 +2,9 @@ import assert from 'node:assert/strict'
 import {afterEach, beforeEach, mock, test, type Mock} from 'node:test'
 import {isDeepStrictEqual} from 'node:util'
 import {COLORS} from '../src/functions/colors.ts'
-import type {BranchDeployOctokit} from '../src/types.ts'
+import type {BranchDeployOctokit, OperationResultV1} from '../src/types.ts'
+import {decodedJsonValue} from '../src/trust-boundaries.ts'
+import {unsafeInvalidValue} from './unsafe-fixtures.ts'
 import {
   assertCalledWith,
   assertNotCalled,
@@ -31,6 +33,12 @@ type PrechecksModule = typeof import('../src/functions/prechecks.ts')
 type ReactEmoteModule = typeof import('../src/functions/react-emote.ts')
 type TimestampModule = typeof import('../src/functions/timestamp.ts')
 type UnlockModule = typeof import('../src/functions/unlock.ts')
+type InteractiveUnlockRequest =
+  import('../src/functions/unlock.ts').InteractiveUnlockRequest
+type SilentUnlockRequest =
+  import('../src/functions/unlock.ts').SilentUnlockRequest
+type SilentUnlockResult =
+  import('../src/functions/unlock.ts').SilentUnlockResult
 type UnlockOnMergeModule = typeof import('../src/functions/unlock-on-merge.ts')
 type ValidDeploymentOrderModule =
   typeof import('../src/functions/valid-deployment-order.ts')
@@ -286,6 +294,75 @@ function setValidPermissionsResult(
   validPermissionsMock.mock.mockImplementation(() => Promise.resolve(result))
 }
 
+function successfulUnlock(
+  request: SilentUnlockRequest
+): Promise<SilentUnlockResult>
+function successfulUnlock(request: InteractiveUnlockRequest): Promise<boolean>
+function successfulUnlock(
+  request: InteractiveUnlockRequest | SilentUnlockRequest
+): Promise<boolean | SilentUnlockResult> {
+  return Promise.resolve(
+    request.mode === 'silent' ? 'removed lock - silent' : true
+  )
+}
+
+function failedUnlock(request: SilentUnlockRequest): Promise<SilentUnlockResult>
+function failedUnlock(request: InteractiveUnlockRequest): Promise<boolean>
+function failedUnlock(
+  request: InteractiveUnlockRequest | SilentUnlockRequest
+): Promise<boolean | SilentUnlockResult> {
+  return Promise.resolve(
+    request.mode === 'silent'
+      ? 'failed to delete lock (bad status code) - silent'
+      : false
+  )
+}
+
+function throwingUnlock(
+  request: SilentUnlockRequest
+): Promise<SilentUnlockResult>
+function throwingUnlock(request: InteractiveUnlockRequest): Promise<boolean>
+function throwingUnlock(
+  _request: InteractiveUnlockRequest | SilentUnlockRequest
+): Promise<boolean | SilentUnlockResult> {
+  return Promise.reject(new Error('cleanup unavailable'))
+}
+
+type ExpectedOperationResult = Pick<
+  OperationResultV1,
+  'decision' | 'operation' | 'reason_code'
+> &
+  Partial<
+    Pick<
+      OperationResultV1,
+      'deployment_id' | 'deployment_type' | 'environment' | 'ref' | 'sha'
+    >
+  >
+
+function assertOperationResult(expected: ExpectedOperationResult): void {
+  const resultCalls = setOutputMock.mock.calls.filter(
+    call => call.arguments[0] === 'result'
+  )
+  assert.strictEqual(resultCalls.length, 1)
+  const serialized = String(resultCalls[0]?.arguments[1])
+  const result = unsafeInvalidValue<OperationResultV1>(
+    decodedJsonValue(serialized)
+  )
+  assert.deepStrictEqual(result, {
+    schema_version: 1,
+    decision: expected.decision,
+    reason_code: expected.reason_code,
+    operation: expected.operation,
+    deployment_type: expected.deployment_type ?? null,
+    environment: expected.environment ?? null,
+    ref: expected.ref ?? null,
+    sha: expected.sha ?? null,
+    deployment_id: expected.deployment_id ?? null
+  })
+  assertCalledWith(setOutputMock, 'decision', result.decision)
+  assertCalledWith(setOutputMock, 'reason_code', result.reason_code)
+}
+
 beforeEach(() => {
   commitLogin = 'monalisa'
   deploymentMessage = null
@@ -369,7 +446,7 @@ beforeEach(() => {
   getOctokitMock.mock.mockImplementation(() => octokit)
   isDeprecatedMock.mock.mockImplementation(() => Promise.resolve(false))
   deploymentConfirmationMock.mock.mockImplementation(() =>
-    Promise.resolve(true)
+    Promise.resolve('confirmed')
   )
   lockMock.mock.mockImplementation(() =>
     Promise.resolve({
@@ -381,9 +458,7 @@ beforeEach(() => {
     })
   )
   contextCheckMock.mock.mockImplementation(() => true)
-  reactEmoteMock.mock.mockImplementation(() =>
-    Promise.resolve({data: {id: 123}})
-  )
+  reactEmoteMock.mock.mockImplementation(() => Promise.resolve(123))
   timestampMock.mock.mockImplementation(() => '2025-01-01T00:00:00.000Z')
   prechecksMock.mock.mockImplementation(() =>
     Promise.resolve({
@@ -408,6 +483,7 @@ beforeEach(() => {
   identicalCommitCheckMock.mock.mockImplementation(() => Promise.resolve(true))
   nakedCommandCheckMock.mock.mockImplementation(() => Promise.resolve(false))
   unlockOnMergeMock.mock.mockImplementation(() => Promise.resolve(true))
+  unlockMock.mock.mockImplementation(successfulUnlock)
   validDeploymentOrderMock.mock.mockImplementation(() =>
     Promise.resolve({valid: true, results: []})
   )
@@ -420,6 +496,16 @@ afterEach(() => {
 
 test('successfully runs the action', async () => {
   assert.strictEqual(await run(), 'success')
+  assertOperationResult({
+    decision: 'continue',
+    reason_code: 'deployment_ready',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: 'abc123',
+    deployment_id: 123
+  })
   assertCalledWith(setOutputMock, 'deployment_id', 123)
   assertCalledWith(setOutputMock, 'comment_body', '.deploy')
   assertCalledWith(setOutputMock, 'triggered', 'true')
@@ -482,7 +568,7 @@ test('successfully runs the action with deployment confirmation', async () => {
   setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
 
   deploymentConfirmationMock.mock.mockImplementation(() =>
-    Promise.resolve(true)
+    Promise.resolve('confirmed')
   )
 
   assert.strictEqual(await run(), 'success')
@@ -523,7 +609,7 @@ test('successfully runs the action with deployment confirmation and when the com
   setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
 
   deploymentConfirmationMock.mock.mockImplementation(() =>
-    Promise.resolve(true)
+    Promise.resolve('confirmed')
   )
   commitLogin = null
 
@@ -569,10 +655,19 @@ test('rejects the deployment when deployment confirmation is set, but does not s
   setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
 
   deploymentConfirmationMock.mock.mockImplementation(() =>
-    Promise.resolve(false)
+    Promise.resolve('rejected')
   )
 
   assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'confirmation_rejected',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: 'abc123'
+  })
   assertCalledWith(setOutputMock, 'comment_body', '.deploy')
   assertCalledWith(setOutputMock, 'triggered', 'true')
   assertCalledWith(setOutputMock, 'comment_id', 123)
@@ -595,6 +690,82 @@ test('rejects the deployment when deployment confirmation is set, but does not s
     infoMock,
     `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
   )
+})
+
+test('reports a timed-out confirmation and warns if non-sticky lock cleanup throws', async () => {
+  setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
+  deploymentConfirmationMock.mock.mockImplementation(() =>
+    Promise.resolve('timed_out')
+  )
+  unlockMock.mock.mockImplementation(throwingUnlock)
+
+  assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'confirmation_timed_out',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: 'abc123'
+  })
+  assertCalledWith(
+    warningMock,
+    'failed to release the non-sticky deployment lock after confirmation did not complete: cleanup unavailable'
+  )
+})
+
+test('warns when non-sticky confirmation cleanup returns a bad status', async () => {
+  setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
+  deploymentConfirmationMock.mock.mockImplementation(() =>
+    Promise.resolve('rejected')
+  )
+  unlockMock.mock.mockImplementation(failedUnlock)
+
+  assert.strictEqual(await run(), 'failure')
+  assertCalledWith(
+    warningMock,
+    'failed to release the non-sticky deployment lock after confirmation did not complete'
+  )
+})
+
+test('retains a sticky lock when deployment confirmation is rejected', async () => {
+  setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
+  setEnv('INPUT_STICKY_LOCKS', 'true')
+  deploymentConfirmationMock.mock.mockImplementation(() =>
+    Promise.resolve('rejected')
+  )
+
+  assert.strictEqual(await run(), 'failure')
+  assertNotCalled(unlockMock)
+})
+
+test('cleans a non-sticky lock before propagating a confirmation error', async () => {
+  setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
+  deploymentConfirmationMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('confirmation unavailable'))
+  )
+
+  assert.strictEqual(await run(), undefined)
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'unexpected_error',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: 'abc123'
+  })
+  const cleanupRequest = unsafeInvalidValue<SilentUnlockRequest>(
+    unlockMock.mock.calls.at(-1)?.arguments[0]
+  )
+  assert.deepStrictEqual(cleanupRequest, {
+    octokit,
+    context: githubContext,
+    reactionId: null,
+    target: {type: 'environment', environment: 'production'},
+    mode: 'silent'
+  })
 })
 
 test('successfully runs the action on a deployment to development and with branch updates disabled', async () => {
@@ -635,6 +806,15 @@ test('successfully runs the action in noop mode', async () => {
   setCommentBody('.noop')
 
   assert.strictEqual(await run(), 'success - noop')
+  assertOperationResult({
+    decision: 'continue',
+    reason_code: 'noop_ready',
+    operation: 'noop',
+    deployment_type: 'noop',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: 'deadbeef'
+  })
   assertCalledWith(setOutputMock, 'comment_body', '.noop')
   assertCalledWith(setOutputMock, 'triggered', 'true')
   assertCalledWith(setOutputMock, 'comment_id', 123)
@@ -750,6 +930,14 @@ test('runs the action and fails due to invalid environment deployment order', as
   )
 
   assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'deployment_order_failed',
+    operation: 'deploy',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: 'deadbeef'
+  })
   assertCalledWith(setOutputMock, 'comment_body', '.deploy')
   assertCalledWith(setOutputMock, 'triggered', 'true')
   assertCalledWith(setOutputMock, 'comment_id', 123)
@@ -810,6 +998,11 @@ test('runs the action in lock mode and fails due to bad permissions', async () =
   setCommentBody('.lock')
 
   assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'permission_denied',
+    operation: 'lock'
+  })
   assertCalledWith(setOutputMock, 'comment_body', '.lock')
   assertCalledWith(setOutputMock, 'triggered', 'true')
   assertCalledWith(setOutputMock, 'comment_id', 123)
@@ -833,6 +1026,13 @@ test('successfully runs the action in lock mode with a reason', async () => {
   setCommentBody('.lock --reason testing a new feature')
 
   assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'complete',
+    reason_code: 'lock_acquired',
+    operation: 'lock',
+    environment: 'production',
+    ref: 'test-ref'
+  })
   assertCalledWith(
     setOutputMock,
     'comment_body',
@@ -845,6 +1045,56 @@ test('successfully runs the action in lock mode with a reason', async () => {
   assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
   assertCalledWith(saveStateMock, 'comment_id', 123)
   assertCalledWith(saveStateMock, 'bypass', 'true')
+})
+
+test('reports an already-owned direct lock', async () => {
+  setCommentBody('.lock --reason all yours')
+  setLockResult({
+    status: 'owner',
+    lockData: {
+      branch: 'test-ref',
+      created_at: '2025-01-01T00:00:00.000Z',
+      created_by: 'monalisa',
+      environment: 'production',
+      global: false,
+      link: 'https://github.com/corp/test/pull/123',
+      reason: 'all yours',
+      sticky: true,
+      unlock_command: '.unlock production'
+    },
+    environment: 'production',
+    global: false,
+    globalFlag: '--global'
+  })
+
+  assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'complete',
+    reason_code: 'lock_already_owned',
+    operation: 'lock',
+    environment: 'production',
+    ref: 'test-ref'
+  })
+})
+
+test('reports a conflicting direct lock', async () => {
+  setCommentBody('.lock')
+  setLockResult({
+    status: false,
+    lockData: null,
+    environment: 'production',
+    global: false,
+    globalFlag: '--global'
+  })
+
+  assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'stop',
+    reason_code: 'lock_conflict',
+    operation: 'lock',
+    environment: 'production',
+    ref: 'test-ref'
+  })
 })
 
 test('successfully runs the action in lock mode - details only', async () => {
@@ -873,6 +1123,12 @@ test('successfully runs the action in lock mode - details only', async () => {
   setCommentBody('.lock --details')
 
   assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'complete',
+    reason_code: 'lock_info_completed',
+    operation: 'lock_info',
+    environment: 'production'
+  })
   assertCalledWith(setOutputMock, 'comment_body', '.lock --details')
   assertCalledWith(
     infoSpy,
@@ -1110,6 +1366,12 @@ test('fails a lock details request when the lock state is ambiguous', async () =
   setCommentBody('.wcid')
 
   assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'lock_conflict',
+    operation: 'lock_info',
+    environment: 'production'
+  })
   assertCalledWith(saveStateMock, 'bypass', 'true')
   assertNotCalled(validDeploymentOrderMock)
 })
@@ -1137,6 +1399,12 @@ test('fails to aquire the lock on a deploy so it exits', async () => {
 test('runs with the unlock trigger', async () => {
   setCommentBody('.unlock')
   assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'complete',
+    reason_code: 'unlock_completed',
+    operation: 'unlock',
+    environment: 'production'
+  })
   assertCalledWith(setOutputMock, 'triggered', 'true')
   assertCalledWith(setOutputMock, 'comment_id', 123)
   assertCalledWith(setOutputMock, 'type', 'unlock')
@@ -1147,10 +1415,29 @@ test('runs with the unlock trigger', async () => {
   assertNotCalled(validDeploymentOrderMock)
 })
 
+test('fails the action when an interactive unlock cannot delete the lock', async () => {
+  setCommentBody('.unlock')
+  unlockMock.mock.mockImplementation(failedUnlock)
+
+  assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'unlock_failed',
+    operation: 'unlock',
+    environment: 'production'
+  })
+  assertCalledWith(setFailedMock, 'failed to remove the deployment lock')
+})
+
 test('runs with the deprecated noop input', async () => {
   setCommentBody('.deploy noop')
   isDeprecatedMock.mock.mockImplementation(() => Promise.resolve(true))
   assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'stop',
+    reason_code: 'deprecated_command',
+    operation: 'none'
+  })
   assertCalledWith(saveStateMock, 'isPost', 'true')
   assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
   assertCalledWith(saveStateMock, 'bypass', 'true')
@@ -1163,6 +1450,11 @@ test('runs with a naked command when naked commands are NOT allowed', async () =
   setCommentBody('.deploy')
   nakedCommandCheckMock.mock.mockImplementation(() => Promise.resolve(true))
   assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'stop',
+    reason_code: 'naked_command_disabled',
+    operation: 'none'
+  })
   assertCalledWith(saveStateMock, 'isPost', 'true')
   assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
   assertCalledWith(saveStateMock, 'bypass', 'true')
@@ -1300,6 +1592,15 @@ test('successfully runs the action with required contexts, explict checks, and s
 test('detects an out of date branch and exits', async () => {
   deploymentMessage = 'Auto-merged'
   assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'stop',
+    reason_code: 'base_branch_update_required',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: 'abc123'
+  })
   assertCalledWith(setOutputMock, 'comment_body', '.deploy')
   assertCalledWith(setOutputMock, 'triggered', 'true')
   assertCalledWith(setOutputMock, 'comment_id', 123)
@@ -1320,17 +1621,32 @@ test('detects an out of date branch and exits', async () => {
 test('fails due to a bad context', async () => {
   contextCheckMock.mock.mockImplementation(() => false)
   assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'stop',
+    reason_code: 'unsupported_event',
+    operation: 'none'
+  })
 })
 
 test('fails due to no valid environment targets being found in the comment body', async () => {
   setCommentBody('.deploy to chaos')
   assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'stop',
+    reason_code: 'invalid_environment',
+    operation: 'deploy'
+  })
   assertCalledWith(debugMock, 'No valid environment targets found')
 })
 
 test('fails due to no trigger being found', async () => {
   setEnv('INPUT_TRIGGER', '.shipit')
   assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'stop',
+    reason_code: 'no_trigger',
+    operation: 'none'
+  })
   assertCalledWith(infoMock, '⛔ no trigger detected in comment - exiting')
 })
 
@@ -1340,6 +1656,12 @@ test('fails prechecks', async () => {
     message: '### ⚠️ Cannot proceed with deployment... something went wrong'
   })
   assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'prechecks_failed',
+    operation: 'deploy',
+    environment: 'production'
+  })
   assertCalledWith(saveStateMock, 'bypass', 'true')
   assertCalledWith(
     setFailedMock,
@@ -1357,6 +1679,14 @@ test('fails commitSafetyChecks', async () => {
     isVerified: false
   }))
   assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'commit_safety_failed',
+    operation: 'deploy',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: 'abc123'
+  })
   assertCalledWith(saveStateMock, 'bypass', 'true')
   assertCalledWith(
     setFailedMock,
@@ -1384,6 +1714,11 @@ test('fails commitSafetyChecks but proceeds because the operation is on the stab
 test('runs the .help command successfully', async () => {
   setCommentBody('.help')
   assert.strictEqual(await run(), 'safe-exit')
+  assertOperationResult({
+    decision: 'complete',
+    reason_code: 'help_completed',
+    operation: 'help'
+  })
   assertCalledWith(debugMock, 'help command detected')
 
   assertNotCalled(validDeploymentOrderMock)
@@ -1424,13 +1759,38 @@ test('runs the action in lock mode and fails due to an invalid environment', asy
 test('successfully runs in mergeDeployMode', async () => {
   setEnv('INPUT_MERGE_DEPLOY_MODE', 'true')
   assert.strictEqual(await run(), 'success - merge deploy mode')
+  assertOperationResult({
+    decision: 'stop',
+    reason_code: 'merge_deploy_not_required',
+    operation: 'merge_deploy',
+    environment: 'production'
+  })
   assertCalledWith(saveStateMock, 'bypass', 'true')
   assertCalledWith(infoMock, `🏃 running in 'merge deploy' mode`)
+})
+
+test('continues mergeDeployMode when the default branch needs deployment', async () => {
+  setEnv('INPUT_MERGE_DEPLOY_MODE', 'true')
+  identicalCommitCheckMock.mock.mockImplementation(() => Promise.resolve(false))
+
+  assert.strictEqual(await run(), 'success - merge deploy mode')
+  assertOperationResult({
+    decision: 'continue',
+    reason_code: 'merge_deploy_required',
+    operation: 'merge_deploy',
+    environment: 'production'
+  })
 })
 
 test('successfully runs in unlockOnMergeMode', async () => {
   setEnv('INPUT_UNLOCK_ON_MERGE_MODE', 'true')
   assert.strictEqual(await run(), 'success - unlock on merge mode')
+  assertOperationResult({
+    decision: 'complete',
+    reason_code: 'unlock_on_merge_completed',
+    operation: 'unlock_on_merge',
+    environment: 'production'
+  })
   assertCalledWith(infoMock, `🏃 running in 'unlock on merge' mode`)
   assertCalledWith(saveStateMock, 'bypass', 'true')
   assertNotCalled(validDeploymentOrderMock)
@@ -1439,6 +1799,11 @@ test('successfully runs in unlockOnMergeMode', async () => {
 test('handles an input validation error and exits', async () => {
   setEnv('INPUT_UPDATE_BRANCH', 'badvalue')
   assert.strictEqual(await run(), undefined)
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'unexpected_error',
+    operation: 'none'
+  })
   assert.ok(setFailedMock.mock.callCount() > 0)
 })
 
@@ -1448,11 +1813,11 @@ test('handles an unexpected error and exits', async () => {
   assert.ok(setFailedMock.mock.callCount() > 0)
 })
 
-test('preserves the failure path when reaction creation returns undefined', async () => {
-  reactEmoteMock.mock.mockImplementation(() => Promise.resolve(undefined))
-  assert.strictEqual(await run(), undefined)
-  assertCalledWith(saveStateMock, 'bypass', 'true')
-  assert.ok(setFailedMock.mock.callCount() > 0)
+test('continues without a decorative reaction when no reaction id is returned', async () => {
+  reactEmoteMock.mock.mockImplementation(() => Promise.resolve(null))
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(setOutputMock, 'initial_reaction_id', '')
+  assertCalledWith(saveStateMock, 'reaction_id', '')
 })
 
 test('safe-exits when environment target parsing returns an empty target', async () => {
@@ -1549,4 +1914,45 @@ test('stores params and parsed params into context with complex params', async (
   })
   assertCalledWith(setOutputMock, 'params', params)
   assertCalledWith(setOutputMock, 'parsed_params', parsed_params)
+})
+
+test('renders arbitrary pre-deploy values as valid fenced JSON', async testContext => {
+  const hostile = 'quote " slash \\ newline\nUnicode 🚀 and `````` backticks'
+  const comment = githubContext.payload.comment
+  if (comment === undefined) {
+    throw new Error('missing test comment')
+  }
+  comment['created_at'] = hostile
+  comment['updated_at'] = hostile
+  comment['html_url'] = hostile
+  const createCommentSpy = testContext.mock.method(
+    octokit.rest.issues,
+    'createComment'
+  )
+
+  assert.strictEqual(await run(), 'success')
+  const request = createCommentSpy.mock.calls[0]?.arguments[0]
+  const rendered = String(request?.body)
+  const match = rendered.match(
+    /<!--- pre-deploy-metadata-start -->\n\n(`{3,})json\n([\s\S]*?)\n\1\n\n<!--- pre-deploy-metadata-end -->/u
+  )
+  if (match?.[1] === undefined || match[2] === undefined) {
+    throw new Error('expected pre-deploy metadata block')
+  }
+  assert.ok(match[1].length > 6)
+  const metadata = unsafeInvalidValue<{
+    readonly context: {
+      readonly comment: {
+        readonly created_at: string
+        readonly html_url: string
+        readonly updated_at: string
+      }
+    }
+  }>(decodedJsonValue(match[2]))
+  assert.deepStrictEqual(metadata.context.comment, {
+    created_at: hostile,
+    updated_at: hostile,
+    body: '.deploy',
+    html_url: hostile
+  })
 })

@@ -102,12 +102,18 @@ export async function postDeploy(
     commit_verified: data.commit_verified,
     total_seconds: total_seconds
   })
+  const reactionId =
+    data.reaction_id === null ||
+    data.reaction_id === undefined ||
+    data.reaction_id === ''
+      ? null
+      : parseInt(data.reaction_id)
 
   // update the action status to indicate the result of the deployment as a comment
   await actionStatus({
     context,
     octokit,
-    reactionId: parseInt(data.reaction_id),
+    reactionId,
     message,
     result: success ? 'success' : 'failure'
   })
@@ -281,7 +287,6 @@ function validateInputs(
     'status',
     'ref',
     'environment',
-    'reaction_id',
     'sha',
     'commit_verified'
   ]

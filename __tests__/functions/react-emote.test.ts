@@ -21,20 +21,18 @@ const octokit = {
 } satisfies ReactEmoteOctokit
 
 test('adds a reaction emote to a comment', async () => {
-  assert.deepStrictEqual(await reactEmote('eyes', context, octokit), {
-    data: {id: 1}
-  })
+  assert.strictEqual(await reactEmote('eyes', context, octokit), 1)
 })
 
 test('returns if no reaction is specified', async () => {
-  assert.strictEqual(await reactEmote('', context, octokit), undefined)
+  assert.strictEqual(await reactEmote('', context, octokit), null)
   assert.strictEqual(
     await reactEmote(
       unsafeInvalidValue<Parameters<typeof reactEmote>[0]>(null),
       context,
       octokit
     ),
-    undefined
+    null
   )
 })
 
@@ -42,4 +40,18 @@ test('throws an error if a bad emote is used', async () => {
   await assert.rejects(reactEmote('bad', context, octokit), {
     message: 'Reaction "bad" is not a valid preset'
   })
+})
+
+test('warns and continues when a valid decorative reaction cannot be created', async () => {
+  const failingOctokit = {
+    rest: {
+      reactions: {
+        createForIssueComment: mock.fn(() =>
+          Promise.reject(new Error('reaction unavailable'))
+        )
+      }
+    }
+  } satisfies ReactEmoteOctokit
+
+  assert.strictEqual(await reactEmote('eyes', context, failingOctokit), null)
 })

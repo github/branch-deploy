@@ -43,6 +43,10 @@ export function decodedLockData(value: string): LockData {
   return JSON.parse(value) as LockData
 }
 
+export function decodedJsonValue(value: string): unknown {
+  return JSON.parse(value) as unknown
+}
+
 export function createdDeployment(value: unknown): CreatedDeployment {
   return value as CreatedDeployment
 }
@@ -61,22 +65,6 @@ export function legacyEnvironmentUrl(value: string | null): string {
 
 export function legacyLockData(value: LockData | null): LockData {
   return value as LockData
-}
-
-export function legacyAllowForksValue(value: boolean): string {
-  return value as unknown as string
-}
-
-export function legacyReactionResult<T>(value: T | undefined): T {
-  return value as T
-}
-
-export function legacyReactionUser<T>(value: T | null): T {
-  return value as T
-}
-
-export function legacyReactionId(value: number | null): number {
-  return value as number
 }
 
 export function legacyArrayElement<T>(value: T | undefined): T {

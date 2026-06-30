@@ -4,6 +4,7 @@ import {dedent} from '../../src/functions/dedent.ts'
 import type {PostDeployMessageData} from '../../src/types.ts'
 import {createContext} from '../test-helpers.ts'
 import {unsafeInvalidValue} from '../unsafe-fixtures.ts'
+import {decodedJsonValue} from '../../src/trust-boundaries.ts'
 import {
   assertCalledWith,
   createMock,
@@ -59,62 +60,59 @@ let total_seconds: number
 
 function renderDeploymentMetadata(data: PostDeployMessageData): string {
   const environmentUrl =
-    data.environment_url !== null && data.environment_url.length > 0
-      ? `"${data.environment_url}"`
-      : null
+    data.environment_url === '' ? null : data.environment_url
   const deploymentId = data.deployment_id ? parseInt(data.deployment_id) : null
   const reviewCount = data.approved_reviews_count
     ? parseInt(data.approved_reviews_count)
     : null
-  const reviewDecision = data.review_decision
-    ? `"${data.review_decision}"`
-    : null
-  const rawParams = data.params ? `"${data.params}"` : null
-  const parsedParams = data.parsed_params || null
+  const metadata = {
+    status: data.status,
+    environment: {name: data.environment, url: environmentUrl},
+    deployment: {
+      id: deploymentId,
+      timestamp: data.deployment_end_time,
+      logs,
+      duration: data.total_seconds
+    },
+    git: {branch: data.ref, commit: data.sha, verified: data.commit_verified},
+    context: {actor: context.actor, noop: data.noop, fork: data.fork},
+    reviews: {
+      count: reviewCount,
+      decision: data.review_decision === '' ? null : data.review_decision
+    },
+    parameters: {
+      raw: data.params === '' ? null : data.params,
+      parsed:
+        data.parsed_params === '' ? null : decodedJsonValue(data.parsed_params)
+    }
+  }
 
-  return dedent(`
-    <details><summary>Details</summary>
+  return [
+    '<details><summary>Details</summary>',
+    '',
+    '<!--- post-deploy-metadata-start -->',
+    '',
+    '```json',
+    JSON.stringify(metadata, null, 2),
+    '```',
+    '',
+    '<!--- post-deploy-metadata-end -->',
+    '',
+    '</details>'
+  ].join('\n')
+}
 
-    <!--- post-deploy-metadata-start -->
-
-    \t\t\t\t\`\`\`json
-    \t\t\t\t{
-    \t\t\t\t  "status": "${data.status}",
-    \t\t\t\t  "environment": {
-    \t\t\t\t    "name": "${data.environment}",
-    \t\t\t\t    "url": ${String(environmentUrl)}
-    \t\t\t\t  },
-    \t\t\t\t  "deployment": {
-    \t\t\t\t    "id": ${String(deploymentId)},
-    \t\t\t\t    "timestamp": "${data.deployment_end_time}",
-    \t\t\t\t    "logs": "${logs}",
-    \t\t\t\t    "duration": ${data.total_seconds}
-    \t\t\t\t  },
-    \t\t\t\t  "git": {
-    \t\t\t\t    "branch": "${data.ref}",
-    \t\t\t\t    "commit": "${data.sha}",
-    \t\t\t\t    "verified": ${data.commit_verified}
-    \t\t\t\t  },
-    \t\t\t\t  "context": {
-    \t\t\t\t    "actor": "${context.actor}",
-    \t\t\t\t    "noop": ${data.noop},
-    \t\t\t\t    "fork": ${data.fork}
-    \t\t\t\t  },
-    \t\t\t\t  "reviews": {
-    \t\t\t\t    "count": ${String(reviewCount)},
-    \t\t\t\t    "decision": ${String(reviewDecision)}
-    \t\t\t\t  },
-    \t\t\t\t  "parameters": {
-    \t\t\t\t    "raw": ${String(rawParams)},
-    \t\t\t\t    "parsed": ${String(parsedParams)}
-    \t\t\t\t  }
-    \t\t\t\t}
-    \`\`\`
-
-    <!--- post-deploy-metadata-end -->
-
-    </details>
-  `)
+function defaultMessage(
+  heading: string,
+  message: string,
+  metadata: string,
+  environmentUrl?: string
+): string {
+  const parts = [heading, '', message, '', metadata]
+  if (environmentUrl !== undefined) {
+    parts.push('', environmentUrl)
+  }
+  return parts.join('\n')
 }
 
 beforeEach(testContext => {
@@ -196,15 +194,12 @@ beforeEach(testContext => {
 test('successfully constructs a post deploy message with the defaults', () => {
   assert.strictEqual(
     postDeployMessage(context, data),
-    dedent(`
-    ### Deployment Results ✅
-
-    **${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**
-
-    ${deployment_metadata}
-
-    > **Environment URL:** [${environment_url_simple}](${environment_url})
-    `)
+    defaultMessage(
+      '### Deployment Results ✅',
+      `**${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**`,
+      deployment_metadata,
+      `> **Environment URL:** [${environment_url_simple}](${environment_url})`
+    )
   )
 })
 
@@ -213,12 +208,11 @@ test('successfully constructs a post deploy message with the defaults during a "
   deployment_metadata = renderDeploymentMetadata(data)
   assert.strictEqual(
     postDeployMessage(context, data),
-    dedent(`
-    ### Deployment Results ✅
-
-    **${context.actor}** successfully **noop** deployed branch \`${ref}\` to **${environment}**
-
-    ${deployment_metadata}`)
+    defaultMessage(
+      '### Deployment Results ✅',
+      `**${context.actor}** successfully **noop** deployed branch \`${ref}\` to **${environment}**`,
+      deployment_metadata
+    )
   )
 })
 
@@ -227,13 +221,11 @@ test('successfully constructs a post deploy message with the defaults during a d
   deployment_metadata = renderDeploymentMetadata(data)
   assert.strictEqual(
     postDeployMessage(context, data),
-    dedent(`
-    ### Deployment Results ❌
-
-    **${context.actor}** had a failure when deploying branch \`${ref}\` to **${environment}**
-
-    ${deployment_metadata}
-    `)
+    defaultMessage(
+      '### Deployment Results ❌',
+      `**${context.actor}** had a failure when deploying branch \`${ref}\` to **${environment}**`,
+      deployment_metadata
+    )
   )
 })
 
@@ -243,12 +235,11 @@ test('successfully constructs a post deploy message with the defaults during a d
 
   assert.strictEqual(
     postDeployMessage(context, data),
-    dedent(`
-    ### Deployment Results ⚠️
-
-    Warning: deployment status is unknown, please use caution
-
-    ${deployment_metadata}`)
+    defaultMessage(
+      '### Deployment Results ⚠️',
+      'Warning: deployment status is unknown, please use caution',
+      deployment_metadata
+    )
   )
 })
 
@@ -259,13 +250,11 @@ test('successfully constructs a post deploy message with the defaults during a d
 
   assert.strictEqual(
     postDeployMessage(context, data),
-    dedent(`
-    ### Deployment Results ⚠️
-
-    Warning: deployment status is unknown, please use caution
-
-    ${deployment_metadata}
-    `)
+    defaultMessage(
+      '### Deployment Results ⚠️',
+      'Warning: deployment status is unknown, please use caution',
+      deployment_metadata
+    )
   )
 
   assertCalledWith(debugMock, 'deployMessagePath is not set - null')
@@ -276,20 +265,21 @@ test('successfully constructs a post deploy message with a custom env var', test
 
   assert.strictEqual(
     postDeployMessage(context, data),
-    dedent(`
-    ### Deployment Results ✅
-
-    **${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**
-
-    <details><summary>Show Results</summary>
-
-    Deployed 1 shiny new server
-
-    </details>
-
-    ${deployment_metadata}
-
-    > **Environment URL:** [${environment_url_simple}](${environment_url})`)
+    [
+      '### Deployment Results ✅',
+      '',
+      `**${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**`,
+      '',
+      '<details><summary>Show Results</summary>',
+      '',
+      'Deployed 1 shiny new server',
+      '',
+      '</details>',
+      '',
+      deployment_metadata,
+      '',
+      `> **Environment URL:** [${environment_url_simple}](${environment_url})`
+    ].join('\n')
   )
 })
 
@@ -310,18 +300,19 @@ test('successfully constructs a post deploy message with a custom env var when c
 
   assert.strictEqual(
     postDeployMessage(context, data),
-    dedent(`
-    ### Deployment Results ✅
-
-    **${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**
-
-    <details><summary>Show Results</summary>
-
-    Deployed 1 shiny new server
-
-    </details>
-
-    ${deployment_metadata}`)
+    [
+      '### Deployment Results ✅',
+      '',
+      `**${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**`,
+      '',
+      '<details><summary>Show Results</summary>',
+      '',
+      'Deployed 1 shiny new server',
+      '',
+      '</details>',
+      '',
+      deployment_metadata
+    ].join('\n')
   )
 })
 
@@ -329,6 +320,43 @@ test('renders an empty review decision as null metadata', () => {
   data = {...data, review_decision: ''}
 
   assert.ok(postDeployMessage(context, data).includes('"decision": null'))
+})
+
+test('renders arbitrary post-deploy values as valid fenced JSON', () => {
+  const hostile = 'quote " slash \\ newline\nUnicode 🚀 and `````` backticks'
+  data = {
+    ...data,
+    environment: hostile,
+    environment_url: `https://example.com/${hostile}`,
+    params: hostile,
+    parsed_params: JSON.stringify({_: [hostile], value: hostile}),
+    ref: hostile,
+    sha: hostile
+  }
+
+  const rendered = postDeployMessage(context, data)
+  const match = rendered.match(
+    /<!--- post-deploy-metadata-start -->\n\n(`{3,})json\n([\s\S]*?)\n\1\n\n<!--- post-deploy-metadata-end -->/u
+  )
+  if (match?.[1] === undefined || match[2] === undefined) {
+    throw new Error('expected post-deploy metadata block')
+  }
+  assert.ok(match[1].length > 6)
+  const metadata = decodedJsonValue(match[2])
+  assert.deepStrictEqual(metadata, {
+    status: 'success',
+    environment: {name: hostile, url: `https://example.com/${hostile}`},
+    deployment: {
+      id: 456,
+      timestamp: '2024-01-01T00:00:00Z',
+      logs,
+      duration: 27
+    },
+    git: {branch: hostile, commit: hostile, verified: false},
+    context: {actor: 'monalisa', noop: false, fork: false},
+    reviews: {count: 4, decision: 'APPROVED'},
+    parameters: {raw: hostile, parsed: {_: [hostile], value: hostile}}
+  })
 })
 
 test('successfully constructs a post deploy message with a custom markdown file', testContext => {

@@ -1,6 +1,7 @@
 import {truncateCommentBody} from './truncate-comment-body.ts'
 import {API_HEADERS} from './api-headers.ts'
-import {issueCommentContext, legacyReactionId} from '../trust-boundaries.ts'
+import * as core from '../actions-core.ts'
+import {issueCommentContext, legacyApiError} from '../trust-boundaries.ts'
 import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
 
 // Default failure reaction
@@ -97,19 +98,31 @@ export async function actionStatus({
     reaction = thumbsDown
   }
 
-  // remove the initial reaction on the IssueOp comment that triggered this action
-  await octokit.rest.reactions.deleteForIssueComment({
-    ...context.repo,
-    comment_id: issueCommentContext(context).payload.comment.id,
-    reaction_id: legacyReactionId(reactionId),
-    headers: API_HEADERS
-  })
+  if (reactionId !== null) {
+    try {
+      await octokit.rest.reactions.deleteForIssueComment({
+        ...context.repo,
+        comment_id: issueCommentContext(context).payload.comment.id,
+        reaction_id: reactionId,
+        headers: API_HEADERS
+      })
+    } catch (error) {
+      core.warning(
+        `failed to remove the initial decorative reaction: ${legacyApiError(error).message}`
+      )
+    }
 
-  // add a reaction to the issue_comment to indicate success or failure
-  await octokit.rest.reactions.createForIssueComment({
-    ...context.repo,
-    comment_id: issueCommentContext(context).payload.comment.id,
-    content: reaction,
-    headers: API_HEADERS
-  })
+    try {
+      await octokit.rest.reactions.createForIssueComment({
+        ...context.repo,
+        comment_id: issueCommentContext(context).payload.comment.id,
+        content: reaction,
+        headers: API_HEADERS
+      })
+    } catch (error) {
+      core.warning(
+        `failed to add the final decorative reaction: ${legacyApiError(error).message}`
+      )
+    }
+  }
 }

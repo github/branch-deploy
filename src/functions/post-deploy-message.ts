@@ -1,9 +1,10 @@
 import * as core from '../actions-core.ts'
 import {checkInput} from './check-input.ts'
-import {dedent} from './dedent.ts'
 import {existsSync} from 'node:fs'
 import nunjucks from 'nunjucks'
 import {getActionInput, getBooleanActionInput} from '../action-io.ts'
+import {jsonCodeBlock} from './json-code-block.ts'
+import {decodedJsonValue} from '../trust-boundaries.ts'
 import type {BranchDeployContext, PostDeployMessageData} from '../types.ts'
 
 // Helper function construct a post deployment message
@@ -57,62 +58,6 @@ export function postDeployMessage(
     total_seconds: data.total_seconds
   }
 
-  const environmentUrlJson =
-    vars.environment_url !== null && vars.environment_url !== ''
-      ? `"${vars.environment_url}"`
-      : 'null'
-  const reviewDecisionJson =
-    vars.review_decision !== null && vars.review_decision !== ''
-      ? `"${vars.review_decision}"`
-      : 'null'
-  const paramsJson =
-    vars.params !== null && vars.params !== '' ? `"${vars.params}"` : 'null'
-
-  // this is kinda gross but wrangling dedent() and nunjucks is a pain
-  const deployment_metadata = dedent(`
-    <details><summary>Details</summary>
-
-    <!--- post-deploy-metadata-start -->
-
-    \t\t\t\t\`\`\`json
-    \t\t\t\t{
-    \t\t\t\t  "status": "${vars.status}",
-    \t\t\t\t  "environment": {
-    \t\t\t\t    "name": "${vars.environment}",
-    \t\t\t\t    "url": ${environmentUrlJson}
-    \t\t\t\t  },
-    \t\t\t\t  "deployment": {
-    \t\t\t\t    "id": ${String(vars.deployment_id)},
-    \t\t\t\t    "timestamp": "${vars.deployment_end_time}",
-    \t\t\t\t    "logs": "${vars.logs}",
-    \t\t\t\t    "duration": ${vars.total_seconds}
-    \t\t\t\t  },
-    \t\t\t\t  "git": {
-    \t\t\t\t    "branch": "${vars.ref}",
-    \t\t\t\t    "commit": "${vars.sha}",
-    \t\t\t\t    "verified": ${vars.commit_verified}
-    \t\t\t\t  },
-    \t\t\t\t  "context": {
-    \t\t\t\t    "actor": "${vars.actor}",
-    \t\t\t\t    "noop": ${vars.noop},
-    \t\t\t\t    "fork": ${vars.fork}
-    \t\t\t\t  },
-    \t\t\t\t  "reviews": {
-    \t\t\t\t    "count": ${String(vars.approved_reviews_count)},
-    \t\t\t\t    "decision": ${reviewDecisionJson}
-    \t\t\t\t  },
-    \t\t\t\t  "parameters": {
-    \t\t\t\t    "raw": ${paramsJson},
-    \t\t\t\t    "parsed": ${String(vars.parsed_params)}
-    \t\t\t\t  }
-    \t\t\t\t}
-    \`\`\`
-
-    <!--- post-deploy-metadata-end -->
-
-    </details>
-  `)
-
   // if the 'deployMessagePath' exists, use that instead of the env var option
   // the env var option can often fail if the message is too long so this is the preferred option
   if (deployMessagePath !== null) {
@@ -124,6 +69,55 @@ export function postDeployMessage(
   } else {
     core.debug(`deployMessagePath is not set - ${String(deployMessagePath)}`)
   }
+
+  const parsedParams =
+    vars.parsed_params === null || vars.parsed_params === ''
+      ? null
+      : decodedJsonValue(vars.parsed_params)
+  const metadata = {
+    status: vars.status,
+    environment: {
+      name: vars.environment,
+      url: vars.environment_url
+    },
+    deployment: {
+      id: vars.deployment_id,
+      timestamp: vars.deployment_end_time,
+      logs: vars.logs,
+      duration: vars.total_seconds
+    },
+    git: {
+      branch: vars.ref,
+      commit: vars.sha,
+      verified: vars.commit_verified
+    },
+    context: {
+      actor: vars.actor,
+      noop: vars.noop,
+      fork: vars.fork
+    },
+    reviews: {
+      count: vars.approved_reviews_count,
+      decision: vars.review_decision
+    },
+    parameters: {
+      raw: vars.params,
+      parsed: parsedParams
+    }
+  }
+  const metadataBlock = jsonCodeBlock(metadata)
+
+  const deployment_metadata = [
+    '<details><summary>Details</summary>',
+    '',
+    '<!--- post-deploy-metadata-start -->',
+    '',
+    metadataBlock,
+    '',
+    '<!--- post-deploy-metadata-end -->',
+    '',
+    '</details>'
+  ].join('\n')
 
   // If we get here, try to use the env var option with the default message structure
   const deployMessageEnvVar = checkInput(process.env['DEPLOY_MESSAGE'])
@@ -155,26 +149,27 @@ export function postDeployMessage(
     const customMessageFmt = deployMessageEnvVar
       .replace(/\\n/g, '\n')
       .replace(/\\t/g, '\t')
-    message_fmt = dedent(`
-    ### Deployment Results ${deployStatus}
-
-    ${message}
-
-    <details><summary>Show Results</summary>
-
-    ${customMessageFmt}
-
-    </details>
-
-    ${deployment_metadata}
-    `)
+    message_fmt = [
+      `### Deployment Results ${deployStatus}`,
+      '',
+      message,
+      '',
+      '<details><summary>Show Results</summary>',
+      '',
+      customMessageFmt,
+      '',
+      '</details>',
+      '',
+      deployment_metadata
+    ].join('\n')
   } else {
-    message_fmt = dedent(`
-    ### Deployment Results ${deployStatus}
-
-    ${message}
-    
-    ${deployment_metadata}`)
+    message_fmt = [
+      `### Deployment Results ${deployStatus}`,
+      '',
+      message,
+      '',
+      deployment_metadata
+    ].join('\n')
   }
 
   // Conditionally add the environment url to the message body

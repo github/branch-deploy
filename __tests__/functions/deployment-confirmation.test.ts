@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import {afterEach, beforeEach, mock, test} from 'node:test'
 import {COLORS} from '../../src/functions/colors.ts'
 import {API_HEADERS} from '../../src/functions/api-headers.ts'
+import {decodedJsonValue} from '../../src/trust-boundaries.ts'
 import {createIssueCommentContext} from '../test-helpers.ts'
 import {
   assertCalledTimes,
@@ -39,14 +40,16 @@ const updateCommentMock =
   createMock<ConfirmationOctokit['rest']['issues']['updateComment']>()
 const listReactionsMock =
   createMock<ConfirmationOctokit['rest']['reactions']['listForIssueComment']>()
-let advanceClock: (() => void) | undefined
+let advanceClock: ((delay: number) => void) | undefined
+let timeoutDelays: number[]
 
 function immediateTimeout<TArgs extends unknown[]>(
   callback: (...args: TArgs) => void,
-  _delay?: number,
+  delay = 0,
   ...args: TArgs
 ): NodeJS.Timeout {
-  advanceClock?.()
+  timeoutDelays.push(delay)
+  advanceClock?.(delay)
   callback(...args)
   return originalSetTimeout(() => undefined, 0)
 }
@@ -80,6 +83,7 @@ beforeEach(testContext => {
   updateCommentMock.mock.resetCalls()
   listReactionsMock.mock.resetCalls()
   advanceClock = undefined
+  timeoutDelays = []
 
   // Mock setTimeout to execute immediately
   mock.method(globalThis, 'setTimeout', immediateTimeout)
@@ -171,7 +175,7 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
 
   const result = await deploymentConfirmation(context, octokit, data)
 
-  assert.strictEqual(result, true)
+  assert.strictEqual(result, 'confirmed')
   const createRequest = latestCreateCommentRequest()
   assert.ok(createRequest.body.includes('Deployment Confirmation Required'))
   assert.deepStrictEqual(createRequest, {
@@ -194,6 +198,8 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
   assertCalledWith(listReactionsMock, {
     comment_id: 124,
     owner: 'corp',
+    page: 1,
+    per_page: 100,
     repo: 'test',
     headers: API_HEADERS
   })
@@ -234,7 +240,7 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
 
   const result = await deploymentConfirmation(context, octokit, data)
 
-  assert.strictEqual(result, true)
+  assert.strictEqual(result, 'confirmed')
   const createRequest = latestCreateCommentRequest()
   assert.ok(createRequest.body.includes('"url": null'))
   assert.deepStrictEqual(createRequest, {
@@ -257,6 +263,8 @@ test('successfully prompts for deployment confirmation and gets confirmed by the
   assertCalledWith(listReactionsMock, {
     comment_id: 124,
     owner: 'corp',
+    page: 1,
+    per_page: 100,
     repo: 'test',
     headers: API_HEADERS
   })
@@ -289,7 +297,7 @@ test('user rejects the deployment with thumbs down', async () => {
 
   const result = await deploymentConfirmation(context, octokit, data)
 
-  assert.strictEqual(result, false)
+  assert.strictEqual(result, 'rejected')
   assert.ok(createCommentMock.mock.callCount() > 0)
   assert.ok(listReactionsMock.mock.callCount() > 0)
 
@@ -321,7 +329,7 @@ test('deployment confirmation times out after no response', async testContext =>
 
   const result = await deploymentConfirmation(context, octokit, data)
 
-  assert.strictEqual(result, false)
+  assert.strictEqual(result, 'timed_out')
   assert.ok(createCommentMock.mock.callCount() > 0)
 
   const updateRequest = latestUpdateCommentRequest()
@@ -364,7 +372,7 @@ test('ignores reactions from other users', async () => {
 
   const result = await deploymentConfirmation(context, octokit, data)
 
-  assert.strictEqual(result, true)
+  assert.strictEqual(result, 'confirmed')
   assertCalledTimes(listReactionsMock, 2)
   const updateRequest = latestUpdateCommentRequest()
   assert.ok(
@@ -417,7 +425,7 @@ test('ignores non thumbsUp/thumbsDown reactions from the original actor', async 
 
   const result = await deploymentConfirmation(context, octokit, data)
 
-  assert.strictEqual(result, true)
+  assert.strictEqual(result, 'confirmed')
   assertCalledTimes(listReactionsMock, 2)
 
   // Verify that debug was called for each ignored reaction type
@@ -457,7 +465,7 @@ test('handles API errors gracefully', async () => {
 
   const result = await deploymentConfirmation(context, octokit, data)
 
-  assert.strictEqual(result, true)
+  assert.strictEqual(result, 'confirmed')
   assertCalledWith(
     warningMock,
     'temporary failure when checking for reactions on the deployment confirmation comment: API error'
@@ -469,7 +477,189 @@ test('handles API errors gracefully', async () => {
   )
 })
 
-test('preserves the temporary failure path for a null reaction user', async () => {
+for (const status of [408, 409, 429, 500, 599]) {
+  test(`retries a temporary HTTP ${status} confirmation failure`, async () => {
+    listReactionsMock.mock.mockImplementationOnce(
+      () =>
+        Promise.reject(Object.assign(new Error('temporary error'), {status})),
+      0
+    )
+    listReactionsMock.mock.mockImplementationOnce(
+      () =>
+        Promise.resolve({
+          data: [{user: {login: 'monalisa'}, content: '+1'}]
+        }),
+      1
+    )
+
+    assert.strictEqual(
+      await deploymentConfirmation(context, octokit, data),
+      'confirmed'
+    )
+    assertCalledTimes(listReactionsMock, 2)
+  })
+}
+
+test('fails immediately on a permanent 4xx confirmation response', async () => {
+  listReactionsMock.mock.mockImplementation(() =>
+    Promise.reject(Object.assign(new Error('not allowed'), {status: 403}))
+  )
+
+  await assert.rejects(deploymentConfirmation(context, octokit, data), {
+    message: 'not allowed'
+  })
+  assertCalledTimes(listReactionsMock, 1)
+})
+
+test('fails immediately on an unsupported HTTP status', async () => {
+  listReactionsMock.mock.mockImplementation(() =>
+    Promise.reject(
+      Object.assign(new Error('unexpected response'), {status: 600})
+    )
+  )
+
+  await assert.rejects(deploymentConfirmation(context, octokit, data), {
+    message: 'unexpected response'
+  })
+})
+
+test('reads confirmation reactions across pages in API order', async () => {
+  listReactionsMock.mock.mockImplementationOnce(
+    () =>
+      Promise.resolve({
+        data: Array.from({length: 100}, () => ({
+          user: {login: 'other-user'},
+          content: '+1'
+        }))
+      }),
+    0
+  )
+  listReactionsMock.mock.mockImplementationOnce(
+    () =>
+      Promise.resolve({
+        data: [{user: {login: 'monalisa'}, content: '+1'}]
+      }),
+    1
+  )
+
+  assert.strictEqual(
+    await deploymentConfirmation(context, octokit, data),
+    'confirmed'
+  )
+  assertCalledWith(listReactionsMock, {
+    comment_id: 124,
+    owner: 'corp',
+    page: 2,
+    per_page: 100,
+    repo: 'test',
+    headers: API_HEADERS
+  })
+})
+
+test('backs off confirmation polling at 2, 4, 8, and at most 10 seconds', async () => {
+  for (let index = 0; index < 4; index += 1) {
+    listReactionsMock.mock.mockImplementationOnce(
+      () => Promise.resolve({data: []}),
+      index
+    )
+  }
+  listReactionsMock.mock.mockImplementationOnce(
+    () =>
+      Promise.resolve({
+        data: [{user: {login: 'monalisa'}, content: '+1'}]
+      }),
+    4
+  )
+
+  assert.strictEqual(
+    await deploymentConfirmation(context, octokit, data),
+    'confirmed'
+  )
+  assert.deepStrictEqual(timeoutDelays, [2000, 4000, 8000, 10_000])
+})
+
+test('limits the final polling delay to the remaining deadline', async testContext => {
+  const initialTime = new Date('2024-10-21T19:11:18Z').getTime()
+  let currentTime = initialTime
+  testContext.mock.timers.enable({apis: ['Date'], now: initialTime})
+  advanceClock = delay => {
+    currentTime += delay
+    testContext.mock.timers.setTime(currentTime)
+  }
+  data = {...data, deployment_confirmation_timeout: 5}
+
+  assert.strictEqual(
+    await deploymentConfirmation(context, octokit, data),
+    'timed_out'
+  )
+  assert.deepStrictEqual(timeoutDelays, [2000, 3000])
+})
+
+test('stops without sleeping when a reaction request reaches the deadline', async testContext => {
+  const initialTime = new Date('2024-10-21T19:11:18Z').getTime()
+  testContext.mock.timers.enable({apis: ['Date'], now: initialTime})
+  listReactionsMock.mock.mockImplementation(() => {
+    testContext.mock.timers.setTime(initialTime + 60_000)
+    return Promise.resolve({data: []})
+  })
+
+  assert.strictEqual(
+    await deploymentConfirmation(context, octokit, data),
+    'timed_out'
+  )
+  assert.deepStrictEqual(timeoutDelays, [])
+})
+
+test('renders arbitrary confirmation metadata as valid fenced JSON', async () => {
+  const body = 'quote " slash \\ newline\nUnicode 🚀 and ````` backticks'
+  data = {
+    ...data,
+    body,
+    environment: 'prod"\\\n🚀`````',
+    params: body
+  }
+  listReactionsMock.mock.mockImplementation(() =>
+    Promise.resolve({data: [{user: {login: 'monalisa'}, content: '+1'}]})
+  )
+
+  await deploymentConfirmation(context, octokit, data)
+  const rendered = String(latestCreateCommentRequest().body)
+  const match = rendered.match(
+    /<!--- deployment-confirmation-metadata-start -->\n\n(`{3,})json\n([\s\S]*?)\n\1\n\n<!--- deployment-confirmation-metadata-end -->/u
+  )
+  if (match?.[1] === undefined || match[2] === undefined) {
+    throw new Error('expected confirmation metadata block')
+  }
+  assert.ok(match[1].length > 5)
+  const metadata = decodedJsonValue(match[2])
+  assert.deepStrictEqual(metadata, {
+    type: 'branch',
+    environment: {name: data.environment, url: 'https://example.com'},
+    deployment: {logs: data.log_url},
+    git: {
+      branch: 'cool-branch',
+      commit: 'abc123',
+      verified: true,
+      committer: 'monalisa',
+      html_url: 'https://github.com/corp/test/commit/abc123'
+    },
+    context: {
+      actor: 'monalisa',
+      noop: false,
+      fork: false,
+      comment: {
+        created_at: '2024-10-21T19:11:18Z',
+        updated_at: '2024-10-21T19:11:18Z',
+        body,
+        html_url:
+          'https://github.com/corp/test/pull/123#issuecomment-1231231231'
+      }
+    },
+    parameters: {raw: body, parsed: data.parsed_params}
+  })
+})
+
+test('ignores a reaction whose user is null', async () => {
   listReactionsMock.mock.mockImplementationOnce(
     () => Promise.resolve({data: [{user: null, content: '+1'}]}),
     0
@@ -482,10 +672,10 @@ test('preserves the temporary failure path for a null reaction user', async () =
     1
   )
 
-  assert.strictEqual(await deploymentConfirmation(context, octokit, data), true)
-  assertCalledWith(
-    warningMock,
-    "temporary failure when checking for reactions on the deployment confirmation comment: Cannot read properties of null (reading 'login')"
+  assert.strictEqual(
+    await deploymentConfirmation(context, octokit, data),
+    'confirmed'
   )
+  assertCalledWith(debugMock, 'ignoring reaction from an unknown user')
   assertCalledTimes(listReactionsMock, 2)
 })
