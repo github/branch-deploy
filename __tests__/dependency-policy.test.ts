@@ -17,10 +17,6 @@ const EXPECTED_DEVELOPMENT_DEPENDENCIES = {
   typescript: '5.9.3'
 } as const satisfies Record<string, string>
 
-const EXPECTED_OVERRIDES = {
-  undici: '6.27.0'
-} as const satisfies Record<string, string>
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -58,7 +54,7 @@ test('direct dependencies are approved, exact, and locked', () => {
     packageJson['devDependencies'],
     EXPECTED_DEVELOPMENT_DEPENDENCIES
   )
-  assert.deepStrictEqual(packageJson['overrides'], EXPECTED_OVERRIDES)
+  assert.strictEqual(packageJson['overrides'], undefined)
   assert.deepStrictEqual(
     lockRoot['dependencies'],
     EXPECTED_RUNTIME_DEPENDENCIES
