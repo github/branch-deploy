@@ -11,7 +11,8 @@ import type {
   IssueCommentContext,
   LegacyApiError,
   LockData,
-  PrechecksGraphqlCommitNode,
+  PrechecksGraphqlContextsPageResult,
+  PrechecksGraphqlResult,
   PullRequestPayload
 } from './types.ts'
 
@@ -206,24 +207,17 @@ export function legacyPrechecksCommitOid(value: unknown): string | undefined {
         }
       | null
       | undefined
-  )?.repository?.pullRequest?.commits?.nodes[0]?.commit?.oid
+  )?.repository?.pullRequest?.commits?.nodes?.[0]?.commit?.oid
 }
 
-export function legacyPrechecksStatusCheckRollup(
+export function prechecksGraphqlResult(value: unknown): PrechecksGraphqlResult {
+  return value as PrechecksGraphqlResult
+}
+
+export function prechecksGraphqlContextsPageResult(
   value: unknown
-): PrechecksGraphqlCommitNode['commit']['statusCheckRollup'] {
-  const node = (
-    value as {
-      readonly repository: {
-        readonly pullRequest: {
-          readonly commits: {
-            readonly nodes: readonly PrechecksGraphqlCommitNode[]
-          }
-        }
-      }
-    }
-  ).repository.pullRequest.commits.nodes[0] as PrechecksGraphqlCommitNode
-  return node.commit.statusCheckRollup
+): PrechecksGraphqlContextsPageResult {
+  return value as PrechecksGraphqlContextsPageResult
 }
 
 export function legacyPrechecksPullData(

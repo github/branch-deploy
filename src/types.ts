@@ -272,19 +272,28 @@ export interface StatusContextResult {
 export type CheckResult = CheckRunResult | StatusContextResult
 export type RawCheckResult = CheckResult | LegacyIncompleteCheckRunResult
 
+export interface StatusCheckContexts {
+  readonly nodes: readonly RawCheckResult[]
+  readonly pageInfo: {
+    readonly endCursor: string | null
+    readonly hasNextPage: boolean
+  }
+}
+
+export interface StatusCheckRollup {
+  readonly contexts: StatusCheckContexts
+  readonly state: string
+}
+
 export interface PrechecksGraphqlResult {
   readonly repository: {
     readonly pullRequest: {
       readonly commits?: {
         readonly nodes?: readonly {
           readonly commit: {
+            readonly id?: string
             readonly oid: string
-            readonly statusCheckRollup?: null | {
-              readonly contexts?: {
-                readonly nodes: readonly RawCheckResult[]
-              }
-              readonly state: string
-            }
+            readonly statusCheckRollup?: null | StatusCheckRollup
           }
         }[]
       }
@@ -294,6 +303,14 @@ export interface PrechecksGraphqlResult {
         readonly totalCount?: number
       }
     }
+  }
+}
+
+export interface PrechecksGraphqlContextsPageResult {
+  readonly node: null | {
+    readonly id: string
+    readonly oid: string
+    readonly statusCheckRollup: null | StatusCheckRollup
   }
 }
 

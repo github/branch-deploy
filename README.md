@@ -345,7 +345,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `review_decision` | The pull request review status. Can be one of a few values - examples: `APPROVED`, `REVIEW_REQUIRED`, `CHANGES_REQUESTED`, `skip_reviews`, `null` |
 | `is_outdated` | The string `"true"` if the branch is out-of-date, otherwise `"false"` |
 | `merge_state_status` | The status of the merge state. Can be one of a few values - examples: `"DIRTY"`, `"DRAFT"`, `"CLEAN"`, etc |
-| `commit_status` | The status of the commit. Can be one of a few values - examples: `"SUCCESS"`, `null`, `"skip_ci"`, `"PENDING"`, `"FAILURE"` etc |
+| `commit_status` | The status of the commit. Can be one of a few values - examples: `"SUCCESS"`, `null`, `"skip_ci"`, `"PENDING"`, `"FAILURE"`, or `"UNAVAILABLE"`. `UNAVAILABLE` blocks deployment because the complete CI status could not be verified. See the [v11 to v12 upgrade guide](docs/v11-to-v12-upgrade-guide.md). |
 | `approved_reviews_count` | The number of approved reviews on the pull request |
 | `needs_to_be_deployed` | A comma separated list of environments that need successful and active deployments before the current environment (that was requested) can be deployed. This output is tied to the `enforced_deployment_order` input option - See the [enforced deployment order docs](./docs/enforced-deployment-order.md) for more details |
 | `commit_verified` | The string `"true"` if the commit is verified, otherwise `"false"` |
