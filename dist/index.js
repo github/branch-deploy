@@ -45808,7 +45808,13 @@ async function ambiguousLockResponse({ branchName, context, environment, global,
     await actionStatus({ context, octokit, reactionId, message });
     saveActionState('bypass', 'true');
     setFailed(message);
-    return { status: false, lockData: null, globalFlag, environment, global };
+    return {
+        status: 'ambiguous',
+        lockData: null,
+        globalFlag,
+        environment,
+        global
+    };
 }
 // Helper function for claiming a deployment lock
 // :param octokit: The octokit client
@@ -45823,13 +45829,14 @@ async function ambiguousLockResponse({ branchName, context, environment, global,
 // :returns: A lock repsponse object
 // Example:
 // {
-//   status: 'owner' | false | true | null | 'details-only',
+//   status: 'owner' | 'ambiguous' | false | true | null | 'details-only',
 //   lockData: Object,
 //   globalFlag: String (--global for example),
 //   environment: String (production for example)
 //   global: Boolean (true if the request is for a global lock)
 // }
 // status: 'owner' - the lock was already claimed by the requestor
+// status: 'ambiguous' - the lock branch exists without a readable lock file
 // status: false - the lock was not claimed
 // status: true - the lock was claimed
 // status: null - no lock exists
@@ -45871,6 +45878,7 @@ async function lock(request) {
     // We can only proceed here if there is NO global lock or if the requestor is the owner of the global lock
     // We can just jump directly to checking the lock file
     let globalLockData;
+    let globalBranchExists;
     try {
         globalLockData = await checkLockFile(octokit, context, GLOBAL_LOCK_BRANCH);
     }
@@ -45887,6 +45895,20 @@ async function lock(request) {
             });
         }
         throw error;
+    }
+    if (globalLockData === false) {
+        globalBranchExists = await checkBranch(octokit, context, GLOBAL_LOCK_BRANCH);
+        if (globalBranchExists) {
+            return ambiguousLockResponse({
+                branchName: GLOBAL_LOCK_BRANCH,
+                context,
+                environment: null,
+                global: true,
+                globalFlag,
+                octokit,
+                reactionId
+            });
+        }
     }
     if (legacyTruthy(globalLockData) && detailsOnly && !postDeployStep) {
         // If the lock file exists and this is a detailsOnly request for the global lock, return the lock data
@@ -45926,7 +45948,9 @@ async function lock(request) {
         }
     }
     // Check if the lock branch exists
-    const branchExists = await checkBranch(octokit, context, branchName);
+    const branchExists = branchName === GLOBAL_LOCK_BRANCH && globalBranchExists !== undefined
+        ? globalBranchExists
+        : await checkBranch(octokit, context, branchName);
     if (!branchExists && detailsOnly) {
         // If the lock branch doesn't exist and this is a detailsOnly request, return null
         debug('lock branch does not exist and this is a detailsOnly request');
@@ -46563,6 +46587,9 @@ async function postDeploy(context, octokit, data) {
             mode: { type: 'details', postDeployStep: false },
             leaveComment: true
         });
+        if (lockResponse.status === 'ambiguous') {
+            return undefined;
+        }
         // obtain the lockData from the lock response
         const lockData = lockResponse.lockData;
         debug(JSON.stringify(lockData));
@@ -46611,6 +46638,9 @@ async function postDeploy(context, octokit, data) {
         mode: { type: 'details', postDeployStep: true },
         leaveComment: false
     });
+    if (lockResponse.status === 'ambiguous') {
+        return undefined;
+    }
     // obtain the lockData from the lock response
     const lockData = lockResponse.lockData;
     debug(JSON.stringify(lockData));
@@ -47847,7 +47877,7 @@ async function run() {
                     });
                     // extract values from the lock response
                     const lockStatus = lockResponse.status;
-                    if (lockStatus === false) {
+                    if (lockStatus === false || lockStatus === 'ambiguous') {
                         saveActionState('bypass', 'true');
                         return 'failure';
                     }
@@ -48150,7 +48180,7 @@ async function run() {
             leaveComment
         });
         // If the lock request fails, exit the Action
-        if (lockResponse.status === false) {
+        if (lockResponse.status === false || lockResponse.status === 'ambiguous') {
             return 'safe-exit';
         }
         const github_run_id = parseInt(process.env['GITHUB_RUN_ID'] ?? '');
