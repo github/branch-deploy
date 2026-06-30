@@ -6,8 +6,6 @@ This file applies to the entire repository. It is the primary repository-specifi
 
 `branch-deploy` is a public GitHub Action that implements IssueOps-based branch deployments. Treat every source file, test, generated artifact, branch name, commit, pull request, comment, workflow log, and release artifact as public information.
 
-The project is maintained as a public fork of `github/branch-deploy`. Normal work in this repository targets `GrantBirki/branch-deploy` itself. Do not open, prepare, or imply an upstream pull request unless a maintainer explicitly authorizes that separate contribution.
-
 The project prioritizes behavior preservation, a small dependency surface, strict static guarantees, reproducible committed bundles, and reviewable changes. Prefer the smallest change that completely solves the requested problem.
 
 ## Public-repository safety
@@ -22,11 +20,9 @@ The project prioritizes behavior preservation, a small dependency surface, stric
 
 ## Repository and contribution boundary
 
-- Base new work on the current `GrantBirki/branch-deploy:main` unless the maintainer specifies another base.
-- Check whether the fork is behind upstream before broad migrations or dependency work. Do not silently combine an upstream synchronization with an unrelated feature or maintenance pull request.
-- A checkout may not have an `upstream` remote. Read-only GitHub comparison APIs are sufficient for checking fork divergence; do not add or rewrite remotes merely for convenience.
-- Do not prefix branch names with `codex/`.
-- Keep pull requests fork-local: the head and base should both be in `GrantBirki/branch-deploy` unless explicitly authorized otherwise.
+- Base new work on the repository's current default branch unless the maintainer specifies another base.
+- Refresh and inspect the selected base before broad migrations or dependency work. Do not silently combine base-branch synchronization with an unrelated feature or maintenance pull request.
+- Follow the repository's established contribution process. Make the intended head and base explicit, and do not change the target repository or branch without authorization.
 - Do not merge a pull request, publish a release, create or move tags, change repository settings, or bump the action version unless the current request explicitly authorizes that operation.
 - Do not amend, rebase, force-push, or rewrite published history unless explicitly requested.
 - Preserve unrelated working-tree changes. Never use destructive cleanup commands to discard files you did not create.
@@ -223,7 +219,7 @@ When changing dependencies:
 1. Explain why removal, addition, upgrade, or override is necessary.
 2. Inspect direct and transitive consumers, version ranges, engines, release support, lifecycle scripts, advisories, licenses, and bundle impact.
 3. Use a protected dependency-fetch path approved by the maintainer. Do not print or commit machine registry, proxy, or credential configuration.
-4. Use exact direct versions. Allow transitive versions to be selected by upstream constraints and the lockfile unless a documented compatibility or security issue requires an override.
+4. Use exact direct versions. Allow transitive versions to be selected by declared dependency constraints and the lockfile unless a documented compatibility or security issue requires an override.
 5. Reject unrelated lockfile churn.
 6. Recompute direct, resolved, runtime, development, optional, and install-script counts.
 7. Rebuild and semantically review the committed distribution.
@@ -430,7 +426,7 @@ Do not manually push release tags, attach arbitrary release assets, create relea
 
 Do not claim that the compact single-job release workflow is SLSA Build Level 3. It provides GitHub build provenance and immutable-release integrity but does not isolate the build in a separate reusable workflow boundary.
 
-Do not bump `src/version.ts` as part of an unrelated maintenance pull request. A version change triggers publication when it reaches the canonical protected `main` branch.
+Do not bump `src/version.ts` as part of an unrelated maintenance pull request. A version change triggers publication when it reaches the repository's protected default branch.
 
 ## Live acceptance for runtime changes
 
@@ -474,7 +470,7 @@ Any candidate commit change invalidates earlier exact-SHA live results.
 - Keep the body concise and focused on purpose, important behavior or security boundaries, dependency changes, and public compatibility impact.
 - Do not paste routine local validation transcripts when CI already exposes the same result.
 - Call out intentional deviations, remaining risks, generated-artifact changes, and deferred behavior fixes.
-- Keep unrelated refactors, dependency upgrades, release bumps, upstream synchronization, and workflow-security changes in separate pull requests.
+- Keep unrelated refactors, dependency upgrades, release bumps, base-branch synchronization, and workflow-security changes in separate pull requests.
 - Prefer reviewable commits that separate policy/tooling, runtime behavior, tests, dependency resolution, documentation, and generated distribution where that separation helps reviewers.
 - The final head, not an intermediate commit, is the acceptance unit.
 - Wait for the existing required checks and inspect any review comments against the current head before recommending merge.
@@ -491,7 +487,7 @@ Any candidate commit change invalidates earlier exact-SHA live results.
 ### Dependency changes
 
 - Establish the current graph and bundle inventory before editing.
-- Confirm upstream version constraints and the newest compatible release from authoritative metadata.
+- Confirm declared dependency constraints and the newest compatible release from authoritative metadata.
 - Use the approved protected registry path without exposing its configuration.
 - Update `package.json`, `package-lock.json`, dependency-policy expectations, licenses, docs, and bundle only where the actual result requires it.
 - Reject unrelated resolution churn.
@@ -544,5 +540,5 @@ A change is complete only when all applicable conditions are satisfied:
 - Generated artifacts have been semantically audited and scanned for local or private material.
 - Existing CI check identities remain intact and green.
 - High-risk runtime changes have appropriate exact-SHA live acceptance.
-- Pull request metadata and commit history are concise, accurate, public-safe, and fork-local.
-- No release, tag, version bump, settings change, upstream contribution, or merge occurred without explicit authorization.
+- Pull request metadata and commit history are concise, accurate, public-safe, and targeted to the intended repository and branch.
+- No release, tag, version bump, settings change, target change, or merge occurred without explicit authorization.
