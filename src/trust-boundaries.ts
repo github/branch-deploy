@@ -1,4 +1,4 @@
-/* eslint-disable eqeqeq -- This module preserves the action's reviewed legacy coercion boundaries. */
+// This module preserves the action's reviewed legacy coercion boundaries.
 
 import type * as github from '@actions/github'
 import type {

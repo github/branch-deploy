@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-type-parameters -- The generic is the explicit opt-in to a JavaScript-invalid test value. */
-
 /**
  * Supplies a deliberately invalid JavaScript value to a typed API.
  *
