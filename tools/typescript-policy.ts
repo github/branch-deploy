@@ -49,6 +49,11 @@ export interface PolicyDiagnostic {
   readonly policyId: PolicyId
 }
 
+export interface SourceTextPolicyInput {
+  readonly path: string
+  readonly sourceText: string
+}
+
 const TRUST_BOUNDARY = 'src/trust-boundaries.ts'
 const INVALID_FIXTURES = '__tests__/unsafe-fixtures.ts'
 const ALLOWANCES = [
@@ -710,8 +715,22 @@ export function checkSourceText(
   moduleDetection: 'force' | 'legacy' = 'force',
   includeNodeTypes = true
 ): PolicyDiagnostic[] {
+  return checkSourceTexts(
+    [{path, sourceText}],
+    moduleDetection,
+    includeNodeTypes
+  )
+}
+
+export function checkSourceTexts(
+  files: readonly SourceTextPolicyInput[],
+  moduleDetection: 'force' | 'legacy' = 'force',
+  includeNodeTypes = true
+): PolicyDiagnostic[] {
   const root = process.cwd()
-  const fileName = resolve(root, path)
+  const sourceTexts = new Map(
+    files.map(file => [resolve(root, file.path), file.sourceText] as const)
+  )
   const options: ts.CompilerOptions = {
     module: ts.ModuleKind.NodeNext,
     moduleDetection:
@@ -726,14 +745,27 @@ export function checkSourceText(
   if (!includeNodeTypes) options.types = []
   const host = ts.createCompilerHost(options)
   const readSource = host.getSourceFile.bind(host)
-  host.getSourceFile = (value, version, onError, createNew) =>
-    value === fileName
-      ? ts.createSourceFile(value, sourceText, version, true, ts.ScriptKind.TS)
-      : readSource(value, version, onError, createNew)
-  const program = ts.createProgram({host, options, rootNames: [fileName]})
+  host.getSourceFile = (value, version, onError, createNew) => {
+    const sourceText = sourceTexts.get(value)
+    if (sourceText !== undefined) {
+      return ts.createSourceFile(
+        value,
+        sourceText,
+        version,
+        true,
+        ts.ScriptKind.TS
+      )
+    }
+    return readSource(value, version, onError, createNew)
+  }
+  const program = ts.createProgram({
+    host,
+    options,
+    rootNames: [...sourceTexts.keys()]
+  })
   const sources = program
     .getSourceFiles()
-    .filter(source => source.fileName === fileName)
+    .filter(source => sourceTexts.has(source.fileName))
   return checkFiles(program, root, sources, false)
 }
 
