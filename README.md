@@ -109,7 +109,7 @@ jobs:
 
       # Checkout your project's repository based on the commit SHA provided by the branch-deploy step
       # It is important to only ever operate on the commit SHA (where possible) as commit SHA's are immutable and you know exactly what you are deploying
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
           persist-credentials: false
@@ -206,7 +206,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checkout your projects repository
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
           persist-credentials: false
 ```
