@@ -4,7 +4,7 @@
 
 This file applies to the entire repository. It is the repository-specific instruction source for coding agents and automated contributors.
 
-Keep this file durable, small, and focused on rules that should apply every time work happens in this repository. Do not add one-off task plans, temporary investigation notes, local machine details, or long procedure transcripts here. Move detailed operating procedures to `docs/`, reusable workflows to skills, and directory-specific rules to a closer nested `AGENTS.md` or `AGENTS.override.md` if that scope ever appears.
+Keep this file durable, small, and focused on rules that should apply every time work happens in this repository. Do not add one-off task plans, temporary investigation notes, local machine details, or long procedure transcripts here. Move detailed operating procedures to `docs/`, reusable workflows to skills, and directory-specific rules to a closer nested `AGENTS.md` if that scope ever appears.
 
 Codex loads project guidance from the repository root down to the working directory, and closer files override broader guidance. Codex also has a default project-instruction size budget, so this file should stay compact enough to load completely. If a new rule would make this file sprawl, prefer replacing repeated guidance with a pointer to the authoritative script, test, or document.
 
