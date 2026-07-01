@@ -8,7 +8,9 @@ There are two ways to add custom deployment messages to your PRs. You can either
 
 > This option is highly recommended over the latter "GitHub Actions Environment" option. This is because GitHub Actions has some limitations on the size of data that can be passed around in environment variables. This becomes an issue if your deployment message is large (contains many changes, think Terraform plan/apply) as your deployment will crash with an `Argument list too long` error.
 
-To use a custom markdown file as your post deployment message, simply use the [`deploy_message_path`](https://github.com/github/branch-deploy/blob/37b50ea86202af7b5505b62bf3eb326da0614b60/action.yml#L124-L127) input option to point to a markdown file in your repository that you wish to render into the comment on your pull request. You don't even need to set this value if you want to just use the [default file path](https://github.com/github/branch-deploy/blob/37b50ea86202af7b5505b62bf3eb326da0614b60/action.yml#L127) of `".github/deployment_message.md"` and place your markdown file there.
+To use a custom markdown file as your post deployment message, simply use the [`deploy_message_path`](https://github.com/github/branch-deploy/blob/main/action.yml) input option to point to a markdown file in your repository that you wish to render into the comment on your pull request. You don't need to set this value if you want to use the default file path of `".github/deployment_message.md"` and place your markdown file there.
+
+If your workflow checks out pull request code before Branch Deploy renders the template, point `deploy_message_path` at a trusted default-branch checkout. See the [trusted checkout hardening guide](trusted-checkouts.md) for a safe pattern.
 
 If a markdown file exists at the designated path, it will be used and rendered with [nunjucks](http://mozilla.github.io/nunjucks/) which is a [Jinja](https://jinja.palletsprojects.com/en/3.1.x/) like template engine for NodeJS. Since we are using nunjucks and are leveraging template rendering, a few variables are available for you to use in your markdown file (should you choose to use them):
 

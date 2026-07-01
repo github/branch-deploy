@@ -167,6 +167,7 @@ export interface LockData {
   readonly global: boolean
   readonly link: string
   readonly reason: unknown
+  readonly schema_version?: 1
   readonly sticky: boolean | null
   readonly unlock_command: string
 }

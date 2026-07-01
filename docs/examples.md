@@ -58,7 +58,7 @@ jobs:
         uses: github/branch-deploy@vX.X.X
 
         # If the branch-deploy Action was triggered, checkout our branch
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
           persist-credentials: false
@@ -123,7 +123,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
           persist-credentials: false
@@ -298,7 +298,7 @@ jobs:
 
       - name: checkout trusted
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ github.sha }} # for issue_comment, github.sha is the last commit on the default branch
           path: ${{ steps.trusted-path.outputs.trusted_dir }}
@@ -307,7 +307,7 @@ jobs:
 
       - name: checkout working deployment sha
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
           path: ${{ steps.working-path.outputs.working_dir }}
@@ -472,7 +472,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.deployment-check.outputs.sha }}
           fetch-depth: 1
@@ -625,7 +625,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
           persist-credentials: false
@@ -679,7 +679,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
           persist-credentials: false
@@ -736,7 +736,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
           persist-credentials: false
@@ -792,7 +792,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
           persist-credentials: false
@@ -875,7 +875,7 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
           persist-credentials: false
@@ -957,7 +957,7 @@ jobs:
     steps:
       # checkout the project's repository based on the commit SHA provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.trigger.outputs.sha }}
           persist-credentials: false
@@ -1032,9 +1032,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          if [ -n "${{ needs.trigger.outputs.initial_reaction_id }}" ]; then
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
@@ -1143,7 +1145,7 @@ jobs:
     steps:
       # checkout the project's repository based on the commit SHA provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.trigger.outputs.sha }}
           persist-credentials: false
@@ -1267,9 +1269,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          if [ -n "${{ needs.trigger.outputs.initial_reaction_id }}" ]; then
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
@@ -1382,7 +1386,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.trigger.outputs.sha }}
           persist-credentials: false
@@ -1473,9 +1477,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          if [ -n "${{ needs.trigger.outputs.initial_reaction_id }}" ]; then
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
@@ -1608,7 +1614,7 @@ jobs:
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.start.outputs.sha }}
           persist-credentials: false
@@ -1725,8 +1731,10 @@ jobs:
       - name: Remove Trigger Reaction
         id: remove-reaction
         run: |
-          gh api --method DELETE \
-            "repos/${{ env.REPOSITORY }}/issues/comments/${{ env.COMMENT_ID }}/reactions/${{ env.INITIAL_REACTION_ID }}"
+          if [ -n "${INITIAL_REACTION_ID}" ]; then
+            gh api --method DELETE \
+              "repos/${{ env.REPOSITORY }}/issues/comments/${{ env.COMMENT_ID }}/reactions/${INITIAL_REACTION_ID}"
+          fi
 
       # Add a new reaction based on if the deployment succeeded or failed.
       - name: Add Reaction

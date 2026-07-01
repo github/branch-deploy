@@ -52,6 +52,7 @@ function isLockData(value: unknown): value is LockData {
     typeof value.unlock_command === 'string' &&
     'link' in value &&
     typeof value.link === 'string' &&
+    (!('schema_version' in value) || value.schema_version === 1) &&
     (!('claim_id' in value) ||
       (typeof value.claim_id === 'string' &&
         /^sha256:[0-9a-f]{64}$/u.test(value.claim_id)))

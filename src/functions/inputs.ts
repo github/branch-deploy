@@ -61,9 +61,17 @@ function validateInput<const Value extends string>(
 // :param inputName: The name of the input being parsed (string)
 // :returns: The parsed integer value
 function getIntInput(inputName: IntegerActionInputKey): number {
-  const value = parseInt(getActionInput(inputName), 10)
-  if (isNaN(value)) {
-    throw new Error(`Invalid value for ${inputName}: must be an integer`)
+  const inputValue = getActionInput(inputName)
+  if (!/^[1-9][0-9]*$/u.test(inputValue)) {
+    throw new Error(
+      `Invalid value for ${inputName}: must be a positive integer`
+    )
+  }
+  const value = Number(inputValue)
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(
+      `Invalid value for ${inputName}: must be a positive integer`
+    )
   }
   return value
 }

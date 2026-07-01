@@ -228,7 +228,7 @@ const environmentDefaults = {
   INPUT_HELP_TRIGGER: '.help',
   INPUT_LOCK_INFO_ALIAS: '.wcid',
   INPUT_REQUIRED_CONTEXTS: 'false',
-  INPUT_ALLOW_FORKS: 'true',
+  INPUT_ALLOW_FORKS: 'false',
   GITHUB_REPOSITORY: 'corp/test',
   INPUT_GLOBAL_LOCK_FLAG: '--global',
   INPUT_MERGE_DEPLOY_MODE: 'false',
@@ -545,24 +545,32 @@ test('preserves the missing run id fallback in the deployment payload', async ()
   assert.ok(Number.isNaN(request.payload['github_run_id']))
 })
 
-test('fails the action early on when it fails to parse an int input', async () => {
-  setEnv('INPUT_DEPLOYMENT_CONFIRMATION_TIMEOUT', 'not-an-int')
+for (const value of [
+  'not-an-int',
+  '10abc',
+  '0',
+  '-1',
+  '9007199254740992'
+] as const) {
+  test(`fails the action early when deployment_confirmation_timeout is ${value}`, async () => {
+    setEnv('INPUT_DEPLOYMENT_CONFIRMATION_TIMEOUT', value)
 
-  assert.strictEqual(await run(), undefined)
-  assertCalledWith(
-    setFailedMock,
-    'Invalid value for deployment_confirmation_timeout: must be an integer'
-  )
-  assertCalledWith(saveStateMock, 'bypass', 'true')
-  assertNotCalledWith(
-    infoMock,
-    `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
-  )
-  assertNotCalledWith(
-    infoMock,
-    `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
-  )
-})
+    assert.strictEqual(await run(), undefined)
+    assertCalledWith(
+      setFailedMock,
+      'Invalid value for deployment_confirmation_timeout: must be a positive integer'
+    )
+    assertCalledWith(saveStateMock, 'bypass', 'true')
+    assertNotCalledWith(
+      infoMock,
+      `🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${mock_sha}${COLORS.reset}`
+    )
+    assertNotCalledWith(
+      infoMock,
+      `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
+    )
+  })
+}
 
 test('successfully runs the action with deployment confirmation', async () => {
   setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')

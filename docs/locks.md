@@ -49,9 +49,9 @@ This Action uses GitHub branches to create a deployment lock. When you run `.loc
 
 1. The Action checks to see if a global lock already exists, if it doesn't it will then check to see if an environment specific lock exists
 2. If a lock does not exists it begins to create one for you
-3. The Action creates a new branch called `<environment|global>-branch-deploy-lock`
-4. The Action then creates a lock file called `lock.json` on the new branch
-5. The `lock.json` file contains metadata about the lock
+3. The Action prepares a commit containing a complete `lock.json` file with metadata about the lock
+4. The Action publishes a new branch called `<environment|global>-branch-deploy-lock` at that commit
+5. New v12 lock files include `schema_version: 1` and a deterministic `claim_id`; older lock files without those fields remain supported
 
 Now when new deployments are run, they will check if a lock exists. If it does and it doesn't belong to you, your deployment is rejected. If the lock does belong to you, then the deployment will continue.
 

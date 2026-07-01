@@ -485,6 +485,7 @@ for (const [name, value] of [
   ['a string global value', {...validLockRecord, global: 'false'}],
   ['a numeric unlock command', {...validLockRecord, unlock_command: 42}],
   ['a numeric link', {...validLockRecord, link: 42}],
+  ['an unsupported schema version', {...validLockRecord, schema_version: 2}],
   ['a non-string claim ID', {...validLockRecord, claim_id: 42}],
   ['a malformed claim ID', {...validLockRecord, claim_id: 'sha256:nope'}]
 ] as const) {
@@ -504,10 +505,11 @@ for (const [name, value] of [
   })
 }
 
-test('accepts nullable legacy lock fields and a valid optional claim ID', async () => {
+test('accepts nullable legacy lock fields, schema version, and a valid optional claim ID', async () => {
   const value = {
     ...validLockRecord,
     branch: null,
+    schema_version: 1,
     sticky: null,
     environment: null,
     global: true,
@@ -532,6 +534,7 @@ test('atomically publishes a complete non-sticky deployment lock', async testCon
   })
   assert.deepStrictEqual(await lock(lockRequest()), createdLock)
   const lockContents = JSON.stringify({
+    schema_version: 1,
     reason: 'deployment',
     branch: 'cool-new-feature',
     created_at: '2026-06-30T12:34:56.789Z',

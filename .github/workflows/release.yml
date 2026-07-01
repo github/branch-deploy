@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: checkout the release source
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # pin@v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # pin@v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -156,6 +156,10 @@ jobs:
           if ! gh release view "$VERSION" >/dev/null 2>&1; then
             notes=(--generate-notes)
             [[ -z "$PREVIOUS" ]] || notes+=(--notes-start-tag "$PREVIOUS")
+            if [[ "$MAJOR" == "v12" ]]; then
+              migration_notes=$'## v12 migration\n\nBranch Deploy v12 includes breaking changes for security defaults and public action contracts. Review the v11 to v12 upgrade guide before moving production workflows: https://github.com/'"$GITHUB_REPOSITORY"$'/blob/main/docs/v11-to-v12-upgrade-guide.md'
+              notes+=(--notes "$migration_notes")
+            fi
             gh release create "$VERSION" --verify-tag --target "$GITHUB_SHA" --title "$VERSION" --latest "${notes[@]}"
           fi
 

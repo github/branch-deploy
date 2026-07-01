@@ -106,7 +106,7 @@ with:
 
 ## Custom Deployment Messages
 
-If you use `deploy_message_path`, point it at the trusted checkout:
+The `deploy_message_path` input still defaults to `.github/deployment_message.md` for compatibility. If your workflow also checks out pull request code, point it at the trusted checkout:
 
 ```yaml
 with:

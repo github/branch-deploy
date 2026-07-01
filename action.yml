@@ -114,9 +114,9 @@ inputs:
     required: false
     default: ""
   allow_forks:
-    description: 'Allow branch deployments to run on repository forks. If you want to harden your workflows, this option can be set to false. Default is "true"'
+    description: 'Allow branch deployments to run on repository forks. Default is "false". Set to "true" only when your workflow intentionally supports deployments from forked pull requests.'
     required: false
-    default: "true"
+    default: "false"
   admins:
     description: 'A comma separated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team"'
     required: false
@@ -142,7 +142,7 @@ inputs:
     required: false
     default: ".github/deployment_message.md"
   sticky_locks:
-    description: 'If set to "true", locks will not be released after a deployment run completes. This applies to both successful, and failed deployments.Sticky locks are also known as "hubot style deployment locks". They will persist until they are manually released by a user, or if you configure another workflow with the "unlock on merge" mode to remove them automatically on PR merge.'
+    description: 'If set to "true", locks will not be released after a deployment run completes. This applies to both successful, and failed deployments. Sticky locks are also known as "hubot style deployment locks". They will persist until they are manually released by a user, or if you configure another workflow with the "unlock on merge" mode to remove them automatically on PR merge.'
     required: false
     default: "false"
   sticky_locks_for_noop:
@@ -198,7 +198,7 @@ inputs:
     required: false
     default: "false"
   deployment_confirmation_timeout:
-    description: 'The number of seconds to wait for a deployment confirmation before timing out. Default is "60" seconds (1 minute).'
+    description: 'The number of seconds to wait for a deployment confirmation before timing out. Must be a positive integer. Default is "60" seconds (1 minute).'
     required: false
     default: "60"
 outputs:
@@ -261,13 +261,13 @@ outputs:
   sha_deployment:
     description: 'If "allow_sha_deployments" is enabled, and a sha deployment is performed instead of a branch deployment, this output variable will contain the sha that was deployed. Otherwise, this output variable will be empty'
   review_decision:
-    description: 'The pull request review status. Can be one of a few values - examples: APPROVED, REVIEW_REQUIRED, CHANGES_REQUESTED, skip_reviews,, null'
+    description: 'The pull request review status. Can be one of a few values - examples: APPROVED, REVIEW_REQUIRED, CHANGES_REQUESTED, skip_reviews, null'
   is_outdated:
     description: 'The string "true" if the branch is outdated, otherwise "false"'
   merge_state_status:
     description: 'The status of the merge state. Can be one of a few values - examples: "DIRTY", "DRAFT", "CLEAN", etc'
   commit_status:
-    description: 'The status of the commit. Can be one of a few values - examples: "SUCCESS", null, "skip_ci", "PENDING", "FAILURE" etc'
+    description: 'The status of the commit. Can be one of a few values - examples: "SUCCESS", null, "skip_ci", "PENDING", "FAILURE", or "UNAVAILABLE". UNAVAILABLE blocks deployment because CI status could not be verified.'
   approved_reviews_count:
     description: 'The number of approved reviews on the pull request'
   needs_to_be_deployed:
@@ -279,11 +279,11 @@ outputs:
   non_default_target_branch_used:
     description: 'The string "true" if the pull request is targeting a branch other than the default branch (aka stable branch) for the merge, otherwise unset'
   decision:
-    description: 'The main action decision: continue, complete, stop, or failure'
+    description: 'The preferred main action decision output: continue, complete, stop, or failure'
   reason_code:
-    description: 'A stable machine-readable reason code for the main action decision'
+    description: 'The preferred stable machine-readable reason code for the main action decision'
   result:
-    description: 'A deterministic JSON object describing the versioned main action result'
+    description: 'The preferred deterministic JSON object describing the versioned main action result'
 runs:
   using: "node24"
   main: "dist/index.js"

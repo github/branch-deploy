@@ -2485,7 +2485,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
   )
 })
 
-test('runs prechecks and finds that the IssueOps command is on a PR from a forked repo and is not allowed', async () => {
+test('runs prechecks and rejects a forked pull request by default', async () => {
   graphQLOK.mock.mockImplementation(() =>
     Promise.resolve({
       repository: {
@@ -2528,7 +2528,7 @@ test('runs prechecks and finds that the IssueOps command is on a PR from a forke
     })
   )
 
-  data.inputs.allowForks = false
+  data.inputs.allowForks = createActionInputs().allowForks
 
   assert.deepStrictEqual(await prechecks(context, octokit, data), {
     message: `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`,
@@ -4644,7 +4644,9 @@ test('skips branch existence check when deploying an exact SHA', async () => {
   assertNotCalledWith(debugMock, 'checking if branch exists: test-ref')
 })
 
-test('skips branch existence check when PR is from a fork', async () => {
+test('skips branch existence check when PR fork deployments are explicitly allowed', async () => {
+  data.inputs.allowForks = true
+
   // Mock the PR as a fork
   getPullsOK.mock.mockImplementation(() =>
     Promise.resolve({
