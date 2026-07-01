@@ -13,6 +13,7 @@ import {
   POLICY_IDS,
   checkProject,
   checkSourceText,
+  checkSourceTexts,
   formatDiagnostic,
   runPolicy,
   type PolicyDiagnostic,
@@ -65,15 +66,40 @@ function isStringArray(value: unknown): value is string[] {
 
 const fixtures = parseFixtures(fixtureData)
 
-for (const fixture of fixtures) {
-  test(`TypeScript policy fixture: ${fixture.name}`, () => {
-    const path = `__tests__/fixtures/typescript-policy/${fixture.name}.ts`
+function fixtureSourcePath(name: string): string {
+  return `__tests__/fixtures/typescript-policy/${name}.ts`
+}
+
+function diagnosticMap(
+  diagnostics: readonly PolicyDiagnostic[]
+): ReadonlyMap<string, readonly string[]> {
+  const output = new Map<string, string[]>()
+  for (const diagnostic of diagnostics) {
+    const current = output.get(diagnostic.path)
+    const formatted = formatDiagnostic(diagnostic)
+    if (current === undefined) output.set(diagnostic.path, [formatted])
+    else current.push(formatted)
+  }
+  return output
+}
+
+test('TypeScript policy fixtures match diagnostics', () => {
+  const diagnostics = diagnosticMap(
+    checkSourceTexts(
+      fixtures.map(fixture => ({
+        path: fixtureSourcePath(fixture.name),
+        sourceText: fixture.source
+      }))
+    )
+  )
+
+  for (const fixture of fixtures) {
     assert.deepStrictEqual(
-      checkSourceText(fixture.source, path).map(formatDiagnostic),
+      diagnostics.get(fixtureSourcePath(fixture.name)) ?? [],
       fixture.expected
     )
-  })
-}
+  }
+})
 
 test('every named policy has an invalid fixture', () => {
   const covered = new Set<PolicyId>()
@@ -101,26 +127,53 @@ test('grouped policy variants remain enforced', () => {
     ["'value' + 1\n", 'safe-string-operations'],
     ["(0, eval)('value')\n", 'dangerous-eval']
   ] as const
+  const diagnostics = diagnosticMap(
+    checkSourceTexts(
+      cases.map(([source], index) => ({
+        path: fixtureSourcePath(`grouped-${String(index)}`),
+        sourceText: source
+      })),
+      'force',
+      false
+    )
+  )
 
-  for (const [source, policy] of cases) {
+  for (const [index, [, policy]] of cases.entries()) {
     assert.ok(
-      checkSourceText(source).some(
-        diagnostic => diagnostic.policyId === policy
-      ),
-      `${policy} did not reject ${JSON.stringify(source)}`
+      (
+        diagnostics.get(fixtureSourcePath(`grouped-${String(index)}`)) ?? []
+      ).some(diagnostic => diagnostic.includes(`: ${policy}: `)),
+      `${policy} did not reject case ${String(index)}`
     )
   }
 
-  assert.deepStrictEqual(checkSourceText('if (true && true) {}\n'), [])
-  assert.deepStrictEqual(checkSourceText('for (; true; ) { break }\n'), [])
-  assert.deepStrictEqual(checkSourceText('new Date\n'), [])
   assert.deepStrictEqual(
-    checkSourceText('const value = 1\nexport default value\n'),
-    []
-  )
-  assert.deepStrictEqual(
-    checkSourceText(
-      'try {} finally { function nested(): void { return } nested() }\n'
+    checkSourceTexts(
+      [
+        {
+          path: fixtureSourcePath('grouped-valid-boolean-condition'),
+          sourceText: 'if (true && true) {}\n'
+        },
+        {
+          path: fixtureSourcePath('grouped-valid-loop-break'),
+          sourceText: 'for (; true; ) { break }\n'
+        },
+        {
+          path: fixtureSourcePath('grouped-valid-date-constructor'),
+          sourceText: 'new Date\n'
+        },
+        {
+          path: fixtureSourcePath('grouped-valid-default-export'),
+          sourceText: 'const value = 1\nexport default value\n'
+        },
+        {
+          path: fixtureSourcePath('grouped-valid-nested-finally-return'),
+          sourceText:
+            'try {} finally { function nested(): void { return } nested() }\n'
+        }
+      ],
+      'force',
+      false
     ),
     []
   )
