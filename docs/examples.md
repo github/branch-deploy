@@ -1032,9 +1032,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          if [ -n "${{ needs.trigger.outputs.initial_reaction_id }}" ]; then
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
@@ -1267,9 +1269,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          if [ -n "${{ needs.trigger.outputs.initial_reaction_id }}" ]; then
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
@@ -1473,9 +1477,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          if [ -n "${{ needs.trigger.outputs.initial_reaction_id }}" ]; then
+            gh api \
+              --method DELETE \
+              repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
@@ -1725,8 +1731,10 @@ jobs:
       - name: Remove Trigger Reaction
         id: remove-reaction
         run: |
-          gh api --method DELETE \
-            "repos/${{ env.REPOSITORY }}/issues/comments/${{ env.COMMENT_ID }}/reactions/${{ env.INITIAL_REACTION_ID }}"
+          if [ -n "${INITIAL_REACTION_ID}" ]; then
+            gh api --method DELETE \
+              "repos/${{ env.REPOSITORY }}/issues/comments/${{ env.COMMENT_ID }}/reactions/${INITIAL_REACTION_ID}"
+          fi
 
       # Add a new reaction based on if the deployment succeeded or failed.
       - name: Add Reaction

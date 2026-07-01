@@ -10,7 +10,7 @@ import type {
 
 const DEFAULT_INPUTS = {
   admins: 'false',
-  allowForks: true,
+  allowForks: false,
   allow_non_default_target_branch_deployments: false,
   allow_sha_deployments: false,
   checks: 'all',

@@ -45289,6 +45289,7 @@ function isLockData(value) {
         typeof value.unlock_command === 'string' &&
         'link' in value &&
         typeof value.link === 'string' &&
+        (!('schema_version' in value) || value.schema_version === 1) &&
         (!('claim_id' in value) ||
             (typeof value.claim_id === 'string' &&
                 /^sha256:[0-9a-f]{64}$/u.test(value.claim_id))));
@@ -45418,6 +45419,7 @@ function constructClaimId(context, ref, sticky, environment, global) {
 function constructLockData(context, ref, reason, sticky, environment, global) {
     const { owner, repo } = context.repo;
     return {
+        schema_version: 1,
         reason,
         branch: ref,
         created_at: new Date().toISOString(),
@@ -47237,9 +47239,13 @@ function inputs_validateInput(inputName, inputValue, validValues) {
 // :param inputName: The name of the input being parsed (string)
 // :returns: The parsed integer value
 function getIntInput(inputName) {
-    const value = parseInt(getActionInput(inputName), 10);
-    if (isNaN(value)) {
-        throw new Error(`Invalid value for ${inputName}: must be an integer`);
+    const inputValue = getActionInput(inputName);
+    if (!/^[1-9][0-9]*$/u.test(inputValue)) {
+        throw new Error(`Invalid value for ${inputName}: must be a positive integer`);
+    }
+    const value = Number(inputValue);
+    if (!Number.isSafeInteger(value)) {
+        throw new Error(`Invalid value for ${inputName}: must be a positive integer`);
     }
     return value;
 }

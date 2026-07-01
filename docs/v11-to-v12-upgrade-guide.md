@@ -1,6 +1,40 @@
 # Upgrading from v11 to v12
 
-This guide explains user-visible behavior changes being prepared for the next major release. It will be expanded as additional v12 changes are completed.
+This guide explains user-visible behavior changes in the next major release.
+
+## The action runs on Node 24
+
+### What changed
+
+Branch Deploy v12 declares the GitHub Actions Node 24 runtime in `action.yml`. The development and CI runtime are also pinned to the exact Node 24 version in `.node-version`.
+
+### Who is affected
+
+Most users on GitHub-hosted runners do not need to change anything. Self-hosted runner and GitHub Enterprise Server users should confirm that their runner fleet and server version support Node 24 JavaScript actions before moving production workflows to `github/branch-deploy@v12`.
+
+### What should I do?
+
+- Confirm your self-hosted runners can execute Node 24 actions.
+- Confirm your GitHub Enterprise Server version supports the Node 24 action runtime.
+- Test the exact v12 candidate SHA before moving important workflows to the movable `v12` tag.
+
+## Fork pull request deployments are disabled by default
+
+### What changed
+
+The `allow_forks` input now defaults to `"false"`. Branch Deploy rejects deployment commands from forked pull requests unless the workflow explicitly opts back in with `allow_forks: "true"`.
+
+Previously, fork deployments were allowed by default. v12 makes the safer behavior the default because forked pull requests are a stronger trust-boundary risk for deployment workflows.
+
+### Who is affected
+
+Repositories that intentionally deploy forked pull requests must update their Branch Deploy step. Repositories that do not deploy forks get the hardened default without changing their workflow.
+
+### What should I do?
+
+- If you do not deploy forked pull requests, remove any redundant `allow_forks: "false"` setting or leave it in place for clarity.
+- If you intentionally deploy forked pull requests, set `allow_forks: "true"` explicitly.
+- Combine fork support with required reviews, passing CI, trusted checkouts for helper code and templates, and deployment confirmation where appropriate.
 
 ## CI check verification fails closed
 
@@ -33,19 +67,19 @@ Deployments that explicitly use the configured stable branch or an enabled exact
 
 New deployment lock branches are now published only after their first commit already contains a complete `lock.json`. This removes the short-lived state in which a lock branch could be visible before its lock file was written.
 
-New lock files also contain an additive `claim_id` field. It is a deterministic SHA-256 identifier for the repository, pull request comment, environment or global target, requested ref, and sticky-lock mode. If the same workflow event retries after acquiring its lock, Branch Deploy recognizes the same claim without rewriting the lock or posting a duplicate lock-acquired comment.
+New lock files also contain additive `schema_version` and `claim_id` fields. `schema_version` is currently `1`. `claim_id` is a deterministic SHA-256 identifier for the repository, pull request comment, environment or global target, requested ref, and sticky-lock mode. If the same workflow event retries after acquiring its lock, Branch Deploy recognizes the same claim without rewriting the lock or posting a duplicate lock-acquired comment.
 
 The lock protocol is idempotent at acquisition time. It does not guarantee that arbitrary deployment commands in later workflow steps run exactly once; workflow authors should continue to make those steps safe to retry where practical.
 
 ### Who is affected
 
-Most users do not need to change anything. Integrations that parse `lock.json` with a strict schema must allow the optional `claim_id` string. Existing lock files without this field remain supported and keep their current ownership behavior.
+Most users do not need to change anything. Integrations that parse `lock.json` with a strict schema must allow the optional `schema_version` value `1` and optional `claim_id` string. Existing lock files without these fields remain supported and keep their current ownership behavior.
 
 A lock branch that exists without a readable `lock.json` is now treated as an ambiguous lock and blocks the operation. Branch Deploy no longer repairs or claims that branch automatically because doing so could overwrite another request during a race or hide repository corruption.
 
 ### What should I do?
 
-- If your tooling validates lock JSON, allow an optional `claim_id` matching `sha256:` followed by 64 lowercase hexadecimal characters.
+- If your tooling validates lock JSON, allow an optional `schema_version` value of `1` and an optional `claim_id` matching `sha256:` followed by 64 lowercase hexadecimal characters.
 - If Branch Deploy reports an ambiguous lock, open the lock branch named in the message and inspect its contents.
 - If the branch is stale or corrupt, use the normal `.unlock <environment>` command, or `.unlock --global` for a global lock, after confirming that removing it is safe.
 - Do not interpret idempotent lock acquisition as exactly-once execution for deployment scripts that run after the Action.
@@ -163,14 +197,17 @@ An interactive `.unlock` command now fails the action when GitHub returns a resp
 
 The help message now reports the real boolean value of `allow_forks` instead of applying the previous string comparison.
 
+The `deployment_confirmation_timeout` input must now be a plain positive integer. Values like `10abc`, `0`, and `-1` are rejected during input parsing instead of being partially parsed or accepted.
+
 Default pre-deploy, confirmation, and post-deploy metadata blocks are generated from typed objects with `JSON.stringify`. Quotes, backslashes, newlines, Unicode, and backticks in user-controlled values can no longer break the JSON or close its Markdown code fence. Field names, field ordering, marker comments, and null semantics remain stable. Custom Nunjucks deployment templates are unchanged.
 
 ### Who is affected
 
-Users may notice a failed `.unlock` step where an earlier version printed a failure comment but still returned a safe exit. Consumers that scrape the default metadata's exact whitespace or assume a three-backtick fence may also need an update.
+Users may notice a failed `.unlock` step where an earlier version printed a failure comment but still returned a safe exit. Workflows with malformed `deployment_confirmation_timeout` values must update them before v12 will run. Consumers that scrape the default metadata's exact whitespace or assume a three-backtick fence may also need an update.
 
 ### What should I do?
 
 - Investigate a failed `.unlock` command and retry it after resolving the GitHub API or permission problem.
+- Set `deployment_confirmation_timeout` to a positive integer number of seconds such as `60`.
 - Parse the JSON between the `pre-deploy-metadata`, `deployment-confirmation-metadata`, or `post-deploy-metadata` marker comments instead of depending on indentation or fence length.
 - Continue using a custom Nunjucks template if exact custom comment bytes are required; this change does not alter those templates.

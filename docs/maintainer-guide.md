@@ -19,7 +19,7 @@ To prepare a release:
 3. Commit the version and `dist/` changes in a pull request.
 4. Merge the reviewed pull request to protected `main` after CI passes.
 
-The release workflow then rebuilds the project, verifies the committed bundle, and creates build-provenance attestations for `action.yml` and every file in `dist/`. After those attestations verify, it creates an assetless immutable GitHub Release with generated notes, verifies the release, and moves the matching major tag such as `v11` to the new exact release tag.
+The release workflow then rebuilds the project, verifies the committed bundle, and creates build-provenance attestations for `action.yml` and every file in `dist/`. After those attestations verify, it creates an assetless immutable GitHub Release, verifies the release, and moves the matching major tag such as `v11` to the new exact release tag. For `v12.x.x` releases, the workflow prepends a short migration note and upgrade-guide link before the generated release notes.
 
 Transient failures can be retried from the original workflow run. A matching exact tag or release is reused only when it targets the same source commit. If the workflow itself must change, merge the fix and release the next stable version.
 

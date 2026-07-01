@@ -156,6 +156,7 @@ function constructLockData(
 ): LockData {
   const {owner, repo} = context.repo
   return {
+    schema_version: 1,
     reason,
     branch: ref,
     created_at: new Date().toISOString(),
