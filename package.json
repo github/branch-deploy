@@ -41,7 +41,7 @@
     "@vercel/ncc": "^0.38.4",
     "@vitest/coverage-v8": "^4.1.2",
     "eslint": "^9.39.2",
-    "js-yaml": "^4.1.1",
+    "js-yaml": "^4.2.0",
     "make-coverage-badge": "^1.2.0",
     "prettier": "^3.8.1",
     "vitest": "^4.0.16"
