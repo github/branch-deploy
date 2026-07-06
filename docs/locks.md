@@ -87,6 +87,27 @@ Removing the global deploy lock:
 
 ![remove-global-deploy-lock](https://user-images.githubusercontent.com/23362539/224514485-e60605fd-0918-466e-9aab-7597fa32e7d9.png)
 
+## Disabling Locks
+
+For some workflows, deployment locking is simply not needed. A good example is mobile CI/CD pipelines that upload build artifacts to TestFlight or the Google Play Store — each upload is additive and independent, so two concurrent deployments can never conflict with each other. In these cases, requiring a lock before every deploy adds unnecessary friction.
+
+You can completely disable all locking logic by setting the `disable_lock` input to `"true"`:
+
+```yaml
+- uses: github/branch-deploy@vX
+  with:
+    disable_lock: "true"
+```
+
+When `disable_lock` is enabled:
+
+- Lock acquisition is **skipped** before a deployment starts — no lock branch is ever created
+- The post-deploy lock release step is **skipped**
+- `.lock` and `.unlock` commands respond with an informational comment and exit cleanly — lock state is never modified
+
+> [!NOTE]
+> `disable_lock` disables locking entirely. If you want locks to persist across deployments (rather than be released automatically), see [hubot-style sticky locks](./hubot-style-deployment-locks.md) instead.
+
 ## Actions Concurrency
 
 > Note: Using the locking mechanism included in this Action (above) is highly recommended over Actions concurrency. The section below will be included anyways should you have a valid reason to use it instead of the deploy lock features this Action provides

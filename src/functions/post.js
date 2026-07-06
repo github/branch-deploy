@@ -46,7 +46,8 @@ export async function post() {
         )
       },
       commit_verified: core.getState('commit_verified') === 'true',
-      deployment_start_time: core.getState('deployment_start_time')
+      deployment_start_time: core.getState('deployment_start_time'),
+      disable_lock: core.getState('disable_lock') === 'true'
     }
 
     // If bypass is set, exit the workflow
