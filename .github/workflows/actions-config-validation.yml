@@ -14,12 +14,12 @@ jobs:
   actions-config-validation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
         with:
           persist-credentials: false
 
       - name: actions-config-validation
-        uses: GrantBirki/json-yaml-validate@9bbaa8474e3af4e91f25eda8ac194fdc30564d96 # pin@v4.0.0
+        uses: GrantBirki/json-yaml-validate@3ff75979f3b21171f2e8a44705f0ff4bed30bbc0 # pin@v5.0.0
         with:
           comment: "true" # enable comment mode
           yaml_schema: "__tests__/schemas/action.schema.yml"
