@@ -17,6 +17,7 @@ const DEFAULT_INPUTS = {
   commit_verification: false,
   deployment_confirmation: false,
   deployment_confirmation_timeout: 60,
+  disable_lock: false,
   disable_naked_commands: false,
   draft_permitted_targets: '',
   enforced_deployment_order: [],

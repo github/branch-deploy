@@ -81,6 +81,7 @@ export interface ActionInputs {
   readonly commit_verification: boolean
   readonly deployment_confirmation: boolean
   readonly deployment_confirmation_timeout: number
+  readonly disable_lock: boolean
   readonly disable_naked_commands: boolean
   readonly draft_permitted_targets: string
   readonly enforced_deployment_order: readonly string[]
@@ -420,6 +421,7 @@ export interface RawPostDeployData {
   readonly commit_verified: boolean | undefined
   readonly deployment_id: string | null | undefined
   readonly deployment_start_time: string | null | undefined
+  readonly disable_lock: boolean
   readonly environment: string | null | undefined
   readonly environment_url: string | null
   readonly fork: boolean
@@ -443,6 +445,7 @@ export interface PostDeployData {
   readonly commit_verified: boolean
   readonly deployment_id: string
   readonly deployment_start_time: string
+  readonly disable_lock: boolean
   readonly environment: string
   readonly environment_url: string | null
   readonly fork: boolean
@@ -506,6 +509,7 @@ export type OperationReasonCode =
   | 'lock_already_owned'
   | 'lock_conflict'
   | 'lock_info_completed'
+  | 'locking_disabled'
   | 'merge_deploy_not_required'
   | 'merge_deploy_required'
   | 'naked_command_disabled'

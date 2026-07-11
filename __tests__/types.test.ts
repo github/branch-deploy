@@ -62,6 +62,7 @@ test('typed input registries expose exact ActionInputKey subsets', () => {
     | 'allow_sha_deployments'
     | 'commit_verification'
     | 'deployment_confirmation'
+    | 'disable_lock'
     | 'disable_naked_commands'
     | 'environment_url_in_comment'
     | 'merge_deploy_mode'

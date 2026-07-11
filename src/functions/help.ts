@@ -134,6 +134,8 @@ export async function help(
 
   This help message was automatically generated based on the inputs provided to this Action.
 
+  ${inputs.disable_lock ? '> Deployment locking is disabled. Lock-related commands only report that no lock state is changed.' : ''}
+
   ### 💻 Available Commands
 
   - \`${inputs.help_trigger}\` - Show this help message
@@ -249,6 +251,7 @@ export async function help(
   - \`skipCi: ${skipCiDisplay}\` - ${skip_ci_message}
   - \`checks: ${checksDisplay}\` - ${checks_message}
   - \`use_security_warnings: ${inputs.use_security_warnings}\` - This Action will ${inputs.use_security_warnings ? 'use' : 'not use'} security warnings
+  - \`disable_lock: ${inputs.disable_lock}\` - This Action will ${inputs.disable_lock ? 'skip deployment lock acquisition and completion' : 'use deployment locks'}
   - \`ignored_checks: ${inputs.ignored_checks.join(',')}\` - ${ignored_checks_message}
   - \`skipReviews: ${skipReviewsDisplay}\` - ${skip_reviews_message}
   - \`draft_permitted_targets: ${

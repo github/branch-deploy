@@ -74,6 +74,21 @@ test('successfully calls help with defaults', async () => {
   assertDebugIncludes(
     '`allowForks: false` - This Action will not run on forked repositories'
   )
+  assertDebugIncludes(
+    '`disable_lock: false` - This Action will use deployment locks'
+  )
+})
+
+test('explains disabled locking in help output', async () => {
+  const inputs = createActionInputs({disable_lock: true})
+
+  assert.strictEqual(await help(octokit, context, 123, inputs), undefined)
+  assertDebugIncludes(
+    '> Deployment locking is disabled. Lock-related commands only report that no lock state is changed.'
+  )
+  assertDebugIncludes(
+    '`disable_lock: true` - This Action will skip deployment lock acquisition and completion'
+  )
 })
 
 test('successfully calls help with non-defaults', async () => {

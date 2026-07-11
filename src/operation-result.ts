@@ -17,6 +17,7 @@ export const OPERATION_REASON_CODES = [
   'help_completed',
   'invalid_environment',
   'lock_info_completed',
+  'locking_disabled',
   'lock_acquired',
   'lock_already_owned',
   'lock_conflict',

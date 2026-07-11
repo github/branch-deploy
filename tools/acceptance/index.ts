@@ -89,6 +89,18 @@ function lockBranch(environment: string): string {
   return `${environment}-branch-deploy-lock`
 }
 
+function assertNoLockRoutes(context: ScenarioContext): void {
+  assert.deepEqual(
+    context.routeLog.filter(
+      route =>
+        route.path.includes('/git/') ||
+        route.path.includes('/contents/lock.json')
+    ),
+    [],
+    diagnostics(context)
+  )
+}
+
 function apiPath(path: string): string {
   return `/repos/${ACCEPTANCE_REPOSITORY.owner}/${ACCEPTANCE_REPOSITORY.repo}${path}`
 }
@@ -465,6 +477,123 @@ const scenarios = [
         )
         assert.equal(context.state.labels.has('noop-success'), true)
         assertReaction(context, 'rocket')
+      })
+  },
+  {
+    name: 'disabled lock commands',
+    run: () =>
+      withMockGitHub('disabled lock commands', async context => {
+        seedLock(context.state, 'production', 'other-branch', 'OtherUser', 99)
+        const originalLock = mockLockContents(
+          context.state,
+          lockBranch('production')
+        )
+
+        for (const [command, operation] of [
+          ['.lock production', 'lock'],
+          ['.unlock production', 'unlock'],
+          ['.wcid', 'lock_info']
+        ] as const) {
+          setTriggerComment(context.state, command)
+          const result = await runMain(context, {disable_lock: 'true'})
+
+          assertExit(context, result, 0)
+          assertDecision(context, result, 'complete')
+          assertReason(context, result, 'locking_disabled')
+          assertResultField(context, result, 'operation', operation)
+          assert.equal(
+            mockLockContents(context.state, lockBranch('production')),
+            originalLock,
+            diagnostics(context, result)
+          )
+        }
+
+        assertCommentIncludes(
+          context,
+          'Deployment locking is disabled for this Action'
+        )
+        assertNoLockRoutes(context)
+      })
+  },
+  {
+    name: 'disabled lock noop lifecycle',
+    run: () =>
+      withMockGitHub('disabled lock noop lifecycle', async context => {
+        seedLock(context.state, 'production', 'other-branch', 'OtherUser', 99)
+        const originalLock = mockLockContents(
+          context.state,
+          lockBranch('production')
+        )
+        setTriggerComment(context.state, '.noop')
+        const inputs = {
+          disable_lock: 'true',
+          successful_noop_labels: 'noop-success'
+        }
+
+        const mainResult = await runMain(context, inputs)
+        assertExit(context, mainResult, 0)
+        assertReason(context, mainResult, 'noop_ready')
+        assert.equal(mainResult.state['disable_lock'], 'true')
+        assert.equal(
+          mockLockContents(context.state, lockBranch('production')),
+          originalLock,
+          diagnostics(context, mainResult)
+        )
+
+        const postResult = await runPost(context, mainResult, inputs)
+        assertExit(context, postResult, 0)
+        assert.equal(context.state.labels.has('noop-success'), true)
+        assert.equal(
+          mockLockContents(context.state, lockBranch('production')),
+          originalLock,
+          diagnostics(context, postResult)
+        )
+        assertNoLockRoutes(context)
+      })
+  },
+  {
+    name: 'disabled lock deploy lifecycle',
+    run: () =>
+      withMockGitHub('disabled lock deploy lifecycle', async context => {
+        seedLock(context.state, 'production', 'other-branch', 'OtherUser', 99)
+        const originalLock = mockLockContents(
+          context.state,
+          lockBranch('production')
+        )
+        setTriggerComment(context.state, '.deploy')
+        const inputs = {
+          disable_lock: 'true',
+          successful_deploy_labels: 'deploy-success'
+        }
+
+        const mainResult = await runMain(context, inputs)
+        assertExit(context, mainResult, 0)
+        assertReason(context, mainResult, 'deployment_ready')
+        assert.equal(mainResult.state['disable_lock'], 'true')
+        assert.equal(
+          mockLockContents(context.state, lockBranch('production')),
+          originalLock,
+          diagnostics(context, mainResult)
+        )
+        const deployment = requireDeployment(context)
+        assert.equal(
+          requireDeploymentStatus(context, deployment, 0).state,
+          'in_progress'
+        )
+
+        const postResult = await runPost(context, mainResult, inputs)
+        assertExit(context, postResult, 0)
+        assert.equal(
+          requireDeploymentStatus(context, deployment, 1).state,
+          'success'
+        )
+        assert.equal(context.state.labels.has('deploy-success'), true)
+        assert.equal(
+          mockLockContents(context.state, lockBranch('production')),
+          originalLock,
+          diagnostics(context, postResult)
+        )
+        assertNoLockRoutes(context)
       })
   },
   {

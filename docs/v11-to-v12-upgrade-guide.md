@@ -51,7 +51,7 @@ Before editing, produce an internal inventory of every relevant file and usage. 
 - `issue_comment`, `pull_request`, and `push` workflows related to Branch Deploy.
 - `merge_deploy_mode` and `unlock_on_merge_mode`.
 - `deploy_message_path`, `.github/deployment_message.md`, `DEPLOY_MESSAGE`, `<%= results %>`, `{{ results }}`, `| safe`, and other Nunjucks constructs.
-- `allow_forks`, `commit_status`, `checks`, `ignored_checks`, `required_contexts`, `skip_ci`, `enforced_deployment_order`, `deployment_confirmation_timeout`, `reaction`, `initial_reaction_id`, `decision`, `reason_code`, and `result`.
+- `allow_forks`, `commit_status`, `checks`, `ignored_checks`, `required_contexts`, `skip_ci`, `disable_lock`, `enforced_deployment_order`, `deployment_confirmation_timeout`, `reaction`, `initial_reaction_id`, `decision`, `reason_code`, and `result`.
 - Code that reads, validates, creates, copies, or deletes `lock.json` or `*-branch-deploy-lock` refs.
 - Code that parses Branch Deploy comments, logs, metadata blocks, output JSON, deployment history, or exact human-readable error text.
 - Checkout steps that use a pull request branch, `github.sha`, `github.event.pull_request.head.sha`, or `steps.<branch-deploy-step-id>.outputs.sha`.
@@ -126,6 +126,7 @@ New v12 locks are created atomically and add `schema_version` and `claim_id`.
 7. Treat a lock branch without a readable `lock.json` as ambiguous and blocking. Do not automatically repair, overwrite, or claim it.
 8. Preserve sticky-lock behavior. Do not infer that idempotent lock acquisition makes later deployment scripts exactly once.
 9. Retain workflow concurrency for shared state or infrastructure even when Branch Deploy locks are enabled.
+10. If `disable_lock` is enabled, verify that concurrent deployments are genuinely safe, document that existing locks are ignored and unchanged, and ensure another mechanism serializes any shared state that still requires it.
 
 Phase 8: adopt structured outputs carefully
 
@@ -372,6 +373,25 @@ A lock branch that exists without a readable `lock.json` is now treated as an am
 - If the branch is stale or corrupt, use the normal `.unlock <environment>` command, or `.unlock --global` for a global lock, after confirming that removing it is safe.
 - Do not interpret idempotent lock acquisition as exactly-once execution for deployment scripts that run after the Action.
 
+## Deployment locks can be disabled explicitly
+
+### What changed
+
+Branch Deploy includes the additive `disable_lock` input introduced by [upstream PR #453](https://github.com/github/branch-deploy/pull/453). It defaults to `false`, so existing workflows keep their normal lock behavior.
+
+When `disable_lock: true` is set, deployments and noops skip lock inspection and acquisition, post processing skips lock inspection and release, and interactive lock-related commands return a successful informational result with the `locking_disabled` reason code. Existing environment and global lock branches are ignored and left unchanged.
+
+### Who is affected
+
+No workflow must enable this input for v12 compatibility. It is intended only for deployment models where concurrent operations are independently safe, such as uploads of separately versioned mobile artifacts. Workflows that mutate the same service, environment, infrastructure, or remote state should retain locks and any required GitHub Actions concurrency.
+
+### What should I do?
+
+- Leave `disable_lock` at its default of `false` unless overlapping deployments are known to be safe.
+- Remove existing lock branches before enabling it, or temporarily use an authorized workflow with `disable_lock: false` to run the normal unlock command.
+- Do not treat disabled Branch Deploy locks as a replacement for workflow concurrency around shared state.
+- If automation consumes structured results for `.lock`, `.unlock`, or `.wcid`, accept `locking_disabled` as a completed informational outcome.
+
 ## Main action decisions are available as structured outputs
 
 ### What changed
@@ -413,6 +433,7 @@ Version one defines these reason codes:
 - `help_completed`
 - `invalid_environment`
 - `lock_info_completed`
+- `locking_disabled`
 - `lock_acquired`
 - `lock_already_owned`
 - `lock_conflict`

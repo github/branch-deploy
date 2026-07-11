@@ -211,6 +211,7 @@ beforeEach(() => {
     }),
     commit_verified: false,
     deployment_start_time: '2024-01-01T00:00:00Z',
+    disable_lock: false,
     trusted_sha: '0123456789abcdef0123456789abcdef01234567'
   }
 })
@@ -418,6 +419,34 @@ test('successfully completes a production branch deployment with no custom messa
     result: 'success'
   })
 })
+
+for (const noop of [false, true]) {
+  test(`skips ${noop ? 'noop' : 'deployment'} lock completion when locking is disabled`, async () => {
+    data.disable_lock = true
+    data.noop = noop
+
+    assert.strictEqual(
+      await postDeploy(context, octokit, data),
+      noop ? 'success - noop' : 'success'
+    )
+    assertNotCalled(lockMock)
+    assertNotCalled(unlockMock)
+    assertCalledWith(
+      infoMock,
+      '🔓 deployment locking is disabled; skipping lock completion'
+    )
+    assertCalledWith(actionStatusMock, {
+      context,
+      octokit,
+      reactionId: 12345,
+      message: 'Updated 1 server',
+      result: 'success'
+    })
+    assertCalledTimes(labelMock, 1)
+    if (noop) assertNotCalled(createDeploymentStatusMock)
+    else assertCalledTimes(createDeploymentStatusMock, 1)
+  })
+}
 
 test('successfully completes a noop branch deployment', async () => {
   data.noop = true

@@ -289,6 +289,10 @@ async function acquireDeploymentLock(
   core.info(
     `🍯 sticky_locks_for_noop: ${COLORS.highlight}${inputs.sticky_locks_for_noop}${COLORS.reset}`
   )
+  if (inputs.disable_lock) {
+    core.info('🔓 deployment locking is disabled; skipping lock acquisition')
+    return {cleanup: (): Promise<void> => Promise.resolve()}
+  }
   const sticky = precheck.noopMode
     ? inputs.sticky_locks_for_noop
     : inputs.sticky_locks
@@ -778,6 +782,7 @@ export async function runDeploymentOperation(
   try {
     const ready = await prepareDeployment(request, progress)
     if ('reasonCode' in ready) return ready
+    saveActionState('disable_lock', request.inputs.disable_lock)
     const lockResult = await acquireDeploymentLock(request, ready)
     if ('reasonCode' in lockResult) return lockResult
     lease = lockResult
