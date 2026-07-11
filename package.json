@@ -33,7 +33,6 @@
   "dependencies": {
     "@actions/github": "9.0.0",
     "@octokit/plugin-retry": "8.0.3",
-    "nunjucks": "3.2.4",
     "yargs-parser": "22.0.0"
   },
   "devDependencies": {

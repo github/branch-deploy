@@ -145,7 +145,8 @@ export const ACTION_STATE_KEYS = [
   'reaction_id',
   'ref',
   'review_decision',
-  'sha'
+  'sha',
+  'trusted_sha'
 ] as const satisfies readonly string[]
 
 export type ActionStateKey = (typeof ACTION_STATE_KEYS)[number]

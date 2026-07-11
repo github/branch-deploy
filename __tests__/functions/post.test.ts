@@ -88,6 +88,7 @@ const validStates: Record<ActionStateKey, string> = {
   commit_verified: 'false',
   initial_comment_id: '123',
   isPost: 'true',
+  trusted_sha: '0123456789abcdef0123456789abcdef01234567',
   params: 'LOG_LEVEL=debug --config.db.host=localhost --config.db.port=5432',
   parsed_params: JSON.stringify({
     config: {db: {host: 'localhost', port: 5432}},

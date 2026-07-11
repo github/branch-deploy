@@ -112,6 +112,16 @@ type TestStatusCheckRollup = Exclude<
 
 const LAST_PAGE = {endCursor: null, hasNextPage: false} as const
 
+function checkRollup(state: string): TestStatusCheckRollup {
+  return {
+    state,
+    contexts: {
+      nodes: [{context: 'legacy-ci', isRequired: true, state}],
+      pageInfo: LAST_PAGE
+    }
+  }
+}
+
 let context: BranchDeployContext
 let getCollabOK: Mock<
   PrechecksOctokit['rest']['repos']['getCollaboratorPermissionLevel']
@@ -402,8 +412,8 @@ test('treats an unfinished check run without a conclusion as unhealthy', () => {
       false
     ),
     {
-      message: 'one or more checks did not pass',
-      status: 'FAILURE'
+      message: 'one or more checks are pending',
+      status: 'PENDING'
     }
   )
 })
@@ -422,6 +432,461 @@ test('preserves nullish fallbacks for a malformed hybrid check node', () => {
       message: 'all checks passed',
       status: 'SUCCESS'
     }
+  )
+})
+
+test('uses the newest check run after a successful rerun', () => {
+  assert.deepStrictEqual(
+    filterChecks(
+      'all',
+      [
+        {
+          checkSuite: {app: {databaseId: 1}},
+          completedAt: '2026-01-01T00:00:00Z',
+          conclusion: 'FAILURE',
+          databaseId: 10,
+          id: 'old',
+          isRequired: true,
+          name: 'test'
+        },
+        {
+          checkSuite: {app: {databaseId: 1}},
+          completedAt: '2026-01-01T00:01:00Z',
+          conclusion: 'SUCCESS',
+          databaseId: 11,
+          id: 'new',
+          isRequired: true,
+          name: 'test'
+        }
+      ],
+      [],
+      false
+    ),
+    {message: 'all checks passed', status: 'SUCCESS'}
+  )
+})
+
+test('uses the database ID to order check reruns with equal timestamps', () => {
+  assert.deepStrictEqual(
+    filterChecks(
+      'all',
+      [
+        {
+          checkSuite: {app: {databaseId: 1}},
+          conclusion: 'FAILURE',
+          databaseId: 10,
+          id: 'old',
+          isRequired: true,
+          name: 'test',
+          startedAt: '2026-01-01T00:00:00Z'
+        },
+        {
+          checkSuite: {app: {databaseId: 1}},
+          conclusion: 'SUCCESS',
+          databaseId: 11,
+          id: 'new',
+          isRequired: true,
+          name: 'test',
+          startedAt: '2026-01-01T00:00:00Z'
+        }
+      ],
+      [],
+      false
+    ),
+    {message: 'all checks passed', status: 'SUCCESS'}
+  )
+})
+
+test('uses the newer check run even when the older run completes later', () => {
+  assert.deepStrictEqual(
+    filterChecks(
+      'all',
+      [
+        {
+          checkSuite: {app: {databaseId: 1}},
+          completedAt: '2026-01-01T00:02:00Z',
+          conclusion: 'SUCCESS',
+          databaseId: 10,
+          id: 'old',
+          isRequired: true,
+          name: 'test',
+          startedAt: '2026-01-01T00:00:00Z'
+        },
+        {
+          checkSuite: {app: {databaseId: 1}},
+          completedAt: null,
+          conclusion: null,
+          databaseId: 11,
+          id: 'new',
+          isRequired: true,
+          name: 'test',
+          startedAt: '2026-01-01T00:01:00Z'
+        }
+      ],
+      [],
+      false
+    ),
+    {message: 'one or more checks are pending', status: 'PENDING'}
+  )
+})
+
+test('keeps a newer pending status context blocking', () => {
+  assert.deepStrictEqual(
+    filterChecks(
+      'all',
+      [
+        {
+          context: 'ci/test',
+          id: 'old',
+          isRequired: true,
+          state: 'SUCCESS',
+          updatedAt: '2026-01-01T00:00:00Z'
+        },
+        {
+          context: 'ci/test',
+          id: 'new',
+          isRequired: true,
+          state: 'PENDING',
+          updatedAt: '2026-01-01T00:01:00Z'
+        }
+      ],
+      [],
+      false
+    ),
+    {message: 'one or more checks are pending', status: 'PENDING'}
+  )
+})
+
+test('keeps a newer status context when an older result appears later', () => {
+  assert.deepStrictEqual(
+    filterChecks(
+      'all',
+      [
+        {
+          context: 'ci/test',
+          id: 'new',
+          isRequired: true,
+          state: 'SUCCESS',
+          updatedAt: '2026-01-01T00:01:00Z'
+        },
+        {
+          context: 'ci/test',
+          id: 'old',
+          isRequired: true,
+          state: 'FAILURE',
+          updatedAt: '2026-01-01T00:00:00Z'
+        }
+      ],
+      [],
+      false
+    ),
+    {message: 'all checks passed', status: 'SUCCESS'}
+  )
+})
+
+test('rejects duplicate checks without deterministic ordering data', () => {
+  assert.throws(
+    () =>
+      filterChecks(
+        'all',
+        [
+          {
+            checkSuite: {app: {databaseId: 1}},
+            conclusion: 'FAILURE',
+            isRequired: true,
+            name: 'test'
+          },
+          {
+            checkSuite: {app: {databaseId: 1}},
+            conclusion: 'SUCCESS',
+            isRequired: true,
+            name: 'test'
+          }
+        ],
+        [],
+        false
+      ),
+    {message: 'A duplicate check result is missing its timestamp'}
+  )
+})
+
+test('keeps a newer check when an older result appears later', () => {
+  assert.deepStrictEqual(
+    filterChecks(
+      'all',
+      [
+        {
+          checkSuite: {app: {databaseId: 1}},
+          conclusion: 'SUCCESS',
+          databaseId: 11,
+          id: 'new',
+          isRequired: true,
+          name: 'test',
+          startedAt: '2026-01-01T00:01:00Z'
+        },
+        {
+          checkSuite: {app: {databaseId: 1}},
+          conclusion: 'FAILURE',
+          databaseId: 10,
+          id: 'old',
+          isRequired: true,
+          name: 'test',
+          startedAt: '2026-01-01T00:00:00Z'
+        }
+      ],
+      [],
+      false
+    ),
+    {message: 'all checks passed', status: 'SUCCESS'}
+  )
+})
+
+test('keeps the larger check database ID regardless of response order', () => {
+  assert.deepStrictEqual(
+    filterChecks(
+      'all',
+      [
+        {
+          checkSuite: {app: {databaseId: 1}},
+          conclusion: 'SUCCESS',
+          databaseId: 11,
+          id: 'new',
+          isRequired: true,
+          name: 'test',
+          startedAt: '2026-01-01T00:00:00Z'
+        },
+        {
+          checkSuite: {app: {databaseId: 1}},
+          conclusion: 'FAILURE',
+          databaseId: 10,
+          id: 'old',
+          isRequired: true,
+          name: 'test',
+          startedAt: '2026-01-01T00:00:00Z'
+        }
+      ],
+      [],
+      false
+    ),
+    {message: 'all checks passed', status: 'SUCCESS'}
+  )
+})
+
+test('accepts a duplicate status node with the same identity and timestamp', () => {
+  const check = {
+    context: 'ci/test',
+    id: 'same',
+    isRequired: true,
+    state: 'SUCCESS',
+    updatedAt: '2026-01-01T00:00:00Z'
+  }
+  assert.deepStrictEqual(filterChecks('all', [check, check], [], false), {
+    message: 'all checks passed',
+    status: 'SUCCESS'
+  })
+})
+
+test('uses a status context creation time when its update time is null', () => {
+  assert.deepStrictEqual(
+    filterChecks(
+      'all',
+      [
+        unsafeInvalidValue<RawCheckResult>({
+          context: 'ci/test',
+          createdAt: '2026-01-01T00:00:00Z',
+          id: 'old',
+          isRequired: true,
+          state: 'FAILURE',
+          updatedAt: null
+        }),
+        {
+          context: 'ci/test',
+          id: 'new',
+          isRequired: true,
+          state: 'SUCCESS',
+          updatedAt: '2026-01-01T00:01:00Z'
+        }
+      ],
+      [],
+      false
+    ),
+    {message: 'all checks passed', status: 'SUCCESS'}
+  )
+})
+
+test('accepts duplicate check runs with the same node identity', () => {
+  const check = {
+    checkSuite: {app: {databaseId: 1}},
+    conclusion: 'SUCCESS',
+    id: 'same',
+    isRequired: true,
+    name: 'test',
+    startedAt: '2026-01-01T00:00:00Z'
+  }
+  assert.deepStrictEqual(filterChecks('all', [check, check], [], false), {
+    message: 'all checks passed',
+    status: 'SUCCESS'
+  })
+})
+
+test('rejects duplicate check runs without integration identities', () => {
+  const check = {
+    conclusion: 'SUCCESS',
+    id: 'same',
+    isRequired: true,
+    name: 'test',
+    startedAt: '2026-01-01T00:00:00Z'
+  }
+  assert.throws(() => filterChecks('all', [check, check], [], false), {
+    message:
+      'A duplicate check result is missing its integration identity: check:null:test'
+  })
+})
+
+test('rejects malformed required-check metadata', () => {
+  assert.throws(
+    () =>
+      filterChecks(
+        'required',
+        [
+          unsafeInvalidValue<RawCheckResult>({
+            conclusion: 'SUCCESS',
+            isRequired: undefined,
+            name: 'test'
+          })
+        ],
+        [],
+        true
+      ),
+    {message: 'A check result has an invalid required-check flag'}
+  )
+})
+
+for (const check of [
+  {conclusion: 'SUCCESS', isRequired: true, name: ''},
+  {isRequired: true, state: 'SUCCESS'},
+  {context: '', isRequired: true, state: 'SUCCESS'}
+] as const) {
+  test(`rejects malformed check identity ${JSON.stringify(check)}`, () => {
+    assert.throws(() =>
+      filterChecks(
+        'all',
+        [unsafeInvalidValue<RawCheckResult>(check)],
+        [],
+        false
+      )
+    )
+  })
+}
+
+test('rejects a duplicate check with a null timestamp', () => {
+  const check = unsafeInvalidValue<RawCheckResult>({
+    checkSuite: {app: {databaseId: 1}},
+    completedAt: null,
+    conclusion: 'SUCCESS',
+    id: 'same',
+    isRequired: true,
+    name: 'test',
+    startedAt: null
+  })
+  assert.throws(() => filterChecks('all', [check, check], [], false), {
+    message: 'A duplicate check result is missing its timestamp'
+  })
+})
+
+test('rejects tied check runs without database or node identities', () => {
+  assert.throws(
+    () =>
+      filterChecks(
+        'all',
+        [
+          {
+            checkSuite: {app: {databaseId: 1}},
+            conclusion: 'FAILURE',
+            isRequired: true,
+            name: 'test',
+            startedAt: '2026-01-01T00:00:00Z'
+          },
+          {
+            checkSuite: {app: {databaseId: 1}},
+            conclusion: 'SUCCESS',
+            isRequired: true,
+            name: 'test',
+            startedAt: '2026-01-01T00:00:00Z'
+          }
+        ],
+        [],
+        false
+      ),
+    {message: 'Check ordering is ambiguous for check:1:test'}
+  )
+})
+
+test('rejects duplicate malformed status contexts without timestamps', () => {
+  const malformed = unsafeInvalidValue<RawCheckResult>({
+    context: 'ci/test',
+    id: 'same',
+    isRequired: true,
+    state: 'SUCCESS'
+  })
+  assert.throws(() => filterChecks('all', [malformed, malformed], [], false), {
+    message: 'A duplicate check result is missing its timestamp'
+  })
+})
+
+test('rejects a duplicate check with an invalid timestamp', () => {
+  assert.throws(
+    () =>
+      filterChecks(
+        'all',
+        [
+          {
+            checkSuite: {app: {databaseId: 1}},
+            conclusion: 'FAILURE',
+            isRequired: true,
+            name: 'test',
+            startedAt: 'not-a-time'
+          },
+          {
+            checkSuite: {app: {databaseId: 1}},
+            conclusion: 'SUCCESS',
+            isRequired: true,
+            name: 'test',
+            startedAt: '2026-01-01T00:00:00Z'
+          }
+        ],
+        [],
+        false
+      ),
+    {message: 'A check result has an invalid timestamp: not-a-time'}
+  )
+})
+
+test('rejects status reruns with tied timestamps and different identities', () => {
+  assert.throws(
+    () =>
+      filterChecks(
+        'all',
+        [
+          {
+            context: 'ci/test',
+            id: 'one',
+            isRequired: true,
+            state: 'FAILURE',
+            updatedAt: '2026-01-01T00:00:00Z'
+          },
+          {
+            context: 'ci/test',
+            id: 'two',
+            isRequired: true,
+            state: 'SUCCESS',
+            updatedAt: '2026-01-01T00:00:00Z'
+          }
+        ],
+        [],
+        false
+      ),
+    {message: 'Check ordering is ambiguous for status:ci/test'}
   )
 })
 
@@ -1601,21 +2066,23 @@ test('accepts healthy required checks spanning several pages', async () => {
   assertCalledTimes(graphQLOK, 3)
 })
 
-test('does not paginate the aggregate checks=all fast path', async () => {
-  graphQLOK.mock.mockImplementation(() =>
-    Promise.resolve(
-      initialCheckPage(
-        [{conclusion: 'SUCCESS', isRequired: true, name: 'first-check'}],
-        {endCursor: 'cursor-1', hasNextPage: true},
-        'SUCCESS'
-      )
+test('paginates checks=all even when the aggregate state is successful', async () => {
+  mockCheckPages(
+    initialCheckPage(
+      [{conclusion: 'SUCCESS', isRequired: true, name: 'first-check'}],
+      {endCursor: 'cursor-1', hasNextPage: true},
+      'SUCCESS'
+    ),
+    additionalCheckPage(
+      [{conclusion: 'SUCCESS', isRequired: true, name: 'second-check'}],
+      LAST_PAGE
     )
   )
 
   assert.partialDeepStrictEqual(await prechecks(context, octokit, data), {
     status: true
   })
-  assertCalledTimes(graphQLOK, 1)
+  assertCalledTimes(graphQLOK, 2)
 })
 
 test('skip_ci bypasses malformed paginated check data', async () => {
@@ -1816,9 +2283,7 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -1842,6 +2307,35 @@ test('runs prechecks and finds CI checks pass but reviews are not defined', asyn
   )
 })
 
+test('fails closed for an unknown review decision', async () => {
+  graphQLOK.mock.mockImplementation(() =>
+    Promise.resolve({
+      repository: {
+        pullRequest: {
+          reviewDecision: 'UNKNOWN',
+          reviews: {totalCount: 0},
+          commits: {
+            nodes: [
+              {
+                commit: {
+                  oid: 'abc123',
+                  statusCheckRollup: checkRollup('SUCCESS')
+                }
+              }
+            ]
+          }
+        }
+      }
+    })
+  )
+
+  assert.deepStrictEqual(await prechecks(context, octokit, data), {
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `UNKNOWN`\n- commitStatus: `SUCCESS`\n\n> This is usually caused by missing PR approvals or CI checks failing',
+    status: false
+  })
+})
+
 test('runs prechecks and finds CI is passing and the PR has not been reviewed BUT it is a noop deploy', async () => {
   graphQLOK.mock.mockImplementation(() =>
     Promise.resolve({
@@ -1856,9 +2350,7 @@ test('runs prechecks and finds CI is passing and the PR has not been reviewed BU
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -1894,9 +2386,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
               {
                 commit: {
                   oid: 'abcde12345',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -1977,9 +2467,7 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
               {
                 commit: {
                   oid: 'abcde12345',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -2028,9 +2516,7 @@ test('runs prechecks and finds that the PR from a fork is targeting a non-defaul
               {
                 commit: {
                   oid: 'abcde12345',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -2086,9 +2572,7 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
               {
                 commit: {
                   oid: 'abcde12345',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -2135,9 +2619,7 @@ test('runs prechecks and finds that the PR is targeting a non-default branch and
               {
                 commit: {
                   oid: 'abcde12345',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -2195,9 +2677,7 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
               {
                 commit: {
                   oid: 'abcde12345',
-                  statusCheckRollup: {
-                    state: 'FAILURE'
-                  }
+                  statusCheckRollup: checkRollup('FAILURE')
                 }
               }
             ]
@@ -2248,9 +2728,7 @@ test('runs prechecks and finds that the IssueOps command is a fork and does not 
               {
                 commit: {
                   oid: 'abcde12345',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -2308,9 +2786,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
               {
                 commit: {
                   oid: 'abcde12345',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -2371,9 +2847,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
               {
                 commit: {
                   oid: 'abcde12345',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -2435,9 +2909,7 @@ test('runs prechecks and rejects a pull request from a forked repository because
               {
                 commit: {
                   oid: 'abcde12345',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -2499,9 +2971,7 @@ test('runs prechecks and rejects a forked pull request by default', async () => 
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -2550,9 +3020,7 @@ test('runs prechecks and finds CI is pending and the PR has not been reviewed BU
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'PENDING'
-                  }
+                  statusCheckRollup: checkRollup('PENDING')
                 }
               }
             ]
@@ -2585,9 +3053,7 @@ test('runs prechecks and finds CI checks are pending, the PR has not been review
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'PENDING'
-                  }
+                  statusCheckRollup: checkRollup('PENDING')
                 }
               }
             ]
@@ -2617,9 +3083,7 @@ test('runs prechecks and finds CI is pending and reviewers have not been defined
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'PENDING'
-                  }
+                  statusCheckRollup: checkRollup('PENDING')
                 }
               }
             ]
@@ -2708,9 +3172,7 @@ test('runs prechecks and finds the PR has been approved but CI checks are pendin
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'PENDING'
-                  }
+                  statusCheckRollup: checkRollup('PENDING')
                 }
               }
             ]
@@ -2737,9 +3199,7 @@ test('runs prechecks and finds CI is passing but the PR is missing an approval',
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -2766,9 +3226,7 @@ test('runs prechecks and finds CI is passing but the PR is in a CHANGES_REQUESTE
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -2809,9 +3267,7 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'FAILURE'
-                  }
+                  statusCheckRollup: checkRollup('FAILURE')
                 }
               }
             ]
@@ -2841,9 +3297,7 @@ test('runs prechecks and finds the PR is in a changes requested state and CI is 
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'FAILURE'
-                  }
+                  statusCheckRollup: checkRollup('FAILURE')
                 }
               }
             ]
@@ -2873,9 +3327,7 @@ test('runs prechecks and finds the PR is in a REVIEW_REQUIRED state and CI is fa
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'FAILURE'
-                  }
+                  statusCheckRollup: checkRollup('FAILURE')
                 }
               }
             ]
@@ -2942,15 +3394,18 @@ test('runs prechecks and finds the PR is approved but CI is failing', async () =
                       nodes: [
                         {
                           isRequired: true,
-                          conclusion: 'SUCCESS'
+                          conclusion: 'SUCCESS',
+                          name: 'test-success'
                         },
                         {
                           isRequired: true,
-                          conclusion: 'FAILURE'
+                          conclusion: 'FAILURE',
+                          name: 'test-failure'
                         },
                         {
                           isRequired: false,
-                          conclusion: 'SUCCESS'
+                          conclusion: 'SUCCESS',
+                          name: 'optional-success'
                         }
                       ]
                     }
@@ -2984,9 +3439,7 @@ test('runs prechecks and finds the PR does not require approval but CI is failin
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'FAILURE'
-                  }
+                  statusCheckRollup: checkRollup('FAILURE')
                 }
               }
             ]
@@ -3059,9 +3512,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a noop dep
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3112,9 +3563,7 @@ test('runs prechecks and finds the PR is un-mergable and a noop deploy', async (
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3149,9 +3598,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it fails t
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3202,9 +3649,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and it hits an
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3254,9 +3699,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and update_bra
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3298,9 +3741,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and a noop deploy', async ()
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3366,9 +3807,7 @@ test('runs prechecks and finds the PR is a DRAFT PR and from an allowed environm
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3446,9 +3885,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'FAILED'
-                  }
+                  statusCheckRollup: checkRollup('FAILED')
                 }
               }
             ]
@@ -3461,11 +3898,7 @@ test('runs prechecks and finds the PR is BEHIND and a noop deploy and the commit
   data.environmentObj.noop = true
   data.inputs.update_branch = 'warn'
 
-  assert.deepStrictEqual(await prechecks(context, octokit, data), {
-    message:
-      '### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: `APPROVED`\n- commitStatus: `FAILED`\n\n> This is usually caused by missing PR approvals or CI checks failing',
-    status: false
-  })
+  await assertChecksUnavailable()
 })
 
 test('runs prechecks and finds the PR is BEHIND and a full deploy and update_branch is set to warn', async () => {
@@ -3483,9 +3916,7 @@ test('runs prechecks and finds the PR is BEHIND and a full deploy and update_bra
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3526,9 +3957,7 @@ test('runs prechecks and finds the PR is behind the stable branch and a full dep
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3586,9 +4015,7 @@ test('runs prechecks and finds that the IssueOps commands are valid and from a d
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3621,9 +4048,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3658,9 +4083,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -3684,7 +4107,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
   })
 })
 
-test('runs prechecks and finds that the IssueOps commands are valid with parameters and from a defined admin when CI is not defined', async () => {
+test('fails closed for malformed CI data even when the actor is an admin', async () => {
   graphQLOK.mock.mockImplementation(() =>
     Promise.resolve({
       repository: {
@@ -3709,20 +4132,7 @@ test('runs prechecks and finds that the IssueOps commands are valid with paramet
 
   isAdminMock.mock.mockImplementation(() => Promise.resolve(true))
 
-  assert.deepStrictEqual(await prechecks(context, octokit, data), {
-    message:
-      '✅ CI checks have not been defined and approval is bypassed due to admin rights',
-    noopMode: false,
-    ref: 'test-ref',
-    status: true,
-    sha: 'abc123',
-    isFork: false
-  })
-
-  assertLastCalledWith(
-    infoMock,
-    '✅ CI checks have not been defined and approval is bypassed due to admin rights'
-  )
+  await assertChecksUnavailable()
 })
 
 test('runs prechecks and finds that no CI checks exist and reviews are not defined', async () => {
@@ -3893,9 +4303,7 @@ test('runs prechecks and finds that the commit status is success and skip_review
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -4059,9 +4467,7 @@ test('runs prechecks and finds that skip_ci is set and now reviews are defined',
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'FAILURE'
-                  }
+                  statusCheckRollup: checkRollup('FAILURE')
                 }
               }
             ]
@@ -4103,9 +4509,7 @@ test('runs prechecks and finds that skip_ci is set, reviews are required, and it
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -4147,9 +4551,7 @@ test('runs prechecks and finds that skip_ci is set and skip_reviews is set', asy
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'FAILURE'
-                  }
+                  statusCheckRollup: checkRollup('FAILURE')
                 }
               }
             ]
@@ -4191,9 +4593,7 @@ test('runs prechecks and finds that skip_ci is set and the deployer is an admin'
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'FAILURE'
-                  }
+                  statusCheckRollup: checkRollup('FAILURE')
                 }
               }
             ]
@@ -4234,9 +4634,7 @@ test('runs prechecks and finds that CI is pending and reviewers have not been de
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'PENDING'
-                  }
+                  statusCheckRollup: checkRollup('PENDING')
                 }
               }
             ]
@@ -4271,9 +4669,7 @@ test('runs prechecks and finds that the PR is NOT reviewed and CI checks have be
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'PENDING'
-                  }
+                  statusCheckRollup: checkRollup('PENDING')
                 }
               }
             ]
@@ -4311,9 +4707,7 @@ test('runs prechecks and finds the PR is behind the stable branch (BLOCKED) and 
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -4376,9 +4770,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (BLOCKED) 
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -4443,9 +4835,7 @@ test('runs prechecks and finds the PR is NOT behind the stable branch (HAS_HOOKS
               {
                 commit: {
                   oid: 'abc123',
-                  statusCheckRollup: {
-                    state: 'SUCCESS'
-                  }
+                  statusCheckRollup: checkRollup('SUCCESS')
                 }
               }
             ]
@@ -4530,13 +4920,7 @@ test('fails prechecks when the branch does not exist (deleted branch)', async ()
         },
         status: 200
       }),
-    // Second call: base branch check (succeeds)
-    () =>
-      Promise.resolve({
-        data: {commit: {sha: 'deadbeef'}, name: 'main'},
-        status: 200
-      }),
-    // Third call: PR branch check (fails with 404)
+    // Second call: PR branch check (fails with 404)
     () => Promise.reject(new NotFoundError('Reference does not exist'))
   )
 
@@ -4589,29 +4973,21 @@ test('passes prechecks when branch exists (normal deployment)', async () => {
 test('skips branch existence check when deploying to stable branch', async () => {
   data.environmentObj.stable_branch_used = true
 
-  // Mock getBranch - should only be called twice (not three times)
-  queueMockImplementation(
-    getBranchMock,
-    () =>
-      Promise.resolve({
-        data: {
-          commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
-          name: 'main'
-        },
-        status: 200
-      }),
-    () =>
-      Promise.resolve({
-        data: {commit: {sha: 'deadbeef'}, name: 'main'},
-        status: 200
-      })
+  // The stable and base branch lookup is reused.
+  queueMockImplementation(getBranchMock, () =>
+    Promise.resolve({
+      data: {
+        commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
+        name: 'main'
+      },
+      status: 200
+    })
   )
 
   const result = await prechecks(context, octokit, data)
 
   assert.strictEqual(result.status, true)
-  // Verify the branch existence check was skipped (only 2 getBranch calls, not 3)
-  assertCalledTimes(octokit.rest.repos.getBranch, 2)
+  assertCalledTimes(octokit.rest.repos.getBranch, 1)
   assertNotCalledWith(debugMock, 'checking if branch exists: test-ref')
 })
 
@@ -4619,28 +4995,21 @@ test('skips branch existence check when deploying an exact SHA', async () => {
   data.environmentObj.sha = 'abc123def456'
   data.inputs.allow_sha_deployments = true
 
-  queueMockImplementation(
-    getBranchMock,
-    () =>
-      Promise.resolve({
-        data: {
-          commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
-          name: 'main'
-        },
-        status: 200
-      }),
-    () =>
-      Promise.resolve({
-        data: {commit: {sha: 'deadbeef'}, name: 'main'},
-        status: 200
-      })
+  queueMockImplementation(getBranchMock, () =>
+    Promise.resolve({
+      data: {
+        commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
+        name: 'main'
+      },
+      status: 200
+    })
   )
 
   const result = await prechecks(context, octokit, data)
 
   assert.strictEqual(result.status, true)
   // Verify the branch existence check was skipped
-  assertCalledTimes(octokit.rest.repos.getBranch, 2)
+  assertCalledTimes(octokit.rest.repos.getBranch, 1)
   assertNotCalledWith(debugMock, 'checking if branch exists: test-ref')
 })
 
@@ -4668,28 +5037,21 @@ test('skips branch existence check when PR fork deployments are explicitly allow
     })
   )
 
-  queueMockImplementation(
-    getBranchMock,
-    () =>
-      Promise.resolve({
-        data: {
-          commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
-          name: 'main'
-        },
-        status: 200
-      }),
-    () =>
-      Promise.resolve({
-        data: {commit: {sha: 'deadbeef'}, name: 'main'},
-        status: 200
-      })
+  queueMockImplementation(getBranchMock, () =>
+    Promise.resolve({
+      data: {
+        commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
+        name: 'main'
+      },
+      status: 200
+    })
   )
 
   const result = await prechecks(context, octokit, data)
 
   assert.partialDeepStrictEqual(result, {status: true, isFork: true})
   // Verify the branch existence check was skipped for forks
-  assertCalledTimes(octokit.rest.repos.getBranch, 2)
+  assertCalledTimes(octokit.rest.repos.getBranch, 1)
   assertNotCalledWith(debugMock, 'checking if branch exists: abc123')
 })
 
@@ -4703,11 +5065,6 @@ test('fails prechecks when branch check encounters unexpected error', async () =
           commit: {sha: 'deadbeef', commit: {tree: {sha: 'beefdead'}}},
           name: 'main'
         },
-        status: 200
-      }),
-    () =>
-      Promise.resolve({
-        data: {commit: {sha: 'deadbeef'}, name: 'main'},
         status: 200
       }),
     () => Promise.reject(new UnexpectedError('Internal server error'))

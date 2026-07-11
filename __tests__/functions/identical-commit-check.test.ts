@@ -41,8 +41,7 @@ const getBranchMock =
   createMock<IdenticalOctokit['rest']['repos']['getBranch']>()
 const getCommitMock =
   createMock<IdenticalOctokit['rest']['repos']['getCommit']>()
-const listDeploymentsMock =
-  createMock<IdenticalOctokit['rest']['repos']['listDeployments']>()
+const graphqlMock = createMock<IdenticalOctokit['graphql']>()
 
 beforeEach(() => {
   debugMock.mock.resetCalls()
@@ -52,7 +51,7 @@ beforeEach(() => {
   getRepositoryMock.mock.resetCalls()
   getBranchMock.mock.resetCalls()
   getCommitMock.mock.resetCalls()
-  listDeploymentsMock.mock.resetCalls()
+  graphqlMock.mock.resetCalls()
 
   context = createContext({repo: {owner: 'corp', repo: 'test'}})
 
@@ -76,32 +75,43 @@ beforeEach(() => {
       data: {commit: {tree: {sha: 'deadbeef'}}}
     })
   )
-  listDeploymentsMock.mock.mockImplementation(() =>
+  graphqlMock.mock.mockImplementation(() =>
     Promise.resolve({
-      data: [
-        {
-          sha: 'deadbeef',
-          id: 123395608,
-          created_at: '2023-02-01T21:30:40Z',
-          payload: {type: 'some-other-type'}
-        },
-        {
-          sha: 'beefdead',
-          id: 785395609,
-          created_at: '2023-02-01T20:26:33Z',
-          payload: {type: 'branch-deploy'}
+      repository: {
+        id: 'R_test',
+        nameWithOwner: 'corp/test',
+        deployments: {
+          nodes: [
+            {
+              commit: {oid: 'other'},
+              createdAt: '2023-02-01T21:30:40Z',
+              environment: 'production',
+              id: 'D_other',
+              payload: {type: 'some-other-type'},
+              state: 'ACTIVE'
+            },
+            {
+              commit: {oid: 'beefdead'},
+              createdAt: '2023-02-01T20:26:33Z',
+              environment: 'production',
+              id: 'D_branch_deploy',
+              payload: {type: 'branch-deploy'},
+              state: 'ACTIVE'
+            }
+          ],
+          pageInfo: {endCursor: null, hasNextPage: false}
         }
-      ]
+      }
     })
   )
 
   octokit = {
+    graphql: graphqlMock,
     rest: {
       repos: {
         get: getRepositoryMock,
         getBranch: getBranchMock,
-        getCommit: getCommitMock,
-        listDeployments: listDeploymentsMock
+        getCommit: getCommitMock
       }
     }
   }
@@ -158,4 +168,67 @@ test('checks if the default branch sha and deployment sha are identical, and the
   assertCalledWith(setActionOutputMock, 'environment', 'production')
   assertCalledWith(setActionOutputMock, 'sha', 'abcdef')
   assertCalledWith(saveActionStateMock, 'sha', 'abcdef')
+})
+
+test('does not skip when the newest branch-deploy deployment is inactive', async () => {
+  graphqlMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      repository: {
+        id: 'R_test',
+        nameWithOwner: 'corp/test',
+        deployments: {
+          nodes: [
+            {
+              commit: {oid: 'beefdead'},
+              createdAt: '2023-02-01T20:26:33Z',
+              environment: 'production',
+              id: 'D_inactive',
+              payload: {type: 'branch-deploy'},
+              state: 'INACTIVE'
+            },
+            {
+              commit: {oid: 'older-active'},
+              createdAt: '2023-01-31T20:26:33Z',
+              environment: 'production',
+              id: 'D_active',
+              payload: {type: 'branch-deploy'},
+              state: 'ACTIVE'
+            }
+          ],
+          pageInfo: {endCursor: null, hasNextPage: false}
+        }
+      }
+    })
+  )
+
+  assert.strictEqual(
+    await identicalCommitCheck(octokit, context, 'production'),
+    false
+  )
+  assertNotCalled(getCommitMock)
+  assertCalledWith(setActionOutputMock, 'continue', 'true')
+  assertCalledWith(setActionOutputMock, 'environment', 'production')
+  assertCalledWith(setActionOutputMock, 'sha', 'abcdef')
+})
+
+test('does not skip when no branch-deploy deployment exists', async () => {
+  graphqlMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      repository: {
+        id: 'R_test',
+        nameWithOwner: 'corp/test',
+        deployments: {
+          nodes: [],
+          pageInfo: {endCursor: null, hasNextPage: false}
+        }
+      }
+    })
+  )
+
+  assert.strictEqual(
+    await identicalCommitCheck(octokit, context, 'production'),
+    false
+  )
+  assertNotCalled(getCommitMock)
+  assertCalledWith(setActionOutputMock, 'continue', 'true')
 })

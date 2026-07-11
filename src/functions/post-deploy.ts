@@ -7,7 +7,9 @@ import {unlock} from './unlock.ts'
 import {lock} from './lock.ts'
 import {postDeployMessage} from './post-deploy-message.ts'
 import {COLORS} from './colors.ts'
-import {setActionOutput} from '../action-io.ts'
+import {getActionInput, setActionOutput} from '../action-io.ts'
+import {checkInput} from './check-input.ts'
+import {loadTrustedDeploymentTemplate} from './trusted-deployment-template.ts'
 import {legacyLength} from '../trust-boundaries.ts'
 import type {ActionStatusOctokit} from './action-status.ts'
 import type {DeploymentStatusOctokit} from './deployment.ts'
@@ -25,7 +27,8 @@ export type PostDeployOctokit = ActionStatusOctokit &
   DeploymentStatusOctokit &
   LabelOctokit &
   LockOctokit &
-  UnlockOctokit
+  UnlockOctokit &
+  Parameters<typeof loadTrustedDeploymentTemplate>[0]
 
 export interface PostDeployRequest {
   readonly context: BranchDeployContext
@@ -85,23 +88,37 @@ export async function postDeploy(
   )
   setActionOutput('total_seconds', total_seconds)
 
-  const message = postDeployMessage(context, {
-    environment: data.environment,
-    environment_url: data.environment_url,
-    status: data.status,
-    noop: data.noop,
-    ref: data.ref,
-    sha: data.sha,
-    approved_reviews_count: data.approved_reviews_count,
-    deployment_id: data.deployment_id,
-    review_decision: data.review_decision,
-    fork: data.fork,
-    params: data.params,
-    parsed_params: data.parsed_params,
-    deployment_end_time: deployment_end_time,
-    commit_verified: data.commit_verified,
-    total_seconds: total_seconds
-  })
+  const deployMessagePath = checkInput(getActionInput('deploy_message_path'))
+  const template =
+    deployMessagePath === null
+      ? null
+      : await loadTrustedDeploymentTemplate(
+          octokit,
+          context,
+          deployMessagePath,
+          data.trusted_sha
+        )
+  const message = postDeployMessage(
+    context,
+    {
+      environment: data.environment,
+      environment_url: data.environment_url,
+      status: data.status,
+      noop: data.noop,
+      ref: data.ref,
+      sha: data.sha,
+      approved_reviews_count: data.approved_reviews_count,
+      deployment_id: data.deployment_id,
+      review_decision: data.review_decision,
+      fork: data.fork,
+      params: data.params,
+      parsed_params: data.parsed_params,
+      deployment_end_time: deployment_end_time,
+      commit_verified: data.commit_verified,
+      total_seconds: total_seconds
+    },
+    template
+  )
   const reactionId =
     data.reaction_id === null ||
     data.reaction_id === undefined ||
@@ -191,6 +208,7 @@ export async function postDeploy(
 
     // check to see if the pull request labels should be applied or not
     if (
+      success &&
       data.labels.skip_successful_noop_labels_if_approved &&
       data.review_decision === 'APPROVED'
     ) {
@@ -241,9 +259,13 @@ export async function postDeploy(
   // if the lock is sticky, we will NOT remove it
   if (lockData?.sticky === true) {
     core.info(stickyMsg)
+  } else if (lockData === null) {
+    core.warning(
+      '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
+    )
   } else {
     core.info(nonStickyMsg)
-    core.debug(`lockData.sticky: ${String(lockData?.sticky)}`)
+    core.debug(`lockData.sticky: ${String(lockData.sticky)}`)
 
     // remove the lock - use silent mode
     await unlock({
@@ -257,6 +279,7 @@ export async function postDeploy(
 
   // check to see if the pull request labels should be applied or not
   if (
+    success &&
     data.labels.skip_successful_deploy_labels_if_approved &&
     data.review_decision === 'APPROVED'
   ) {
@@ -288,7 +311,8 @@ function validateInputs(
     'ref',
     'environment',
     'sha',
-    'commit_verified'
+    'commit_verified',
+    'trusted_sha'
   ]
   requiredInputs.forEach(input => {
     validateInput(data[input], input)

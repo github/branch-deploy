@@ -1,11 +1,12 @@
 import * as core from '../actions-core.ts'
 import {COLORS} from './colors.ts'
 import {dedent} from './dedent.ts'
-import {LOCK_METADATA} from './lock-metadata.ts'
 import {API_HEADERS} from './api-headers.ts'
 import {getActionInput} from '../action-io.ts'
-import {issueCommentContext, legacyArrayElement} from '../trust-boundaries.ts'
+import {issueCommentContext} from '../trust-boundaries.ts'
 import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
+import {analyzeNakedCommand} from './issue-command.ts'
+import type {NakedCommandAnalysis} from './issue-command.ts'
 
 export interface NakedCommandOctokit {
   readonly rest: {
@@ -34,45 +35,24 @@ export async function nakedCommandCheck(
   param_separator: string,
   triggers: readonly string[],
   octokit: NakedCommandOctokit,
-  context: BranchDeployContext
+  context: BranchDeployContext,
+  analysis?: NakedCommandAnalysis
 ): Promise<boolean> {
-  let nakedCommand = false
   core.debug(`before - nakedCommandCheck: body: ${body}`)
-  body = body.trim()
+  const globalFlag = getActionInput('global_lock_flag').trim()
+  const result =
+    analysis ?? analyzeNakedCommand(body, param_separator, triggers, globalFlag)
+  body = result.body
 
   // ////// checking for lock flags ////////
   // if the body contains the globalFlag, exit right away as environments are not relevant
-  const globalFlag = getActionInput('global_lock_flag').trim()
-  if (body.includes(globalFlag)) {
+  if (result.globalBypass) {
     core.debug('global lock flag found in naked command check')
-    return nakedCommand
+    return false
   }
 
-  // remove any lock flags from the body
-  LOCK_METADATA.lockInfoFlags.forEach(flag => {
-    body = body.replace(flag, '').trim()
-  })
-
-  // remove the --reason <text> from the body if it exists
-  if (body.includes('--reason')) {
-    core.debug(
-      `'--reason' found in comment body: ${body} - attempting to remove for naked command checks`
-    )
-    body = legacyArrayElement(body.split('--reason')[0]).trim()
-    core.debug(`comment body after '--reason' removal: ${body}`)
-  }
-  ////////// end lock flag checks //////////
-
-  // first remove any params
-  // Seperate the issueops command on the 'param_separator'
-  const paramCheck = body.split(param_separator)
-  paramCheck.shift() // remove everything before the 'param_separator'
-  const params = paramCheck.join(param_separator) // join it all back together (in case there is another separator)
-  // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
+  const params = result.params
   if (params !== '') {
-    body = legacyArrayElement(
-      body.split(`${param_separator}${params}`)[0]
-    ).trim()
     core.debug(
       `params were found and removed for naked command checks: ${params}`
     )
@@ -80,18 +60,15 @@ export async function nakedCommandCheck(
 
   core.debug(`after - nakedCommandCheck: body: ${body}`)
 
-  // loop through all the triggers and check to see if the command is a naked command
-  for (const trigger of triggers) {
-    if (body === trigger) {
-      nakedCommand = true
-      core.warning(
-        `🩲 naked commands are ${COLORS.warning}not${COLORS.reset} allowed based on your configuration: ${COLORS.highlight}${body}${COLORS.reset}`
-      )
-      core.warning(
-        `📚 view the documentation around ${COLORS.highlight}naked commands${COLORS.reset} to learn more: ${docs}`
-      )
+  if (result.isNaked) {
+    core.warning(
+      `🩲 naked commands are ${COLORS.warning}not${COLORS.reset} allowed based on your configuration: ${COLORS.highlight}${body}${COLORS.reset}`
+    )
+    core.warning(
+      `📚 view the documentation around ${COLORS.highlight}naked commands${COLORS.reset} to learn more: ${docs}`
+    )
 
-      const message = dedent(`
+    const message = dedent(`
       ### Missing Explicit Environment
 
       #### Suggestion
@@ -107,25 +84,22 @@ export async function nakedCommandCheck(
       > View the [documentation](${docs}) to learn more
     `)
 
-      // add a comment to the issue with the message
-      await octokit.rest.issues.createComment({
-        ...context.repo,
-        issue_number: context.issue.number,
-        body: message,
-        headers: API_HEADERS
-      })
+    // add a comment to the issue with the message
+    await octokit.rest.issues.createComment({
+      ...context.repo,
+      issue_number: context.issue.number,
+      body: message,
+      headers: API_HEADERS
+    })
 
-      // add a reaction to the issue_comment to indicate failure
-      await octokit.rest.reactions.createForIssueComment({
-        ...context.repo,
-        comment_id: issueCommentContext(context).payload.comment.id,
-        content: thumbsDown,
-        headers: API_HEADERS
-      })
-
-      break
-    }
+    // add a reaction to the issue_comment to indicate failure
+    await octokit.rest.reactions.createForIssueComment({
+      ...context.repo,
+      comment_id: issueCommentContext(context).payload.comment.id,
+      content: thumbsDown,
+      headers: API_HEADERS
+    })
   }
 
-  return nakedCommand
+  return result.isNaked
 }

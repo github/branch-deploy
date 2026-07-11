@@ -25,6 +25,8 @@ export const OPERATION_REASON_CODES = [
   'prechecks_failed',
   'commit_safety_failed',
   'deployment_order_failed',
+  'ref_changed',
+  'deployment_sha_mismatch',
   'confirmation_rejected',
   'confirmation_timed_out',
   'noop_ready',

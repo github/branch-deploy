@@ -94,16 +94,22 @@ export interface MockFault {
 
 export type MockRollupContext =
   | {
-      readonly conclusion: string
+      readonly completedAt?: string
+      readonly conclusion: string | null
+      readonly databaseId?: number
+      readonly integrationId?: number
       readonly isRequired: boolean
       readonly name: string
+      readonly startedAt?: string
       readonly type: 'check-run'
     }
   | {
       readonly context: string
+      readonly createdAt?: string
       readonly isRequired: boolean
       readonly state: string
       readonly type: 'status-context'
+      readonly updatedAt?: string
     }
 
 export interface MockGitHubState {
@@ -116,6 +122,7 @@ export interface MockGitHubState {
   comparisonBehindBy: number
   confirmationReaction: '+1' | '-1' | null
   deployments: MockDeployment[]
+  deploymentResponseSha: string | null
   failInitialReaction: boolean
   faults: MockFault[]
   graphqlCommitOid: string | null
@@ -130,9 +137,13 @@ export interface MockGitHubState {
   owner: string
   permission: string
   pullRequest: MockPullRequest
+  pullRequestMoveAfterReads: number
+  pullRequestMoveSha: string | null
+  pullRequestReads: number
   reactionFailureConsumed: boolean
   reactions: MockReaction[]
   repo: string
+  repositoryFiles: Map<string, string>
   repositoryDefaultBranch: string
   reviewDecision: string | null
   rollupAvailable: boolean

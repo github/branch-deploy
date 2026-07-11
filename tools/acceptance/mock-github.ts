@@ -197,6 +197,7 @@ export function createMockState(): MockGitHubState {
     comparisonBehindBy: 0,
     confirmationReaction: null,
     deployments: [],
+    deploymentResponseSha: null,
     failInitialReaction: false,
     faults: [],
     graphqlCommitOid: null,
@@ -221,9 +222,13 @@ export function createMockState(): MockGitHubState {
       merged: true,
       number: 1
     },
+    pullRequestMoveAfterReads: 2,
+    pullRequestMoveSha: null,
+    pullRequestReads: 0,
     reactionFailureConsumed: false,
     reactions: [],
     repo,
+    repositoryFiles: new Map(),
     repositoryDefaultBranch: defaultBranch,
     reviewDecision: 'APPROVED',
     rollupAvailable: true,
@@ -375,6 +380,11 @@ function rollupContextResponse(context: MockRollupContext): unknown {
   if (context.type === 'check-run') {
     return {
       __typename: 'CheckRun',
+      id: `CR_${String(context.databaseId ?? 1)}`,
+      databaseId: context.databaseId ?? 1,
+      startedAt: context.startedAt ?? '2026-01-01T00:00:00Z',
+      completedAt: context.completedAt ?? '2026-01-01T00:01:00Z',
+      checkSuite: {app: {databaseId: context.integrationId ?? 1}},
       conclusion: context.conclusion,
       isRequired: context.isRequired,
       name: context.name
@@ -382,6 +392,9 @@ function rollupContextResponse(context: MockRollupContext): unknown {
   }
   return {
     __typename: 'StatusContext',
+    id: `SC_${context.context}_${context.updatedAt ?? 'default'}`,
+    createdAt: context.createdAt ?? '2026-01-01T00:00:00Z',
+    updatedAt: context.updatedAt ?? '2026-01-01T00:01:00Z',
     context: context.context,
     isRequired: context.isRequired,
     state: context.state
@@ -444,6 +457,8 @@ function deploymentGraphql(
   return {
     data: {
       repository: {
+        id: `R_${state.owner}_${state.repo}`,
+        nameWithOwner: `${state.owner}/${state.repo}`,
         deployments: {
           nodes,
           pageInfo: {
@@ -487,6 +502,11 @@ function routeGraphql(
       throw new Error('unexpected deployment GraphQL repository variables')
     }
     const environment = requireString(variables, 'environment')
+    requireNumber(variables, 'first')
+    const cursor = variables['cursor']
+    if (cursor !== null && typeof cursor !== 'string') {
+      throw new Error('unexpected deployment GraphQL cursor variable')
+    }
     return {status: 200, value: deploymentGraphql(state, environment)}
   }
   return unknownRoute('POST', '/graphql')
@@ -554,7 +574,8 @@ function deploymentResponse(
     url: `http://127.0.0.1/repos/${state.owner}/${state.repo}/deployments/${deployment.id}`,
     created_at: deployment.createdAt,
     updated_at: deployment.updatedAt,
-    statuses_url: `http://127.0.0.1/repos/${state.owner}/${state.repo}/deployments/${deployment.id}/statuses`
+    statuses_url: `http://127.0.0.1/repos/${state.owner}/${state.repo}/deployments/${deployment.id}/statuses`,
+    sha: state.deploymentResponseSha ?? deployment.sha
   }
 }
 
@@ -669,6 +690,16 @@ function routeRest(
     parts.length === 5 &&
     Number(part(parts, 4)) === state.pullRequest.number
   ) {
+    state.pullRequestReads += 1
+    if (
+      state.pullRequestReads === state.pullRequestMoveAfterReads &&
+      state.pullRequestMoveSha !== null
+    ) {
+      state.pullRequest = {
+        ...state.pullRequest,
+        headSha: state.pullRequestMoveSha
+      }
+    }
     return {status: 200, value: pullResponse(state)}
   }
 
@@ -707,9 +738,8 @@ function routeRest(
   if (area === 'contents' && method === 'GET' && parts.length >= 5) {
     const ref = searchParams.get('ref') ?? state.repositoryDefaultBranch
     const path = parts.slice(4).map(decodeURIComponent).join('/')
-    const content = state.lockFiles.get(
-      `${state.owner}/${state.repo}/${ref}/${path}`
-    )
+    const key = `${state.owner}/${state.repo}/${ref}/${path}`
+    const content = state.repositoryFiles.get(key) ?? state.lockFiles.get(key)
     return content === undefined
       ? notFound('Not Found')
       : {
@@ -717,7 +747,8 @@ function routeRest(
           value: {
             content: Buffer.from(content).toString('base64'),
             encoding: 'base64',
-            path
+            path,
+            type: 'file'
           }
         }
   }

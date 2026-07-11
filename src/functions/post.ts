@@ -55,7 +55,8 @@ export async function post(): Promise<void> {
         )
       },
       commit_verified: getActionState('commit_verified') === 'true',
-      deployment_start_time: getActionState('deployment_start_time')
+      deployment_start_time: getActionState('deployment_start_time'),
+      trusted_sha: getActionState('trusted_sha')
     } satisfies RawPostDeployData
 
     // If bypass is set, exit the workflow

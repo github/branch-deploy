@@ -32,6 +32,10 @@ type Label = typeof import('../../src/functions/label.ts')
 type Lock = typeof import('../../src/functions/lock.ts')
 type PostDeployMessage =
   typeof import('../../src/functions/post-deploy-message.ts')
+type TrustedDeploymentTemplate =
+  typeof import('../../src/functions/trusted-deployment-template.ts')
+
+const actualCore = await import('../../src/actions-core.ts')
 
 const debugMock = createMock<ActionsCore['debug']>()
 const infoMock = createMock<ActionsCore['info']>()
@@ -44,10 +48,13 @@ const labelMock = createMock<Label['label']>()
 const lockMock = createMock<Lock['lock']>()
 const postDeployMessageMock =
   createMock<PostDeployMessage['postDeployMessage']>()
+const loadTrustedDeploymentTemplateMock =
+  createMock<TrustedDeploymentTemplate['loadTrustedDeploymentTemplate']>()
 const unlockMock =
   createMock<(request: SilentUnlockRequest) => Promise<SilentUnlockResult>>()
 
 installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
+  ...actualCore,
   debug: debugMock,
   info: infoMock,
   setOutput: setOutputMock,
@@ -77,6 +84,14 @@ installModuleMock(
   mock,
   new URL('../../src/functions/post-deploy-message.ts', import.meta.url),
   {postDeployMessage: postDeployMessageMock}
+)
+installModuleMock(
+  mock,
+  new URL(
+    '../../src/functions/trusted-deployment-template.ts',
+    import.meta.url
+  ),
+  {loadTrustedDeploymentTemplate: loadTrustedDeploymentTemplateMock}
 )
 installModuleMock(
   mock,
@@ -126,6 +141,7 @@ beforeEach(() => {
     labelMock,
     lockMock,
     postDeployMessageMock,
+    loadTrustedDeploymentTemplateMock,
     unlockMock
   ]) {
     mockFunction.mock.resetCalls()
@@ -136,6 +152,10 @@ beforeEach(() => {
     Promise.resolve({added: [], removed: []})
   )
   postDeployMessageMock.mock.mockImplementation(() => 'Updated 1 server')
+  loadTrustedDeploymentTemplateMock.mock.mockImplementation(() =>
+    Promise.resolve(null)
+  )
+  delete process.env['INPUT_DEPLOY_MESSAGE_PATH']
   lockMock.mock.mockImplementation(() =>
     Promise.resolve(createLockResponse(true))
   )
@@ -190,7 +210,8 @@ beforeEach(() => {
       _: ['LOG_LEVEL=debug']
     }),
     commit_verified: false,
-    deployment_start_time: '2024-01-01T00:00:00Z'
+    deployment_start_time: '2024-01-01T00:00:00Z',
+    trusted_sha: '0123456789abcdef0123456789abcdef01234567'
   }
 })
 
@@ -214,6 +235,25 @@ test('successfully completes a production branch deployment', async () => {
     'production',
     null
   )
+})
+
+test('loads the configured template at the trusted workflow SHA', async () => {
+  process.env['INPUT_DEPLOY_MESSAGE_PATH'] = '.github/deployment_message.md'
+  loadTrustedDeploymentTemplateMock.mock.mockImplementation(() =>
+    Promise.resolve('trusted template')
+  )
+
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success')
+  assertCalledWith(
+    loadTrustedDeploymentTemplateMock,
+    octokit,
+    context,
+    '.github/deployment_message.md',
+    '0123456789abcdef0123456789abcdef01234567'
+  )
+  const messageCall = postDeployMessageMock.mock.calls[0]
+  assert.ok(messageCall)
+  assert.strictEqual(messageCall.arguments[2], 'trusted template')
 })
 
 test('successfully completes a production branch deployment that fails', async () => {
@@ -412,6 +452,44 @@ test('successfully completes a branch deployment and does not apply labels due t
   assertCalledWith(
     infoMock,
     `⏩ skipping deploy labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
+  )
+})
+
+test('applies failed noop labels even when successful-label skipping is enabled', async () => {
+  data.labels.failed_noop = ['noop-failed']
+  data.labels.skip_successful_noop_labels_if_approved = true
+  data.noop = true
+  data.status = 'failure'
+
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success - noop')
+  assertCalledWith(labelMock, context, octokit, ['noop-failed'], [])
+})
+
+test('applies failed deploy labels even when successful-label skipping is enabled', async () => {
+  data.labels.failed_deploy = ['deploy-failed']
+  data.labels.skip_successful_deploy_labels_if_approved = true
+  data.status = 'failure'
+
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success')
+  assertCalledWith(labelMock, context, octokit, ['deploy-failed'], [])
+})
+
+test('tolerates an already-removed deployment lock', async () => {
+  lockMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      environment: 'production',
+      global: false,
+      globalFlag: '',
+      lockData: null,
+      status: null
+    })
+  )
+
+  assert.strictEqual(await postDeploy(context, octokit, data), 'success')
+  assertNotCalled(unlockMock)
+  assertCalledWith(
+    warningMock,
+    '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
   )
 })
 

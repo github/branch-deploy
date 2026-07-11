@@ -52,15 +52,11 @@ test('checks the event context and finds that it is invalid', () => {
   )
 })
 
-test('checks the event context and throws an error', () => {
-  assert.throws(
-    () =>
-      contextCheck(
-        unsafeInvalidValue<Parameters<typeof contextCheck>[0]>('evil')
-      ),
-    {
-      message:
-        "Could not get PR event context: TypeError: Cannot read properties of undefined (reading 'issue')"
-    }
+test('safely rejects a malformed event context', () => {
+  assert.strictEqual(
+    contextCheck(
+      unsafeInvalidValue<Parameters<typeof contextCheck>[0]>('evil')
+    ),
+    false
   )
 })

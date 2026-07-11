@@ -2,17 +2,50 @@
 
 > This is useful to display to the user the status of your deployment. For example, you could display the results of a `terraform apply` in the deployment comment
 
-There are two ways to add custom deployment messages to your PRs. You can either use a custom markdown file (suggested) or use the GitHub Actions environment to dynamically pass data to the post run workflow which will be rendered as markdown into a comment on your pull request.
+Custom deployment messages use two building blocks that can be used separately or together: a trusted Markdown template and the `DEPLOY_MESSAGE` GitHub Actions environment variable. A template can render the environment value with `{{ results }}`.
 
 ## Custom Markdown File (suggested)
 
 > This option is highly recommended over the latter "GitHub Actions Environment" option. This is because GitHub Actions has some limitations on the size of data that can be passed around in environment variables. This becomes an issue if your deployment message is large (contains many changes, think Terraform plan/apply) as your deployment will crash with an `Argument list too long` error.
 
-To use a custom markdown file as your post deployment message, simply use the [`deploy_message_path`](https://github.com/github/branch-deploy/blob/main/action.yml) input option to point to a markdown file in your repository that you wish to render into the comment on your pull request. You don't need to set this value if you want to use the default file path of `".github/deployment_message.md"` and place your markdown file there.
+Set [`deploy_message_path`](https://github.com/github/branch-deploy/blob/main/action.yml) to a repository-relative path such as `.github/deployment_message.md`. That path is also the default, so no input is needed when the template is stored there.
 
-If your workflow checks out pull request code before Branch Deploy renders the template, point `deploy_message_path` at a trusted default-branch checkout. See the [trusted checkout hardening guide](trusted-checkouts.md) for a safe pattern.
+Branch Deploy does not read this path from the runner filesystem. In post mode it fetches the file through GitHub's Contents API from the current repository at the exact trusted workflow SHA saved during the main action. The path must be repository-relative and cannot contain absolute paths, backslashes, empty segments, `.` segments, or `..` traversal segments. If the file does not exist at that trusted SHA, Branch Deploy falls back to the default deployment message. Other fetch or validation failures stop the post action.
 
-If a markdown file exists at the designated path, it will be used and rendered with [nunjucks](http://mozilla.github.io/nunjucks/) which is a [Jinja](https://jinja.palletsprojects.com/en/3.1.x/) like template engine for NodeJS. Since we are using nunjucks and are leveraging template rendering, a few variables are available for you to use in your markdown file (should you choose to use them):
+This keeps the template independent from any later checkout of pull request code. Scripts and other files executed by your workflow still need the protections described in the [trusted checkout hardening guide](trusted-checkouts.md).
+
+### Supported template grammar
+
+The v12 renderer intentionally supports a small, non-executable grammar instead of Nunjucks:
+
+- `{{ variable }}` inserts an allowlisted variable.
+- `{% if boolean_variable %}...{% endif %}` tests a boolean variable.
+- `{% if not boolean_variable %}...{% endif %}` negates that boolean test.
+- `{% if variable === literal %}...{% else %}...{% endif %}` compares a variable with a literal. The operators `==`, `===`, `!=`, and `!==` are supported and all comparisons are strict; `==` does not coerce types.
+- `{{ "value" if condition else "other" }}` selects between two literals. Variables are not allowed in the result branches.
+- Conditional blocks can be nested.
+
+Supported literals are double-quoted JSON strings, `true`, `false`, `null`, and JSON numbers. Filters, function calls, property access, loops, includes, macros, assignments, template comments, and arbitrary expressions are rejected.
+
+For example:
+
+```markdown
+### Deployment {{ "succeeded" if status === "success" else "failed" }}
+
+**{{ actor }}** deployed `{{ ref }}` to **{{ environment }}**.
+
+{% if environment_url !== null %}[Open the environment]({{ environment_url }}){% endif %}
+
+<details><summary>Results</summary>
+
+{{ results }}
+
+</details>
+```
+
+All runtime variables except `results` are HTML-escaped before insertion. `results` contains the `DEPLOY_MESSAGE` value and is inserted as raw Markdown so deployment output can contain formatting and code blocks. Rendering is single-pass: `{{ ... }}`, `{% ... %}`, or `{# ... #}` text inside `results` is emitted unchanged and is never evaluated as template syntax.
+
+The following variables are available:
 
 - `environment` - The name of the environment (String)
 - `environment_url` - The URL of the environment (String) {Optional}
@@ -21,7 +54,7 @@ If a markdown file exists at the designated path, it will be used and rendered w
 - `ref` - The ref of the deployment (String)
 - `sha` - The sha of the deployment (String)
 - `actor` - The GitHub username of the actor who triggered the deployment (String)
-- `approved_reviews_count` - The number of approved reviews on the pull request at the time of deployment (String of a number)
+- `approved_reviews_count` - The number of approved reviews on the pull request at the time of deployment (Number or null)
 - `review_decision` - The review status of the pull request (String or null) - Ex: `APPROVED`, `REVIEW_REQUIRED`, `CHANGES_REQUESTED`, `null` etc.
 - `deployment_id` - The ID of the deployment (Int or null in the case of `.noop` deployments)
 - `fork` - Whether or not the repository is a fork (Boolean)
@@ -30,9 +63,8 @@ If a markdown file exists at the designated path, it will be used and rendered w
 - `deployment_end_time` - The time the deployment ended - this value is not _exact_ but it is very close (String) [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) UTC format
 - `logs` - The URL to the logs of the deployment (String)
 - `commit_verified` - Whether or not the commit was verified (Boolean)
-- `total_seconds` - The total number of seconds the deployment took to complete (String of a number)
-
-If you wish to see a live example of how this works, and how to use the variables, you can check out this [example](https://github.com/github/branch-deploy/blob/691e5df06b952d1f22c2fee49f97e33a8a8c64db/__tests__/templates/test_deployment_message.md) which is used in this repo's unit tests and is self-documenting.
+- `total_seconds` - The total number of seconds the deployment took to complete (Number)
+- `results` - The raw deployment result from `DEPLOY_MESSAGE` (String)
 
 Here is an example of what the final product could look like:
 

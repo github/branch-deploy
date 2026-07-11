@@ -4,6 +4,7 @@ import {COLORS} from '../../src/functions/colors.ts'
 import {createContext} from '../test-helpers.ts'
 import {
   assertCalledWith,
+  assertNotCalled,
   createMock,
   queueMockImplementation,
   installModuleMock
@@ -76,6 +77,38 @@ test('when the enforced deployment order is only one item and it is the requeste
       )
     )
   )
+})
+
+test('rejects duplicate environments before checking deployment history', async () => {
+  await assert.rejects(
+    validDeploymentOrder(
+      octokit,
+      context,
+      ['development', 'staging', 'development', 'production'],
+      environment,
+      sha
+    ),
+    /enforced deployment order contains duplicate environments/
+  )
+
+  assertNotCalled(activeDeploymentMock)
+  assertNotCalled(setOutputMock)
+})
+
+test('rejects a requested environment missing from the enforced order', async () => {
+  await assert.rejects(
+    validDeploymentOrder(
+      octokit,
+      context,
+      ['development', 'staging'],
+      environment,
+      sha
+    ),
+    /requested environment is not present in the enforced deployment order: production/
+  )
+
+  assertNotCalled(activeDeploymentMock)
+  assertNotCalled(setOutputMock)
 })
 
 test('when the enforced deployment order passes for all previous environments', async () => {

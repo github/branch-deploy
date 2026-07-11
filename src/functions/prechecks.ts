@@ -5,6 +5,7 @@ import {isOutdated} from './outdated-check.ts'
 import {stringToArray} from './string-to-array.ts'
 import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
+import {evaluatePrecheckGates} from './precheck-gates.ts'
 import {saveActionState, setActionOutput} from '../action-io.ts'
 import {
   legacyApiError,
@@ -23,6 +24,7 @@ import {
 import type {
   BranchDeployContext,
   BranchDeployOctokit,
+  CheckRunResult,
   PrecheckData,
   PrecheckResult,
   PrechecksGraphqlCommitNode,
@@ -332,11 +334,21 @@ export async function prechecks(
                               contexts(first:100) {
                                 nodes {
                                   ... on CheckRun {
+                                    id
+                                    databaseId
+                                    startedAt
+                                    completedAt
+                                    checkSuite {
+                                      app { databaseId }
+                                    }
                                     isRequired(pullRequestNumber:$number)
                                     conclusion
                                     name
                                   }
                                   ... on StatusContext {
+                                    id
+                                    createdAt
+                                    updatedAt
                                     isRequired(pullRequestNumber:$number)
                                     state
                                     context
@@ -424,8 +436,6 @@ export async function prechecks(
     'filterChecksResult' in checkEvaluation
       ? checkEvaluation.filterChecksResult
       : undefined
-  const checksUnavailableMessage = `### ⚠️ Cannot proceed with deployment\n\n- commitStatus: \`UNAVAILABLE\`\n\n> The Action could not verify all CI checks for this pull request, so no deployment was started. Retry the command after GitHub's check data is available, or explicitly configure \`skip_ci\` for this environment.`
-
   if (checkEvaluation.kind === 'unavailable') {
     core.debug(
       `could not retrieve PR commit status: ${String(checkEvaluation.error)}`
@@ -449,11 +459,14 @@ export async function prechecks(
   const userIsAdmin = await isAdmin(context)
 
   // Make an API call to get the base branch that the pull request is targeting
-  const baseBranch = await octokit.rest.repos.getBranch({
-    ...context.repo,
-    branch: prData.base.ref,
-    headers: API_HEADERS
-  })
+  const baseBranch =
+    prData.base.ref === data.inputs.stable_branch
+      ? stableBaseBranch
+      : await octokit.rest.repos.getBranch({
+          ...context.repo,
+          branch: prData.base.ref,
+          headers: API_HEADERS
+        })
 
   // Check to see if the branch is outdated or not based on the Action's configuration
   const outdated = await isOutdated(context, octokit, {
@@ -526,99 +539,42 @@ export async function prechecks(
     }
   }
 
-  // Always allow deployments to the "stable" branch regardless of CI checks or PR review
-  if (data.environmentObj.stable_branch_used) {
-    message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`
-    core.info(message)
-    core.debug(
-      'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
-    )
+  const gateDecision = evaluatePrecheckGates({
+    allowDraftDeploy,
+    allowShaDeployments: data.inputs.allow_sha_deployments,
+    commitOid: commit_oid,
+    commitStatus,
+    exactSha: data.environmentObj.sha,
+    forkBypass,
+    isDraft: legacyTruthy(isDraft),
+    isFork,
+    mergeStateStatus,
+    missingCheckMessage:
+      commitStatus === 'MISSING'
+        ? legacyArrayElement(filterChecksResults).message
+        : '',
+    noopMode,
+    outdated: outdated.outdated,
+    outdatedBranch: outdated.branch,
+    reviewDecision,
+    sha,
+    stableBranch: data.inputs.stable_branch,
+    stableBranchUsed: data.environmentObj.stable_branch_used,
+    updateBranch: data.inputs.update_branch,
+    userIsAdmin
+  })
 
-    // If allow_sha_deployments are enabled and the sha is not null, always allow the deployment
-    // note: this is an "unsafe" option
-    // this option is "unsafe" because it bypasses all checks and we cannot guarantee that the sha being deployed has...
-    // ... passed any CI checks or has been reviewed. Additionally, the user could be deploying a sha from a forked repo...
-    // ... which could contain malicious code or a sha that has not been reviewed or tested from another user's branch...
-    // ... this style of deployment is not recommended and should only be used in very specific situations. Read more here:
-    // https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md
-  } else if (
-    data.inputs.allow_sha_deployments &&
-    data.environmentObj.sha !== null
-  ) {
-    message = `✅ deployment requested using an exact ${COLORS.highlight}sha${COLORS.reset}`
-    core.info(message)
-    core.warning(
-      `⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md`
-    )
-    core.debug(`an exact sha was used, using sha instead of ref`)
-    // since an exact sha was used, we overwrite both the ref and sha values with the exact sha that was provided by the user
-    sha = data.environmentObj.sha
-    ref = data.environmentObj.sha
-    setActionOutput('sha_deployment', sha)
+  for (const log of gateDecision.logs) {
+    if (log.level === 'info') core.info(log.message)
+    else if (log.level === 'warning') core.warning(log.message)
+    else core.debug(log.message)
+  }
 
-    // A missing rollup is allowed, but incomplete or malformed check data cannot be treated as an empty rollup
-  } else if (commitStatus === 'UNAVAILABLE' && commit_oid === undefined) {
-    message = checksUnavailableMessage
-    return {message: message, status: false}
+  if (gateDecision.kind === 'reject') {
+    return {message: gateDecision.message, status: false}
+  }
 
-    // If the commit sha (from the PR head) does not exactly match the sha returned from the graphql query, something is wrong
-    // This could occur if the branch had a commit pushed to it in between the rest call and the graphql query
-    // In this case, we should not proceed with the deployment as we cannot guarantee the sha is safe for a variety of reasons
-  } else if (sha !== commit_oid) {
-    message = `### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: \`${sha}\`\n- commit_oid: \`${String(commit_oid)}\`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.`
-    return {message: message, status: false}
-
-    // The commit identity was verified, but its complete check state was not
-  } else if (commitStatus === 'UNAVAILABLE') {
-    message = checksUnavailableMessage
-    return {message: message, status: false}
-
-    // If the requested operation (deploy or noop) is taking place on a fork, that fork is NOT using the stable branch (i.e. `.deploy main`), the PR is...
-    // not approved -> do not allow bypassing the lack of reviews. Enforce that ALL PRs originating from forks must have the required reviews.
-    // Deploying forks without reviews is a security risk and will not be allowed
-    // This logic will even apply to noop deployments and ignore the value of skip_reviews if it is set out of an abundance of caution
-    // This logic will also apply even if the requested deployer is an admin
-  } else if (
-    isFork &&
-    !forkBypass &&
-    (reviewDecision === 'REVIEW_REQUIRED' ||
-      reviewDecision === 'CHANGES_REQUESTED')
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.`
-    core.debug(
-      `rejecting deployment from fork without required reviews - noopMode: ${noopMode}`
-    )
-    return {message: message, status: false}
-
-    // If allow_sha_deployments are not enabled and a sha was provided, exit
-  } else if (
-    !data.inputs.allow_sha_deployments &&
-    data.environmentObj.sha !== null
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- allow_sha_deployments: \`${data.inputs.allow_sha_deployments}\`\n\n> sha deployments have not been enabled`
-    return {message: message, status: false}
-
-    // If update_branch is not "disabled", proceed with 'update_branch' logic
-  } else if (
-    (commitStatus === 'SUCCESS' ||
-      commitStatus === null ||
-      commitStatus === 'skip_ci') &&
-    data.inputs.update_branch !== 'disabled' &&
-    outdated.outdated
-  ) {
-    // If the update_branch param is set to "warn", warn and exit
-    if (data.inputs.update_branch === 'warn') {
-      message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${String(mergeStateStatus)}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${String(outdated.branch)}\` branch and try again`
-      return {message: message, status: false}
-    }
-
-    // Execute the logic below only if update_branch is set to "force"
-    // This logic will attempt to update the pull request's branch so that it is no longer 'behind'
-    core.debug(
-      `update_branch is set to ${COLORS.highlight}${data.inputs.update_branch}${COLORS.reset}`
-    )
-
-    // Make an API call to update the PR branch
+  if (gateDecision.kind === 'update-branch') {
     try {
       const result = await octokit.rest.pulls.updateBranch({
         ...context.repo,
@@ -626,268 +582,25 @@ export async function prechecks(
         headers: API_HEADERS
       })
 
-      // If the result is not a 202, return an error message and exit
       if (result.status !== 202) {
         message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with the \`${String(outdated.branch)}\` branch`
-        return {message: message, status: false}
+        return {message, status: false}
       }
 
-      // If the result is a 202, let the user know the branch was updated and exit so they can retry
-      message = `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${String(mergeStateStatus)}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> I went ahead and updated your branch with \`${data.inputs.stable_branch}\` - Please try again once this operation is complete`
-      return {message: message, status: false}
+      return {message: gateDecision.message, status: false}
     } catch (error) {
       message = `### ⚠️ Cannot proceed with deployment\n\n\`\`\`text\n${legacyApiError(error).message}\n\`\`\``
-      return {message: message, status: false}
+      return {message, status: false}
     }
-
-    // If the mergeStateStatus is in DRAFT and allowDraftDeploy is true, alert and exit
-  } else if (legacyTruthy(isDraft) && !allowDraftDeploy) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state`
-    return {message: message, status: false}
-
-    // If the mergeStateStatus is in DIRTY, alert and exit
-  } else if (mergeStateStatus === 'DIRTY') {
-    message = `### ⚠️ Cannot proceed with deployment\n- mergeStateStatus: \`${mergeStateStatus}\`\n\n> A merge commit cannot be cleanly created`
-    return {message: message, status: false}
-
-    // If everything is OK, print a nice message
-  } else if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
-    message = '✅ PR is approved and all CI checks passed'
-    core.info(message)
-
-    // CI checks have not been defined AND required reviewers have not been defined
-  } else if (reviewDecision === null && commitStatus === null) {
-    message =
-      '🎛️ CI checks have not been defined and required reviewers have not been defined'
-    core.info(message)
-
-    // CI checks have been defined BUT required reviewers have not been defined
-  } else if (reviewDecision === null && commitStatus === 'SUCCESS') {
-    message =
-      '🎛️ CI checks have been defined but required reviewers have not been defined'
-    core.info(message)
-
-    // CI checks are passing and reviews are set to be bypassed
-  } else if (commitStatus === 'SUCCESS' && reviewDecision === 'skip_reviews') {
-    message =
-      '✅ CI checks passed and required reviewers have been disabled for this environment'
-    core.info(message)
-
-    // CI checks have not been defined and reviews are set to be bypassed
-  } else if (commitStatus === null && reviewDecision === 'skip_reviews') {
-    message =
-      '✅ CI checks have not been defined and required reviewers have been disabled for this environment'
-    core.info(message)
-
-    // CI checks are set to be bypassed and the pull request is approved
-  } else if (commitStatus === 'skip_ci' && reviewDecision === 'APPROVED') {
-    message =
-      '✅ CI requirements have been disabled for this environment and the PR has been approved'
-    core.info(message)
-
-    // CI checks are set to be bypassed BUT required reviews have not been defined
-  } else if (commitStatus === 'skip_ci' && reviewDecision === null) {
-    message =
-      '🎛️ CI requirements have been disabled for this environment and required reviewers have not been defined'
-    core.info(message)
-
-    // CI checks are set to be bypassed and the PR has not been reviewed BUT it is a noop deploy
-  } else if (
-    commitStatus === 'skip_ci' &&
-    (reviewDecision === 'REVIEW_REQUIRED' ||
-      reviewDecision === 'CHANGES_REQUESTED') &&
-    noopMode
-  ) {
-    message =
-      '✅ CI requirements have been disabled for this environment and **noop** requested'
-    core.info(message)
-    core.info(
-      'note: noop deployments do not require pr review and ignore "changes requested" reviews'
-    )
-
-    // If CI checks are set to be bypassed and the deployer is an admin
-  } else if (commitStatus === 'skip_ci' && userIsAdmin) {
-    message =
-      '✅ CI requirements have been disabled for this environment and approval is bypassed due to admin rights'
-    core.info(message)
-
-    // If CI checks are set to be bypassed and PR reviews are also set to by bypassed
-  } else if (commitStatus === 'skip_ci' && reviewDecision === 'skip_reviews') {
-    message =
-      '✅ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment'
-    core.info(message)
-
-    // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
-  } else if (
-    (reviewDecision === 'REVIEW_REQUIRED' ||
-      reviewDecision === 'CHANGES_REQUESTED') &&
-    commitStatus === 'SUCCESS' &&
-    noopMode
-  ) {
-    message = `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`
-    core.info(message)
-    core.debug(
-      'note: noop deployments do not require pr review and ignore "changes requested" reviews'
-    )
-
-    // If CI is passing and the deployer is an admin
-  } else if (commitStatus === 'SUCCESS' && userIsAdmin) {
-    message = '✅ CI is passing and approval is bypassed due to admin rights'
-    core.info(message)
-
-    // If CI is undefined and the deployer is an admin
-  } else if (commitStatus === null && userIsAdmin) {
-    message =
-      '✅ CI checks have not been defined and approval is bypassed due to admin rights'
-    core.info(message)
-
-    // If CI has not been defined but the PR has been approved
-  } else if (commitStatus === null && reviewDecision === 'APPROVED') {
-    message = '✅ CI checks have not been defined but the PR has been approved'
-    core.info(message)
-
-    // If CI is pending and the PR has not been reviewed BUT it is a noop deploy
-  } else if (
-    (reviewDecision === 'REVIEW_REQUIRED' ||
-      reviewDecision === 'CHANGES_REQUESTED') &&
-    commitStatus === 'PENDING' &&
-    noopMode
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Reviews are not required for a noop deployment but CI checks must be passing in order to continue`
-    return {message: message, status: false}
-
-    // If CI is pending and reviewers have not been defined and it is NOT a noop deploy
-  } else if (
-    reviewDecision === null &&
-    commitStatus === 'PENDING' &&
-    !noopMode
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
-    return {message: message, status: false}
-
-    // If CI is pending and reviewers have not been defined and it IS a noop deploy
-  } else if (
-    reviewDecision === null &&
-    commitStatus === 'PENDING' &&
-    noopMode
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
-    core.info(
-      'note: even noop deploys require CI to finish and be in a passing state'
-    )
-    return {message: message, status: false}
-
-    // If CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy
-  } else if (
-    (reviewDecision === 'REVIEW_REQUIRED' ||
-      reviewDecision === 'CHANGES_REQUESTED') &&
-    commitStatus === null &&
-    noopMode
-  ) {
-    message = `✅ CI checks have not been defined and ${COLORS.highlight}noop${COLORS.reset} requested`
-    core.info(message)
-    core.info(
-      'note: noop deployments do not require pr review and ignore "changes requested" reviews'
-    )
-
-    // If CI checks are pending, the PR has not been reviewed, and it is not a noop deploy
-  } else if (
-    (reviewDecision === 'REVIEW_REQUIRED' ||
-      reviewDecision === 'CHANGES_REQUESTED') &&
-    commitStatus === 'PENDING' &&
-    !noopMode
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing and the PR must be approved in order to continue`
-    return {message: message, status: false}
-
-    // If the PR is considered 'approved' but CI checks are pending and it is not a noop deploy
-  } else if (
-    (reviewDecision === 'APPROVED' ||
-      reviewDecision === null ||
-      reviewDecision === 'skip_reviews') &&
-    commitStatus === 'PENDING' &&
-    !noopMode
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`
-    return {message: message, status: false}
-
-    // Regardless of the reviewDecision or noop, if the commitStatus is 'MISSING' this means that a user has explicitly requested a CI check to be passing with the `checks: <check1>,<check2>,<etc>` input option, but the check could not be found in the GraphQL result
-    // In this case, we should alert the user that the check could not be found and exit
-  } else if (commitStatus === 'MISSING') {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> ${legacyArrayElement(filterChecksResults).message}`
-    return {message: message, status: false}
-
-    // If CI is passing but the PR is missing an approval, let the user know
-  } else if (
-    (reviewDecision === 'REVIEW_REQUIRED' ||
-      reviewDecision === 'CHANGES_REQUESTED') &&
-    commitStatus === 'SUCCESS'
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks are passing but an approval is required before you can proceed with deployment`
-    return {message: message, status: false}
-
-    // If the PR is approved but CI is failing
-  } else if (reviewDecision === 'APPROVED' && commitStatus === 'FAILURE') {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is approved but CI checks are failing`
-    return {message: message, status: false}
-
-    // If the PR does not require approval but CI is failing
-  } else if (
-    (reviewDecision === null || reviewDecision === 'skip_reviews') &&
-    commitStatus === 'FAILURE'
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request does not require approvals but CI checks are failing`
-    return {message: message, status: false}
-
-    // If the PR is NOT reviewed and CI checks have NOT been defined and NOT a noop deploy
-  } else if (
-    (reviewDecision === 'REVIEW_REQUIRED' ||
-      reviewDecision === 'CHANGES_REQUESTED') &&
-    commitStatus === null &&
-    !noopMode
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${String(commitStatus)}\`\n\n> Your pull request is missing required approvals`
-    core.info(
-      'note: CI checks have not been defined so they will not be evaluated'
-    )
-    return {message: message, status: false}
-
-    // If the PR is NOT reviewed and CI checks have been disabled and NOT a noop deploy
-  } else if (
-    (reviewDecision === 'REVIEW_REQUIRED' ||
-      reviewDecision === 'CHANGES_REQUESTED') &&
-    commitStatus === 'skip_ci' &&
-    !noopMode
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is missing required approvals`
-    core.info(
-      'note: CI checks are disabled for this environment so they will not be evaluated'
-    )
-    return {message: message, status: false}
-
-    // If it is not a noop deploy and the PR has requested changes with failing CI checks
-  } else if (
-    !noopMode &&
-    reviewDecision === 'CHANGES_REQUESTED' &&
-    commitStatus === 'FAILURE'
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request needs to address the requested changes, get approvals, and have passing CI checks before you can proceed with deployment`
-    return {message: message, status: false}
-
-    // If it is not a noop deploy and the PR is missing required reviews with failing CI checks
-  } else if (
-    !noopMode &&
-    reviewDecision === 'REVIEW_REQUIRED' &&
-    commitStatus === 'FAILURE'
-  ) {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request needs to get approvals and have passing CI checks before you can proceed with deployment`
-    return {message: message, status: false}
-
-    // If there are any other errors blocking deployment, let the user know
-  } else {
-    message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${String(commitStatus)}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`
-    return {message: message, status: false}
   }
+
+  if (gateDecision.mode === 'sha') {
+    sha = gateDecision.sha
+    ref = sha
+    setActionOutput('sha_deployment', sha)
+  }
+
+  message = gateDecision.message
 
   // Return a success message
   return {
@@ -952,12 +665,6 @@ async function evaluateCommitChecks({
       throw new Error('The GraphQL response did not include a check rollup')
     }
 
-    if (checks === 'all' && ignoredChecks.length === 0) {
-      return statusCheckRollup.state === 'SUCCESS'
-        ? {commitStatus: 'SUCCESS', kind: 'passed'}
-        : {commitStatus: statusCheckRollup.state, kind: 'failed'}
-    }
-
     const checkResults = await loadAllCheckResults(
       octokit,
       pullRequestNumber,
@@ -986,7 +693,7 @@ async function evaluateCommitChecks({
       }
     }
     return {
-      commitStatus: 'FAILURE',
+      commitStatus: filterChecksResult.status,
       filterChecksResult,
       kind: 'failed'
     }
@@ -1025,11 +732,21 @@ async function loadAllCheckResults(
                         contexts(first:100, after:$cursor) {
                           nodes {
                             ... on CheckRun {
+                              id
+                              databaseId
+                              startedAt
+                              completedAt
+                              checkSuite {
+                                app { databaseId }
+                              }
                               isRequired(pullRequestNumber:$number)
                               conclusion
                               name
                             }
                             ... on StatusContext {
+                              id
+                              createdAt
+                              updatedAt
                               isRequired(pullRequestNumber:$number)
                               state
                               context
@@ -1096,8 +813,9 @@ export function filterChecks(
   checkResults: readonly RawCheckResult[],
   ignoredChecks: readonly string[],
   required: boolean
-): {message: string; status: 'FAILURE' | 'MISSING' | 'SUCCESS'} {
+): {message: string; status: 'FAILURE' | 'MISSING' | 'PENDING' | 'SUCCESS'} {
   const healthyCheckStatuses = ['SUCCESS', 'SKIPPED', 'NEUTRAL']
+  checkResults = latestCheckResults(checkResults)
 
   const checksDisplay = typeof checks === 'string' ? checks : checks.join(',')
   core.debug(`filterChecks() - checks: ${checksDisplay}`)
@@ -1166,8 +884,8 @@ export function filterChecks(
     })
 
   // Determine if all remaining checks are in a healthy state
-  const allHealthy = filteredChecks.every(check =>
-    healthyCheckStatuses.some(status => status === checkStatus(check))
+  const unhealthyChecks = filteredChecks.filter(
+    check => !healthyCheckStatuses.some(status => status === checkStatus(check))
   )
 
   // If no checks remain after filtering, default to SUCCESS
@@ -1178,12 +896,145 @@ export function filterChecks(
     return {message: message, status: 'SUCCESS'}
   }
 
-  return {
-    message: allHealthy
-      ? 'all checks passed'
-      : 'one or more checks did not pass',
-    status: allHealthy ? 'SUCCESS' : 'FAILURE'
+  if (unhealthyChecks.length === 0) {
+    return {message: 'all checks passed', status: 'SUCCESS'}
   }
+
+  const pendingStatuses = [null, undefined, 'EXPECTED', 'PENDING']
+  const allPending = unhealthyChecks.every(check =>
+    pendingStatuses.some(status => status === checkStatus(check))
+  )
+  return {
+    message: allPending
+      ? 'one or more checks are pending'
+      : 'one or more checks did not pass',
+    status: allPending ? 'PENDING' : 'FAILURE'
+  }
+}
+
+function isCheckRun(check: RawCheckResult): check is CheckRunResult {
+  return 'name' in check && typeof check.name === 'string'
+}
+
+function checkIdentity(check: RawCheckResult): string {
+  if (isCheckRun(check)) {
+    return `check:${String(checkIntegrationId(check))}:${check.name}`
+  }
+  return `status:${String(Reflect.get(check, 'context'))}`
+}
+
+function checkIntegrationId(check: CheckRunResult): number | null {
+  const databaseId = check.checkSuite?.app?.databaseId
+  return typeof databaseId === 'number' && Number.isSafeInteger(databaseId)
+    ? databaseId
+    : null
+}
+
+function validateCheckResult(check: RawCheckResult): void {
+  if (typeof check.isRequired !== 'boolean') {
+    throw new Error('A check result has an invalid required-check flag')
+  }
+  if (isCheckRun(check)) {
+    if (check.name === '') {
+      throw new Error('A check run has an invalid name')
+    }
+    return
+  }
+  if (
+    !('context' in check) ||
+    typeof check.context !== 'string' ||
+    check.context === ''
+  ) {
+    throw new Error('A status context has an invalid name')
+  }
+}
+
+function checkTimestamp(check: RawCheckResult): number {
+  const value = isCheckRun(check)
+    ? (check.startedAt ?? check.completedAt)
+    : 'updatedAt' in check
+      ? (check.updatedAt ?? check.createdAt)
+      : undefined
+  if (value === undefined || value === null) {
+    throw new Error('A duplicate check result is missing its timestamp')
+  }
+  const timestamp = Date.parse(value)
+  if (!Number.isFinite(timestamp)) {
+    throw new Error(`A check result has an invalid timestamp: ${value}`)
+  }
+  return timestamp
+}
+
+function checkDatabaseId(check: RawCheckResult): number | null {
+  return isCheckRun(check) ? (check.databaseId ?? null) : null
+}
+
+function checkNodeId(check: RawCheckResult): string | undefined {
+  return 'id' in check ? check.id : undefined
+}
+
+export function latestCheckResults(
+  checkResults: readonly RawCheckResult[]
+): readonly RawCheckResult[] {
+  const latest = new Map<
+    string,
+    {
+      readonly check: RawCheckResult
+      readonly checkRun: boolean
+      readonly integrationId: number | null
+    }
+  >()
+  for (const check of checkResults) {
+    validateCheckResult(check)
+    const identity = checkIdentity(check)
+    const candidate = {
+      check,
+      checkRun: isCheckRun(check),
+      integrationId: isCheckRun(check) ? checkIntegrationId(check) : null
+    }
+    const currentEntry = latest.get(identity)
+    if (currentEntry === undefined) {
+      latest.set(identity, candidate)
+      continue
+    }
+    const current = currentEntry.check
+
+    const currentId = checkDatabaseId(current)
+    const candidateId = checkDatabaseId(check)
+    if (currentId !== null && candidateId !== null) {
+      if (candidateId > currentId) latest.set(identity, candidate)
+      if (candidateId !== currentId) continue
+    }
+    if (currentEntry.checkRun) {
+      if (
+        currentEntry.integrationId === null ||
+        candidate.integrationId === null
+      ) {
+        throw new Error(
+          `A duplicate check result is missing its integration identity: ${identity}`
+        )
+      }
+    }
+
+    const currentTimestamp = checkTimestamp(current)
+    const candidateTimestamp = checkTimestamp(check)
+    if (candidateTimestamp > currentTimestamp) {
+      latest.set(identity, candidate)
+      continue
+    }
+    if (candidateTimestamp < currentTimestamp) continue
+
+    const currentNodeId = checkNodeId(current)
+    const candidateNodeId = checkNodeId(check)
+    if (
+      currentNodeId === undefined ||
+      candidateNodeId === undefined ||
+      currentNodeId !== candidateNodeId
+    ) {
+      throw new Error(`Check ordering is ambiguous for ${identity}`)
+    }
+  }
+  return [...latest.values()].map(entry => entry.check)
 }
 
 function checkName(check: RawCheckResult): string | null | undefined {
@@ -1199,5 +1050,25 @@ function checkStatus(check: RawCheckResult): string | null | undefined {
     'conclusion' in check ? check.conclusion : undefined
   const state: string | null | undefined =
     'state' in check ? check.state : undefined
-  return conclusion ?? state
+  const status = conclusion ?? state
+  const validStatuses = [
+    null,
+    undefined,
+    'ACTION_REQUIRED',
+    'CANCELLED',
+    'ERROR',
+    'EXPECTED',
+    'FAILURE',
+    'NEUTRAL',
+    'PENDING',
+    'SKIPPED',
+    'STALE',
+    'STARTUP_FAILURE',
+    'SUCCESS',
+    'TIMED_OUT'
+  ]
+  if (!validStatuses.some(value => value === status)) {
+    throw new Error(`A check result has an invalid status: ${String(status)}`)
+  }
+  return status
 }

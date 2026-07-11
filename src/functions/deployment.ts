@@ -7,7 +7,6 @@ import {
 import type {
   BranchDeployContext,
   BranchDeployOctokit,
-  DeploymentGraphqlResult,
   DeploymentGraphqlNode
 } from '../types.ts'
 
@@ -35,7 +34,28 @@ export interface DeploymentGraphqlOctokit {
   readonly graphql: (
     query: string,
     variables: Readonly<Record<string, unknown>>
-  ) => Promise<DeploymentGraphqlResult>
+  ) => Promise<DeploymentHistoryResult>
+}
+
+interface DeploymentHistoryNode extends DeploymentGraphqlNode {
+  readonly createdAt: string
+  readonly environment: string
+  readonly id: string
+  readonly payload: unknown
+}
+
+interface DeploymentHistoryResult {
+  readonly repository: null | {
+    readonly deployments: {
+      readonly nodes: readonly DeploymentHistoryNode[]
+      readonly pageInfo: {
+        readonly endCursor: string | null
+        readonly hasNextPage: boolean
+      }
+    }
+    readonly id: string
+    readonly nameWithOwner: string
+  }
 }
 
 // Helper function to add deployment statuses to a PR / ref
@@ -138,88 +158,39 @@ export async function latestActiveDeployment(
   context: BranchDeployContext,
   environment: string
 ): Promise<DeploymentGraphqlNode | null> {
-  const {owner, repo} = context.repo
-
-  const variables = {
-    repo_owner: owner,
-    repo_name: repo,
-    environment: environment
-  }
-
-  let queryNumber = 1
-  let data = await octokit.graphql(buildQuery(), variables)
-  // nodes may be empty if no matching deployments were found - ex: []
-  let nodes = data.repository.deployments.nodes
-
-  // If no deployments were found, return null
-  if (nodes.length === 0) {
+  const repository = await deploymentPage(
+    octokit,
+    context,
+    environment,
+    1,
+    null,
+    null
+  )
+  const latest = repository.deployments.nodes[0]
+  if (latest === undefined) {
     core.debug(`no deployments found for ${environment}`)
     return null
   }
-
-  // Check for an active deployment in the first page of deployments
-  let activeDeployment: DeploymentGraphqlNode | undefined = nodes.find(
-    deployment => deployment.state === 'ACTIVE'
-  )
-  if (activeDeployment) {
-    core.debug(
-      `found active deployment for ${environment} in page ${queryNumber}`
-    )
-    return activeDeployment
+  if (latest.state !== 'ACTIVE') {
+    core.debug(`latest deployment for ${environment} is ${latest.state}`)
+    return null
   }
-
-  // Paginate to find the active deployment if it exists
-  let hasNextPage = data.repository.deployments.pageInfo.hasNextPage
-  let endCursor = data.repository.deployments.pageInfo.endCursor
-
-  while (hasNextPage) {
-    queryNumber++
-    data = await octokit.graphql(buildQuery(endCursor), variables)
-
-    nodes = data.repository.deployments.nodes
-    activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE')
-
-    if (activeDeployment) {
-      core.debug(
-        `found active deployment for ${environment} in page ${queryNumber}`
-      )
-      return activeDeployment
-    } else {
-      core.debug(
-        `no active deployment found for ${environment} in page ${queryNumber}`
-      )
-    }
-
-    hasNextPage = data.repository.deployments.pageInfo.hasNextPage
-    endCursor = data.repository.deployments.pageInfo.endCursor
-  }
-
-  core.debug(
-    `no active deployment found for ${environment} after ${queryNumber} pages`
-  )
-
-  // If no active deployment was found, return null
-  return null
+  return latest
 }
 
-function buildQuery(page: string | null = null): string {
+function buildQuery(): string {
   return `
-    query ($repo_owner: String!, $repo_name: String!, $environment: String!) {
+    query BranchDeployments($repo_owner: String!, $repo_name: String!, $environment: String!, $first: Int!, $cursor: String) {
       repository(owner: $repo_owner, name: $repo_name) {
-        deployments(environments: [$environment], first: 100, after: ${String(page)}, orderBy: { field: CREATED_AT, direction: DESC }) {
+        id
+        nameWithOwner
+        deployments(environments: [$environment], first: $first, after: $cursor, orderBy: { field: CREATED_AT, direction: DESC }) {
           nodes {
             createdAt
             environment
-            updatedAt
             id
             payload
             state
-            ref {
-              name
-            }
-            creator {
-              login
-            }
             commit {
               oid
             }
@@ -231,4 +202,98 @@ function buildQuery(page: string | null = null): string {
         }
       }
     }`
+}
+
+async function deploymentPage(
+  octokit: DeploymentGraphqlOctokit,
+  context: BranchDeployContext,
+  environment: string,
+  first: number,
+  cursor: string | null,
+  expectedRepositoryId: string | null
+): Promise<NonNullable<DeploymentHistoryResult['repository']>> {
+  const page = await octokit.graphql(buildQuery(), {
+    repo_owner: context.repo.owner,
+    repo_name: context.repo.repo,
+    environment,
+    first,
+    cursor
+  })
+  const repository = page.repository
+  if (repository === null || repository.id === '') {
+    throw new Error('The deployment history has no repository identity')
+  }
+  if (
+    repository.nameWithOwner.toLowerCase() !==
+    `${context.repo.owner}/${context.repo.repo}`.toLowerCase()
+  ) {
+    throw new Error('The deployment history belongs to another repository')
+  }
+  if (expectedRepositoryId !== null && repository.id !== expectedRepositoryId) {
+    throw new Error('The deployment history repository changed while paging')
+  }
+  if (
+    repository.deployments.nodes.some(
+      deployment => deployment.environment !== environment
+    )
+  ) {
+    throw new Error('The deployment history belongs to another environment')
+  }
+  return repository
+}
+
+function deploymentPayloadKind(
+  payload: unknown
+): 'branch-deploy' | 'malformed' | 'other' {
+  let parsed = payload
+  if (typeof payload === 'string') {
+    try {
+      parsed = JSON.parse(payload) as unknown
+    } catch {
+      return 'malformed'
+    }
+  }
+  if (typeof parsed !== 'object' || parsed === null) {
+    return parsed === null ? 'other' : 'malformed'
+  }
+  if (!('type' in parsed)) return 'other'
+  if (parsed.type === 'branch-deploy') return 'branch-deploy'
+  return typeof parsed.type === 'string' ? 'other' : 'malformed'
+}
+
+export async function latestBranchDeployDeployment(
+  octokit: DeploymentGraphqlOctokit,
+  context: BranchDeployContext,
+  environment: string
+): Promise<DeploymentHistoryNode | null> {
+  let cursor: string | null = null
+  let repositoryId: string | null = null
+  const seenCursors = new Set<string>()
+  while (true) {
+    const repository = await deploymentPage(
+      octokit,
+      context,
+      environment,
+      100,
+      cursor,
+      repositoryId
+    )
+    repositoryId = repository.id
+    for (const deployment of repository.deployments.nodes) {
+      const payloadKind = deploymentPayloadKind(deployment.payload)
+      if (payloadKind === 'branch-deploy') return deployment
+      if (payloadKind === 'malformed') return null
+    }
+
+    const pageInfo = repository.deployments.pageInfo
+    if (!pageInfo.hasNextPage) return null
+    if (pageInfo.endCursor === null || pageInfo.endCursor === '') {
+      throw new Error('The deployment page has no end cursor')
+    }
+    if (seenCursors.has(pageInfo.endCursor)) {
+      throw new Error('The deployment page cursor did not advance')
+    }
+    seenCursors.add(pageInfo.endCursor)
+    cursor = pageInfo.endCursor
+  }
 }

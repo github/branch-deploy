@@ -47,6 +47,16 @@ export function decodedJsonValue(value: string): unknown {
   return JSON.parse(value) as unknown
 }
 
+export function decodedDeploymentTemplateLiteral(
+  value: string
+): boolean | null | number | string {
+  return JSON.parse(value) as boolean | null | number | string
+}
+
+export function regexCapture(match: RegExpMatchArray, index: number): string {
+  return match[index] as string
+}
+
 export function createdDeployment(value: unknown): CreatedDeployment {
   return value as CreatedDeployment
 }
@@ -218,10 +228,4 @@ export function legacyPrechecksPullRepository(
   value: PrechecksPullData['head']['repo']
 ): {readonly fork?: boolean; readonly full_name: string} {
   return value as {readonly fork?: boolean; readonly full_name: string}
-}
-
-export function legacyDeploymentPayload(value: unknown): {
-  readonly type?: string
-} {
-  return value as {readonly type?: string}
 }
