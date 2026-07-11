@@ -480,6 +480,47 @@ const scenarios = [
       })
   },
   {
+    name: 'noop cleanup with global lock',
+    run: () =>
+      withMockGitHub('noop cleanup with global lock', async context => {
+        setTriggerComment(
+          context.state,
+          '.lock --global --reason release freeze'
+        )
+        const globalLockResult = await runMain(context)
+        assertExit(context, globalLockResult, 0)
+        assertReason(context, globalLockResult, 'lock_acquired')
+        const originalGlobalLock = mockLockContents(
+          context.state,
+          'global-branch-deploy-lock'
+        )
+        assert.ok(originalGlobalLock !== undefined, diagnostics(context))
+
+        setTriggerComment(context.state, '.noop')
+        const mainResult = await runMain(context)
+        assertExit(context, mainResult, 0)
+        assertReason(context, mainResult, 'noop_ready')
+        assert.equal(
+          context.state.branches.has(lockBranch('production')),
+          true,
+          diagnostics(context, mainResult)
+        )
+
+        const postResult = await runPost(context, mainResult)
+        assertExit(context, postResult, 0)
+        assert.equal(
+          context.state.branches.has(lockBranch('production')),
+          false,
+          diagnostics(context, postResult)
+        )
+        assert.equal(
+          mockLockContents(context.state, 'global-branch-deploy-lock'),
+          originalGlobalLock,
+          diagnostics(context, postResult)
+        )
+      })
+  },
+  {
     name: 'disabled lock commands',
     run: () =>
       withMockGitHub('disabled lock commands', async context => {

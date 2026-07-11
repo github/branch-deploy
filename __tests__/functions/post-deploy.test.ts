@@ -344,6 +344,16 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
   assert.strictEqual(await postDeploy(context, octokit, data), 'success - noop')
 
   assertCalledTimes(lockMock, 1)
+  assertCalledWith(lockMock, {
+    octokit,
+    context,
+    ref: null,
+    reactionId: null,
+    sticky: false,
+    environment: 'production',
+    mode: {type: 'details', postDeployStep: true},
+    leaveComment: true
+  })
   assertCalledWith(actionStatusMock, {
     context,
     octokit,
