@@ -485,9 +485,11 @@ on:
     types: [created]
 ```
 
-Unlike the `on: pull_request` trigger, the `on: issue_comment` trigger only uses Actions workflow files from the default branch in GitHub. This means that a bad actor cannot open a PR with a malicious workflow edit and dump secrets, trigger bad deployments, or cause other issues. This means that any changes to the workflow files can be protected with branch protection rules to ensure only verified changes make it into your default branch.
+Unlike the `on: pull_request` trigger, the `on: issue_comment` trigger uses the Actions workflow definition from the repository's default branch. A pull request therefore cannot change the workflow that responds to its comments, and branch protection can review and protect changes to that workflow.
 
-If your workflow checks out pull request code and then runs deployment helper scripts, templates, or other orchestration code from that checkout, review the [trusted checkout hardening guide](docs/trusted-checkouts.md). It explains how to run trusted helper code from your default branch while still deploying the exact working commit selected by branch-deploy.
+This protection applies only to the workflow definition. Pull request code checked out later remains controlled by that pull request. Running scripts, build tools, dependencies, or configuration from that checkout with access to secrets or a write-capable token can expose credentials or modify repository and deployment resources.
+
+If your workflow checks out pull request code, review the [trusted checkout hardening guide](docs/trusted-checkouts.md). It explains how to keep deployment helpers and templates on the trusted default-branch checkout while deploying the exact working commit selected by branch-deploy.
 
 To further harden your workflow files, it is strongly suggested to include the base permissions that this Action needs to run:
 
