@@ -51,7 +51,7 @@ function onDeploymentChecks(
     ).trim()
     paramsTrim = params.trim()
     core.info(
-      `🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`
+      `🧮 detected parameters in command: ${COLORS.highlight}${JSON.stringify(paramsTrim)}`
     )
 
     parsed_params = parseParams(paramsTrim)

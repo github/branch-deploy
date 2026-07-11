@@ -1,4 +1,3 @@
-import nunjucks from 'nunjucks'
 import yargsParser from 'yargs-parser'
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
@@ -166,15 +165,6 @@ test('entrypoints retain their literal result contracts', () => {
 })
 
 test('local vendor declarations stay intentionally narrow', () => {
-  assertType<
-    Equal<Parameters<typeof nunjucks.configure>[0], {autoescape?: boolean}>
-  >(true)
-  assertType<
-    Equal<
-      Parameters<typeof nunjucks.render>,
-      [path: string, context: Record<string, unknown>]
-    >
-  >(true)
   assertType<Equal<Parameters<typeof yargsParser>[0], string>>(true)
   assertType<Equal<ReturnType<typeof yargsParser>['_'], (number | string)[]>>(
     true

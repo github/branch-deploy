@@ -296,7 +296,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `merge_deploy_mode` | `false` | `"false"` | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
 | `unlock_on_merge_mode` | `false` | `"false"` | Advanced configuration option for automatically releasing locks associated with a pull request when that pull request is merged. See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
 | `skip_completing` | `false` | `"false"` | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
-| `deploy_message_path` | `false` | `".github/deployment_message.md"` | The path to a markdown file which is used as a template for custom deployment messages. Example: `".github/deployment_message.md"` |
+| `deploy_message_path` | `false` | `".github/deployment_message.md"` | The repository-relative path to a trusted Markdown template for custom deployment messages. Branch Deploy fetches the file from the repository at the exact trusted workflow SHA; absolute paths, traversal segments, and runner filesystem paths are rejected. See the [custom deployment messages documentation](docs/custom-deployment-messages.md). |
 | `sticky_locks` | `false` | `"false"` | If set to `"true"`, locks will not be released after a deployment run completes. This applies to both successful, and failed deployments. Sticky locks are also known as ["hubot style deployment locks"](./docs/hubot-style-deployment-locks.md). They will persist until they are manually released by a user, or if you configure [another workflow with the "unlock on merge" mode](./docs/unlock-on-merge.md) to remove them automatically on PR merge. |
 | `sticky_locks_for_noop` | `false` | `"false"` | If set to `"true"`, then sticky_locks will also be used for noop deployments. This can be useful in some cases but it often leads to locks being left behind when users test noop deployments. |
 | `allow_sha_deployments` | `false` | `"false"` | If set to `"true"`, then you can deploy a specific sha instead of a branch. Example: `".deploy 1234567890abcdef1234567890abcdef12345678 to production"` - This is dangerous and potentially unsafe, [view the docs](docs/sha-deployments.md) to learn more |
@@ -361,7 +361,9 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 
 ## Custom Deployment Messages ✏️
 
-For documentation on how to customize the deployment messages, see the [custom deployment messages docs](./docs/custom-deployment-messages.md).
+Set `deploy_message_path` to a repository-relative Markdown file such as `.github/deployment_message.md`. Branch Deploy fetches the template through GitHub's Contents API at the exact trusted workflow SHA rather than reading from the runner checkout, then renders it with a deliberately limited template grammar. Deployment output from `DEPLOY_MESSAGE` is available as `{{ results }}` and is inserted raw in one pass so output that resembles template syntax remains inert.
+
+For the supported variables, conditionals, escaping rules, and v12 migration examples, see the [custom deployment messages documentation](./docs/custom-deployment-messages.md).
 
 ## About Environments 🌎
 
@@ -489,7 +491,7 @@ Unlike the `on: pull_request` trigger, the `on: issue_comment` trigger uses the 
 
 This protection applies only to the workflow definition. Pull request code checked out later remains controlled by that pull request. Running scripts, build tools, dependencies, or configuration from that checkout with access to secrets or a write-capable token can expose credentials or modify repository and deployment resources.
 
-If your workflow checks out pull request code, review the [trusted checkout hardening guide](docs/trusted-checkouts.md). It explains how to keep deployment helpers and templates on the trusted default-branch checkout while deploying the exact working commit selected by branch-deploy.
+If your workflow checks out pull request code, review the [trusted checkout hardening guide](docs/trusted-checkouts.md). It explains how to keep deployment helpers on a trusted default-branch checkout while deploying the exact working commit selected by Branch Deploy. Custom deployment templates are fetched separately from the repository at the exact trusted workflow SHA.
 
 To further harden your workflow files, it is strongly suggested to include the base permissions that this Action needs to run:
 
@@ -519,7 +521,7 @@ Here are some additional security best practices to consider:
 - Ensure that your branch protection settings require that PRs have approvals before. This prevents users from deploying changes that have not been reviewed.
 - Ensure that your branch protection settings require that PRs have some CI checks defined, and that those CI checks are required. This ensure that the code being deployed has passing CI checks.
 - Set the [`deployment_confirmation: true`](./docs/deployment-confirmation.md) input option to require a final safety check of human approval before each deployment can continue. Ensure that you review the sha being used in the deployment confirmation comment with the sha that you expect to be deployed.
-- Use a [trusted checkout](docs/trusted-checkouts.md) for deployment helper code and templates when your workflow also checks out pull request code for deployment.
+- Use a [trusted checkout](docs/trusted-checkouts.md) for deployment helper code when your workflow also checks out pull request code for deployment. Branch Deploy independently fetches custom deployment templates at the exact trusted workflow SHA.
 
 ### Admins 👩‍🔬
 

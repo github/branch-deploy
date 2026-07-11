@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import {beforeEach, mock, test} from 'node:test'
-import {dedent} from '../../src/functions/dedent.ts'
 import type {PostDeployMessageData} from '../../src/types.ts'
 import {createContext} from '../test-helpers.ts'
 import {unsafeInvalidValue} from '../unsafe-fixtures.ts'
@@ -243,21 +242,18 @@ test('successfully constructs a post deploy message with the defaults during a d
   )
 })
 
-test('successfully constructs a post deploy message with the defaults during a deployment with an unknown status and the DEPLOY_MESSAGE_PATH is unset', testContext => {
-  stubEnv(testContext, 'INPUT_DEPLOY_MESSAGE_PATH', '')
+test('falls back to the default message when no trusted template is supplied', () => {
   data = {...data, status: 'unknown'}
   deployment_metadata = renderDeploymentMetadata(data)
 
   assert.strictEqual(
-    postDeployMessage(context, data),
+    postDeployMessage(context, data, null),
     defaultMessage(
       '### Deployment Results ⚠️',
       'Warning: deployment status is unknown, please use caution',
       deployment_metadata
     )
   )
-
-  assertCalledWith(debugMock, 'deployMessagePath is not set - null')
 })
 
 test('successfully constructs a post deploy message with a custom env var', testContext => {
@@ -359,61 +355,74 @@ test('renders arbitrary post-deploy values as valid fenced JSON', () => {
   })
 })
 
-test('successfully constructs a post deploy message with a custom markdown file', testContext => {
-  stubEnv(
-    testContext,
-    'INPUT_DEPLOY_MESSAGE_PATH',
-    '__tests__/templates/test_deployment_message.md'
-  )
+test('renders every allowlisted variable in a trusted template', testContext => {
+  stubEnv(testContext, 'DEPLOY_MESSAGE', 'deployment output')
+  const template = [
+    '{{ environment }}',
+    '{{ environment_url }}',
+    '{{ status }}',
+    '{{ noop }}',
+    '{{ ref }}',
+    '{{ sha }}',
+    '{{ approved_reviews_count }}',
+    '{{ review_decision }}',
+    '{{ deployment_id }}',
+    '{{ fork }}',
+    '{{ params }}',
+    '{{ parsed_params }}',
+    '{{ deployment_end_time }}',
+    '{{ actor }}',
+    '{{ logs }}',
+    '{{ commit_verified }}',
+    '{{ total_seconds }}',
+    '{{ results }}'
+  ].join('|')
+
   assert.strictEqual(
-    postDeployMessage(context, data),
-    dedent(`### Deployment Results :rocket:
+    postDeployMessage(context, data, template),
+    [
+      environment,
+      environment_url,
+      status,
+      String(noop),
+      ref,
+      sha,
+      approved_reviews_count,
+      review_decision,
+      String(deployment_id),
+      String(fork),
+      params,
+      parsed_params.replaceAll('"', '&quot;'),
+      deployment_end_time,
+      context.actor,
+      logs,
+      'false',
+      String(total_seconds),
+      'deployment output'
+    ].join('|')
+  )
+  assertCalledWith(debugMock, 'using trusted deployment template')
+})
 
-    The following variables are available to use in this template:
+test('escapes ordinary variables while rendering results raw and only once', testContext => {
+  const rawResults =
+    '<details>{{ actor }}{% if status %}do not evaluate{% endif %}</details>'
+  stubEnv(testContext, 'DEPLOY_MESSAGE', rawResults)
+  data = {
+    ...data,
+    environment: '<prod data-name="blue">Tom & Jerry\'s</prod>'
+  }
 
-    - \`environment\` - The name of the environment (String)
-    - \`environment_url\` - The URL of the environment (String) {Optional}
-    - \`status\` - The status of the deployment (String) - \`success\`, \`failure\`, or \`unknown\`
-    - \`noop\` - Whether or not the deployment is a noop (Boolean)
-    - \`ref\` - The ref of the deployment (String)
-    - \`sha\` - The exact commit SHA of the deployment (String)
-    - \`actor\` - The GitHub username of the actor who triggered the deployment (String)
-    - \`approved_reviews_count\` - The number of approved reviews on the pull request at the time of deployment (String of a number)
-    - \`deployment_id\` - The ID of the deployment (String)
-    - \`review_decision\` - The decision of the review (String or null) - \`"APPROVED"\`, \`"REVIEW_REQUIRED"\`, \`"CHANGES_REQUESTED"\`, \`null\`, etc.
-    - \`params\` - The raw parameters provided in the deploy command (String)
-    - \`parsed_params\` - The parsed parameters provided in the deploy command (String)
-    - \`deployment_end_time\` - The end time of the deployment - this value is not _exact_ but it is very close (String)
-    - \`logs\` - The url to the logs of the deployment (String)
-    - \`commit_verified\` - Whether or not the commit was verified (Boolean)
-    - \`total_seconds\` - The total number of seconds the deployment took (String of a number)
-
-    Here is an example:
-
-    monalisa deployed branch \`test-ref\` to the **production** environment. This deployment was a success :rocket:.
-
-    The exact commit sha that was used for the deployment was \`${sha}\`.
-
-    The exact deployment ID for this deployment was \`${deployment_id}\`.
-
-    The review decision for this deployment was \`${review_decision}\`.
-
-    The deployment had the following parameters provided in the deploy command: \`LOG_LEVEL=debug --config.db.host=localhost --config.db.port=5432\`
-
-    The deployment had the following "parsed" parameters provided in the deploy command: \`{"config":{"db":{"host":"localhost","port":5432}},"_":["LOG_LEVEL=debug"]}\`
-
-    The deployment process ended at \`2024-01-01T00:00:00Z\` and it took \`27\` seconds to complete.
-
-    Here are the deployment logs: https://github.com/corp/test/actions/runs/12345
-
-    The commit was not verified.
-
-    You can view the deployment [here](https://example.com).
-
-
-
-    > This deployment had \`4\` approvals.
-
-    `)
+  assert.strictEqual(
+    postDeployMessage(
+      context,
+      data,
+      '{{ environment }}\n{{ results }}\n{{ actor }}'
+    ),
+    [
+      '&lt;prod data-name=&quot;blue&quot;&gt;Tom &amp; Jerry&#39;s&lt;/prod&gt;',
+      rawResults,
+      'monalisa'
+    ].join('\n')
   )
 })

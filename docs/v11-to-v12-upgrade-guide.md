@@ -42,6 +42,8 @@ Repositories that intentionally deploy forked pull requests must update their Br
 
 Branch Deploy now distinguishes between a pull request that genuinely has no CI checks and a pull request whose complete CI status could not be verified. A repository can have more than 100 check runs and legacy commit statuses on one commit, so the Action now reads every page of check data whenever it needs to evaluate required, explicitly selected, or ignored checks.
 
+Repeated check runs are collapsed by GitHub App integration and check name, while legacy status contexts are collapsed by context name. The newer check run wins by database identity and start time, so an older run that finishes after a newer rerun starts cannot hide that newer rerun's pending or failing state. Missing integration identities, timestamps, required-check flags, or other ordering data fail closed when duplicate results cannot be classified safely.
+
 If GitHub returns malformed or incomplete check data, a pagination cursor does not advance, a later page cannot be retrieved, or a page refers to a different commit, the deployment is rejected. The `commit_status` output is set to `UNAVAILABLE` for this condition.
 
 Previously, some failures while processing check data could be treated like a pull request with no checks. That behavior could allow a deployment to continue without proving that every applicable check had passed.
@@ -60,6 +62,24 @@ For example, if a commit has 100 successful checks on the first page and one req
 - If a workflow consumes `commit_status`, allow for the new `UNAVAILABLE` value and treat it as a deployment-blocking result.
 
 Deployments that explicitly use the configured stable branch or an enabled exact-SHA deployment retain their existing documented bypass behavior.
+
+## Deployment history uses the newest relevant state
+
+### What changed
+
+Enforced deployment order now checks only the newest deployment for each preceding environment. That deployment must be `ACTIVE` at the selected SHA. An older active deployment cannot satisfy the order after a newer failed or inactive deployment. Duplicate environments in `enforced_deployment_order` and requested environments missing from that order are rejected as invalid configuration.
+
+Merge deploy mode now skips deployment only when the newest identifiable `branch-deploy` deployment is active and its commit tree matches the current default branch. A failed, pending, missing, or malformed latest deployment requires another deployment. Deployment-history pagination also validates repository identity, environment identity, and cursor progress.
+
+### Who is affected
+
+Repositories using `enforced_deployment_order` or `merge_deploy_mode` may see a deployment continue or fail where older versions selected an earlier successful deployment from history. Invalid duplicate or incomplete order configurations now fail explicitly.
+
+### What should I do?
+
+- Remove duplicate environments from `enforced_deployment_order` and include every environment that can be requested while order enforcement is enabled.
+- Treat a newer failed or inactive deployment as authoritative; repair or rerun that environment instead of relying on an older active deployment.
+- In merge deploy workflows, allow the deployment to run again when the latest relevant history is failed, pending, or malformed.
 
 ## Deployment locks are created atomically
 
@@ -133,6 +153,8 @@ Version one defines these reason codes:
 - `prechecks_failed`
 - `commit_safety_failed`
 - `deployment_order_failed`
+- `ref_changed`
+- `deployment_sha_mismatch`
 - `confirmation_rejected`
 - `confirmation_timed_out`
 - `noop_ready`
@@ -189,6 +211,48 @@ Workflows that leave `reaction` empty no longer need a workaround. A custom post
 
 If confirmation is rejected, times out, or errors, a non-sticky deployment lock is released before post mode is bypassed. Sticky locks retain their established persistence behavior.
 
+## Custom deployment templates are fetched from a trusted SHA
+
+### What changed
+
+Branch Deploy no longer reads `deploy_message_path` from the runner filesystem or renders custom deployment messages with Nunjucks. The input is now a repository-relative path. In post mode, Branch Deploy fetches that path through GitHub's Contents API from the current repository at the exact trusted workflow SHA saved by the main action.
+
+Absolute paths, backslashes, empty path segments, `.` segments, and `..` traversal segments are rejected. A missing file falls back to the default deployment message, while invalid paths, invalid trusted SHAs, malformed file responses, and non-404 API failures stop the post action.
+
+Templates now use a deliberately limited grammar: allowlisted variable interpolation, nested `if`/`else` blocks, boolean or negated-boolean conditions, strict comparisons with literals, and literal-only ternary expressions. Filters, function calls, property access, loops, includes, macros, assignments, template comments, and arbitrary expressions are not supported.
+
+Runtime variables are HTML-escaped by default. The new `results` variable contains `DEPLOY_MESSAGE`, is inserted as raw Markdown, and is rendered only once. Template-looking text inside deployment output therefore remains inert rather than being evaluated.
+
+### Who is affected
+
+Workflows that pass an absolute path, a runner checkout path, or an expression such as `${{ steps.trusted-path.outputs.trusted_dir }}/.github/deployment_message.md` must change the input to a repository-relative path. Existing Nunjucks templates must be reduced to the supported grammar. Templates that depended on Nunjucks filters such as `| safe`, complex expressions, includes, macros, or property access will otherwise fail closed.
+
+Ordinary variable interpolation may produce different bytes because runtime values are now HTML-escaped. Deployment output that was prepared for later Nunjucks rendering should remove that preprocessing and use `{{ results }}` directly.
+
+### What should I do?
+
+- Store the template in the same repository and set `deploy_message_path` to a path such as `.github/deployment_message.md`.
+- Remove runner workspace prefixes and trusted-checkout directory expressions from `deploy_message_path`; the Action performs the trusted-SHA fetch itself.
+- Replace Nunjucks-only syntax with the [supported safe grammar](custom-deployment-messages.md#supported-template-grammar).
+- Replace a raw deployment-output expression such as `{{ results | safe }}` with `{{ results }}`. Do not escape Nunjucks delimiters in deployment output; rendering is single-pass in v12.
+- Test the exact v12 candidate SHA with representative success, failure, noop, null, and multiline deployment-result values before upgrading the movable `v12` reference.
+
+## Mutable deployment refs are revalidated
+
+### What changed
+
+Branch Deploy re-fetches the selected pull request or stable-branch SHA immediately before continuing a noop or creating a deployment. If the ref moved after prechecks, the action releases a non-sticky lock, bypasses post mode, and reports `ref_changed`. Exact-SHA and fork deployments already use immutable refs and do not need this extra lookup.
+
+GitHub deployment responses are also checked against the SHA that passed prechecks. A mismatch is marked `error`, a non-sticky lock is released, post mode is bypassed, and the result reports `deployment_sha_mismatch`.
+
+### Who is affected
+
+Workflows that push to a deployment branch while Branch Deploy is running may now fail closed instead of deploying the moved branch. The action still creates ordinary deployments with the branch ref and preserves API auto-merge behavior.
+
+### What should I do?
+
+Retry the IssueOps command after the branch stops moving. Use the structured `reason_code` output to distinguish a ref movement from other failures, and continue checking out `steps.branch-deploy.outputs.sha` in deployment steps.
+
 ## Unlock failures and generated metadata fail more reliably
 
 ### What changed
@@ -199,7 +263,7 @@ The help message now reports the real boolean value of `allow_forks` instead of 
 
 The `deployment_confirmation_timeout` input must now be a plain positive integer. Values like `10abc`, `0`, and `-1` are rejected during input parsing instead of being partially parsed or accepted.
 
-Default pre-deploy, confirmation, and post-deploy metadata blocks are generated from typed objects with `JSON.stringify`. Quotes, backslashes, newlines, Unicode, and backticks in user-controlled values can no longer break the JSON or close its Markdown code fence. Field names, field ordering, marker comments, and null semantics remain stable. Custom Nunjucks deployment templates are unchanged.
+Default pre-deploy, confirmation, and post-deploy metadata blocks are generated from typed objects with `JSON.stringify`. Quotes, backslashes, newlines, Unicode, and backticks in user-controlled values can no longer break the JSON or close its Markdown code fence. Field names, field ordering, marker comments, and null semantics remain stable.
 
 ### Who is affected
 
@@ -210,4 +274,4 @@ Users may notice a failed `.unlock` step where an earlier version printed a fail
 - Investigate a failed `.unlock` command and retry it after resolving the GitHub API or permission problem.
 - Set `deployment_confirmation_timeout` to a positive integer number of seconds such as `60`.
 - Parse the JSON between the `pre-deploy-metadata`, `deployment-confirmation-metadata`, or `post-deploy-metadata` marker comments instead of depending on indentation or fence length.
-- Continue using a custom Nunjucks template if exact custom comment bytes are required; this change does not alter those templates.
+- If exact custom comment bytes are required, account for the v12 trusted-template grammar and escaping changes described above.

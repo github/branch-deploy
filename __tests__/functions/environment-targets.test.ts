@@ -190,9 +190,22 @@ test('checks the comment body and finds an explicit environment target for devel
   )
   assertCalledWith(
     infoMock,
-    `🧮 detected parameters in command: ${COLORS.highlight}something1 something2 something3`
+    `🧮 detected parameters in command: ${COLORS.highlight}"something1 something2 something3"`
   )
   assertCalledWith(setOutputMock, 'params', 'something1 something2 something3')
+})
+
+test('escapes multiline parameters before informational logging', async () => {
+  const params = 'first\n::error::injected'
+  await environmentTargets(deploymentRequest(`.deploy | ${params}`))
+
+  assertCalledWith(
+    infoMock,
+    `🧮 detected parameters in command: ${COLORS.highlight}${JSON.stringify(params)}`
+  )
+  assert.ok(
+    !infoMock.mock.calls.some(call => String(call.arguments[0]).includes('\n'))
+  )
 })
 
 test('checks the comment body and finds an explicit environment target and an explicit sha (sha1) for development with params', async () => {
@@ -222,7 +235,7 @@ test('checks the comment body and finds an explicit environment target and an ex
   )
   assertCalledWith(
     infoMock,
-    `🧮 detected parameters in command: ${COLORS.highlight}something1 something2 something3`
+    `🧮 detected parameters in command: ${COLORS.highlight}"something1 something2 something3"`
   )
   assertCalledWith(setOutputMock, 'params', 'something1 something2 something3')
 })
@@ -254,7 +267,7 @@ test('checks the comment body and finds an explicit environment target and an ex
   )
   assertCalledWith(
     infoMock,
-    `🧮 detected parameters in command: ${COLORS.highlight}something1 something2 something3`
+    `🧮 detected parameters in command: ${COLORS.highlight}"something1 something2 something3"`
   )
   assertCalledWith(setOutputMock, 'params', 'something1 something2 something3')
 })
@@ -295,7 +308,7 @@ test('checks the comment body and finds an explicit environment target and an ex
   )
   assertCalledWith(
     infoMock,
-    `🧮 detected parameters in command: ${COLORS.highlight}--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue`
+    `🧮 detected parameters in command: ${COLORS.highlight}"--cpu=2 --memory=4G --env=development --port=8080 --name=my-app -q my-queue"`
   )
   assertCalledWith(
     setOutputMock,
@@ -331,7 +344,7 @@ test('checks the comment body and finds an explicit environment target and an ex
   )
   assertCalledWith(
     infoMock,
-    `🧮 detected parameters in command: ${COLORS.highlight}something1 something2 something3`
+    `🧮 detected parameters in command: ${COLORS.highlight}"something1 something2 something3"`
   )
   assertCalledWith(setOutputMock, 'params', 'something1 something2 something3')
 })
@@ -387,7 +400,7 @@ test('checks the comment body and finds an explicit environment target for devel
   )
   assertCalledWith(
     infoMock,
-    `🧮 detected parameters in command: ${COLORS.highlight}something1 | something2 something3`
+    `🧮 detected parameters in command: ${COLORS.highlight}"something1 | something2 something3"`
   )
   assertCalledWith(
     setOutputMock,

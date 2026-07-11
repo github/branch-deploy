@@ -5,7 +5,6 @@ import {test} from 'node:test'
 const EXPECTED_RUNTIME_DEPENDENCIES = {
   '@actions/github': '9.0.0',
   '@octokit/plugin-retry': '8.0.3',
-  nunjucks: '3.2.4',
   'yargs-parser': '22.0.0'
 } as const satisfies Record<string, string>
 
@@ -118,8 +117,8 @@ test('resolved packages preserve public integrity and install-script policy', ()
 
   assert.deepStrictEqual(violations, [])
   assert.deepStrictEqual(installScripts, [])
-  assert.strictEqual(resolved.length, 32)
-  assert.strictEqual(runtime.length, 25)
+  assert.strictEqual(resolved.length, 28)
+  assert.strictEqual(runtime.length, 21)
   assert.strictEqual(development.length, 7)
   assert.strictEqual(optional.length, 0)
 })

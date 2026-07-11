@@ -138,7 +138,7 @@ inputs:
     required: false
     default: "false"
   deploy_message_path:
-    description: 'The path to a markdown file which is used as a template for custom deployment messages. Example: ".github/deployment_message.md"'
+    description: 'The repository-relative path to a trusted Markdown template for custom deployment messages. The file is fetched from the repository at the exact workflow SHA. Example: ".github/deployment_message.md"'
     required: false
     default: ".github/deployment_message.md"
   sticky_locks:

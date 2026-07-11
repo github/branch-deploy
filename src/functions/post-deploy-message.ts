@@ -1,9 +1,8 @@
 import * as core from '../actions-core.ts'
 import {checkInput} from './check-input.ts'
-import {existsSync} from 'node:fs'
-import nunjucks from 'nunjucks'
-import {getActionInput, getBooleanActionInput} from '../action-io.ts'
+import {getBooleanActionInput} from '../action-io.ts'
 import {jsonCodeBlock} from './json-code-block.ts'
+import {renderDeploymentTemplate} from './deployment-template.ts'
 import {decodedJsonValue} from '../trust-boundaries.ts'
 import type {BranchDeployContext, PostDeployMessageData} from '../types.ts'
 
@@ -28,13 +27,14 @@ import type {BranchDeployContext, PostDeployMessageData} from '../types.ts'
 // :returns: The formatted message (String)
 export function postDeployMessage(
   context: BranchDeployContext,
-  data: PostDeployMessageData
+  data: PostDeployMessageData,
+  template: string | null = null
 ): string {
   // fetch the inputs
   const environment_url_in_comment = getBooleanActionInput(
     'environment_url_in_comment'
   )
-  const deployMessagePath = checkInput(getActionInput('deploy_message_path'))
+  const deploymentResults = checkInput(process.env['DEPLOY_MESSAGE'])
 
   const vars = {
     environment: data.environment,
@@ -55,19 +55,13 @@ export function postDeployMessage(
     actor: context.actor,
     logs: `${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/actions/runs/${String(process.env['GITHUB_RUN_ID'])}`,
     commit_verified: data.commit_verified,
-    total_seconds: data.total_seconds
+    total_seconds: data.total_seconds,
+    results: deploymentResults ?? ''
   }
 
-  // if the 'deployMessagePath' exists, use that instead of the env var option
-  // the env var option can often fail if the message is too long so this is the preferred option
-  if (deployMessagePath !== null) {
-    if (existsSync(deployMessagePath)) {
-      core.debug('using deployMessagePath')
-      nunjucks.configure({autoescape: true})
-      return nunjucks.render(deployMessagePath, vars)
-    }
-  } else {
-    core.debug(`deployMessagePath is not set - ${String(deployMessagePath)}`)
+  if (template !== null) {
+    core.debug('using trusted deployment template')
+    return renderDeploymentTemplate(template, vars)
   }
 
   const parsedParams =
@@ -120,7 +114,7 @@ export function postDeployMessage(
   ].join('\n')
 
   // If we get here, try to use the env var option with the default message structure
-  const deployMessageEnvVar = checkInput(process.env['DEPLOY_MESSAGE'])
+  const deployMessageEnvVar = deploymentResults
 
   let deployTypeString = ' ' // a single space as a default
 

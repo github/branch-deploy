@@ -6,6 +6,7 @@ import type {BranchDeployOctokit, OperationResultV1} from '../src/types.ts'
 import {decodedJsonValue} from '../src/trust-boundaries.ts'
 import {unsafeInvalidValue} from './unsafe-fixtures.ts'
 import {
+  assertCalledTimes,
   assertCalledWith,
   assertNotCalled,
   createMock,
@@ -192,6 +193,14 @@ const permissionsMsg =
   '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
 
 const mock_sha = 'abc123'
+let selectedSha = mock_sha
+let liveRefSha: string | null = null
+let lateLiveRefSha: string | null = null
+let pullRefReads = 0
+let createdDeploymentSha: string | null = null
+let deploymentStatusError: Error | null = null
+let commentError: Error | null = null
+let deploymentStatusRequests: unknown[] = []
 let commitLogin: string | null = 'monalisa'
 let deploymentMessage: string | null = null
 
@@ -285,6 +294,7 @@ function setLockResult(result: Awaited<ReturnType<LockModule['lock']>>): void {
 function setPrechecksResult(
   result: Awaited<ReturnType<PrechecksModule['prechecks']>>
 ): void {
+  if (result.status) selectedSha = result.sha
   prechecksMock.mock.mockImplementation(() => Promise.resolve(result))
 }
 
@@ -365,6 +375,14 @@ function assertOperationResult(expected: ExpectedOperationResult): void {
 
 beforeEach(() => {
   commitLogin = 'monalisa'
+  selectedSha = mock_sha
+  liveRefSha = null
+  lateLiveRefSha = null
+  pullRefReads = 0
+  createdDeploymentSha = null
+  deploymentStatusError = null
+  commentError = null
+  deploymentStatusRequests = []
   deploymentMessage = null
   for (const [name, value] of Object.entries(environmentDefaults)) {
     process.env[name] = value
@@ -422,10 +440,20 @@ beforeEach(() => {
   octokit.hook.wrap('request', (_request, options) => {
     let data: unknown = {}
     if (options.url.endsWith('/issues/{issue_number}/comments')) {
+      if (commentError !== null) throw commentError
       data = {id: 123456}
     } else if (options.url.endsWith('/deployments')) {
       data =
-        deploymentMessage === null ? {id: 123} : {message: deploymentMessage}
+        deploymentMessage === null
+          ? {
+              created_at: '2025-01-01T00:00:00Z',
+              id: 123,
+              sha: createdDeploymentSha ?? selectedSha,
+              statuses_url: 'https://api.github.com/deployments/123/statuses',
+              updated_at: '2025-01-01T00:00:00Z',
+              url: 'https://api.github.com/deployments/123'
+            }
+          : {message: deploymentMessage}
     } else if (options.url.endsWith('/commits/{ref}')) {
       data = {
         sha: mock_sha,
@@ -437,7 +465,22 @@ beforeEach(() => {
         committer: commitLogin === null ? {} : {login: commitLogin}
       }
     } else if (options.url.endsWith('/pulls/{pull_number}')) {
-      data = {head: {ref: 'test-ref'}}
+      pullRefReads += 1
+      data = {
+        head: {
+          ref: 'test-ref',
+          sha:
+            pullRefReads > 1 && lateLiveRefSha !== null
+              ? lateLiveRefSha
+              : (liveRefSha ?? selectedSha)
+        }
+      }
+    } else if (options.url.endsWith('/branches/{branch}')) {
+      data = {commit: {sha: liveRefSha ?? selectedSha}}
+    } else if (options.url.endsWith('/deployments/{deployment_id}/statuses')) {
+      if (deploymentStatusError !== null) throw deploymentStatusError
+      deploymentStatusRequests.push(options)
+      data = {id: 456, url: 'https://api.github.com/statuses/456'}
     }
 
     return {data, headers: {}, status: 200, url: options.url}
@@ -533,6 +576,155 @@ test('successfully runs the action', async () => {
     infoMock,
     `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
   )
+})
+
+test('rejects a mutable PR ref that moves after prechecks', async () => {
+  liveRefSha = 'new-commit'
+
+  assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'ref_changed',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: mock_sha
+  })
+  const cleanupCall = unlockMock.mock.calls[0]
+  assert.ok(cleanupCall)
+  const cleanupRequest = unsafeInvalidValue<SilentUnlockRequest>(
+    cleanupCall.arguments[0]
+  )
+  assert.deepStrictEqual(cleanupRequest, {
+    octokit,
+    context: githubContext,
+    reactionId: null,
+    target: {type: 'environment', environment: 'production'},
+    mode: 'silent'
+  })
+  assertNotCalled(createDeploymentMock)
+  assertCalledWith(
+    setFailedMock,
+    'the selected deployment ref changed after prechecks'
+  )
+})
+
+test('retains a sticky lock when a mutable ref moves', async () => {
+  setEnv('INPUT_STICKY_LOCKS', 'true')
+  liveRefSha = 'new-commit'
+
+  assert.strictEqual(await run(), 'failure')
+  assertNotCalled(unlockMock)
+})
+
+test('rejects a mutable PR ref that moves after the started comment', async () => {
+  lateLiveRefSha = 'new-commit'
+
+  assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'ref_changed',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: mock_sha
+  })
+  assertNotCalled(createDeploymentMock)
+  assertCalledTimes(unlockMock, 1)
+})
+
+test('keeps ref_changed stable when reporting the failure is unavailable', async () => {
+  liveRefSha = 'new-commit'
+  actionStatusMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('comment unavailable'))
+  )
+
+  assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'ref_changed',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: mock_sha
+  })
+  assertCalledTimes(unlockMock, 1)
+  assertCalledWith(
+    warningMock,
+    'failed to report the changed deployment ref: comment unavailable'
+  )
+})
+
+test('marks a deployment as error when GitHub resolves it to another SHA', async () => {
+  createdDeploymentSha = 'unexpected-commit'
+
+  assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'deployment_sha_mismatch',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: mock_sha,
+    deployment_id: 123
+  })
+  const statusRequest = deploymentStatusRequests.at(-1)
+  assert.ok(typeof statusRequest === 'object' && statusRequest !== null)
+  assert.strictEqual(Reflect.get(statusRequest, 'state'), 'error')
+  assertCalledWith(
+    setFailedMock,
+    'the created deployment SHA did not match the checked SHA'
+  )
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+})
+
+test('keeps deployment_sha_mismatch stable when failure reporting is unavailable', async () => {
+  createdDeploymentSha = 'unexpected-commit'
+  deploymentStatusError = new Error('status unavailable')
+  actionStatusMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('comment unavailable'))
+  )
+
+  assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'deployment_sha_mismatch',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: mock_sha,
+    deployment_id: 123
+  })
+  assertCalledTimes(unlockMock, 1)
+  assertCalledWith(
+    warningMock,
+    'failed to mark the mismatched deployment as an error: status unavailable'
+  )
+  assertCalledWith(
+    warningMock,
+    'failed to report the mismatched deployment: comment unavailable'
+  )
+})
+
+test('cleans a non-sticky lock when deployment orchestration throws', async () => {
+  commentError = new Error('comment unavailable')
+
+  assert.strictEqual(await run(), undefined)
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'unexpected_error',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: mock_sha
+  })
+  assertCalledTimes(unlockMock, 1)
 })
 
 test('preserves the missing run id fallback in the deployment payload', async () => {
@@ -800,16 +992,14 @@ test('successfully runs the action on a deployment to development and with branc
 })
 
 test('successfully runs the action in noop mode', async () => {
-  prechecksMock.mock.mockImplementation(() =>
-    Promise.resolve({
-      ref: 'test-ref',
-      status: true,
-      message: '✔️ PR is approved and all CI checks passed - OK',
-      noopMode: true,
-      sha: 'deadbeef',
-      isFork: false
-    })
-  )
+  setPrechecksResult({
+    ref: 'test-ref',
+    status: true,
+    message: '✔️ PR is approved and all CI checks passed - OK',
+    noopMode: true,
+    sha: 'deadbeef',
+    isFork: false
+  })
 
   setCommentBody('.noop')
 
@@ -1000,6 +1190,29 @@ test('runs the action and passes environment deployment order checks', async () 
   assertCalledWith(debugMock, 'production_environment: true')
 })
 
+test('reports invalid deployment order configuration with a stable reason', async () => {
+  setEnv('INPUT_ENFORCED_DEPLOYMENT_ORDER', 'production,production')
+  validDeploymentOrderMock.mock.mockImplementation(() =>
+    Promise.reject(
+      new Error('The enforced deployment order contains duplicate environments')
+    )
+  )
+
+  assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'deployment_order_failed',
+    operation: 'deploy',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: mock_sha
+  })
+  assertCalledWith(
+    setFailedMock,
+    'The enforced deployment order contains duplicate environments'
+  )
+})
+
 test('runs the action in lock mode and fails due to bad permissions', async () => {
   setValidPermissionsResult(permissionsMsg)
 
@@ -1052,6 +1265,24 @@ test('successfully runs the action in lock mode with a reason', async () => {
   assertCalledWith(saveStateMock, 'isPost', 'true')
   assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
   assertCalledWith(saveStateMock, 'comment_id', 123)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+})
+
+test('reports an unexpected direct lock failure with collected context', async () => {
+  setCommentBody('.lock')
+  lockMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('lock unavailable'))
+  )
+
+  assert.strictEqual(await run(), undefined)
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'unexpected_error',
+    operation: 'lock',
+    environment: 'production',
+    ref: 'test-ref'
+  })
+  assertCalledWith(setFailedMock, 'lock unavailable')
   assertCalledWith(saveStateMock, 'bypass', 'true')
 })
 
@@ -1624,6 +1855,27 @@ test('detects an out of date branch and exits', async () => {
   assertCalledWith(saveStateMock, 'bypass', 'true')
 
   assertNotCalled(validDeploymentOrderMock)
+})
+
+test('fails when GitHub returns a deployment message other than auto-merge', async () => {
+  deploymentMessage = 'Deployment could not be created'
+
+  assert.strictEqual(await run(), undefined)
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'unexpected_error',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    deployment_id: null,
+    environment: 'production',
+    ref: 'test-ref',
+    sha: 'abc123'
+  })
+  assertCalledWith(
+    setFailedMock,
+    'GitHub did not create a deployment: Deployment could not be created'
+  )
+  assertCalledWith(saveStateMock, 'bypass', 'true')
 })
 
 test('fails due to a bad context', async () => {

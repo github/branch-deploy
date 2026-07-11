@@ -1,17 +1,3 @@
-declare module 'nunjucks' {
-  interface ConfigureOptions {
-    autoescape?: boolean
-  }
-
-  interface Nunjucks {
-    configure(options: ConfigureOptions): void
-    render(path: string, context: Record<string, unknown>): string
-  }
-
-  const nunjucks: Nunjucks
-  export default nunjucks
-}
-
 declare module 'yargs-parser' {
   interface Arguments extends Record<string, unknown> {
     _: (number | string)[]

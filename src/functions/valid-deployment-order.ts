@@ -27,6 +27,21 @@ export async function validDeploymentOrder(
 }> {
   core.info(`🚦 deployment order is ${COLORS.highlight}enforced${COLORS.reset}`)
 
+  if (
+    new Set(enforced_deployment_order).size !== enforced_deployment_order.length
+  ) {
+    throw new Error(
+      'The enforced deployment order contains duplicate environments'
+    )
+  }
+
+  const environmentIndex = enforced_deployment_order.indexOf(environment)
+  if (environmentIndex === -1) {
+    throw new Error(
+      `The requested environment is not present in the enforced deployment order: ${environment}`
+    )
+  }
+
   if (enforced_deployment_order.length === 1) {
     core.warning(
       `💡 Having only one environment in the enforced deployment order will always cause the deployment order checks to pass if the environment names match. This is likely not what you want. Please either unset the enforced deployment order or add more environments to it.`
@@ -46,7 +61,7 @@ export async function validDeploymentOrder(
   // determine all the previous environments in the enforced deployment order prior to the current environment
   const previous_environments = enforced_deployment_order.slice(
     0,
-    enforced_deployment_order.indexOf(environment)
+    environmentIndex
   )
 
   core.debug(

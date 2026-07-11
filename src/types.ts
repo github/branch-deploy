@@ -258,9 +258,16 @@ export interface PrecheckSuccess {
 export type PrecheckResult = PrecheckFailure | PrecheckSuccess
 
 export interface CheckRunResult {
+  readonly checkSuite?: {
+    readonly app: null | {readonly databaseId: number | null}
+  }
+  readonly completedAt?: string | null
   readonly conclusion: string | null
+  readonly databaseId?: number | null
+  readonly id?: string
   readonly isRequired: boolean
   readonly name: string
+  readonly startedAt?: string
 }
 
 export interface LegacyIncompleteCheckRunResult {
@@ -271,12 +278,28 @@ export interface LegacyIncompleteCheckRunResult {
 
 export interface StatusContextResult {
   readonly context: string
+  readonly createdAt?: string
+  readonly id?: string
   readonly isRequired: boolean
   readonly state: string
+  readonly updatedAt?: string
 }
 
 export type CheckResult = CheckRunResult | StatusContextResult
 export type RawCheckResult = CheckResult | LegacyIncompleteCheckRunResult
+
+export interface OperationOutcome {
+  readonly decision: OperationDecision
+  readonly deploymentId?: number | null
+  readonly deploymentType?: OperationDeploymentType | null
+  readonly environment?: string | null
+  readonly error?: unknown
+  readonly operation: Operation
+  readonly reasonCode: OperationReasonCode
+  readonly ref?: string | null
+  readonly runResult: RunResult
+  readonly sha?: string | null
+}
 
 export interface StatusCheckContexts {
   readonly nodes: readonly RawCheckResult[]
@@ -330,25 +353,16 @@ export interface DeploymentGraphqlNode {
   readonly commit: {
     readonly oid: string
   }
+  readonly id?: string
+  readonly payload?: unknown
   readonly state: string
-}
-
-export interface DeploymentGraphqlResult {
-  readonly repository: {
-    readonly deployments: {
-      readonly nodes: readonly DeploymentGraphqlNode[]
-      readonly pageInfo: {
-        readonly endCursor: string | null
-        readonly hasNextPage: boolean
-      }
-    }
-  }
 }
 
 export interface CreatedDeploymentSuccess {
   readonly created_at: string
   readonly id: number
   readonly message?: never
+  readonly sha: string
   readonly statuses_url: string
   readonly updated_at: string
   readonly url: string
@@ -418,6 +432,7 @@ export interface RawPostDeployData {
   readonly review_decision: string | null | undefined
   readonly sha: string | null | undefined
   readonly status: string | null | undefined
+  readonly trusted_sha: string | null | undefined
 }
 
 declare const validatedPostDeployData: unique symbol
@@ -440,6 +455,7 @@ export interface PostDeployData {
   readonly review_decision: string
   readonly sha: string
   readonly status: string
+  readonly trusted_sha: string
   readonly [validatedPostDeployData]: true
 }
 
@@ -483,6 +499,7 @@ export type OperationReasonCode =
   | 'deprecated_command'
   | 'deployment_order_failed'
   | 'deployment_ready'
+  | 'deployment_sha_mismatch'
   | 'help_completed'
   | 'invalid_environment'
   | 'lock_acquired'
@@ -496,6 +513,7 @@ export type OperationReasonCode =
   | 'noop_ready'
   | 'permission_denied'
   | 'prechecks_failed'
+  | 'ref_changed'
   | 'unexpected_error'
   | 'unlock_completed'
   | 'unlock_failed'

@@ -12,6 +12,7 @@ import type {
 
 export interface RunActionRequest {
   readonly actor: string
+  readonly environment?: Readonly<Record<string, string>>
   readonly inputs: Readonly<Record<string, string>>
   readonly mode: 'main' | 'post'
   readonly port: number
@@ -165,6 +166,9 @@ function baseEnvironment(
   for (const [name, value] of Object.entries(inputs)) {
     env[inputEnvName(name)] = value
   }
+  for (const [name, value] of Object.entries(request.environment ?? {})) {
+    env[name] = value
+  }
 
   const eventName = eventNameForMode(request)
   env['CI'] = 'true'
@@ -186,7 +190,11 @@ function baseEnvironment(
   env['GITHUB_RUN_ID'] = '123456789'
   env['GITHUB_RUN_NUMBER'] = '1'
   env['GITHUB_SERVER_URL'] = 'https://github.com'
-  env['GITHUB_SHA'] = request.state.pullRequest.headSha
+  const workflowBranch = request.state.branches.get(
+    request.state.repositoryDefaultBranch
+  )
+  assert.ok(workflowBranch !== undefined, 'missing workflow branch')
+  env['GITHUB_SHA'] = workflowBranch.sha
   env['GITHUB_STATE'] = join(workspace, 'state')
   env['GITHUB_WORKFLOW'] = 'acceptance'
 

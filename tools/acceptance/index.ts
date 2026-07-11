@@ -361,10 +361,12 @@ function runPost(
   mainResult: AcceptanceRunResult,
   inputs: Readonly<Record<string, string>> = {},
   status: 'failure' | 'success' = 'success',
-  actor = 'GrantBirki'
+  actor = 'GrantBirki',
+  environment: Readonly<Record<string, string>> = {}
 ): Promise<AcceptanceRunResult> {
   return runAction({
     actor,
+    environment,
     inputs,
     mode: 'post',
     port: context.port,
@@ -917,6 +919,30 @@ const scenarios = [
       })
   },
   {
+    name: 'merge deploy retries a failed latest deployment',
+    run: () =>
+      withMockGitHub(
+        'merge deploy retries a failed latest deployment',
+        async context => {
+          seedDeployment(context.state, ACCEPTANCE_SHAS.default)
+          requireDeployment(context).statuses.push({
+            environment: 'production',
+            environmentUrl: null,
+            id: context.state.nextStatusId,
+            state: 'failure'
+          })
+          context.state.nextStatusId += 1
+
+          const result = await runMain(context, {merge_deploy_mode: 'true'})
+
+          assertExit(context, result, 0)
+          assertDecision(context, result, 'continue')
+          assertReason(context, result, 'merge_deploy_required')
+          assertOutput(context, result, 'sha', ACCEPTANCE_SHAS.default)
+        }
+      )
+  },
+  {
     name: 'merge deploy already deployed',
     run: () =>
       withMockGitHub('merge deploy already deployed', async context => {
@@ -929,6 +955,29 @@ const scenarios = [
         assertReason(context, result, 'merge_deploy_not_required')
         assertOutput(context, result, 'continue', 'false')
       })
+  },
+  {
+    name: 'merge deploy retries malformed latest history',
+    run: () =>
+      withMockGitHub(
+        'merge deploy retries malformed latest history',
+        async context => {
+          seedDeployment(context.state, ACCEPTANCE_SHAS.default)
+          const validDeployment = requireDeployment(context)
+          context.state.deployments.unshift({
+            ...validDeployment,
+            id: context.state.nextDeploymentId,
+            payload: '{'
+          })
+          context.state.nextDeploymentId += 1
+
+          const result = await runMain(context, {merge_deploy_mode: 'true'})
+
+          assertExit(context, result, 0)
+          assertDecision(context, result, 'continue')
+          assertReason(context, result, 'merge_deploy_required')
+        }
+      )
   },
   {
     name: 'unlock on merge',
@@ -1234,11 +1283,188 @@ const scenarios = [
       })
   },
   {
+    name: 'trusted deployment template',
+    run: () =>
+      withMockGitHub('trusted deployment template', async context => {
+        const templatePath = '.github/deployment_message.md'
+        context.state.repositoryFiles.set(
+          `${context.state.owner}/${context.state.repo}/${ACCEPTANCE_SHAS.default}/${templatePath}`,
+          '### Trusted {{ environment }}\n\n{{ results }}\n\nTriggered by {{ actor }}'
+        )
+        setTriggerComment(context.state, '.deploy')
+
+        const mainResult = await runMain(context)
+        assertExit(context, mainResult, 0)
+        const postResult = await runPost(
+          context,
+          mainResult,
+          {deploy_message_path: templatePath},
+          'success',
+          'GrantBirki',
+          {DEPLOY_MESSAGE: 'deployed {{ actor }} unchanged'}
+        )
+
+        assertExit(context, postResult, 0)
+        assertCommentIncludes(context, '### Trusted production')
+        assertCommentIncludes(context, 'deployed {{ actor }} unchanged')
+        const templateRoute = requireRoute(
+          context,
+          'GET',
+          apiPath(`/contents/${encodeURIComponent(templatePath)}`)
+        )
+        assert.equal(
+          templateRoute.query,
+          `?ref=${ACCEPTANCE_SHAS.default}`,
+          diagnostics(context, postResult)
+        )
+      })
+  },
+  {
+    name: 'mutable ref movement rejection',
+    run: () =>
+      withMockGitHub('mutable ref movement rejection', async context => {
+        setTriggerComment(context.state, '.deploy')
+        context.state.pullRequestMoveSha = ACCEPTANCE_SHAS.default
+
+        const result = await runMain(context)
+
+        assertExit(context, result, 1)
+        assertReason(context, result, 'ref_changed')
+        assertNoDeployment(context, result)
+        assert.equal(
+          context.state.branches.has(lockBranch('production')),
+          false,
+          diagnostics(context, result)
+        )
+      })
+  },
+  {
+    name: 'late mutable ref movement rejection',
+    run: () =>
+      withMockGitHub('late mutable ref movement rejection', async context => {
+        setTriggerComment(context.state, '.deploy')
+        context.state.pullRequestMoveAfterReads = 3
+        context.state.pullRequestMoveSha = ACCEPTANCE_SHAS.default
+
+        const result = await runMain(context)
+
+        assertExit(context, result, 1)
+        assertReason(context, result, 'ref_changed')
+        assertNoDeployment(context, result)
+        assert.equal(
+          context.state.branches.has(lockBranch('production')),
+          false,
+          diagnostics(context, result)
+        )
+      })
+  },
+  {
+    name: 'deployment SHA mismatch rejection',
+    run: () =>
+      withMockGitHub('deployment SHA mismatch rejection', async context => {
+        setTriggerComment(context.state, '.deploy')
+        context.state.deploymentResponseSha = ACCEPTANCE_SHAS.default
+
+        const result = await runMain(context)
+
+        assertExit(context, result, 1)
+        assertReason(context, result, 'deployment_sha_mismatch')
+        const deployment = requireDeployment(context)
+        assert.equal(
+          requireDeploymentStatus(context, deployment, 0).state,
+          'error'
+        )
+        assert.equal(
+          context.state.branches.has(lockBranch('production')),
+          false,
+          diagnostics(context, result)
+        )
+      })
+  },
+  {
+    name: 'successful CI rerun replaces failure',
+    run: () =>
+      withMockGitHub('successful CI rerun replaces failure', async context => {
+        setTriggerComment(context.state, '.deploy')
+        context.state.rollupState = 'FAILURE'
+        context.state.rollupContexts = [
+          {
+            completedAt: '2026-01-01T00:01:00Z',
+            conclusion: 'FAILURE',
+            databaseId: 1,
+            integrationId: 1,
+            isRequired: true,
+            name: 'acceptance',
+            type: 'check-run'
+          },
+          {
+            completedAt: '2026-01-01T00:02:00Z',
+            conclusion: 'SUCCESS',
+            databaseId: 2,
+            integrationId: 1,
+            isRequired: true,
+            name: 'acceptance',
+            type: 'check-run'
+          }
+        ]
+
+        const result = await runMain(context)
+
+        assertExit(context, result, 0)
+        assertReason(context, result, 'deployment_ready')
+        assertOutput(context, result, 'commit_status', 'SUCCESS')
+      })
+  },
+  {
+    name: 'pending CI rerun replaces success',
+    run: () =>
+      withMockGitHub('pending CI rerun replaces success', async context => {
+        setTriggerComment(context.state, '.deploy')
+        context.state.rollupState = 'SUCCESS'
+        context.state.rollupContexts = [
+          {
+            completedAt: '2026-01-01T00:03:00Z',
+            conclusion: 'SUCCESS',
+            databaseId: 1,
+            integrationId: 1,
+            isRequired: true,
+            name: 'acceptance',
+            startedAt: '2026-01-01T00:00:00Z',
+            type: 'check-run'
+          },
+          {
+            conclusion: null,
+            databaseId: 2,
+            integrationId: 1,
+            isRequired: true,
+            name: 'acceptance',
+            startedAt: '2026-01-01T00:01:00Z',
+            type: 'check-run'
+          }
+        ]
+
+        const result = await runMain(context)
+
+        assertExit(context, result, 1)
+        assertReason(context, result, 'prechecks_failed')
+        assertOutput(context, result, 'commit_status', 'PENDING')
+        assertNoDeployment(context, result)
+      })
+  },
+  {
     name: 'CI failure rejection',
     run: () =>
       withMockGitHub('CI failure rejection', async context => {
         setTriggerComment(context.state, '.deploy')
         context.state.rollupState = 'FAILURE'
+        context.state.rollupContexts = [
+          {
+            conclusion: 'FAILURE',
+            isRequired: true,
+            name: 'acceptance',
+            type: 'check-run'
+          }
+        ]
 
         const result = await runMain(context)
 
@@ -1255,6 +1481,14 @@ const scenarios = [
       withMockGitHub('CI pending rejection', async context => {
         setTriggerComment(context.state, '.deploy')
         context.state.rollupState = 'PENDING'
+        context.state.rollupContexts = [
+          {
+            conclusion: null,
+            isRequired: true,
+            name: 'acceptance',
+            type: 'check-run'
+          }
+        ]
 
         const result = await runMain(context)
 
@@ -1328,6 +1562,14 @@ const scenarios = [
         setTriggerComment(context.state, '.noop')
         context.state.reviewDecision = 'REVIEW_REQUIRED'
         context.state.rollupState = 'PENDING'
+        context.state.rollupContexts = [
+          {
+            conclusion: null,
+            isRequired: true,
+            name: 'acceptance',
+            type: 'check-run'
+          }
+        ]
 
         const result = await runMain(context)
 
@@ -1338,6 +1580,89 @@ const scenarios = [
         assertNoDeployment(context, result)
         assertCommentIncludes(context, 'CI checks must be passing')
       })
+  },
+  {
+    name: 'deployment order passes at selected SHA',
+    run: () =>
+      withMockGitHub(
+        'deployment order passes at selected SHA',
+        async context => {
+          seedDeployment(context.state, ACCEPTANCE_SHAS.feature, 'development')
+          setTriggerComment(context.state, '.deploy')
+
+          const result = await runMain(context, {
+            enforced_deployment_order: 'development,production'
+          })
+
+          assertExit(context, result, 0)
+          assertReason(context, result, 'deployment_ready')
+        }
+      )
+  },
+  {
+    name: 'deployment order rejects newest failed deployment',
+    run: () =>
+      withMockGitHub(
+        'deployment order rejects newest failed deployment',
+        async context => {
+          seedDeployment(context.state, ACCEPTANCE_SHAS.feature, 'development')
+          requireDeployment(context).statuses.push({
+            environment: 'development',
+            environmentUrl: null,
+            id: context.state.nextStatusId,
+            state: 'failure'
+          })
+          context.state.nextStatusId += 1
+          setTriggerComment(context.state, '.deploy')
+
+          const result = await runMain(context, {
+            enforced_deployment_order: 'development,production'
+          })
+
+          assertExit(context, result, 1)
+          assertReason(context, result, 'deployment_order_failed')
+          assertOutput(context, result, 'needs_to_be_deployed', 'development')
+          assert.equal(context.state.deployments.length, 1)
+        }
+      )
+  },
+  {
+    name: 'deployment order rejects duplicate configuration',
+    run: () =>
+      withMockGitHub(
+        'deployment order rejects duplicate configuration',
+        async context => {
+          setTriggerComment(context.state, '.deploy')
+
+          const result = await runMain(context, {
+            enforced_deployment_order: 'production,production'
+          })
+
+          assertExit(context, result, 1)
+          assertReason(context, result, 'deployment_order_failed')
+          assertCommentIncludes(context, 'contains duplicate environments')
+          assertNoDeployment(context, result)
+        }
+      )
+  },
+  {
+    name: 'deployment order rejects missing requested environment',
+    run: () =>
+      withMockGitHub(
+        'deployment order rejects missing requested environment',
+        async context => {
+          setTriggerComment(context.state, '.deploy')
+
+          const result = await runMain(context, {
+            enforced_deployment_order: 'development,staging'
+          })
+
+          assertExit(context, result, 1)
+          assertReason(context, result, 'deployment_order_failed')
+          assertCommentIncludes(context, 'requested environment is not present')
+          assertNoDeployment(context, result)
+        }
+      )
   },
   {
     name: 'outdated branch warn mode rejects',
@@ -1611,7 +1936,9 @@ const scenarios = [
         const query =
           'query($repo_owner:String!,$repo_name:String!,$environment:String!){repository(owner:$repo_owner,name:$repo_name){deployments(environments:[$environment],first:100,after:null,orderBy: { field: CREATED_AT, direction: DESC }){nodes{id state}}}}'
         const variables = {
+          cursor: null,
           environment: 'production',
+          first: 100,
           repo_name: ACCEPTANCE_REPOSITORY.repo,
           repo_owner: ACCEPTANCE_REPOSITORY.owner
         }
@@ -1895,6 +2222,47 @@ const scenarios = [
           true,
           diagnostics(context)
         )
+
+        const invalidDeploymentCursor = await requestMockRoute(
+          context.port,
+          '/graphql',
+          'POST',
+          {
+            query: deploymentQuery,
+            variables: {
+              cursor: 1,
+              environment: 'production',
+              first: 100,
+              repo_name: ACCEPTANCE_REPOSITORY.repo,
+              repo_owner: ACCEPTANCE_REPOSITORY.owner
+            }
+          }
+        )
+        assert.equal(invalidDeploymentCursor.status, 500, diagnostics(context))
+        assert.equal(
+          invalidDeploymentCursor.body.includes(
+            'unexpected deployment GraphQL cursor variable'
+          ),
+          true,
+          diagnostics(context)
+        )
+
+        const listedDeployments = await getMockRoute(
+          context.port,
+          route('/deployments')
+        )
+        assert.equal(listedDeployments.status, 200, diagnostics(context))
+        assert.equal(
+          listedDeployments.body.includes(String(deployment.id)),
+          true,
+          diagnostics(context)
+        )
+        const filteredDeployments = await getMockRoute(
+          context.port,
+          `${route('/deployments')}?environment=missing`
+        )
+        assert.equal(filteredDeployments.status, 200, diagnostics(context))
+        assert.equal(filteredDeployments.body, '[]', diagnostics(context))
 
         const missingPart = await getMockRoute(context.port, '/repos')
         assert.equal(missingPart.status, 500, diagnostics(context))

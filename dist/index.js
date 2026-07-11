@@ -844,276 +844,6 @@ class DecodedURL extends URL {
 
 /***/ }),
 
-/***/ 7330:
-/***/ (function(module) {
-
-// MIT license (by Elan Shanker).
-(function(globals) {
-  'use strict';
-
-  var executeSync = function(){
-    var args = Array.prototype.slice.call(arguments);
-    if (typeof args[0] === 'function'){
-      args[0].apply(null, args.splice(1));
-    }
-  };
-
-  var executeAsync = function(fn){
-    if (typeof setImmediate === 'function') {
-      setImmediate(fn);
-    } else if (typeof process !== 'undefined' && process.nextTick) {
-      process.nextTick(fn);
-    } else {
-      setTimeout(fn, 0);
-    }
-  };
-
-  var makeIterator = function (tasks) {
-    var makeCallback = function (index) {
-      var fn = function () {
-        if (tasks.length) {
-          tasks[index].apply(null, arguments);
-        }
-        return fn.next();
-      };
-      fn.next = function () {
-        return (index < tasks.length - 1) ? makeCallback(index + 1): null;
-      };
-      return fn;
-    };
-    return makeCallback(0);
-  };
-  
-  var _isArray = Array.isArray || function(maybeArray){
-    return Object.prototype.toString.call(maybeArray) === '[object Array]';
-  };
-
-  var waterfall = function (tasks, callback, forceAsync) {
-    var nextTick = forceAsync ? executeAsync : executeSync;
-    callback = callback || function () {};
-    if (!_isArray(tasks)) {
-      var err = new Error('First argument to waterfall must be an array of functions');
-      return callback(err);
-    }
-    if (!tasks.length) {
-      return callback();
-    }
-    var wrapIterator = function (iterator) {
-      return function (err) {
-        if (err) {
-          callback.apply(null, arguments);
-          callback = function () {};
-        } else {
-          var args = Array.prototype.slice.call(arguments, 1);
-          var next = iterator.next();
-          if (next) {
-            args.push(wrapIterator(next));
-          } else {
-            args.push(callback);
-          }
-          nextTick(function () {
-            iterator.apply(null, args);
-          });
-        }
-      };
-    };
-    wrapIterator(makeIterator(tasks))();
-  };
-
-  if (typeof define !== 'undefined' && define.amd) {
-    define([], function () {
-      return waterfall;
-    }); // RequireJS
-  } else if ( true && module.exports) {
-    module.exports = waterfall; // CommonJS
-  } else {
-    globals.waterfall = waterfall; // <script>
-  }
-})(this);
-
-
-/***/ }),
-
-/***/ 336:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-var rawAsap = __nccwpck_require__(7151);
-var freeTasks = [];
-
-/**
- * Calls a task as soon as possible after returning, in its own event, with
- * priority over IO events. An exception thrown in a task can be handled by
- * `process.on("uncaughtException") or `domain.on("error")`, but will otherwise
- * crash the process. If the error is handled, all subsequent tasks will
- * resume.
- *
- * @param {{call}} task A callable object, typically a function that takes no
- * arguments.
- */
-module.exports = asap;
-function asap(task) {
-    var rawTask;
-    if (freeTasks.length) {
-        rawTask = freeTasks.pop();
-    } else {
-        rawTask = new RawTask();
-    }
-    rawTask.task = task;
-    rawTask.domain = process.domain;
-    rawAsap(rawTask);
-}
-
-function RawTask() {
-    this.task = null;
-    this.domain = null;
-}
-
-RawTask.prototype.call = function () {
-    if (this.domain) {
-        this.domain.enter();
-    }
-    var threw = true;
-    try {
-        this.task.call();
-        threw = false;
-        // If the task throws an exception (presumably) Node.js restores the
-        // domain stack for the next event.
-        if (this.domain) {
-            this.domain.exit();
-        }
-    } finally {
-        // We use try/finally and a threw flag to avoid messing up stack traces
-        // when we catch and release errors.
-        if (threw) {
-            // In Node.js, uncaught exceptions are considered fatal errors.
-            // Re-throw them to interrupt flushing!
-            // Ensure that flushing continues if an uncaught exception is
-            // suppressed listening process.on("uncaughtException") or
-            // domain.on("error").
-            rawAsap.requestFlush();
-        }
-        // If the task threw an error, we do not want to exit the domain here.
-        // Exiting the domain would prevent the domain from catching the error.
-        this.task = null;
-        this.domain = null;
-        freeTasks.push(this);
-    }
-};
-
-
-
-/***/ }),
-
-/***/ 7151:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-var domain; // The domain module is executed on demand
-var hasSetImmediate = typeof setImmediate === "function";
-
-// Use the fastest means possible to execute a task in its own turn, with
-// priority over other events including network IO events in Node.js.
-//
-// An exception thrown by a task will permanently interrupt the processing of
-// subsequent tasks. The higher level `asap` function ensures that if an
-// exception is thrown by a task, that the task queue will continue flushing as
-// soon as possible, but if you use `rawAsap` directly, you are responsible to
-// either ensure that no exceptions are thrown from your task, or to manually
-// call `rawAsap.requestFlush` if an exception is thrown.
-module.exports = rawAsap;
-function rawAsap(task) {
-    if (!queue.length) {
-        requestFlush();
-        flushing = true;
-    }
-    // Avoids a function call
-    queue[queue.length] = task;
-}
-
-var queue = [];
-// Once a flush has been requested, no further calls to `requestFlush` are
-// necessary until the next `flush` completes.
-var flushing = false;
-// The position of the next task to execute in the task queue. This is
-// preserved between calls to `flush` so that it can be resumed if
-// a task throws an exception.
-var index = 0;
-// If a task schedules additional tasks recursively, the task queue can grow
-// unbounded. To prevent memory excaustion, the task queue will periodically
-// truncate already-completed tasks.
-var capacity = 1024;
-
-// The flush function processes all tasks that have been scheduled with
-// `rawAsap` unless and until one of those tasks throws an exception.
-// If a task throws an exception, `flush` ensures that its state will remain
-// consistent and will resume where it left off when called again.
-// However, `flush` does not make any arrangements to be called again if an
-// exception is thrown.
-function flush() {
-    while (index < queue.length) {
-        var currentIndex = index;
-        // Advance the index before calling the task. This ensures that we will
-        // begin flushing on the next task the task throws an error.
-        index = index + 1;
-        queue[currentIndex].call();
-        // Prevent leaking memory for long chains of recursive calls to `asap`.
-        // If we call `asap` within tasks scheduled by `asap`, the queue will
-        // grow, but to avoid an O(n) walk for every task we execute, we don't
-        // shift tasks off the queue after they have been executed.
-        // Instead, we periodically shift 1024 tasks off the queue.
-        if (index > capacity) {
-            // Manually shift all values starting at the index back to the
-            // beginning of the queue.
-            for (var scan = 0, newLength = queue.length - index; scan < newLength; scan++) {
-                queue[scan] = queue[scan + index];
-            }
-            queue.length -= index;
-            index = 0;
-        }
-    }
-    queue.length = 0;
-    index = 0;
-    flushing = false;
-}
-
-rawAsap.requestFlush = requestFlush;
-function requestFlush() {
-    // Ensure flushing is not bound to any domain.
-    // It is not sufficient to exit the domain, because domains exist on a stack.
-    // To execute code outside of any domain, the following dance is necessary.
-    var parentDomain = process.domain;
-    if (parentDomain) {
-        if (!domain) {
-            // Lazy execute the domain module.
-            // Only employed if the user elects to use domains.
-            domain = __nccwpck_require__(3167);
-        }
-        domain.active = process.domain = null;
-    }
-
-    // `setImmediate` is slower that `process.nextTick`, but `process.nextTick`
-    // cannot handle recursion.
-    // `requestFlush` will only be called recursively from `asap.js`, to resume
-    // flushing after an error is thrown into a domain.
-    // Conveniently, `setImmediate` was introduced in the same version
-    // `process.nextTick` started throwing recursion errors.
-    if (flushing && hasSetImmediate) {
-        setImmediate(flush);
-    } else {
-        process.nextTick(flush);
-    }
-
-    if (parentDomain) {
-        domain.active = process.domain = parentDomain;
-    }
-}
-
-
-/***/ }),
-
 /***/ 3251:
 /***/ (function(module) {
 
@@ -2641,6078 +2371,6 @@ function requestFlush() {
 
 })));
 
-
-/***/ }),
-
-/***/ 8115:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-var lib = __nccwpck_require__(7853);
-var _require = __nccwpck_require__(4499),
-  Environment = _require.Environment,
-  Template = _require.Template;
-var Loader = __nccwpck_require__(3391);
-var loaders = __nccwpck_require__(2650);
-var precompile = __nccwpck_require__(4586);
-var compiler = __nccwpck_require__(8993);
-var parser = __nccwpck_require__(715);
-var lexer = __nccwpck_require__(8852);
-var runtime = __nccwpck_require__(9846);
-var nodes = __nccwpck_require__(6151);
-var installJinjaCompat = __nccwpck_require__(85);
-
-// A single instance of an environment, since this is so commonly used
-var e;
-function configure(templatesPath, opts) {
-  opts = opts || {};
-  if (lib.isObject(templatesPath)) {
-    opts = templatesPath;
-    templatesPath = null;
-  }
-  var TemplateLoader;
-  if (loaders.FileSystemLoader) {
-    TemplateLoader = new loaders.FileSystemLoader(templatesPath, {
-      watch: opts.watch,
-      noCache: opts.noCache
-    });
-  } else if (loaders.WebLoader) {
-    TemplateLoader = new loaders.WebLoader(templatesPath, {
-      useCache: opts.web && opts.web.useCache,
-      async: opts.web && opts.web.async
-    });
-  }
-  e = new Environment(TemplateLoader, opts);
-  if (opts && opts.express) {
-    e.express(opts.express);
-  }
-  return e;
-}
-module.exports = {
-  Environment: Environment,
-  Template: Template,
-  Loader: Loader,
-  FileSystemLoader: loaders.FileSystemLoader,
-  NodeResolveLoader: loaders.NodeResolveLoader,
-  PrecompiledLoader: loaders.PrecompiledLoader,
-  WebLoader: loaders.WebLoader,
-  compiler: compiler,
-  parser: parser,
-  lexer: lexer,
-  runtime: runtime,
-  lib: lib,
-  nodes: nodes,
-  installJinjaCompat: installJinjaCompat,
-  configure: configure,
-  reset: function reset() {
-    e = undefined;
-  },
-  compile: function compile(src, env, path, eagerCompile) {
-    if (!e) {
-      configure();
-    }
-    return new Template(src, env, path, eagerCompile);
-  },
-  render: function render(name, ctx, cb) {
-    if (!e) {
-      configure();
-    }
-    return e.render(name, ctx, cb);
-  },
-  renderString: function renderString(src, ctx, cb) {
-    if (!e) {
-      configure();
-    }
-    return e.renderString(src, ctx, cb);
-  },
-  precompile: precompile ? precompile.precompile : undefined,
-  precompileString: precompile ? precompile.precompileString : undefined
-};
-
-/***/ }),
-
-/***/ 8993:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-function _inheritsLoose(subClass, superClass) { subClass.prototype = Object.create(superClass.prototype); subClass.prototype.constructor = subClass; _setPrototypeOf(subClass, superClass); }
-function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
-var parser = __nccwpck_require__(715);
-var transformer = __nccwpck_require__(6297);
-var nodes = __nccwpck_require__(6151);
-var _require = __nccwpck_require__(7853),
-  TemplateError = _require.TemplateError;
-var _require2 = __nccwpck_require__(9846),
-  Frame = _require2.Frame;
-var _require3 = __nccwpck_require__(9695),
-  Obj = _require3.Obj;
-
-// These are all the same for now, but shouldn't be passed straight
-// through
-var compareOps = {
-  '==': '==',
-  '===': '===',
-  '!=': '!=',
-  '!==': '!==',
-  '<': '<',
-  '>': '>',
-  '<=': '<=',
-  '>=': '>='
-};
-var Compiler = /*#__PURE__*/function (_Obj) {
-  _inheritsLoose(Compiler, _Obj);
-  function Compiler() {
-    return _Obj.apply(this, arguments) || this;
-  }
-  var _proto = Compiler.prototype;
-  _proto.init = function init(templateName, throwOnUndefined) {
-    this.templateName = templateName;
-    this.codebuf = [];
-    this.lastId = 0;
-    this.buffer = null;
-    this.bufferStack = [];
-    this._scopeClosers = '';
-    this.inBlock = false;
-    this.throwOnUndefined = throwOnUndefined;
-  };
-  _proto.fail = function fail(msg, lineno, colno) {
-    if (lineno !== undefined) {
-      lineno += 1;
-    }
-    if (colno !== undefined) {
-      colno += 1;
-    }
-    throw new TemplateError(msg, lineno, colno);
-  };
-  _proto._pushBuffer = function _pushBuffer() {
-    var id = this._tmpid();
-    this.bufferStack.push(this.buffer);
-    this.buffer = id;
-    this._emit("var " + this.buffer + " = \"\";");
-    return id;
-  };
-  _proto._popBuffer = function _popBuffer() {
-    this.buffer = this.bufferStack.pop();
-  };
-  _proto._emit = function _emit(code) {
-    this.codebuf.push(code);
-  };
-  _proto._emitLine = function _emitLine(code) {
-    this._emit(code + '\n');
-  };
-  _proto._emitLines = function _emitLines() {
-    var _this = this;
-    for (var _len = arguments.length, lines = new Array(_len), _key = 0; _key < _len; _key++) {
-      lines[_key] = arguments[_key];
-    }
-    lines.forEach(function (line) {
-      return _this._emitLine(line);
-    });
-  };
-  _proto._emitFuncBegin = function _emitFuncBegin(node, name) {
-    this.buffer = 'output';
-    this._scopeClosers = '';
-    this._emitLine("function " + name + "(env, context, frame, runtime, cb) {");
-    this._emitLine("var lineno = " + node.lineno + ";");
-    this._emitLine("var colno = " + node.colno + ";");
-    this._emitLine("var " + this.buffer + " = \"\";");
-    this._emitLine('try {');
-  };
-  _proto._emitFuncEnd = function _emitFuncEnd(noReturn) {
-    if (!noReturn) {
-      this._emitLine('cb(null, ' + this.buffer + ');');
-    }
-    this._closeScopeLevels();
-    this._emitLine('} catch (e) {');
-    this._emitLine('  cb(runtime.handleError(e, lineno, colno));');
-    this._emitLine('}');
-    this._emitLine('}');
-    this.buffer = null;
-  };
-  _proto._addScopeLevel = function _addScopeLevel() {
-    this._scopeClosers += '})';
-  };
-  _proto._closeScopeLevels = function _closeScopeLevels() {
-    this._emitLine(this._scopeClosers + ';');
-    this._scopeClosers = '';
-  };
-  _proto._withScopedSyntax = function _withScopedSyntax(func) {
-    var _scopeClosers = this._scopeClosers;
-    this._scopeClosers = '';
-    func.call(this);
-    this._closeScopeLevels();
-    this._scopeClosers = _scopeClosers;
-  };
-  _proto._makeCallback = function _makeCallback(res) {
-    var err = this._tmpid();
-    return 'function(' + err + (res ? ',' + res : '') + ') {\n' + 'if(' + err + ') { cb(' + err + '); return; }';
-  };
-  _proto._tmpid = function _tmpid() {
-    this.lastId++;
-    return 't_' + this.lastId;
-  };
-  _proto._templateName = function _templateName() {
-    return this.templateName == null ? 'undefined' : JSON.stringify(this.templateName);
-  };
-  _proto._compileChildren = function _compileChildren(node, frame) {
-    var _this2 = this;
-    node.children.forEach(function (child) {
-      _this2.compile(child, frame);
-    });
-  };
-  _proto._compileAggregate = function _compileAggregate(node, frame, startChar, endChar) {
-    var _this3 = this;
-    if (startChar) {
-      this._emit(startChar);
-    }
-    node.children.forEach(function (child, i) {
-      if (i > 0) {
-        _this3._emit(',');
-      }
-      _this3.compile(child, frame);
-    });
-    if (endChar) {
-      this._emit(endChar);
-    }
-  };
-  _proto._compileExpression = function _compileExpression(node, frame) {
-    // TODO: I'm not really sure if this type check is worth it or
-    // not.
-    this.assertType(node, nodes.Literal, nodes.Symbol, nodes.Group, nodes.Array, nodes.Dict, nodes.FunCall, nodes.Caller, nodes.Filter, nodes.LookupVal, nodes.Compare, nodes.InlineIf, nodes.In, nodes.Is, nodes.And, nodes.Or, nodes.Not, nodes.Add, nodes.Concat, nodes.Sub, nodes.Mul, nodes.Div, nodes.FloorDiv, nodes.Mod, nodes.Pow, nodes.Neg, nodes.Pos, nodes.Compare, nodes.NodeList);
-    this.compile(node, frame);
-  };
-  _proto.assertType = function assertType(node) {
-    for (var _len2 = arguments.length, types = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
-      types[_key2 - 1] = arguments[_key2];
-    }
-    if (!types.some(function (t) {
-      return node instanceof t;
-    })) {
-      this.fail("assertType: invalid type: " + node.typename, node.lineno, node.colno);
-    }
-  };
-  _proto.compileCallExtension = function compileCallExtension(node, frame, async) {
-    var _this4 = this;
-    var args = node.args;
-    var contentArgs = node.contentArgs;
-    var autoescape = typeof node.autoescape === 'boolean' ? node.autoescape : true;
-    if (!async) {
-      this._emit(this.buffer + " += runtime.suppressValue(");
-    }
-    this._emit("env.getExtension(\"" + node.extName + "\")[\"" + node.prop + "\"](");
-    this._emit('context');
-    if (args || contentArgs) {
-      this._emit(',');
-    }
-    if (args) {
-      if (!(args instanceof nodes.NodeList)) {
-        this.fail('compileCallExtension: arguments must be a NodeList, ' + 'use `parser.parseSignature`');
-      }
-      args.children.forEach(function (arg, i) {
-        // Tag arguments are passed normally to the call. Note
-        // that keyword arguments are turned into a single js
-        // object as the last argument, if they exist.
-        _this4._compileExpression(arg, frame);
-        if (i !== args.children.length - 1 || contentArgs.length) {
-          _this4._emit(',');
-        }
-      });
-    }
-    if (contentArgs.length) {
-      contentArgs.forEach(function (arg, i) {
-        if (i > 0) {
-          _this4._emit(',');
-        }
-        if (arg) {
-          _this4._emitLine('function(cb) {');
-          _this4._emitLine('if(!cb) { cb = function(err) { if(err) { throw err; }}}');
-          var id = _this4._pushBuffer();
-          _this4._withScopedSyntax(function () {
-            _this4.compile(arg, frame);
-            _this4._emitLine("cb(null, " + id + ");");
-          });
-          _this4._popBuffer();
-          _this4._emitLine("return " + id + ";");
-          _this4._emitLine('}');
-        } else {
-          _this4._emit('null');
-        }
-      });
-    }
-    if (async) {
-      var res = this._tmpid();
-      this._emitLine(', ' + this._makeCallback(res));
-      this._emitLine(this.buffer + " += runtime.suppressValue(" + res + ", " + autoescape + " && env.opts.autoescape);");
-      this._addScopeLevel();
-    } else {
-      this._emit(')');
-      this._emit(", " + autoescape + " && env.opts.autoescape);\n");
-    }
-  };
-  _proto.compileCallExtensionAsync = function compileCallExtensionAsync(node, frame) {
-    this.compileCallExtension(node, frame, true);
-  };
-  _proto.compileNodeList = function compileNodeList(node, frame) {
-    this._compileChildren(node, frame);
-  };
-  _proto.compileLiteral = function compileLiteral(node) {
-    if (typeof node.value === 'string') {
-      var val = node.value.replace(/\\/g, '\\\\');
-      val = val.replace(/"/g, '\\"');
-      val = val.replace(/\n/g, '\\n');
-      val = val.replace(/\r/g, '\\r');
-      val = val.replace(/\t/g, '\\t');
-      val = val.replace(/\u2028/g, "\\u2028");
-      this._emit("\"" + val + "\"");
-    } else if (node.value === null) {
-      this._emit('null');
-    } else {
-      this._emit(node.value.toString());
-    }
-  };
-  _proto.compileSymbol = function compileSymbol(node, frame) {
-    var name = node.value;
-    var v = frame.lookup(name);
-    if (v) {
-      this._emit(v);
-    } else {
-      this._emit('runtime.contextOrFrameLookup(' + 'context, frame, "' + name + '")');
-    }
-  };
-  _proto.compileGroup = function compileGroup(node, frame) {
-    this._compileAggregate(node, frame, '(', ')');
-  };
-  _proto.compileArray = function compileArray(node, frame) {
-    this._compileAggregate(node, frame, '[', ']');
-  };
-  _proto.compileDict = function compileDict(node, frame) {
-    this._compileAggregate(node, frame, '{', '}');
-  };
-  _proto.compilePair = function compilePair(node, frame) {
-    var key = node.key;
-    var val = node.value;
-    if (key instanceof nodes.Symbol) {
-      key = new nodes.Literal(key.lineno, key.colno, key.value);
-    } else if (!(key instanceof nodes.Literal && typeof key.value === 'string')) {
-      this.fail('compilePair: Dict keys must be strings or names', key.lineno, key.colno);
-    }
-    this.compile(key, frame);
-    this._emit(': ');
-    this._compileExpression(val, frame);
-  };
-  _proto.compileInlineIf = function compileInlineIf(node, frame) {
-    this._emit('(');
-    this.compile(node.cond, frame);
-    this._emit('?');
-    this.compile(node.body, frame);
-    this._emit(':');
-    if (node.else_ !== null) {
-      this.compile(node.else_, frame);
-    } else {
-      this._emit('""');
-    }
-    this._emit(')');
-  };
-  _proto.compileIn = function compileIn(node, frame) {
-    this._emit('runtime.inOperator(');
-    this.compile(node.left, frame);
-    this._emit(',');
-    this.compile(node.right, frame);
-    this._emit(')');
-  };
-  _proto.compileIs = function compileIs(node, frame) {
-    // first, we need to try to get the name of the test function, if it's a
-    // callable (i.e., has args) and not a symbol.
-    var right = node.right.name ? node.right.name.value
-    // otherwise go with the symbol value
-    : node.right.value;
-    this._emit('env.getTest("' + right + '").call(context, ');
-    this.compile(node.left, frame);
-    // compile the arguments for the callable if they exist
-    if (node.right.args) {
-      this._emit(',');
-      this.compile(node.right.args, frame);
-    }
-    this._emit(') === true');
-  };
-  _proto._binOpEmitter = function _binOpEmitter(node, frame, str) {
-    this.compile(node.left, frame);
-    this._emit(str);
-    this.compile(node.right, frame);
-  }
-
-  // ensure concatenation instead of addition
-  // by adding empty string in between
-  ;
-  _proto.compileOr = function compileOr(node, frame) {
-    return this._binOpEmitter(node, frame, ' || ');
-  };
-  _proto.compileAnd = function compileAnd(node, frame) {
-    return this._binOpEmitter(node, frame, ' && ');
-  };
-  _proto.compileAdd = function compileAdd(node, frame) {
-    return this._binOpEmitter(node, frame, ' + ');
-  };
-  _proto.compileConcat = function compileConcat(node, frame) {
-    return this._binOpEmitter(node, frame, ' + "" + ');
-  };
-  _proto.compileSub = function compileSub(node, frame) {
-    return this._binOpEmitter(node, frame, ' - ');
-  };
-  _proto.compileMul = function compileMul(node, frame) {
-    return this._binOpEmitter(node, frame, ' * ');
-  };
-  _proto.compileDiv = function compileDiv(node, frame) {
-    return this._binOpEmitter(node, frame, ' / ');
-  };
-  _proto.compileMod = function compileMod(node, frame) {
-    return this._binOpEmitter(node, frame, ' % ');
-  };
-  _proto.compileNot = function compileNot(node, frame) {
-    this._emit('!');
-    this.compile(node.target, frame);
-  };
-  _proto.compileFloorDiv = function compileFloorDiv(node, frame) {
-    this._emit('Math.floor(');
-    this.compile(node.left, frame);
-    this._emit(' / ');
-    this.compile(node.right, frame);
-    this._emit(')');
-  };
-  _proto.compilePow = function compilePow(node, frame) {
-    this._emit('Math.pow(');
-    this.compile(node.left, frame);
-    this._emit(', ');
-    this.compile(node.right, frame);
-    this._emit(')');
-  };
-  _proto.compileNeg = function compileNeg(node, frame) {
-    this._emit('-');
-    this.compile(node.target, frame);
-  };
-  _proto.compilePos = function compilePos(node, frame) {
-    this._emit('+');
-    this.compile(node.target, frame);
-  };
-  _proto.compileCompare = function compileCompare(node, frame) {
-    var _this5 = this;
-    this.compile(node.expr, frame);
-    node.ops.forEach(function (op) {
-      _this5._emit(" " + compareOps[op.type] + " ");
-      _this5.compile(op.expr, frame);
-    });
-  };
-  _proto.compileLookupVal = function compileLookupVal(node, frame) {
-    this._emit('runtime.memberLookup((');
-    this._compileExpression(node.target, frame);
-    this._emit('),');
-    this._compileExpression(node.val, frame);
-    this._emit(')');
-  };
-  _proto._getNodeName = function _getNodeName(node) {
-    switch (node.typename) {
-      case 'Symbol':
-        return node.value;
-      case 'FunCall':
-        return 'the return value of (' + this._getNodeName(node.name) + ')';
-      case 'LookupVal':
-        return this._getNodeName(node.target) + '["' + this._getNodeName(node.val) + '"]';
-      case 'Literal':
-        return node.value.toString();
-      default:
-        return '--expression--';
-    }
-  };
-  _proto.compileFunCall = function compileFunCall(node, frame) {
-    // Keep track of line/col info at runtime by settings
-    // variables within an expression. An expression in javascript
-    // like (x, y, z) returns the last value, and x and y can be
-    // anything
-    this._emit('(lineno = ' + node.lineno + ', colno = ' + node.colno + ', ');
-    this._emit('runtime.callWrap(');
-    // Compile it as normal.
-    this._compileExpression(node.name, frame);
-
-    // Output the name of what we're calling so we can get friendly errors
-    // if the lookup fails.
-    this._emit(', "' + this._getNodeName(node.name).replace(/"/g, '\\"') + '", context, ');
-    this._compileAggregate(node.args, frame, '[', '])');
-    this._emit(')');
-  };
-  _proto.compileFilter = function compileFilter(node, frame) {
-    var name = node.name;
-    this.assertType(name, nodes.Symbol);
-    this._emit('env.getFilter("' + name.value + '").call(context, ');
-    this._compileAggregate(node.args, frame);
-    this._emit(')');
-  };
-  _proto.compileFilterAsync = function compileFilterAsync(node, frame) {
-    var name = node.name;
-    var symbol = node.symbol.value;
-    this.assertType(name, nodes.Symbol);
-    frame.set(symbol, symbol);
-    this._emit('env.getFilter("' + name.value + '").call(context, ');
-    this._compileAggregate(node.args, frame);
-    this._emitLine(', ' + this._makeCallback(symbol));
-    this._addScopeLevel();
-  };
-  _proto.compileKeywordArgs = function compileKeywordArgs(node, frame) {
-    this._emit('runtime.makeKeywordArgs(');
-    this.compileDict(node, frame);
-    this._emit(')');
-  };
-  _proto.compileSet = function compileSet(node, frame) {
-    var _this6 = this;
-    var ids = [];
-
-    // Lookup the variable names for each identifier and create
-    // new ones if necessary
-    node.targets.forEach(function (target) {
-      var name = target.value;
-      var id = frame.lookup(name);
-      if (id === null || id === undefined) {
-        id = _this6._tmpid();
-
-        // Note: This relies on js allowing scope across
-        // blocks, in case this is created inside an `if`
-        _this6._emitLine('var ' + id + ';');
-      }
-      ids.push(id);
-    });
-    if (node.value) {
-      this._emit(ids.join(' = ') + ' = ');
-      this._compileExpression(node.value, frame);
-      this._emitLine(';');
-    } else {
-      this._emit(ids.join(' = ') + ' = ');
-      this.compile(node.body, frame);
-      this._emitLine(';');
-    }
-    node.targets.forEach(function (target, i) {
-      var id = ids[i];
-      var name = target.value;
-
-      // We are running this for every var, but it's very
-      // uncommon to assign to multiple vars anyway
-      _this6._emitLine("frame.set(\"" + name + "\", " + id + ", true);");
-      _this6._emitLine('if(frame.topLevel) {');
-      _this6._emitLine("context.setVariable(\"" + name + "\", " + id + ");");
-      _this6._emitLine('}');
-      if (name.charAt(0) !== '_') {
-        _this6._emitLine('if(frame.topLevel) {');
-        _this6._emitLine("context.addExport(\"" + name + "\", " + id + ");");
-        _this6._emitLine('}');
-      }
-    });
-  };
-  _proto.compileSwitch = function compileSwitch(node, frame) {
-    var _this7 = this;
-    this._emit('switch (');
-    this.compile(node.expr, frame);
-    this._emit(') {');
-    node.cases.forEach(function (c, i) {
-      _this7._emit('case ');
-      _this7.compile(c.cond, frame);
-      _this7._emit(': ');
-      _this7.compile(c.body, frame);
-      // preserve fall-throughs
-      if (c.body.children.length) {
-        _this7._emitLine('break;');
-      }
-    });
-    if (node.default) {
-      this._emit('default:');
-      this.compile(node.default, frame);
-    }
-    this._emit('}');
-  };
-  _proto.compileIf = function compileIf(node, frame, async) {
-    var _this8 = this;
-    this._emit('if(');
-    this._compileExpression(node.cond, frame);
-    this._emitLine(') {');
-    this._withScopedSyntax(function () {
-      _this8.compile(node.body, frame);
-      if (async) {
-        _this8._emit('cb()');
-      }
-    });
-    if (node.else_) {
-      this._emitLine('}\nelse {');
-      this._withScopedSyntax(function () {
-        _this8.compile(node.else_, frame);
-        if (async) {
-          _this8._emit('cb()');
-        }
-      });
-    } else if (async) {
-      this._emitLine('}\nelse {');
-      this._emit('cb()');
-    }
-    this._emitLine('}');
-  };
-  _proto.compileIfAsync = function compileIfAsync(node, frame) {
-    this._emit('(function(cb) {');
-    this.compileIf(node, frame, true);
-    this._emit('})(' + this._makeCallback());
-    this._addScopeLevel();
-  };
-  _proto._emitLoopBindings = function _emitLoopBindings(node, arr, i, len) {
-    var _this9 = this;
-    var bindings = [{
-      name: 'index',
-      val: i + " + 1"
-    }, {
-      name: 'index0',
-      val: i
-    }, {
-      name: 'revindex',
-      val: len + " - " + i
-    }, {
-      name: 'revindex0',
-      val: len + " - " + i + " - 1"
-    }, {
-      name: 'first',
-      val: i + " === 0"
-    }, {
-      name: 'last',
-      val: i + " === " + len + " - 1"
-    }, {
-      name: 'length',
-      val: len
-    }];
-    bindings.forEach(function (b) {
-      _this9._emitLine("frame.set(\"loop." + b.name + "\", " + b.val + ");");
-    });
-  };
-  _proto.compileFor = function compileFor(node, frame) {
-    var _this10 = this;
-    // Some of this code is ugly, but it keeps the generated code
-    // as fast as possible. ForAsync also shares some of this, but
-    // not much.
-
-    var i = this._tmpid();
-    var len = this._tmpid();
-    var arr = this._tmpid();
-    frame = frame.push();
-    this._emitLine('frame = frame.push();');
-    this._emit("var " + arr + " = ");
-    this._compileExpression(node.arr, frame);
-    this._emitLine(';');
-    this._emit("if(" + arr + ") {");
-    this._emitLine(arr + ' = runtime.fromIterator(' + arr + ');');
-
-    // If multiple names are passed, we need to bind them
-    // appropriately
-    if (node.name instanceof nodes.Array) {
-      this._emitLine("var " + i + ";");
-
-      // The object could be an arroy or object. Note that the
-      // body of the loop is duplicated for each condition, but
-      // we are optimizing for speed over size.
-      this._emitLine("if(runtime.isArray(" + arr + ")) {");
-      this._emitLine("var " + len + " = " + arr + ".length;");
-      this._emitLine("for(" + i + "=0; " + i + " < " + arr + ".length; " + i + "++) {");
-
-      // Bind each declared var
-      node.name.children.forEach(function (child, u) {
-        var tid = _this10._tmpid();
-        _this10._emitLine("var " + tid + " = " + arr + "[" + i + "][" + u + "];");
-        _this10._emitLine("frame.set(\"" + child + "\", " + arr + "[" + i + "][" + u + "]);");
-        frame.set(node.name.children[u].value, tid);
-      });
-      this._emitLoopBindings(node, arr, i, len);
-      this._withScopedSyntax(function () {
-        _this10.compile(node.body, frame);
-      });
-      this._emitLine('}');
-      this._emitLine('} else {');
-      // Iterate over the key/values of an object
-      var _node$name$children = node.name.children,
-        key = _node$name$children[0],
-        val = _node$name$children[1];
-      var k = this._tmpid();
-      var v = this._tmpid();
-      frame.set(key.value, k);
-      frame.set(val.value, v);
-      this._emitLine(i + " = -1;");
-      this._emitLine("var " + len + " = runtime.keys(" + arr + ").length;");
-      this._emitLine("for(var " + k + " in " + arr + ") {");
-      this._emitLine(i + "++;");
-      this._emitLine("var " + v + " = " + arr + "[" + k + "];");
-      this._emitLine("frame.set(\"" + key.value + "\", " + k + ");");
-      this._emitLine("frame.set(\"" + val.value + "\", " + v + ");");
-      this._emitLoopBindings(node, arr, i, len);
-      this._withScopedSyntax(function () {
-        _this10.compile(node.body, frame);
-      });
-      this._emitLine('}');
-      this._emitLine('}');
-    } else {
-      // Generate a typical array iteration
-      var _v = this._tmpid();
-      frame.set(node.name.value, _v);
-      this._emitLine("var " + len + " = " + arr + ".length;");
-      this._emitLine("for(var " + i + "=0; " + i + " < " + arr + ".length; " + i + "++) {");
-      this._emitLine("var " + _v + " = " + arr + "[" + i + "];");
-      this._emitLine("frame.set(\"" + node.name.value + "\", " + _v + ");");
-      this._emitLoopBindings(node, arr, i, len);
-      this._withScopedSyntax(function () {
-        _this10.compile(node.body, frame);
-      });
-      this._emitLine('}');
-    }
-    this._emitLine('}');
-    if (node.else_) {
-      this._emitLine('if (!' + len + ') {');
-      this.compile(node.else_, frame);
-      this._emitLine('}');
-    }
-    this._emitLine('frame = frame.pop();');
-  };
-  _proto._compileAsyncLoop = function _compileAsyncLoop(node, frame, parallel) {
-    var _this11 = this;
-    // This shares some code with the For tag, but not enough to
-    // worry about. This iterates across an object asynchronously,
-    // but not in parallel.
-
-    var i = this._tmpid();
-    var len = this._tmpid();
-    var arr = this._tmpid();
-    var asyncMethod = parallel ? 'asyncAll' : 'asyncEach';
-    frame = frame.push();
-    this._emitLine('frame = frame.push();');
-    this._emit('var ' + arr + ' = runtime.fromIterator(');
-    this._compileExpression(node.arr, frame);
-    this._emitLine(');');
-    if (node.name instanceof nodes.Array) {
-      var arrayLen = node.name.children.length;
-      this._emit("runtime." + asyncMethod + "(" + arr + ", " + arrayLen + ", function(");
-      node.name.children.forEach(function (name) {
-        _this11._emit(name.value + ",");
-      });
-      this._emit(i + ',' + len + ',next) {');
-      node.name.children.forEach(function (name) {
-        var id = name.value;
-        frame.set(id, id);
-        _this11._emitLine("frame.set(\"" + id + "\", " + id + ");");
-      });
-    } else {
-      var id = node.name.value;
-      this._emitLine("runtime." + asyncMethod + "(" + arr + ", 1, function(" + id + ", " + i + ", " + len + ",next) {");
-      this._emitLine('frame.set("' + id + '", ' + id + ');');
-      frame.set(id, id);
-    }
-    this._emitLoopBindings(node, arr, i, len);
-    this._withScopedSyntax(function () {
-      var buf;
-      if (parallel) {
-        buf = _this11._pushBuffer();
-      }
-      _this11.compile(node.body, frame);
-      _this11._emitLine('next(' + i + (buf ? ',' + buf : '') + ');');
-      if (parallel) {
-        _this11._popBuffer();
-      }
-    });
-    var output = this._tmpid();
-    this._emitLine('}, ' + this._makeCallback(output));
-    this._addScopeLevel();
-    if (parallel) {
-      this._emitLine(this.buffer + ' += ' + output + ';');
-    }
-    if (node.else_) {
-      this._emitLine('if (!' + arr + '.length) {');
-      this.compile(node.else_, frame);
-      this._emitLine('}');
-    }
-    this._emitLine('frame = frame.pop();');
-  };
-  _proto.compileAsyncEach = function compileAsyncEach(node, frame) {
-    this._compileAsyncLoop(node, frame);
-  };
-  _proto.compileAsyncAll = function compileAsyncAll(node, frame) {
-    this._compileAsyncLoop(node, frame, true);
-  };
-  _proto._compileMacro = function _compileMacro(node, frame) {
-    var _this12 = this;
-    var args = [];
-    var kwargs = null;
-    var funcId = 'macro_' + this._tmpid();
-    var keepFrame = frame !== undefined;
-
-    // Type check the definition of the args
-    node.args.children.forEach(function (arg, i) {
-      if (i === node.args.children.length - 1 && arg instanceof nodes.Dict) {
-        kwargs = arg;
-      } else {
-        _this12.assertType(arg, nodes.Symbol);
-        args.push(arg);
-      }
-    });
-    var realNames = [].concat(args.map(function (n) {
-      return "l_" + n.value;
-    }), ['kwargs']);
-
-    // Quoted argument names
-    var argNames = args.map(function (n) {
-      return "\"" + n.value + "\"";
-    });
-    var kwargNames = (kwargs && kwargs.children || []).map(function (n) {
-      return "\"" + n.key.value + "\"";
-    });
-
-    // We pass a function to makeMacro which destructures the
-    // arguments so support setting positional args with keywords
-    // args and passing keyword args as positional args
-    // (essentially default values). See runtime.js.
-    var currFrame;
-    if (keepFrame) {
-      currFrame = frame.push(true);
-    } else {
-      currFrame = new Frame();
-    }
-    this._emitLines("var " + funcId + " = runtime.makeMacro(", "[" + argNames.join(', ') + "], ", "[" + kwargNames.join(', ') + "], ", "function (" + realNames.join(', ') + ") {", 'var callerFrame = frame;', 'frame = ' + (keepFrame ? 'frame.push(true);' : 'new runtime.Frame();'), 'kwargs = kwargs || {};', 'if (Object.prototype.hasOwnProperty.call(kwargs, "caller")) {', 'frame.set("caller", kwargs.caller); }');
-
-    // Expose the arguments to the template. Don't need to use
-    // random names because the function
-    // will create a new run-time scope for us
-    args.forEach(function (arg) {
-      _this12._emitLine("frame.set(\"" + arg.value + "\", l_" + arg.value + ");");
-      currFrame.set(arg.value, "l_" + arg.value);
-    });
-
-    // Expose the keyword arguments
-    if (kwargs) {
-      kwargs.children.forEach(function (pair) {
-        var name = pair.key.value;
-        _this12._emit("frame.set(\"" + name + "\", ");
-        _this12._emit("Object.prototype.hasOwnProperty.call(kwargs, \"" + name + "\")");
-        _this12._emit(" ? kwargs[\"" + name + "\"] : ");
-        _this12._compileExpression(pair.value, currFrame);
-        _this12._emit(');');
-      });
-    }
-    var bufferId = this._pushBuffer();
-    this._withScopedSyntax(function () {
-      _this12.compile(node.body, currFrame);
-    });
-    this._emitLine('frame = ' + (keepFrame ? 'frame.pop();' : 'callerFrame;'));
-    this._emitLine("return new runtime.SafeString(" + bufferId + ");");
-    this._emitLine('});');
-    this._popBuffer();
-    return funcId;
-  };
-  _proto.compileMacro = function compileMacro(node, frame) {
-    var funcId = this._compileMacro(node);
-
-    // Expose the macro to the templates
-    var name = node.name.value;
-    frame.set(name, funcId);
-    if (frame.parent) {
-      this._emitLine("frame.set(\"" + name + "\", " + funcId + ");");
-    } else {
-      if (node.name.value.charAt(0) !== '_') {
-        this._emitLine("context.addExport(\"" + name + "\");");
-      }
-      this._emitLine("context.setVariable(\"" + name + "\", " + funcId + ");");
-    }
-  };
-  _proto.compileCaller = function compileCaller(node, frame) {
-    // basically an anonymous "macro expression"
-    this._emit('(function (){');
-    var funcId = this._compileMacro(node, frame);
-    this._emit("return " + funcId + ";})()");
-  };
-  _proto._compileGetTemplate = function _compileGetTemplate(node, frame, eagerCompile, ignoreMissing) {
-    var parentTemplateId = this._tmpid();
-    var parentName = this._templateName();
-    var cb = this._makeCallback(parentTemplateId);
-    var eagerCompileArg = eagerCompile ? 'true' : 'false';
-    var ignoreMissingArg = ignoreMissing ? 'true' : 'false';
-    this._emit('env.getTemplate(');
-    this._compileExpression(node.template, frame);
-    this._emitLine(", " + eagerCompileArg + ", " + parentName + ", " + ignoreMissingArg + ", " + cb);
-    return parentTemplateId;
-  };
-  _proto.compileImport = function compileImport(node, frame) {
-    var target = node.target.value;
-    var id = this._compileGetTemplate(node, frame, false, false);
-    this._addScopeLevel();
-    this._emitLine(id + '.getExported(' + (node.withContext ? 'context.getVariables(), frame, ' : '') + this._makeCallback(id));
-    this._addScopeLevel();
-    frame.set(target, id);
-    if (frame.parent) {
-      this._emitLine("frame.set(\"" + target + "\", " + id + ");");
-    } else {
-      this._emitLine("context.setVariable(\"" + target + "\", " + id + ");");
-    }
-  };
-  _proto.compileFromImport = function compileFromImport(node, frame) {
-    var _this13 = this;
-    var importedId = this._compileGetTemplate(node, frame, false, false);
-    this._addScopeLevel();
-    this._emitLine(importedId + '.getExported(' + (node.withContext ? 'context.getVariables(), frame, ' : '') + this._makeCallback(importedId));
-    this._addScopeLevel();
-    node.names.children.forEach(function (nameNode) {
-      var name;
-      var alias;
-      var id = _this13._tmpid();
-      if (nameNode instanceof nodes.Pair) {
-        name = nameNode.key.value;
-        alias = nameNode.value.value;
-      } else {
-        name = nameNode.value;
-        alias = name;
-      }
-      _this13._emitLine("if(Object.prototype.hasOwnProperty.call(" + importedId + ", \"" + name + "\")) {");
-      _this13._emitLine("var " + id + " = " + importedId + "." + name + ";");
-      _this13._emitLine('} else {');
-      _this13._emitLine("cb(new Error(\"cannot import '" + name + "'\")); return;");
-      _this13._emitLine('}');
-      frame.set(alias, id);
-      if (frame.parent) {
-        _this13._emitLine("frame.set(\"" + alias + "\", " + id + ");");
-      } else {
-        _this13._emitLine("context.setVariable(\"" + alias + "\", " + id + ");");
-      }
-    });
-  };
-  _proto.compileBlock = function compileBlock(node) {
-    var id = this._tmpid();
-
-    // If we are executing outside a block (creating a top-level
-    // block), we really don't want to execute its code because it
-    // will execute twice: once when the child template runs and
-    // again when the parent template runs. Note that blocks
-    // within blocks will *always* execute immediately *and*
-    // wherever else they are invoked (like used in a parent
-    // template). This may have behavioral differences from jinja
-    // because blocks can have side effects, but it seems like a
-    // waste of performance to always execute huge top-level
-    // blocks twice
-    if (!this.inBlock) {
-      this._emit('(parentTemplate ? function(e, c, f, r, cb) { cb(""); } : ');
-    }
-    this._emit("context.getBlock(\"" + node.name.value + "\")");
-    if (!this.inBlock) {
-      this._emit(')');
-    }
-    this._emitLine('(env, context, frame, runtime, ' + this._makeCallback(id));
-    this._emitLine(this.buffer + " += " + id + ";");
-    this._addScopeLevel();
-  };
-  _proto.compileSuper = function compileSuper(node, frame) {
-    var name = node.blockName.value;
-    var id = node.symbol.value;
-    var cb = this._makeCallback(id);
-    this._emitLine("context.getSuper(env, \"" + name + "\", b_" + name + ", frame, runtime, " + cb);
-    this._emitLine(id + " = runtime.markSafe(" + id + ");");
-    this._addScopeLevel();
-    frame.set(id, id);
-  };
-  _proto.compileExtends = function compileExtends(node, frame) {
-    var k = this._tmpid();
-    var parentTemplateId = this._compileGetTemplate(node, frame, true, false);
-
-    // extends is a dynamic tag and can occur within a block like
-    // `if`, so if this happens we need to capture the parent
-    // template in the top-level scope
-    this._emitLine("parentTemplate = " + parentTemplateId);
-    this._emitLine("for(var " + k + " in parentTemplate.blocks) {");
-    this._emitLine("context.addBlock(" + k + ", parentTemplate.blocks[" + k + "]);");
-    this._emitLine('}');
-    this._addScopeLevel();
-  };
-  _proto.compileInclude = function compileInclude(node, frame) {
-    this._emitLine('var tasks = [];');
-    this._emitLine('tasks.push(');
-    this._emitLine('function(callback) {');
-    var id = this._compileGetTemplate(node, frame, false, node.ignoreMissing);
-    this._emitLine("callback(null," + id + ");});");
-    this._emitLine('});');
-    var id2 = this._tmpid();
-    this._emitLine('tasks.push(');
-    this._emitLine('function(template, callback){');
-    this._emitLine('template.render(context.getVariables(), frame, ' + this._makeCallback(id2));
-    this._emitLine('callback(null,' + id2 + ');});');
-    this._emitLine('});');
-    this._emitLine('tasks.push(');
-    this._emitLine('function(result, callback){');
-    this._emitLine(this.buffer + " += result;");
-    this._emitLine('callback(null);');
-    this._emitLine('});');
-    this._emitLine('env.waterfall(tasks, function(){');
-    this._addScopeLevel();
-  };
-  _proto.compileTemplateData = function compileTemplateData(node, frame) {
-    this.compileLiteral(node, frame);
-  };
-  _proto.compileCapture = function compileCapture(node, frame) {
-    var _this14 = this;
-    // we need to temporarily override the current buffer id as 'output'
-    // so the set block writes to the capture output instead of the buffer
-    var buffer = this.buffer;
-    this.buffer = 'output';
-    this._emitLine('(function() {');
-    this._emitLine('var output = "";');
-    this._withScopedSyntax(function () {
-      _this14.compile(node.body, frame);
-    });
-    this._emitLine('return output;');
-    this._emitLine('})()');
-    // and of course, revert back to the old buffer id
-    this.buffer = buffer;
-  };
-  _proto.compileOutput = function compileOutput(node, frame) {
-    var _this15 = this;
-    var children = node.children;
-    children.forEach(function (child) {
-      // TemplateData is a special case because it is never
-      // autoescaped, so simply output it for optimization
-      if (child instanceof nodes.TemplateData) {
-        if (child.value) {
-          _this15._emit(_this15.buffer + " += ");
-          _this15.compileLiteral(child, frame);
-          _this15._emitLine(';');
-        }
-      } else {
-        _this15._emit(_this15.buffer + " += runtime.suppressValue(");
-        if (_this15.throwOnUndefined) {
-          _this15._emit('runtime.ensureDefined(');
-        }
-        _this15.compile(child, frame);
-        if (_this15.throwOnUndefined) {
-          _this15._emit("," + node.lineno + "," + node.colno + ")");
-        }
-        _this15._emit(', env.opts.autoescape);\n');
-      }
-    });
-  };
-  _proto.compileRoot = function compileRoot(node, frame) {
-    var _this16 = this;
-    if (frame) {
-      this.fail('compileRoot: root node can\'t have frame');
-    }
-    frame = new Frame();
-    this._emitFuncBegin(node, 'root');
-    this._emitLine('var parentTemplate = null;');
-    this._compileChildren(node, frame);
-    this._emitLine('if(parentTemplate) {');
-    this._emitLine('parentTemplate.rootRenderFunc(env, context, frame, runtime, cb);');
-    this._emitLine('} else {');
-    this._emitLine("cb(null, " + this.buffer + ");");
-    this._emitLine('}');
-    this._emitFuncEnd(true);
-    this.inBlock = true;
-    var blockNames = [];
-    var blocks = node.findAll(nodes.Block);
-    blocks.forEach(function (block, i) {
-      var name = block.name.value;
-      if (blockNames.indexOf(name) !== -1) {
-        throw new Error("Block \"" + name + "\" defined more than once.");
-      }
-      blockNames.push(name);
-      _this16._emitFuncBegin(block, "b_" + name);
-      var tmpFrame = new Frame();
-      _this16._emitLine('var frame = frame.push(true);');
-      _this16.compile(block.body, tmpFrame);
-      _this16._emitFuncEnd();
-    });
-    this._emitLine('return {');
-    blocks.forEach(function (block, i) {
-      var blockName = "b_" + block.name.value;
-      _this16._emitLine(blockName + ": " + blockName + ",");
-    });
-    this._emitLine('root: root\n};');
-  };
-  _proto.compile = function compile(node, frame) {
-    var _compile = this['compile' + node.typename];
-    if (_compile) {
-      _compile.call(this, node, frame);
-    } else {
-      this.fail("compile: Cannot compile node: " + node.typename, node.lineno, node.colno);
-    }
-  };
-  _proto.getCode = function getCode() {
-    return this.codebuf.join('');
-  };
-  return Compiler;
-}(Obj);
-module.exports = {
-  compile: function compile(src, asyncFilters, extensions, name, opts) {
-    if (opts === void 0) {
-      opts = {};
-    }
-    var c = new Compiler(name, opts.throwOnUndefined);
-
-    // Run the extension preprocessors against the source.
-    var preprocessors = (extensions || []).map(function (ext) {
-      return ext.preprocess;
-    }).filter(function (f) {
-      return !!f;
-    });
-    var processedSrc = preprocessors.reduce(function (s, processor) {
-      return processor(s);
-    }, src);
-    c.compile(transformer.transform(parser.parse(processedSrc, extensions, opts), asyncFilters, name));
-    return c.getCode();
-  },
-  Compiler: Compiler
-};
-
-/***/ }),
-
-/***/ 4499:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-function _inheritsLoose(subClass, superClass) { subClass.prototype = Object.create(superClass.prototype); subClass.prototype.constructor = subClass; _setPrototypeOf(subClass, superClass); }
-function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
-var asap = __nccwpck_require__(336);
-var _waterfall = __nccwpck_require__(7330);
-var lib = __nccwpck_require__(7853);
-var compiler = __nccwpck_require__(8993);
-var filters = __nccwpck_require__(9317);
-var _require = __nccwpck_require__(2650),
-  FileSystemLoader = _require.FileSystemLoader,
-  WebLoader = _require.WebLoader,
-  PrecompiledLoader = _require.PrecompiledLoader;
-var tests = __nccwpck_require__(4259);
-var globals = __nccwpck_require__(290);
-var _require2 = __nccwpck_require__(9695),
-  Obj = _require2.Obj,
-  EmitterObj = _require2.EmitterObj;
-var globalRuntime = __nccwpck_require__(9846);
-var handleError = globalRuntime.handleError,
-  Frame = globalRuntime.Frame;
-var expressApp = __nccwpck_require__(9376);
-
-// If the user is using the async API, *always* call it
-// asynchronously even if the template was synchronous.
-function callbackAsap(cb, err, res) {
-  asap(function () {
-    cb(err, res);
-  });
-}
-
-/**
- * A no-op template, for use with {% include ignore missing %}
- */
-var noopTmplSrc = {
-  type: 'code',
-  obj: {
-    root: function root(env, context, frame, runtime, cb) {
-      try {
-        cb(null, '');
-      } catch (e) {
-        cb(handleError(e, null, null));
-      }
-    }
-  }
-};
-var Environment = /*#__PURE__*/function (_EmitterObj) {
-  _inheritsLoose(Environment, _EmitterObj);
-  function Environment() {
-    return _EmitterObj.apply(this, arguments) || this;
-  }
-  var _proto = Environment.prototype;
-  _proto.init = function init(loaders, opts) {
-    var _this = this;
-    // The dev flag determines the trace that'll be shown on errors.
-    // If set to true, returns the full trace from the error point,
-    // otherwise will return trace starting from Template.render
-    // (the full trace from within nunjucks may confuse developers using
-    //  the library)
-    // defaults to false
-    opts = this.opts = opts || {};
-    this.opts.dev = !!opts.dev;
-
-    // The autoescape flag sets global autoescaping. If true,
-    // every string variable will be escaped by default.
-    // If false, strings can be manually escaped using the `escape` filter.
-    // defaults to true
-    this.opts.autoescape = opts.autoescape != null ? opts.autoescape : true;
-
-    // If true, this will make the system throw errors if trying
-    // to output a null or undefined value
-    this.opts.throwOnUndefined = !!opts.throwOnUndefined;
-    this.opts.trimBlocks = !!opts.trimBlocks;
-    this.opts.lstripBlocks = !!opts.lstripBlocks;
-    this.loaders = [];
-    if (!loaders) {
-      // The filesystem loader is only available server-side
-      if (FileSystemLoader) {
-        this.loaders = [new FileSystemLoader('views')];
-      } else if (WebLoader) {
-        this.loaders = [new WebLoader('/views')];
-      }
-    } else {
-      this.loaders = lib.isArray(loaders) ? loaders : [loaders];
-    }
-
-    // It's easy to use precompiled templates: just include them
-    // before you configure nunjucks and this will automatically
-    // pick it up and use it
-    if (typeof window !== 'undefined' && window.nunjucksPrecompiled) {
-      this.loaders.unshift(new PrecompiledLoader(window.nunjucksPrecompiled));
-    }
-    this._initLoaders();
-    this.globals = globals();
-    this.filters = {};
-    this.tests = {};
-    this.asyncFilters = [];
-    this.extensions = {};
-    this.extensionsList = [];
-    lib._entries(filters).forEach(function (_ref) {
-      var name = _ref[0],
-        filter = _ref[1];
-      return _this.addFilter(name, filter);
-    });
-    lib._entries(tests).forEach(function (_ref2) {
-      var name = _ref2[0],
-        test = _ref2[1];
-      return _this.addTest(name, test);
-    });
-  };
-  _proto._initLoaders = function _initLoaders() {
-    var _this2 = this;
-    this.loaders.forEach(function (loader) {
-      // Caching and cache busting
-      loader.cache = {};
-      if (typeof loader.on === 'function') {
-        loader.on('update', function (name, fullname) {
-          loader.cache[name] = null;
-          _this2.emit('update', name, fullname, loader);
-        });
-        loader.on('load', function (name, source) {
-          _this2.emit('load', name, source, loader);
-        });
-      }
-    });
-  };
-  _proto.invalidateCache = function invalidateCache() {
-    this.loaders.forEach(function (loader) {
-      loader.cache = {};
-    });
-  };
-  _proto.addExtension = function addExtension(name, extension) {
-    extension.__name = name;
-    this.extensions[name] = extension;
-    this.extensionsList.push(extension);
-    return this;
-  };
-  _proto.removeExtension = function removeExtension(name) {
-    var extension = this.getExtension(name);
-    if (!extension) {
-      return;
-    }
-    this.extensionsList = lib.without(this.extensionsList, extension);
-    delete this.extensions[name];
-  };
-  _proto.getExtension = function getExtension(name) {
-    return this.extensions[name];
-  };
-  _proto.hasExtension = function hasExtension(name) {
-    return !!this.extensions[name];
-  };
-  _proto.addGlobal = function addGlobal(name, value) {
-    this.globals[name] = value;
-    return this;
-  };
-  _proto.getGlobal = function getGlobal(name) {
-    if (typeof this.globals[name] === 'undefined') {
-      throw new Error('global not found: ' + name);
-    }
-    return this.globals[name];
-  };
-  _proto.addFilter = function addFilter(name, func, async) {
-    var wrapped = func;
-    if (async) {
-      this.asyncFilters.push(name);
-    }
-    this.filters[name] = wrapped;
-    return this;
-  };
-  _proto.getFilter = function getFilter(name) {
-    if (!this.filters[name]) {
-      throw new Error('filter not found: ' + name);
-    }
-    return this.filters[name];
-  };
-  _proto.addTest = function addTest(name, func) {
-    this.tests[name] = func;
-    return this;
-  };
-  _proto.getTest = function getTest(name) {
-    if (!this.tests[name]) {
-      throw new Error('test not found: ' + name);
-    }
-    return this.tests[name];
-  };
-  _proto.resolveTemplate = function resolveTemplate(loader, parentName, filename) {
-    var isRelative = loader.isRelative && parentName ? loader.isRelative(filename) : false;
-    return isRelative && loader.resolve ? loader.resolve(parentName, filename) : filename;
-  };
-  _proto.getTemplate = function getTemplate(name, eagerCompile, parentName, ignoreMissing, cb) {
-    var _this3 = this;
-    var that = this;
-    var tmpl = null;
-    if (name && name.raw) {
-      // this fixes autoescape for templates referenced in symbols
-      name = name.raw;
-    }
-    if (lib.isFunction(parentName)) {
-      cb = parentName;
-      parentName = null;
-      eagerCompile = eagerCompile || false;
-    }
-    if (lib.isFunction(eagerCompile)) {
-      cb = eagerCompile;
-      eagerCompile = false;
-    }
-    if (name instanceof Template) {
-      tmpl = name;
-    } else if (typeof name !== 'string') {
-      throw new Error('template names must be a string: ' + name);
-    } else {
-      for (var i = 0; i < this.loaders.length; i++) {
-        var loader = this.loaders[i];
-        tmpl = loader.cache[this.resolveTemplate(loader, parentName, name)];
-        if (tmpl) {
-          break;
-        }
-      }
-    }
-    if (tmpl) {
-      if (eagerCompile) {
-        tmpl.compile();
-      }
-      if (cb) {
-        cb(null, tmpl);
-        return undefined;
-      } else {
-        return tmpl;
-      }
-    }
-    var syncResult;
-    var createTemplate = function createTemplate(err, info) {
-      if (!info && !err && !ignoreMissing) {
-        err = new Error('template not found: ' + name);
-      }
-      if (err) {
-        if (cb) {
-          cb(err);
-          return;
-        } else {
-          throw err;
-        }
-      }
-      var newTmpl;
-      if (!info) {
-        newTmpl = new Template(noopTmplSrc, _this3, '', eagerCompile);
-      } else {
-        newTmpl = new Template(info.src, _this3, info.path, eagerCompile);
-        if (!info.noCache) {
-          info.loader.cache[name] = newTmpl;
-        }
-      }
-      if (cb) {
-        cb(null, newTmpl);
-      } else {
-        syncResult = newTmpl;
-      }
-    };
-    lib.asyncIter(this.loaders, function (loader, i, next, done) {
-      function handle(err, src) {
-        if (err) {
-          done(err);
-        } else if (src) {
-          src.loader = loader;
-          done(null, src);
-        } else {
-          next();
-        }
-      }
-
-      // Resolve name relative to parentName
-      name = that.resolveTemplate(loader, parentName, name);
-      if (loader.async) {
-        loader.getSource(name, handle);
-      } else {
-        handle(null, loader.getSource(name));
-      }
-    }, createTemplate);
-    return syncResult;
-  };
-  _proto.express = function express(app) {
-    return expressApp(this, app);
-  };
-  _proto.render = function render(name, ctx, cb) {
-    if (lib.isFunction(ctx)) {
-      cb = ctx;
-      ctx = null;
-    }
-
-    // We support a synchronous API to make it easier to migrate
-    // existing code to async. This works because if you don't do
-    // anything async work, the whole thing is actually run
-    // synchronously.
-    var syncResult = null;
-    this.getTemplate(name, function (err, tmpl) {
-      if (err && cb) {
-        callbackAsap(cb, err);
-      } else if (err) {
-        throw err;
-      } else {
-        syncResult = tmpl.render(ctx, cb);
-      }
-    });
-    return syncResult;
-  };
-  _proto.renderString = function renderString(src, ctx, opts, cb) {
-    if (lib.isFunction(opts)) {
-      cb = opts;
-      opts = {};
-    }
-    opts = opts || {};
-    var tmpl = new Template(src, this, opts.path);
-    return tmpl.render(ctx, cb);
-  };
-  _proto.waterfall = function waterfall(tasks, callback, forceAsync) {
-    return _waterfall(tasks, callback, forceAsync);
-  };
-  return Environment;
-}(EmitterObj);
-var Context = /*#__PURE__*/function (_Obj) {
-  _inheritsLoose(Context, _Obj);
-  function Context() {
-    return _Obj.apply(this, arguments) || this;
-  }
-  var _proto2 = Context.prototype;
-  _proto2.init = function init(ctx, blocks, env) {
-    var _this4 = this;
-    // Has to be tied to an environment so we can tap into its globals.
-    this.env = env || new Environment();
-
-    // Make a duplicate of ctx
-    this.ctx = lib.extend({}, ctx);
-    this.blocks = {};
-    this.exported = [];
-    lib.keys(blocks).forEach(function (name) {
-      _this4.addBlock(name, blocks[name]);
-    });
-  };
-  _proto2.lookup = function lookup(name) {
-    // This is one of the most called functions, so optimize for
-    // the typical case where the name isn't in the globals
-    if (name in this.env.globals && !(name in this.ctx)) {
-      return this.env.globals[name];
-    } else {
-      return this.ctx[name];
-    }
-  };
-  _proto2.setVariable = function setVariable(name, val) {
-    this.ctx[name] = val;
-  };
-  _proto2.getVariables = function getVariables() {
-    return this.ctx;
-  };
-  _proto2.addBlock = function addBlock(name, block) {
-    this.blocks[name] = this.blocks[name] || [];
-    this.blocks[name].push(block);
-    return this;
-  };
-  _proto2.getBlock = function getBlock(name) {
-    if (!this.blocks[name]) {
-      throw new Error('unknown block "' + name + '"');
-    }
-    return this.blocks[name][0];
-  };
-  _proto2.getSuper = function getSuper(env, name, block, frame, runtime, cb) {
-    var idx = lib.indexOf(this.blocks[name] || [], block);
-    var blk = this.blocks[name][idx + 1];
-    var context = this;
-    if (idx === -1 || !blk) {
-      throw new Error('no super block available for "' + name + '"');
-    }
-    blk(env, context, frame, runtime, cb);
-  };
-  _proto2.addExport = function addExport(name) {
-    this.exported.push(name);
-  };
-  _proto2.getExported = function getExported() {
-    var _this5 = this;
-    var exported = {};
-    this.exported.forEach(function (name) {
-      exported[name] = _this5.ctx[name];
-    });
-    return exported;
-  };
-  return Context;
-}(Obj);
-var Template = /*#__PURE__*/function (_Obj2) {
-  _inheritsLoose(Template, _Obj2);
-  function Template() {
-    return _Obj2.apply(this, arguments) || this;
-  }
-  var _proto3 = Template.prototype;
-  _proto3.init = function init(src, env, path, eagerCompile) {
-    this.env = env || new Environment();
-    if (lib.isObject(src)) {
-      switch (src.type) {
-        case 'code':
-          this.tmplProps = src.obj;
-          break;
-        case 'string':
-          this.tmplStr = src.obj;
-          break;
-        default:
-          throw new Error("Unexpected template object type " + src.type + "; expected 'code', or 'string'");
-      }
-    } else if (lib.isString(src)) {
-      this.tmplStr = src;
-    } else {
-      throw new Error('src must be a string or an object describing the source');
-    }
-    this.path = path;
-    if (eagerCompile) {
-      try {
-        this._compile();
-      } catch (err) {
-        throw lib._prettifyError(this.path, this.env.opts.dev, err);
-      }
-    } else {
-      this.compiled = false;
-    }
-  };
-  _proto3.render = function render(ctx, parentFrame, cb) {
-    var _this6 = this;
-    if (typeof ctx === 'function') {
-      cb = ctx;
-      ctx = {};
-    } else if (typeof parentFrame === 'function') {
-      cb = parentFrame;
-      parentFrame = null;
-    }
-
-    // If there is a parent frame, we are being called from internal
-    // code of another template, and the internal system
-    // depends on the sync/async nature of the parent template
-    // to be inherited, so force an async callback
-    var forceAsync = !parentFrame;
-
-    // Catch compile errors for async rendering
-    try {
-      this.compile();
-    } catch (e) {
-      var err = lib._prettifyError(this.path, this.env.opts.dev, e);
-      if (cb) {
-        return callbackAsap(cb, err);
-      } else {
-        throw err;
-      }
-    }
-    var context = new Context(ctx || {}, this.blocks, this.env);
-    var frame = parentFrame ? parentFrame.push(true) : new Frame();
-    frame.topLevel = true;
-    var syncResult = null;
-    var didError = false;
-    this.rootRenderFunc(this.env, context, frame, globalRuntime, function (err, res) {
-      // TODO: this is actually a bug in the compiled template (because waterfall
-      // tasks are both not passing errors up the chain of callbacks AND are not
-      // causing a return from the top-most render function). But fixing that
-      // will require a more substantial change to the compiler.
-      if (didError && cb && typeof res !== 'undefined') {
-        // prevent multiple calls to cb
-        return;
-      }
-      if (err) {
-        err = lib._prettifyError(_this6.path, _this6.env.opts.dev, err);
-        didError = true;
-      }
-      if (cb) {
-        if (forceAsync) {
-          callbackAsap(cb, err, res);
-        } else {
-          cb(err, res);
-        }
-      } else {
-        if (err) {
-          throw err;
-        }
-        syncResult = res;
-      }
-    });
-    return syncResult;
-  };
-  _proto3.getExported = function getExported(ctx, parentFrame, cb) {
-    // eslint-disable-line consistent-return
-    if (typeof ctx === 'function') {
-      cb = ctx;
-      ctx = {};
-    }
-    if (typeof parentFrame === 'function') {
-      cb = parentFrame;
-      parentFrame = null;
-    }
-
-    // Catch compile errors for async rendering
-    try {
-      this.compile();
-    } catch (e) {
-      if (cb) {
-        return cb(e);
-      } else {
-        throw e;
-      }
-    }
-    var frame = parentFrame ? parentFrame.push() : new Frame();
-    frame.topLevel = true;
-
-    // Run the rootRenderFunc to populate the context with exported vars
-    var context = new Context(ctx || {}, this.blocks, this.env);
-    this.rootRenderFunc(this.env, context, frame, globalRuntime, function (err) {
-      if (err) {
-        cb(err, null);
-      } else {
-        cb(null, context.getExported());
-      }
-    });
-  };
-  _proto3.compile = function compile() {
-    if (!this.compiled) {
-      this._compile();
-    }
-  };
-  _proto3._compile = function _compile() {
-    var props;
-    if (this.tmplProps) {
-      props = this.tmplProps;
-    } else {
-      var source = compiler.compile(this.tmplStr, this.env.asyncFilters, this.env.extensionsList, this.path, this.env.opts);
-      var func = new Function(source); // eslint-disable-line no-new-func
-      props = func();
-    }
-    this.blocks = this._getBlocks(props);
-    this.rootRenderFunc = props.root;
-    this.compiled = true;
-  };
-  _proto3._getBlocks = function _getBlocks(props) {
-    var blocks = {};
-    lib.keys(props).forEach(function (k) {
-      if (k.slice(0, 2) === 'b_') {
-        blocks[k.slice(2)] = props[k];
-      }
-    });
-    return blocks;
-  };
-  return Template;
-}(Obj);
-module.exports = {
-  Environment: Environment,
-  Template: Template
-};
-
-/***/ }),
-
-/***/ 9376:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-var path = __nccwpck_require__(6928);
-module.exports = function express(env, app) {
-  function NunjucksView(name, opts) {
-    this.name = name;
-    this.path = name;
-    this.defaultEngine = opts.defaultEngine;
-    this.ext = path.extname(name);
-    if (!this.ext && !this.defaultEngine) {
-      throw new Error('No default engine was specified and no extension was provided.');
-    }
-    if (!this.ext) {
-      this.name += this.ext = (this.defaultEngine[0] !== '.' ? '.' : '') + this.defaultEngine;
-    }
-  }
-  NunjucksView.prototype.render = function render(opts, cb) {
-    env.render(this.name, opts, cb);
-  };
-  app.set('view', NunjucksView);
-  app.set('nunjucksEnv', env);
-  return env;
-};
-
-/***/ }),
-
-/***/ 9317:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-var lib = __nccwpck_require__(7853);
-var r = __nccwpck_require__(9846);
-var _exports = module.exports = {};
-function normalize(value, defaultValue) {
-  if (value === null || value === undefined || value === false) {
-    return defaultValue;
-  }
-  return value;
-}
-_exports.abs = Math.abs;
-function isNaN(num) {
-  return num !== num; // eslint-disable-line no-self-compare
-}
-
-function batch(arr, linecount, fillWith) {
-  var i;
-  var res = [];
-  var tmp = [];
-  for (i = 0; i < arr.length; i++) {
-    if (i % linecount === 0 && tmp.length) {
-      res.push(tmp);
-      tmp = [];
-    }
-    tmp.push(arr[i]);
-  }
-  if (tmp.length) {
-    if (fillWith) {
-      for (i = tmp.length; i < linecount; i++) {
-        tmp.push(fillWith);
-      }
-    }
-    res.push(tmp);
-  }
-  return res;
-}
-_exports.batch = batch;
-function capitalize(str) {
-  str = normalize(str, '');
-  var ret = str.toLowerCase();
-  return r.copySafeness(str, ret.charAt(0).toUpperCase() + ret.slice(1));
-}
-_exports.capitalize = capitalize;
-function center(str, width) {
-  str = normalize(str, '');
-  width = width || 80;
-  if (str.length >= width) {
-    return str;
-  }
-  var spaces = width - str.length;
-  var pre = lib.repeat(' ', spaces / 2 - spaces % 2);
-  var post = lib.repeat(' ', spaces / 2);
-  return r.copySafeness(str, pre + str + post);
-}
-_exports.center = center;
-function default_(val, def, bool) {
-  if (bool) {
-    return val || def;
-  } else {
-    return val !== undefined ? val : def;
-  }
-}
-
-// TODO: it is confusing to export something called 'default'
-_exports['default'] = default_; // eslint-disable-line dot-notation
-
-function dictsort(val, caseSensitive, by) {
-  if (!lib.isObject(val)) {
-    throw new lib.TemplateError('dictsort filter: val must be an object');
-  }
-  var array = [];
-  // deliberately include properties from the object's prototype
-  for (var k in val) {
-    // eslint-disable-line guard-for-in, no-restricted-syntax
-    array.push([k, val[k]]);
-  }
-  var si;
-  if (by === undefined || by === 'key') {
-    si = 0;
-  } else if (by === 'value') {
-    si = 1;
-  } else {
-    throw new lib.TemplateError('dictsort filter: You can only sort by either key or value');
-  }
-  array.sort(function (t1, t2) {
-    var a = t1[si];
-    var b = t2[si];
-    if (!caseSensitive) {
-      if (lib.isString(a)) {
-        a = a.toUpperCase();
-      }
-      if (lib.isString(b)) {
-        b = b.toUpperCase();
-      }
-    }
-    return a > b ? 1 : a === b ? 0 : -1; // eslint-disable-line no-nested-ternary
-  });
-
-  return array;
-}
-_exports.dictsort = dictsort;
-function dump(obj, spaces) {
-  return JSON.stringify(obj, null, spaces);
-}
-_exports.dump = dump;
-function escape(str) {
-  if (str instanceof r.SafeString) {
-    return str;
-  }
-  str = str === null || str === undefined ? '' : str;
-  return r.markSafe(lib.escape(str.toString()));
-}
-_exports.escape = escape;
-function safe(str) {
-  if (str instanceof r.SafeString) {
-    return str;
-  }
-  str = str === null || str === undefined ? '' : str;
-  return r.markSafe(str.toString());
-}
-_exports.safe = safe;
-function first(arr) {
-  return arr[0];
-}
-_exports.first = first;
-function forceescape(str) {
-  str = str === null || str === undefined ? '' : str;
-  return r.markSafe(lib.escape(str.toString()));
-}
-_exports.forceescape = forceescape;
-function groupby(arr, attr) {
-  return lib.groupBy(arr, attr, this.env.opts.throwOnUndefined);
-}
-_exports.groupby = groupby;
-function indent(str, width, indentfirst) {
-  str = normalize(str, '');
-  if (str === '') {
-    return '';
-  }
-  width = width || 4;
-  // let res = '';
-  var lines = str.split('\n');
-  var sp = lib.repeat(' ', width);
-  var res = lines.map(function (l, i) {
-    return i === 0 && !indentfirst ? l : "" + sp + l;
-  }).join('\n');
-  return r.copySafeness(str, res);
-}
-_exports.indent = indent;
-function join(arr, del, attr) {
-  del = del || '';
-  if (attr) {
-    arr = lib.map(arr, function (v) {
-      return v[attr];
-    });
-  }
-  return arr.join(del);
-}
-_exports.join = join;
-function last(arr) {
-  return arr[arr.length - 1];
-}
-_exports.last = last;
-function lengthFilter(val) {
-  var value = normalize(val, '');
-  if (value !== undefined) {
-    if (typeof Map === 'function' && value instanceof Map || typeof Set === 'function' && value instanceof Set) {
-      // ECMAScript 2015 Maps and Sets
-      return value.size;
-    }
-    if (lib.isObject(value) && !(value instanceof r.SafeString)) {
-      // Objects (besides SafeStrings), non-primative Arrays
-      return lib.keys(value).length;
-    }
-    return value.length;
-  }
-  return 0;
-}
-_exports.length = lengthFilter;
-function list(val) {
-  if (lib.isString(val)) {
-    return val.split('');
-  } else if (lib.isObject(val)) {
-    return lib._entries(val || {}).map(function (_ref) {
-      var key = _ref[0],
-        value = _ref[1];
-      return {
-        key: key,
-        value: value
-      };
-    });
-  } else if (lib.isArray(val)) {
-    return val;
-  } else {
-    throw new lib.TemplateError('list filter: type not iterable');
-  }
-}
-_exports.list = list;
-function lower(str) {
-  str = normalize(str, '');
-  return str.toLowerCase();
-}
-_exports.lower = lower;
-function nl2br(str) {
-  if (str === null || str === undefined) {
-    return '';
-  }
-  return r.copySafeness(str, str.replace(/\r\n|\n/g, '<br />\n'));
-}
-_exports.nl2br = nl2br;
-function random(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-_exports.random = random;
-
-/**
- * Construct select or reject filter
- *
- * @param {boolean} expectedTestResult
- * @returns {function(array, string, *): array}
- */
-function getSelectOrReject(expectedTestResult) {
-  function filter(arr, testName, secondArg) {
-    if (testName === void 0) {
-      testName = 'truthy';
-    }
-    var context = this;
-    var test = context.env.getTest(testName);
-    return lib.toArray(arr).filter(function examineTestResult(item) {
-      return test.call(context, item, secondArg) === expectedTestResult;
-    });
-  }
-  return filter;
-}
-_exports.reject = getSelectOrReject(false);
-function rejectattr(arr, attr) {
-  return arr.filter(function (item) {
-    return !item[attr];
-  });
-}
-_exports.rejectattr = rejectattr;
-_exports.select = getSelectOrReject(true);
-function selectattr(arr, attr) {
-  return arr.filter(function (item) {
-    return !!item[attr];
-  });
-}
-_exports.selectattr = selectattr;
-function replace(str, old, new_, maxCount) {
-  var originalStr = str;
-  if (old instanceof RegExp) {
-    return str.replace(old, new_);
-  }
-  if (typeof maxCount === 'undefined') {
-    maxCount = -1;
-  }
-  var res = ''; // Output
-
-  // Cast Numbers in the search term to string
-  if (typeof old === 'number') {
-    old = '' + old;
-  } else if (typeof old !== 'string') {
-    // If it is something other than number or string,
-    // return the original string
-    return str;
-  }
-
-  // Cast numbers in the replacement to string
-  if (typeof str === 'number') {
-    str = '' + str;
-  }
-
-  // If by now, we don't have a string, throw it back
-  if (typeof str !== 'string' && !(str instanceof r.SafeString)) {
-    return str;
-  }
-
-  // ShortCircuits
-  if (old === '') {
-    // Mimic the python behaviour: empty string is replaced
-    // by replacement e.g. "abc"|replace("", ".") -> .a.b.c.
-    res = new_ + str.split('').join(new_) + new_;
-    return r.copySafeness(str, res);
-  }
-  var nextIndex = str.indexOf(old);
-  // if # of replacements to perform is 0, or the string to does
-  // not contain the old value, return the string
-  if (maxCount === 0 || nextIndex === -1) {
-    return str;
-  }
-  var pos = 0;
-  var count = 0; // # of replacements made
-
-  while (nextIndex > -1 && (maxCount === -1 || count < maxCount)) {
-    // Grab the next chunk of src string and add it with the
-    // replacement, to the result
-    res += str.substring(pos, nextIndex) + new_;
-    // Increment our pointer in the src string
-    pos = nextIndex + old.length;
-    count++;
-    // See if there are any more replacements to be made
-    nextIndex = str.indexOf(old, pos);
-  }
-
-  // We've either reached the end, or done the max # of
-  // replacements, tack on any remaining string
-  if (pos < str.length) {
-    res += str.substring(pos);
-  }
-  return r.copySafeness(originalStr, res);
-}
-_exports.replace = replace;
-function reverse(val) {
-  var arr;
-  if (lib.isString(val)) {
-    arr = list(val);
-  } else {
-    // Copy it
-    arr = lib.map(val, function (v) {
-      return v;
-    });
-  }
-  arr.reverse();
-  if (lib.isString(val)) {
-    return r.copySafeness(val, arr.join(''));
-  }
-  return arr;
-}
-_exports.reverse = reverse;
-function round(val, precision, method) {
-  precision = precision || 0;
-  var factor = Math.pow(10, precision);
-  var rounder;
-  if (method === 'ceil') {
-    rounder = Math.ceil;
-  } else if (method === 'floor') {
-    rounder = Math.floor;
-  } else {
-    rounder = Math.round;
-  }
-  return rounder(val * factor) / factor;
-}
-_exports.round = round;
-function slice(arr, slices, fillWith) {
-  var sliceLength = Math.floor(arr.length / slices);
-  var extra = arr.length % slices;
-  var res = [];
-  var offset = 0;
-  for (var i = 0; i < slices; i++) {
-    var start = offset + i * sliceLength;
-    if (i < extra) {
-      offset++;
-    }
-    var end = offset + (i + 1) * sliceLength;
-    var currSlice = arr.slice(start, end);
-    if (fillWith && i >= extra) {
-      currSlice.push(fillWith);
-    }
-    res.push(currSlice);
-  }
-  return res;
-}
-_exports.slice = slice;
-function sum(arr, attr, start) {
-  if (start === void 0) {
-    start = 0;
-  }
-  if (attr) {
-    arr = lib.map(arr, function (v) {
-      return v[attr];
-    });
-  }
-  return start + arr.reduce(function (a, b) {
-    return a + b;
-  }, 0);
-}
-_exports.sum = sum;
-_exports.sort = r.makeMacro(['value', 'reverse', 'case_sensitive', 'attribute'], [], function sortFilter(arr, reversed, caseSens, attr) {
-  var _this = this;
-  // Copy it
-  var array = lib.map(arr, function (v) {
-    return v;
-  });
-  var getAttribute = lib.getAttrGetter(attr);
-  array.sort(function (a, b) {
-    var x = attr ? getAttribute(a) : a;
-    var y = attr ? getAttribute(b) : b;
-    if (_this.env.opts.throwOnUndefined && attr && (x === undefined || y === undefined)) {
-      throw new TypeError("sort: attribute \"" + attr + "\" resolved to undefined");
-    }
-    if (!caseSens && lib.isString(x) && lib.isString(y)) {
-      x = x.toLowerCase();
-      y = y.toLowerCase();
-    }
-    if (x < y) {
-      return reversed ? 1 : -1;
-    } else if (x > y) {
-      return reversed ? -1 : 1;
-    } else {
-      return 0;
-    }
-  });
-  return array;
-});
-function string(obj) {
-  return r.copySafeness(obj, obj);
-}
-_exports.string = string;
-function striptags(input, preserveLinebreaks) {
-  input = normalize(input, '');
-  var tags = /<\/?([a-z][a-z0-9]*)\b[^>]*>|<!--[\s\S]*?-->/gi;
-  var trimmedInput = trim(input.replace(tags, ''));
-  var res = '';
-  if (preserveLinebreaks) {
-    res = trimmedInput.replace(/^ +| +$/gm, '') // remove leading and trailing spaces
-    .replace(/ +/g, ' ') // squash adjacent spaces
-    .replace(/(\r\n)/g, '\n') // normalize linebreaks (CRLF -> LF)
-    .replace(/\n\n\n+/g, '\n\n'); // squash abnormal adjacent linebreaks
-  } else {
-    res = trimmedInput.replace(/\s+/gi, ' ');
-  }
-  return r.copySafeness(input, res);
-}
-_exports.striptags = striptags;
-function title(str) {
-  str = normalize(str, '');
-  var words = str.split(' ').map(function (word) {
-    return capitalize(word);
-  });
-  return r.copySafeness(str, words.join(' '));
-}
-_exports.title = title;
-function trim(str) {
-  return r.copySafeness(str, str.replace(/^\s*|\s*$/g, ''));
-}
-_exports.trim = trim;
-function truncate(input, length, killwords, end) {
-  var orig = input;
-  input = normalize(input, '');
-  length = length || 255;
-  if (input.length <= length) {
-    return input;
-  }
-  if (killwords) {
-    input = input.substring(0, length);
-  } else {
-    var idx = input.lastIndexOf(' ', length);
-    if (idx === -1) {
-      idx = length;
-    }
-    input = input.substring(0, idx);
-  }
-  input += end !== undefined && end !== null ? end : '...';
-  return r.copySafeness(orig, input);
-}
-_exports.truncate = truncate;
-function upper(str) {
-  str = normalize(str, '');
-  return str.toUpperCase();
-}
-_exports.upper = upper;
-function urlencode(obj) {
-  var enc = encodeURIComponent;
-  if (lib.isString(obj)) {
-    return enc(obj);
-  } else {
-    var keyvals = lib.isArray(obj) ? obj : lib._entries(obj);
-    return keyvals.map(function (_ref2) {
-      var k = _ref2[0],
-        v = _ref2[1];
-      return enc(k) + "=" + enc(v);
-    }).join('&');
-  }
-}
-_exports.urlencode = urlencode;
-
-// For the jinja regexp, see
-// https://github.com/mitsuhiko/jinja2/blob/f15b814dcba6aa12bc74d1f7d0c881d55f7126be/jinja2/utils.py#L20-L23
-var puncRe = /^(?:\(|<|&lt;)?(.*?)(?:\.|,|\)|\n|&gt;)?$/;
-// from http://blog.gerv.net/2011/05/html5_email_address_regexp/
-var emailRe = /^[\w.!#$%&'*+\-\/=?\^`{|}~]+@[a-z\d\-]+(\.[a-z\d\-]+)+$/i;
-var httpHttpsRe = /^https?:\/\/.*$/;
-var wwwRe = /^www\./;
-var tldRe = /\.(?:org|net|com)(?:\:|\/|$)/;
-function urlize(str, length, nofollow) {
-  if (isNaN(length)) {
-    length = Infinity;
-  }
-  var noFollowAttr = nofollow === true ? ' rel="nofollow"' : '';
-  var words = str.split(/(\s+)/).filter(function (word) {
-    // If the word has no length, bail. This can happen for str with
-    // trailing whitespace.
-    return word && word.length;
-  }).map(function (word) {
-    var matches = word.match(puncRe);
-    var possibleUrl = matches ? matches[1] : word;
-    var shortUrl = possibleUrl.substr(0, length);
-
-    // url that starts with http or https
-    if (httpHttpsRe.test(possibleUrl)) {
-      return "<a href=\"" + possibleUrl + "\"" + noFollowAttr + ">" + shortUrl + "</a>";
-    }
-
-    // url that starts with www.
-    if (wwwRe.test(possibleUrl)) {
-      return "<a href=\"http://" + possibleUrl + "\"" + noFollowAttr + ">" + shortUrl + "</a>";
-    }
-
-    // an email address of the form username@domain.tld
-    if (emailRe.test(possibleUrl)) {
-      return "<a href=\"mailto:" + possibleUrl + "\">" + possibleUrl + "</a>";
-    }
-
-    // url that ends in .com, .org or .net that is not an email address
-    if (tldRe.test(possibleUrl)) {
-      return "<a href=\"http://" + possibleUrl + "\"" + noFollowAttr + ">" + shortUrl + "</a>";
-    }
-    return word;
-  });
-  return words.join('');
-}
-_exports.urlize = urlize;
-function wordcount(str) {
-  str = normalize(str, '');
-  var words = str ? str.match(/\w+/g) : null;
-  return words ? words.length : null;
-}
-_exports.wordcount = wordcount;
-function float(val, def) {
-  var res = parseFloat(val);
-  return isNaN(res) ? def : res;
-}
-_exports.float = float;
-var intFilter = r.makeMacro(['value', 'default', 'base'], [], function doInt(value, defaultValue, base) {
-  if (base === void 0) {
-    base = 10;
-  }
-  var res = parseInt(value, base);
-  return isNaN(res) ? defaultValue : res;
-});
-_exports.int = intFilter;
-
-// Aliases
-_exports.d = _exports.default;
-_exports.e = _exports.escape;
-
-/***/ }),
-
-/***/ 290:
-/***/ ((module) => {
-
-
-
-function _cycler(items) {
-  var index = -1;
-  return {
-    current: null,
-    reset: function reset() {
-      index = -1;
-      this.current = null;
-    },
-    next: function next() {
-      index++;
-      if (index >= items.length) {
-        index = 0;
-      }
-      this.current = items[index];
-      return this.current;
-    }
-  };
-}
-function _joiner(sep) {
-  sep = sep || ',';
-  var first = true;
-  return function () {
-    var val = first ? '' : sep;
-    first = false;
-    return val;
-  };
-}
-
-// Making this a function instead so it returns a new object
-// each time it's called. That way, if something like an environment
-// uses it, they will each have their own copy.
-function globals() {
-  return {
-    range: function range(start, stop, step) {
-      if (typeof stop === 'undefined') {
-        stop = start;
-        start = 0;
-        step = 1;
-      } else if (!step) {
-        step = 1;
-      }
-      var arr = [];
-      if (step > 0) {
-        for (var i = start; i < stop; i += step) {
-          arr.push(i);
-        }
-      } else {
-        for (var _i = start; _i > stop; _i += step) {
-          // eslint-disable-line for-direction
-          arr.push(_i);
-        }
-      }
-      return arr;
-    },
-    cycler: function cycler() {
-      return _cycler(Array.prototype.slice.call(arguments));
-    },
-    joiner: function joiner(sep) {
-      return _joiner(sep);
-    }
-  };
-}
-module.exports = globals;
-
-/***/ }),
-
-/***/ 85:
-/***/ ((module) => {
-
-
-
-function installCompat() {
-  'use strict';
-
-  /* eslint-disable camelcase */
-
-  // This must be called like `nunjucks.installCompat` so that `this`
-  // references the nunjucks instance
-  var runtime = this.runtime;
-  var lib = this.lib;
-  // Handle slim case where these 'modules' are excluded from the built source
-  var Compiler = this.compiler.Compiler;
-  var Parser = this.parser.Parser;
-  var nodes = this.nodes;
-  var lexer = this.lexer;
-  var orig_contextOrFrameLookup = runtime.contextOrFrameLookup;
-  var orig_memberLookup = runtime.memberLookup;
-  var orig_Compiler_assertType;
-  var orig_Parser_parseAggregate;
-  if (Compiler) {
-    orig_Compiler_assertType = Compiler.prototype.assertType;
-  }
-  if (Parser) {
-    orig_Parser_parseAggregate = Parser.prototype.parseAggregate;
-  }
-  function uninstall() {
-    runtime.contextOrFrameLookup = orig_contextOrFrameLookup;
-    runtime.memberLookup = orig_memberLookup;
-    if (Compiler) {
-      Compiler.prototype.assertType = orig_Compiler_assertType;
-    }
-    if (Parser) {
-      Parser.prototype.parseAggregate = orig_Parser_parseAggregate;
-    }
-  }
-  runtime.contextOrFrameLookup = function contextOrFrameLookup(context, frame, key) {
-    var val = orig_contextOrFrameLookup.apply(this, arguments);
-    if (val !== undefined) {
-      return val;
-    }
-    switch (key) {
-      case 'True':
-        return true;
-      case 'False':
-        return false;
-      case 'None':
-        return null;
-      default:
-        return undefined;
-    }
-  };
-  function getTokensState(tokens) {
-    return {
-      index: tokens.index,
-      lineno: tokens.lineno,
-      colno: tokens.colno
-    };
-  }
-  if (process.env.BUILD_TYPE !== 'SLIM' && nodes && Compiler && Parser) {
-    // i.e., not slim mode
-    var Slice = nodes.Node.extend('Slice', {
-      fields: ['start', 'stop', 'step'],
-      init: function init(lineno, colno, start, stop, step) {
-        start = start || new nodes.Literal(lineno, colno, null);
-        stop = stop || new nodes.Literal(lineno, colno, null);
-        step = step || new nodes.Literal(lineno, colno, 1);
-        this.parent(lineno, colno, start, stop, step);
-      }
-    });
-    Compiler.prototype.assertType = function assertType(node) {
-      if (node instanceof Slice) {
-        return;
-      }
-      orig_Compiler_assertType.apply(this, arguments);
-    };
-    Compiler.prototype.compileSlice = function compileSlice(node, frame) {
-      this._emit('(');
-      this._compileExpression(node.start, frame);
-      this._emit('),(');
-      this._compileExpression(node.stop, frame);
-      this._emit('),(');
-      this._compileExpression(node.step, frame);
-      this._emit(')');
-    };
-    Parser.prototype.parseAggregate = function parseAggregate() {
-      var _this = this;
-      var origState = getTokensState(this.tokens);
-      // Set back one accounting for opening bracket/parens
-      origState.colno--;
-      origState.index--;
-      try {
-        return orig_Parser_parseAggregate.apply(this);
-      } catch (e) {
-        var errState = getTokensState(this.tokens);
-        var rethrow = function rethrow() {
-          lib._assign(_this.tokens, errState);
-          return e;
-        };
-
-        // Reset to state before original parseAggregate called
-        lib._assign(this.tokens, origState);
-        this.peeked = false;
-        var tok = this.peekToken();
-        if (tok.type !== lexer.TOKEN_LEFT_BRACKET) {
-          throw rethrow();
-        } else {
-          this.nextToken();
-        }
-        var node = new Slice(tok.lineno, tok.colno);
-
-        // If we don't encounter a colon while parsing, this is not a slice,
-        // so re-raise the original exception.
-        var isSlice = false;
-        for (var i = 0; i <= node.fields.length; i++) {
-          if (this.skip(lexer.TOKEN_RIGHT_BRACKET)) {
-            break;
-          }
-          if (i === node.fields.length) {
-            if (isSlice) {
-              this.fail('parseSlice: too many slice components', tok.lineno, tok.colno);
-            } else {
-              break;
-            }
-          }
-          if (this.skip(lexer.TOKEN_COLON)) {
-            isSlice = true;
-          } else {
-            var field = node.fields[i];
-            node[field] = this.parseExpression();
-            isSlice = this.skip(lexer.TOKEN_COLON) || isSlice;
-          }
-        }
-        if (!isSlice) {
-          throw rethrow();
-        }
-        return new nodes.Array(tok.lineno, tok.colno, [node]);
-      }
-    };
-  }
-  function sliceLookup(obj, start, stop, step) {
-    obj = obj || [];
-    if (start === null) {
-      start = step < 0 ? obj.length - 1 : 0;
-    }
-    if (stop === null) {
-      stop = step < 0 ? -1 : obj.length;
-    } else if (stop < 0) {
-      stop += obj.length;
-    }
-    if (start < 0) {
-      start += obj.length;
-    }
-    var results = [];
-    for (var i = start;; i += step) {
-      if (i < 0 || i > obj.length) {
-        break;
-      }
-      if (step > 0 && i >= stop) {
-        break;
-      }
-      if (step < 0 && i <= stop) {
-        break;
-      }
-      results.push(runtime.memberLookup(obj, i));
-    }
-    return results;
-  }
-  function hasOwnProp(obj, key) {
-    return Object.prototype.hasOwnProperty.call(obj, key);
-  }
-  var ARRAY_MEMBERS = {
-    pop: function pop(index) {
-      if (index === undefined) {
-        return this.pop();
-      }
-      if (index >= this.length || index < 0) {
-        throw new Error('KeyError');
-      }
-      return this.splice(index, 1);
-    },
-    append: function append(element) {
-      return this.push(element);
-    },
-    remove: function remove(element) {
-      for (var i = 0; i < this.length; i++) {
-        if (this[i] === element) {
-          return this.splice(i, 1);
-        }
-      }
-      throw new Error('ValueError');
-    },
-    count: function count(element) {
-      var count = 0;
-      for (var i = 0; i < this.length; i++) {
-        if (this[i] === element) {
-          count++;
-        }
-      }
-      return count;
-    },
-    index: function index(element) {
-      var i;
-      if ((i = this.indexOf(element)) === -1) {
-        throw new Error('ValueError');
-      }
-      return i;
-    },
-    find: function find(element) {
-      return this.indexOf(element);
-    },
-    insert: function insert(index, elem) {
-      return this.splice(index, 0, elem);
-    }
-  };
-  var OBJECT_MEMBERS = {
-    items: function items() {
-      return lib._entries(this);
-    },
-    values: function values() {
-      return lib._values(this);
-    },
-    keys: function keys() {
-      return lib.keys(this);
-    },
-    get: function get(key, def) {
-      var output = this[key];
-      if (output === undefined) {
-        output = def;
-      }
-      return output;
-    },
-    has_key: function has_key(key) {
-      return hasOwnProp(this, key);
-    },
-    pop: function pop(key, def) {
-      var output = this[key];
-      if (output === undefined && def !== undefined) {
-        output = def;
-      } else if (output === undefined) {
-        throw new Error('KeyError');
-      } else {
-        delete this[key];
-      }
-      return output;
-    },
-    popitem: function popitem() {
-      var keys = lib.keys(this);
-      if (!keys.length) {
-        throw new Error('KeyError');
-      }
-      var k = keys[0];
-      var val = this[k];
-      delete this[k];
-      return [k, val];
-    },
-    setdefault: function setdefault(key, def) {
-      if (def === void 0) {
-        def = null;
-      }
-      if (!(key in this)) {
-        this[key] = def;
-      }
-      return this[key];
-    },
-    update: function update(kwargs) {
-      lib._assign(this, kwargs);
-      return null; // Always returns None
-    }
-  };
-
-  OBJECT_MEMBERS.iteritems = OBJECT_MEMBERS.items;
-  OBJECT_MEMBERS.itervalues = OBJECT_MEMBERS.values;
-  OBJECT_MEMBERS.iterkeys = OBJECT_MEMBERS.keys;
-  runtime.memberLookup = function memberLookup(obj, val, autoescape) {
-    if (arguments.length === 4) {
-      return sliceLookup.apply(this, arguments);
-    }
-    obj = obj || {};
-
-    // If the object is an object, return any of the methods that Python would
-    // otherwise provide.
-    if (lib.isArray(obj) && hasOwnProp(ARRAY_MEMBERS, val)) {
-      return ARRAY_MEMBERS[val].bind(obj);
-    }
-    if (lib.isObject(obj) && hasOwnProp(OBJECT_MEMBERS, val)) {
-      return OBJECT_MEMBERS[val].bind(obj);
-    }
-    return orig_memberLookup.apply(this, arguments);
-  };
-  return uninstall;
-}
-module.exports = installCompat;
-
-/***/ }),
-
-/***/ 8852:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-var lib = __nccwpck_require__(7853);
-var whitespaceChars = " \n\t\r\xA0";
-var delimChars = '()[]{}%*-+~/#,:|.<>=!';
-var intChars = '0123456789';
-var BLOCK_START = '{%';
-var BLOCK_END = '%}';
-var VARIABLE_START = '{{';
-var VARIABLE_END = '}}';
-var COMMENT_START = '{#';
-var COMMENT_END = '#}';
-var TOKEN_STRING = 'string';
-var TOKEN_WHITESPACE = 'whitespace';
-var TOKEN_DATA = 'data';
-var TOKEN_BLOCK_START = 'block-start';
-var TOKEN_BLOCK_END = 'block-end';
-var TOKEN_VARIABLE_START = 'variable-start';
-var TOKEN_VARIABLE_END = 'variable-end';
-var TOKEN_COMMENT = 'comment';
-var TOKEN_LEFT_PAREN = 'left-paren';
-var TOKEN_RIGHT_PAREN = 'right-paren';
-var TOKEN_LEFT_BRACKET = 'left-bracket';
-var TOKEN_RIGHT_BRACKET = 'right-bracket';
-var TOKEN_LEFT_CURLY = 'left-curly';
-var TOKEN_RIGHT_CURLY = 'right-curly';
-var TOKEN_OPERATOR = 'operator';
-var TOKEN_COMMA = 'comma';
-var TOKEN_COLON = 'colon';
-var TOKEN_TILDE = 'tilde';
-var TOKEN_PIPE = 'pipe';
-var TOKEN_INT = 'int';
-var TOKEN_FLOAT = 'float';
-var TOKEN_BOOLEAN = 'boolean';
-var TOKEN_NONE = 'none';
-var TOKEN_SYMBOL = 'symbol';
-var TOKEN_SPECIAL = 'special';
-var TOKEN_REGEX = 'regex';
-function token(type, value, lineno, colno) {
-  return {
-    type: type,
-    value: value,
-    lineno: lineno,
-    colno: colno
-  };
-}
-var Tokenizer = /*#__PURE__*/function () {
-  function Tokenizer(str, opts) {
-    this.str = str;
-    this.index = 0;
-    this.len = str.length;
-    this.lineno = 0;
-    this.colno = 0;
-    this.in_code = false;
-    opts = opts || {};
-    var tags = opts.tags || {};
-    this.tags = {
-      BLOCK_START: tags.blockStart || BLOCK_START,
-      BLOCK_END: tags.blockEnd || BLOCK_END,
-      VARIABLE_START: tags.variableStart || VARIABLE_START,
-      VARIABLE_END: tags.variableEnd || VARIABLE_END,
-      COMMENT_START: tags.commentStart || COMMENT_START,
-      COMMENT_END: tags.commentEnd || COMMENT_END
-    };
-    this.trimBlocks = !!opts.trimBlocks;
-    this.lstripBlocks = !!opts.lstripBlocks;
-  }
-  var _proto = Tokenizer.prototype;
-  _proto.nextToken = function nextToken() {
-    var lineno = this.lineno;
-    var colno = this.colno;
-    var tok;
-    if (this.in_code) {
-      // Otherwise, if we are in a block parse it as code
-      var cur = this.current();
-      if (this.isFinished()) {
-        // We have nothing else to parse
-        return null;
-      } else if (cur === '"' || cur === '\'') {
-        // We've hit a string
-        return token(TOKEN_STRING, this._parseString(cur), lineno, colno);
-      } else if (tok = this._extract(whitespaceChars)) {
-        // We hit some whitespace
-        return token(TOKEN_WHITESPACE, tok, lineno, colno);
-      } else if ((tok = this._extractString(this.tags.BLOCK_END)) || (tok = this._extractString('-' + this.tags.BLOCK_END))) {
-        // Special check for the block end tag
-        //
-        // It is a requirement that start and end tags are composed of
-        // delimiter characters (%{}[] etc), and our code always
-        // breaks on delimiters so we can assume the token parsing
-        // doesn't consume these elsewhere
-        this.in_code = false;
-        if (this.trimBlocks) {
-          cur = this.current();
-          if (cur === '\n') {
-            // Skip newline
-            this.forward();
-          } else if (cur === '\r') {
-            // Skip CRLF newline
-            this.forward();
-            cur = this.current();
-            if (cur === '\n') {
-              this.forward();
-            } else {
-              // Was not a CRLF, so go back
-              this.back();
-            }
-          }
-        }
-        return token(TOKEN_BLOCK_END, tok, lineno, colno);
-      } else if ((tok = this._extractString(this.tags.VARIABLE_END)) || (tok = this._extractString('-' + this.tags.VARIABLE_END))) {
-        // Special check for variable end tag (see above)
-        this.in_code = false;
-        return token(TOKEN_VARIABLE_END, tok, lineno, colno);
-      } else if (cur === 'r' && this.str.charAt(this.index + 1) === '/') {
-        // Skip past 'r/'.
-        this.forwardN(2);
-
-        // Extract until the end of the regex -- / ends it, \/ does not.
-        var regexBody = '';
-        while (!this.isFinished()) {
-          if (this.current() === '/' && this.previous() !== '\\') {
-            this.forward();
-            break;
-          } else {
-            regexBody += this.current();
-            this.forward();
-          }
-        }
-
-        // Check for flags.
-        // The possible flags are according to https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/RegExp)
-        var POSSIBLE_FLAGS = ['g', 'i', 'm', 'y'];
-        var regexFlags = '';
-        while (!this.isFinished()) {
-          var isCurrentAFlag = POSSIBLE_FLAGS.indexOf(this.current()) !== -1;
-          if (isCurrentAFlag) {
-            regexFlags += this.current();
-            this.forward();
-          } else {
-            break;
-          }
-        }
-        return token(TOKEN_REGEX, {
-          body: regexBody,
-          flags: regexFlags
-        }, lineno, colno);
-      } else if (delimChars.indexOf(cur) !== -1) {
-        // We've hit a delimiter (a special char like a bracket)
-        this.forward();
-        var complexOps = ['==', '===', '!=', '!==', '<=', '>=', '//', '**'];
-        var curComplex = cur + this.current();
-        var type;
-        if (lib.indexOf(complexOps, curComplex) !== -1) {
-          this.forward();
-          cur = curComplex;
-
-          // See if this is a strict equality/inequality comparator
-          if (lib.indexOf(complexOps, curComplex + this.current()) !== -1) {
-            cur = curComplex + this.current();
-            this.forward();
-          }
-        }
-        switch (cur) {
-          case '(':
-            type = TOKEN_LEFT_PAREN;
-            break;
-          case ')':
-            type = TOKEN_RIGHT_PAREN;
-            break;
-          case '[':
-            type = TOKEN_LEFT_BRACKET;
-            break;
-          case ']':
-            type = TOKEN_RIGHT_BRACKET;
-            break;
-          case '{':
-            type = TOKEN_LEFT_CURLY;
-            break;
-          case '}':
-            type = TOKEN_RIGHT_CURLY;
-            break;
-          case ',':
-            type = TOKEN_COMMA;
-            break;
-          case ':':
-            type = TOKEN_COLON;
-            break;
-          case '~':
-            type = TOKEN_TILDE;
-            break;
-          case '|':
-            type = TOKEN_PIPE;
-            break;
-          default:
-            type = TOKEN_OPERATOR;
-        }
-        return token(type, cur, lineno, colno);
-      } else {
-        // We are not at whitespace or a delimiter, so extract the
-        // text and parse it
-        tok = this._extractUntil(whitespaceChars + delimChars);
-        if (tok.match(/^[-+]?[0-9]+$/)) {
-          if (this.current() === '.') {
-            this.forward();
-            var dec = this._extract(intChars);
-            return token(TOKEN_FLOAT, tok + '.' + dec, lineno, colno);
-          } else {
-            return token(TOKEN_INT, tok, lineno, colno);
-          }
-        } else if (tok.match(/^(true|false)$/)) {
-          return token(TOKEN_BOOLEAN, tok, lineno, colno);
-        } else if (tok === 'none') {
-          return token(TOKEN_NONE, tok, lineno, colno);
-          /*
-           * Added to make the test `null is null` evaluate truthily.
-           * Otherwise, Nunjucks will look up null in the context and
-           * return `undefined`, which is not what we want. This *may* have
-           * consequences is someone is using null in their templates as a
-           * variable.
-           */
-        } else if (tok === 'null') {
-          return token(TOKEN_NONE, tok, lineno, colno);
-        } else if (tok) {
-          return token(TOKEN_SYMBOL, tok, lineno, colno);
-        } else {
-          throw new Error('Unexpected value while parsing: ' + tok);
-        }
-      }
-    } else {
-      // Parse out the template text, breaking on tag
-      // delimiters because we need to look for block/variable start
-      // tags (don't use the full delimChars for optimization)
-      var beginChars = this.tags.BLOCK_START.charAt(0) + this.tags.VARIABLE_START.charAt(0) + this.tags.COMMENT_START.charAt(0) + this.tags.COMMENT_END.charAt(0);
-      if (this.isFinished()) {
-        return null;
-      } else if ((tok = this._extractString(this.tags.BLOCK_START + '-')) || (tok = this._extractString(this.tags.BLOCK_START))) {
-        this.in_code = true;
-        return token(TOKEN_BLOCK_START, tok, lineno, colno);
-      } else if ((tok = this._extractString(this.tags.VARIABLE_START + '-')) || (tok = this._extractString(this.tags.VARIABLE_START))) {
-        this.in_code = true;
-        return token(TOKEN_VARIABLE_START, tok, lineno, colno);
-      } else {
-        tok = '';
-        var data;
-        var inComment = false;
-        if (this._matches(this.tags.COMMENT_START)) {
-          inComment = true;
-          tok = this._extractString(this.tags.COMMENT_START);
-        }
-
-        // Continually consume text, breaking on the tag delimiter
-        // characters and checking to see if it's a start tag.
-        //
-        // We could hit the end of the template in the middle of
-        // our looping, so check for the null return value from
-        // _extractUntil
-        while ((data = this._extractUntil(beginChars)) !== null) {
-          tok += data;
-          if ((this._matches(this.tags.BLOCK_START) || this._matches(this.tags.VARIABLE_START) || this._matches(this.tags.COMMENT_START)) && !inComment) {
-            if (this.lstripBlocks && this._matches(this.tags.BLOCK_START) && this.colno > 0 && this.colno <= tok.length) {
-              var lastLine = tok.slice(-this.colno);
-              if (/^\s+$/.test(lastLine)) {
-                // Remove block leading whitespace from beginning of the string
-                tok = tok.slice(0, -this.colno);
-                if (!tok.length) {
-                  // All data removed, collapse to avoid unnecessary nodes
-                  // by returning next token (block start)
-                  return this.nextToken();
-                }
-              }
-            }
-            // If it is a start tag, stop looping
-            break;
-          } else if (this._matches(this.tags.COMMENT_END)) {
-            if (!inComment) {
-              throw new Error('unexpected end of comment');
-            }
-            tok += this._extractString(this.tags.COMMENT_END);
-            break;
-          } else {
-            // It does not match any tag, so add the character and
-            // carry on
-            tok += this.current();
-            this.forward();
-          }
-        }
-        if (data === null && inComment) {
-          throw new Error('expected end of comment, got end of file');
-        }
-        return token(inComment ? TOKEN_COMMENT : TOKEN_DATA, tok, lineno, colno);
-      }
-    }
-  };
-  _proto._parseString = function _parseString(delimiter) {
-    this.forward();
-    var str = '';
-    while (!this.isFinished() && this.current() !== delimiter) {
-      var cur = this.current();
-      if (cur === '\\') {
-        this.forward();
-        switch (this.current()) {
-          case 'n':
-            str += '\n';
-            break;
-          case 't':
-            str += '\t';
-            break;
-          case 'r':
-            str += '\r';
-            break;
-          default:
-            str += this.current();
-        }
-        this.forward();
-      } else {
-        str += cur;
-        this.forward();
-      }
-    }
-    this.forward();
-    return str;
-  };
-  _proto._matches = function _matches(str) {
-    if (this.index + str.length > this.len) {
-      return null;
-    }
-    var m = this.str.slice(this.index, this.index + str.length);
-    return m === str;
-  };
-  _proto._extractString = function _extractString(str) {
-    if (this._matches(str)) {
-      this.forwardN(str.length);
-      return str;
-    }
-    return null;
-  };
-  _proto._extractUntil = function _extractUntil(charString) {
-    // Extract all non-matching chars, with the default matching set
-    // to everything
-    return this._extractMatching(true, charString || '');
-  };
-  _proto._extract = function _extract(charString) {
-    // Extract all matching chars (no default, so charString must be
-    // explicit)
-    return this._extractMatching(false, charString);
-  };
-  _proto._extractMatching = function _extractMatching(breakOnMatch, charString) {
-    // Pull out characters until a breaking char is hit.
-    // If breakOnMatch is false, a non-matching char stops it.
-    // If breakOnMatch is true, a matching char stops it.
-
-    if (this.isFinished()) {
-      return null;
-    }
-    var first = charString.indexOf(this.current());
-
-    // Only proceed if the first character doesn't meet our condition
-    if (breakOnMatch && first === -1 || !breakOnMatch && first !== -1) {
-      var t = this.current();
-      this.forward();
-
-      // And pull out all the chars one at a time until we hit a
-      // breaking char
-      var idx = charString.indexOf(this.current());
-      while ((breakOnMatch && idx === -1 || !breakOnMatch && idx !== -1) && !this.isFinished()) {
-        t += this.current();
-        this.forward();
-        idx = charString.indexOf(this.current());
-      }
-      return t;
-    }
-    return '';
-  };
-  _proto._extractRegex = function _extractRegex(regex) {
-    var matches = this.currentStr().match(regex);
-    if (!matches) {
-      return null;
-    }
-
-    // Move forward whatever was matched
-    this.forwardN(matches[0].length);
-    return matches;
-  };
-  _proto.isFinished = function isFinished() {
-    return this.index >= this.len;
-  };
-  _proto.forwardN = function forwardN(n) {
-    for (var i = 0; i < n; i++) {
-      this.forward();
-    }
-  };
-  _proto.forward = function forward() {
-    this.index++;
-    if (this.previous() === '\n') {
-      this.lineno++;
-      this.colno = 0;
-    } else {
-      this.colno++;
-    }
-  };
-  _proto.backN = function backN(n) {
-    for (var i = 0; i < n; i++) {
-      this.back();
-    }
-  };
-  _proto.back = function back() {
-    this.index--;
-    if (this.current() === '\n') {
-      this.lineno--;
-      var idx = this.src.lastIndexOf('\n', this.index - 1);
-      if (idx === -1) {
-        this.colno = this.index;
-      } else {
-        this.colno = this.index - idx;
-      }
-    } else {
-      this.colno--;
-    }
-  }
-
-  // current returns current character
-  ;
-  _proto.current = function current() {
-    if (!this.isFinished()) {
-      return this.str.charAt(this.index);
-    }
-    return '';
-  }
-
-  // currentStr returns what's left of the unparsed string
-  ;
-  _proto.currentStr = function currentStr() {
-    if (!this.isFinished()) {
-      return this.str.substr(this.index);
-    }
-    return '';
-  };
-  _proto.previous = function previous() {
-    return this.str.charAt(this.index - 1);
-  };
-  return Tokenizer;
-}();
-module.exports = {
-  lex: function lex(src, opts) {
-    return new Tokenizer(src, opts);
-  },
-  TOKEN_STRING: TOKEN_STRING,
-  TOKEN_WHITESPACE: TOKEN_WHITESPACE,
-  TOKEN_DATA: TOKEN_DATA,
-  TOKEN_BLOCK_START: TOKEN_BLOCK_START,
-  TOKEN_BLOCK_END: TOKEN_BLOCK_END,
-  TOKEN_VARIABLE_START: TOKEN_VARIABLE_START,
-  TOKEN_VARIABLE_END: TOKEN_VARIABLE_END,
-  TOKEN_COMMENT: TOKEN_COMMENT,
-  TOKEN_LEFT_PAREN: TOKEN_LEFT_PAREN,
-  TOKEN_RIGHT_PAREN: TOKEN_RIGHT_PAREN,
-  TOKEN_LEFT_BRACKET: TOKEN_LEFT_BRACKET,
-  TOKEN_RIGHT_BRACKET: TOKEN_RIGHT_BRACKET,
-  TOKEN_LEFT_CURLY: TOKEN_LEFT_CURLY,
-  TOKEN_RIGHT_CURLY: TOKEN_RIGHT_CURLY,
-  TOKEN_OPERATOR: TOKEN_OPERATOR,
-  TOKEN_COMMA: TOKEN_COMMA,
-  TOKEN_COLON: TOKEN_COLON,
-  TOKEN_TILDE: TOKEN_TILDE,
-  TOKEN_PIPE: TOKEN_PIPE,
-  TOKEN_INT: TOKEN_INT,
-  TOKEN_FLOAT: TOKEN_FLOAT,
-  TOKEN_BOOLEAN: TOKEN_BOOLEAN,
-  TOKEN_NONE: TOKEN_NONE,
-  TOKEN_SYMBOL: TOKEN_SYMBOL,
-  TOKEN_SPECIAL: TOKEN_SPECIAL,
-  TOKEN_REGEX: TOKEN_REGEX
-};
-
-/***/ }),
-
-/***/ 7853:
-/***/ ((module) => {
-
-
-
-var ArrayProto = Array.prototype;
-var ObjProto = Object.prototype;
-var escapeMap = {
-  '&': '&amp;',
-  '"': '&quot;',
-  '\'': '&#39;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '\\': '&#92;'
-};
-var escapeRegex = /[&"'<>\\]/g;
-var _exports = module.exports = {};
-function hasOwnProp(obj, k) {
-  return ObjProto.hasOwnProperty.call(obj, k);
-}
-_exports.hasOwnProp = hasOwnProp;
-function lookupEscape(ch) {
-  return escapeMap[ch];
-}
-function _prettifyError(path, withInternals, err) {
-  if (!err.Update) {
-    // not one of ours, cast it
-    err = new _exports.TemplateError(err);
-  }
-  err.Update(path);
-
-  // Unless they marked the dev flag, show them a trace from here
-  if (!withInternals) {
-    var old = err;
-    err = new Error(old.message);
-    err.name = old.name;
-  }
-  return err;
-}
-_exports._prettifyError = _prettifyError;
-function TemplateError(message, lineno, colno) {
-  var err;
-  var cause;
-  if (message instanceof Error) {
-    cause = message;
-    message = cause.name + ": " + cause.message;
-  }
-  if (Object.setPrototypeOf) {
-    err = new Error(message);
-    Object.setPrototypeOf(err, TemplateError.prototype);
-  } else {
-    err = this;
-    Object.defineProperty(err, 'message', {
-      enumerable: false,
-      writable: true,
-      value: message
-    });
-  }
-  Object.defineProperty(err, 'name', {
-    value: 'Template render error'
-  });
-  if (Error.captureStackTrace) {
-    Error.captureStackTrace(err, this.constructor);
-  }
-  var getStack;
-  if (cause) {
-    var stackDescriptor = Object.getOwnPropertyDescriptor(cause, 'stack');
-    getStack = stackDescriptor && (stackDescriptor.get || function () {
-      return stackDescriptor.value;
-    });
-    if (!getStack) {
-      getStack = function getStack() {
-        return cause.stack;
-      };
-    }
-  } else {
-    var stack = new Error(message).stack;
-    getStack = function getStack() {
-      return stack;
-    };
-  }
-  Object.defineProperty(err, 'stack', {
-    get: function get() {
-      return getStack.call(err);
-    }
-  });
-  Object.defineProperty(err, 'cause', {
-    value: cause
-  });
-  err.lineno = lineno;
-  err.colno = colno;
-  err.firstUpdate = true;
-  err.Update = function Update(path) {
-    var msg = '(' + (path || 'unknown path') + ')';
-
-    // only show lineno + colno next to path of template
-    // where error occurred
-    if (this.firstUpdate) {
-      if (this.lineno && this.colno) {
-        msg += " [Line " + this.lineno + ", Column " + this.colno + "]";
-      } else if (this.lineno) {
-        msg += " [Line " + this.lineno + "]";
-      }
-    }
-    msg += '\n ';
-    if (this.firstUpdate) {
-      msg += ' ';
-    }
-    this.message = msg + (this.message || '');
-    this.firstUpdate = false;
-    return this;
-  };
-  return err;
-}
-if (Object.setPrototypeOf) {
-  Object.setPrototypeOf(TemplateError.prototype, Error.prototype);
-} else {
-  TemplateError.prototype = Object.create(Error.prototype, {
-    constructor: {
-      value: TemplateError
-    }
-  });
-}
-_exports.TemplateError = TemplateError;
-function escape(val) {
-  return val.replace(escapeRegex, lookupEscape);
-}
-_exports.escape = escape;
-function isFunction(obj) {
-  return ObjProto.toString.call(obj) === '[object Function]';
-}
-_exports.isFunction = isFunction;
-function isArray(obj) {
-  return ObjProto.toString.call(obj) === '[object Array]';
-}
-_exports.isArray = isArray;
-function isString(obj) {
-  return ObjProto.toString.call(obj) === '[object String]';
-}
-_exports.isString = isString;
-function isObject(obj) {
-  return ObjProto.toString.call(obj) === '[object Object]';
-}
-_exports.isObject = isObject;
-
-/**
- * @param {string|number} attr
- * @returns {(string|number)[]}
- * @private
- */
-function _prepareAttributeParts(attr) {
-  if (!attr) {
-    return [];
-  }
-  if (typeof attr === 'string') {
-    return attr.split('.');
-  }
-  return [attr];
-}
-
-/**
- * @param {string}   attribute      Attribute value. Dots allowed.
- * @returns {function(Object): *}
- */
-function getAttrGetter(attribute) {
-  var parts = _prepareAttributeParts(attribute);
-  return function attrGetter(item) {
-    var _item = item;
-    for (var i = 0; i < parts.length; i++) {
-      var part = parts[i];
-
-      // If item is not an object, and we still got parts to handle, it means
-      // that something goes wrong. Just roll out to undefined in that case.
-      if (hasOwnProp(_item, part)) {
-        _item = _item[part];
-      } else {
-        return undefined;
-      }
-    }
-    return _item;
-  };
-}
-_exports.getAttrGetter = getAttrGetter;
-function groupBy(obj, val, throwOnUndefined) {
-  var result = {};
-  var iterator = isFunction(val) ? val : getAttrGetter(val);
-  for (var i = 0; i < obj.length; i++) {
-    var value = obj[i];
-    var key = iterator(value, i);
-    if (key === undefined && throwOnUndefined === true) {
-      throw new TypeError("groupby: attribute \"" + val + "\" resolved to undefined");
-    }
-    (result[key] || (result[key] = [])).push(value);
-  }
-  return result;
-}
-_exports.groupBy = groupBy;
-function toArray(obj) {
-  return Array.prototype.slice.call(obj);
-}
-_exports.toArray = toArray;
-function without(array) {
-  var result = [];
-  if (!array) {
-    return result;
-  }
-  var length = array.length;
-  var contains = toArray(arguments).slice(1);
-  var index = -1;
-  while (++index < length) {
-    if (indexOf(contains, array[index]) === -1) {
-      result.push(array[index]);
-    }
-  }
-  return result;
-}
-_exports.without = without;
-function repeat(char_, n) {
-  var str = '';
-  for (var i = 0; i < n; i++) {
-    str += char_;
-  }
-  return str;
-}
-_exports.repeat = repeat;
-function each(obj, func, context) {
-  if (obj == null) {
-    return;
-  }
-  if (ArrayProto.forEach && obj.forEach === ArrayProto.forEach) {
-    obj.forEach(func, context);
-  } else if (obj.length === +obj.length) {
-    for (var i = 0, l = obj.length; i < l; i++) {
-      func.call(context, obj[i], i, obj);
-    }
-  }
-}
-_exports.each = each;
-function map(obj, func) {
-  var results = [];
-  if (obj == null) {
-    return results;
-  }
-  if (ArrayProto.map && obj.map === ArrayProto.map) {
-    return obj.map(func);
-  }
-  for (var i = 0; i < obj.length; i++) {
-    results[results.length] = func(obj[i], i);
-  }
-  if (obj.length === +obj.length) {
-    results.length = obj.length;
-  }
-  return results;
-}
-_exports.map = map;
-function asyncIter(arr, iter, cb) {
-  var i = -1;
-  function next() {
-    i++;
-    if (i < arr.length) {
-      iter(arr[i], i, next, cb);
-    } else {
-      cb();
-    }
-  }
-  next();
-}
-_exports.asyncIter = asyncIter;
-function asyncFor(obj, iter, cb) {
-  var keys = keys_(obj || {});
-  var len = keys.length;
-  var i = -1;
-  function next() {
-    i++;
-    var k = keys[i];
-    if (i < len) {
-      iter(k, obj[k], i, len, next);
-    } else {
-      cb();
-    }
-  }
-  next();
-}
-_exports.asyncFor = asyncFor;
-function indexOf(arr, searchElement, fromIndex) {
-  return Array.prototype.indexOf.call(arr || [], searchElement, fromIndex);
-}
-_exports.indexOf = indexOf;
-function keys_(obj) {
-  /* eslint-disable no-restricted-syntax */
-  var arr = [];
-  for (var k in obj) {
-    if (hasOwnProp(obj, k)) {
-      arr.push(k);
-    }
-  }
-  return arr;
-}
-_exports.keys = keys_;
-function _entries(obj) {
-  return keys_(obj).map(function (k) {
-    return [k, obj[k]];
-  });
-}
-_exports._entries = _entries;
-function _values(obj) {
-  return keys_(obj).map(function (k) {
-    return obj[k];
-  });
-}
-_exports._values = _values;
-function extend(obj1, obj2) {
-  obj1 = obj1 || {};
-  keys_(obj2).forEach(function (k) {
-    obj1[k] = obj2[k];
-  });
-  return obj1;
-}
-_exports._assign = _exports.extend = extend;
-function inOperator(key, val) {
-  if (isArray(val) || isString(val)) {
-    return val.indexOf(key) !== -1;
-  } else if (isObject(val)) {
-    return key in val;
-  }
-  throw new Error('Cannot use "in" operator to search for "' + key + '" in unexpected types.');
-}
-_exports.inOperator = inOperator;
-
-/***/ }),
-
-/***/ 3391:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-function _inheritsLoose(subClass, superClass) { subClass.prototype = Object.create(superClass.prototype); subClass.prototype.constructor = subClass; _setPrototypeOf(subClass, superClass); }
-function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
-var path = __nccwpck_require__(6928);
-var _require = __nccwpck_require__(9695),
-  EmitterObj = _require.EmitterObj;
-module.exports = /*#__PURE__*/function (_EmitterObj) {
-  _inheritsLoose(Loader, _EmitterObj);
-  function Loader() {
-    return _EmitterObj.apply(this, arguments) || this;
-  }
-  var _proto = Loader.prototype;
-  _proto.resolve = function resolve(from, to) {
-    return path.resolve(path.dirname(from), to);
-  };
-  _proto.isRelative = function isRelative(filename) {
-    return filename.indexOf('./') === 0 || filename.indexOf('../') === 0;
-  };
-  return Loader;
-}(EmitterObj);
-
-/***/ }),
-
-/***/ 2650:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-// This file will automatically be rewired to web-loader.js when
-// building for the browser
-module.exports = __nccwpck_require__(6973);
-
-/***/ }),
-
-/***/ 6973:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-/* eslint-disable no-console */
-
-
-
-function _inheritsLoose(subClass, superClass) { subClass.prototype = Object.create(superClass.prototype); subClass.prototype.constructor = subClass; _setPrototypeOf(subClass, superClass); }
-function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
-var fs = __nccwpck_require__(9896);
-var path = __nccwpck_require__(6928);
-var Loader = __nccwpck_require__(3391);
-var _require = __nccwpck_require__(7402),
-  PrecompiledLoader = _require.PrecompiledLoader;
-var chokidar;
-var FileSystemLoader = /*#__PURE__*/function (_Loader) {
-  _inheritsLoose(FileSystemLoader, _Loader);
-  function FileSystemLoader(searchPaths, opts) {
-    var _this;
-    _this = _Loader.call(this) || this;
-    if (typeof opts === 'boolean') {
-      console.log('[nunjucks] Warning: you passed a boolean as the second ' + 'argument to FileSystemLoader, but it now takes an options ' + 'object. See http://mozilla.github.io/nunjucks/api.html#filesystemloader');
-    }
-    opts = opts || {};
-    _this.pathsToNames = {};
-    _this.noCache = !!opts.noCache;
-    if (searchPaths) {
-      searchPaths = Array.isArray(searchPaths) ? searchPaths : [searchPaths];
-      // For windows, convert to forward slashes
-      _this.searchPaths = searchPaths.map(path.normalize);
-    } else {
-      _this.searchPaths = ['.'];
-    }
-    if (opts.watch) {
-      // Watch all the templates in the paths and fire an event when
-      // they change
-      try {
-        chokidar = __nccwpck_require__(568); // eslint-disable-line global-require
-      } catch (e) {
-        throw new Error('watch requires chokidar to be installed');
-      }
-      var paths = _this.searchPaths.filter(fs.existsSync);
-      var watcher = chokidar.watch(paths);
-      watcher.on('all', function (event, fullname) {
-        fullname = path.resolve(fullname);
-        if (event === 'change' && fullname in _this.pathsToNames) {
-          _this.emit('update', _this.pathsToNames[fullname], fullname);
-        }
-      });
-      watcher.on('error', function (error) {
-        console.log('Watcher error: ' + error);
-      });
-    }
-    return _this;
-  }
-  var _proto = FileSystemLoader.prototype;
-  _proto.getSource = function getSource(name) {
-    var fullpath = null;
-    var paths = this.searchPaths;
-    for (var i = 0; i < paths.length; i++) {
-      var basePath = path.resolve(paths[i]);
-      var p = path.resolve(paths[i], name);
-
-      // Only allow the current directory and anything
-      // underneath it to be searched
-      if (p.indexOf(basePath) === 0 && fs.existsSync(p)) {
-        fullpath = p;
-        break;
-      }
-    }
-    if (!fullpath) {
-      return null;
-    }
-    this.pathsToNames[fullpath] = name;
-    var source = {
-      src: fs.readFileSync(fullpath, 'utf-8'),
-      path: fullpath,
-      noCache: this.noCache
-    };
-    this.emit('load', name, source);
-    return source;
-  };
-  return FileSystemLoader;
-}(Loader);
-var NodeResolveLoader = /*#__PURE__*/function (_Loader2) {
-  _inheritsLoose(NodeResolveLoader, _Loader2);
-  function NodeResolveLoader(opts) {
-    var _this2;
-    _this2 = _Loader2.call(this) || this;
-    opts = opts || {};
-    _this2.pathsToNames = {};
-    _this2.noCache = !!opts.noCache;
-    if (opts.watch) {
-      try {
-        chokidar = __nccwpck_require__(568); // eslint-disable-line global-require
-      } catch (e) {
-        throw new Error('watch requires chokidar to be installed');
-      }
-      _this2.watcher = chokidar.watch();
-      _this2.watcher.on('change', function (fullname) {
-        _this2.emit('update', _this2.pathsToNames[fullname], fullname);
-      });
-      _this2.watcher.on('error', function (error) {
-        console.log('Watcher error: ' + error);
-      });
-      _this2.on('load', function (name, source) {
-        _this2.watcher.add(source.path);
-      });
-    }
-    return _this2;
-  }
-  var _proto2 = NodeResolveLoader.prototype;
-  _proto2.getSource = function getSource(name) {
-    // Don't allow file-system traversal
-    if (/^\.?\.?(\/|\\)/.test(name)) {
-      return null;
-    }
-    if (/^[A-Z]:/.test(name)) {
-      return null;
-    }
-    var fullpath;
-    try {
-      fullpath = __WEBPACK_EXTERNAL_createRequire(import.meta.url).resolve(name);
-    } catch (e) {
-      return null;
-    }
-    this.pathsToNames[fullpath] = name;
-    var source = {
-      src: fs.readFileSync(fullpath, 'utf-8'),
-      path: fullpath,
-      noCache: this.noCache
-    };
-    this.emit('load', name, source);
-    return source;
-  };
-  return NodeResolveLoader;
-}(Loader);
-module.exports = {
-  FileSystemLoader: FileSystemLoader,
-  PrecompiledLoader: PrecompiledLoader,
-  NodeResolveLoader: NodeResolveLoader
-};
-
-/***/ }),
-
-/***/ 6151:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, _toPropertyKey(descriptor.key), descriptor); } }
-function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); Object.defineProperty(Constructor, "prototype", { writable: false }); return Constructor; }
-function _toPropertyKey(arg) { var key = _toPrimitive(arg, "string"); return typeof key === "symbol" ? key : String(key); }
-function _toPrimitive(input, hint) { if (typeof input !== "object" || input === null) return input; var prim = input[Symbol.toPrimitive]; if (prim !== undefined) { var res = prim.call(input, hint || "default"); if (typeof res !== "object") return res; throw new TypeError("@@toPrimitive must return a primitive value."); } return (hint === "string" ? String : Number)(input); }
-function _inheritsLoose(subClass, superClass) { subClass.prototype = Object.create(superClass.prototype); subClass.prototype.constructor = subClass; _setPrototypeOf(subClass, superClass); }
-function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
-var _require = __nccwpck_require__(9695),
-  Obj = _require.Obj;
-function traverseAndCheck(obj, type, results) {
-  if (obj instanceof type) {
-    results.push(obj);
-  }
-  if (obj instanceof Node) {
-    obj.findAll(type, results);
-  }
-}
-var Node = /*#__PURE__*/function (_Obj) {
-  _inheritsLoose(Node, _Obj);
-  function Node() {
-    return _Obj.apply(this, arguments) || this;
-  }
-  var _proto = Node.prototype;
-  _proto.init = function init(lineno, colno) {
-    var _arguments = arguments,
-      _this = this;
-    for (var _len = arguments.length, args = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
-      args[_key - 2] = arguments[_key];
-    }
-    this.lineno = lineno;
-    this.colno = colno;
-    this.fields.forEach(function (field, i) {
-      // The first two args are line/col numbers, so offset by 2
-      var val = _arguments[i + 2];
-
-      // Fields should never be undefined, but null. It makes
-      // testing easier to normalize values.
-      if (val === undefined) {
-        val = null;
-      }
-      _this[field] = val;
-    });
-  };
-  _proto.findAll = function findAll(type, results) {
-    var _this2 = this;
-    results = results || [];
-    if (this instanceof NodeList) {
-      this.children.forEach(function (child) {
-        return traverseAndCheck(child, type, results);
-      });
-    } else {
-      this.fields.forEach(function (field) {
-        return traverseAndCheck(_this2[field], type, results);
-      });
-    }
-    return results;
-  };
-  _proto.iterFields = function iterFields(func) {
-    var _this3 = this;
-    this.fields.forEach(function (field) {
-      func(_this3[field], field);
-    });
-  };
-  return Node;
-}(Obj); // Abstract nodes
-var Value = /*#__PURE__*/function (_Node) {
-  _inheritsLoose(Value, _Node);
-  function Value() {
-    return _Node.apply(this, arguments) || this;
-  }
-  _createClass(Value, [{
-    key: "typename",
-    get: function get() {
-      return 'Value';
-    }
-  }, {
-    key: "fields",
-    get: function get() {
-      return ['value'];
-    }
-  }]);
-  return Value;
-}(Node); // Concrete nodes
-var NodeList = /*#__PURE__*/function (_Node2) {
-  _inheritsLoose(NodeList, _Node2);
-  function NodeList() {
-    return _Node2.apply(this, arguments) || this;
-  }
-  var _proto2 = NodeList.prototype;
-  _proto2.init = function init(lineno, colno, nodes) {
-    _Node2.prototype.init.call(this, lineno, colno, nodes || []);
-  };
-  _proto2.addChild = function addChild(node) {
-    this.children.push(node);
-  };
-  _createClass(NodeList, [{
-    key: "typename",
-    get: function get() {
-      return 'NodeList';
-    }
-  }, {
-    key: "fields",
-    get: function get() {
-      return ['children'];
-    }
-  }]);
-  return NodeList;
-}(Node);
-var Root = NodeList.extend('Root');
-var Literal = Value.extend('Literal');
-var _Symbol = Value.extend('Symbol');
-var Group = NodeList.extend('Group');
-var ArrayNode = NodeList.extend('Array');
-var Pair = Node.extend('Pair', {
-  fields: ['key', 'value']
-});
-var Dict = NodeList.extend('Dict');
-var LookupVal = Node.extend('LookupVal', {
-  fields: ['target', 'val']
-});
-var If = Node.extend('If', {
-  fields: ['cond', 'body', 'else_']
-});
-var IfAsync = If.extend('IfAsync');
-var InlineIf = Node.extend('InlineIf', {
-  fields: ['cond', 'body', 'else_']
-});
-var For = Node.extend('For', {
-  fields: ['arr', 'name', 'body', 'else_']
-});
-var AsyncEach = For.extend('AsyncEach');
-var AsyncAll = For.extend('AsyncAll');
-var Macro = Node.extend('Macro', {
-  fields: ['name', 'args', 'body']
-});
-var Caller = Macro.extend('Caller');
-var Import = Node.extend('Import', {
-  fields: ['template', 'target', 'withContext']
-});
-var FromImport = /*#__PURE__*/function (_Node3) {
-  _inheritsLoose(FromImport, _Node3);
-  function FromImport() {
-    return _Node3.apply(this, arguments) || this;
-  }
-  var _proto3 = FromImport.prototype;
-  _proto3.init = function init(lineno, colno, template, names, withContext) {
-    _Node3.prototype.init.call(this, lineno, colno, template, names || new NodeList(), withContext);
-  };
-  _createClass(FromImport, [{
-    key: "typename",
-    get: function get() {
-      return 'FromImport';
-    }
-  }, {
-    key: "fields",
-    get: function get() {
-      return ['template', 'names', 'withContext'];
-    }
-  }]);
-  return FromImport;
-}(Node);
-var FunCall = Node.extend('FunCall', {
-  fields: ['name', 'args']
-});
-var Filter = FunCall.extend('Filter');
-var FilterAsync = Filter.extend('FilterAsync', {
-  fields: ['name', 'args', 'symbol']
-});
-var KeywordArgs = Dict.extend('KeywordArgs');
-var Block = Node.extend('Block', {
-  fields: ['name', 'body']
-});
-var Super = Node.extend('Super', {
-  fields: ['blockName', 'symbol']
-});
-var TemplateRef = Node.extend('TemplateRef', {
-  fields: ['template']
-});
-var Extends = TemplateRef.extend('Extends');
-var Include = Node.extend('Include', {
-  fields: ['template', 'ignoreMissing']
-});
-var Set = Node.extend('Set', {
-  fields: ['targets', 'value']
-});
-var Switch = Node.extend('Switch', {
-  fields: ['expr', 'cases', 'default']
-});
-var Case = Node.extend('Case', {
-  fields: ['cond', 'body']
-});
-var Output = NodeList.extend('Output');
-var Capture = Node.extend('Capture', {
-  fields: ['body']
-});
-var TemplateData = Literal.extend('TemplateData');
-var UnaryOp = Node.extend('UnaryOp', {
-  fields: ['target']
-});
-var BinOp = Node.extend('BinOp', {
-  fields: ['left', 'right']
-});
-var In = BinOp.extend('In');
-var Is = BinOp.extend('Is');
-var Or = BinOp.extend('Or');
-var And = BinOp.extend('And');
-var Not = UnaryOp.extend('Not');
-var Add = BinOp.extend('Add');
-var Concat = BinOp.extend('Concat');
-var Sub = BinOp.extend('Sub');
-var Mul = BinOp.extend('Mul');
-var Div = BinOp.extend('Div');
-var FloorDiv = BinOp.extend('FloorDiv');
-var Mod = BinOp.extend('Mod');
-var Pow = BinOp.extend('Pow');
-var Neg = UnaryOp.extend('Neg');
-var Pos = UnaryOp.extend('Pos');
-var Compare = Node.extend('Compare', {
-  fields: ['expr', 'ops']
-});
-var CompareOperand = Node.extend('CompareOperand', {
-  fields: ['expr', 'type']
-});
-var CallExtension = Node.extend('CallExtension', {
-  init: function init(ext, prop, args, contentArgs) {
-    this.parent();
-    this.extName = ext.__name || ext;
-    this.prop = prop;
-    this.args = args || new NodeList();
-    this.contentArgs = contentArgs || [];
-    this.autoescape = ext.autoescape;
-  },
-  fields: ['extName', 'prop', 'args', 'contentArgs']
-});
-var CallExtensionAsync = CallExtension.extend('CallExtensionAsync');
-
-// This is hacky, but this is just a debugging function anyway
-function print(str, indent, inline) {
-  var lines = str.split('\n');
-  lines.forEach(function (line, i) {
-    if (line && (inline && i > 0 || !inline)) {
-      process.stdout.write(' '.repeat(indent));
-    }
-    var nl = i === lines.length - 1 ? '' : '\n';
-    process.stdout.write("" + line + nl);
-  });
-}
-
-// Print the AST in a nicely formatted tree format for debuggin
-function printNodes(node, indent) {
-  indent = indent || 0;
-  print(node.typename + ': ', indent);
-  if (node instanceof NodeList) {
-    print('\n');
-    node.children.forEach(function (n) {
-      printNodes(n, indent + 2);
-    });
-  } else if (node instanceof CallExtension) {
-    print(node.extName + "." + node.prop + "\n");
-    if (node.args) {
-      printNodes(node.args, indent + 2);
-    }
-    if (node.contentArgs) {
-      node.contentArgs.forEach(function (n) {
-        printNodes(n, indent + 2);
-      });
-    }
-  } else {
-    var nodes = [];
-    var props = null;
-    node.iterFields(function (val, fieldName) {
-      if (val instanceof Node) {
-        nodes.push([fieldName, val]);
-      } else {
-        props = props || {};
-        props[fieldName] = val;
-      }
-    });
-    if (props) {
-      print(JSON.stringify(props, null, 2) + '\n', null, true);
-    } else {
-      print('\n');
-    }
-    nodes.forEach(function (_ref) {
-      var fieldName = _ref[0],
-        n = _ref[1];
-      print("[" + fieldName + "] =>", indent + 2);
-      printNodes(n, indent + 4);
-    });
-  }
-}
-module.exports = {
-  Node: Node,
-  Root: Root,
-  NodeList: NodeList,
-  Value: Value,
-  Literal: Literal,
-  Symbol: _Symbol,
-  Group: Group,
-  Array: ArrayNode,
-  Pair: Pair,
-  Dict: Dict,
-  Output: Output,
-  Capture: Capture,
-  TemplateData: TemplateData,
-  If: If,
-  IfAsync: IfAsync,
-  InlineIf: InlineIf,
-  For: For,
-  AsyncEach: AsyncEach,
-  AsyncAll: AsyncAll,
-  Macro: Macro,
-  Caller: Caller,
-  Import: Import,
-  FromImport: FromImport,
-  FunCall: FunCall,
-  Filter: Filter,
-  FilterAsync: FilterAsync,
-  KeywordArgs: KeywordArgs,
-  Block: Block,
-  Super: Super,
-  Extends: Extends,
-  Include: Include,
-  Set: Set,
-  Switch: Switch,
-  Case: Case,
-  LookupVal: LookupVal,
-  BinOp: BinOp,
-  In: In,
-  Is: Is,
-  Or: Or,
-  And: And,
-  Not: Not,
-  Add: Add,
-  Concat: Concat,
-  Sub: Sub,
-  Mul: Mul,
-  Div: Div,
-  FloorDiv: FloorDiv,
-  Mod: Mod,
-  Pow: Pow,
-  Neg: Neg,
-  Pos: Pos,
-  Compare: Compare,
-  CompareOperand: CompareOperand,
-  CallExtension: CallExtension,
-  CallExtensionAsync: CallExtensionAsync,
-  printNodes: printNodes
-};
-
-/***/ }),
-
-/***/ 9695:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-// A simple class system, more documentation to come
-function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, _toPropertyKey(descriptor.key), descriptor); } }
-function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); Object.defineProperty(Constructor, "prototype", { writable: false }); return Constructor; }
-function _toPropertyKey(arg) { var key = _toPrimitive(arg, "string"); return typeof key === "symbol" ? key : String(key); }
-function _toPrimitive(input, hint) { if (typeof input !== "object" || input === null) return input; var prim = input[Symbol.toPrimitive]; if (prim !== undefined) { var res = prim.call(input, hint || "default"); if (typeof res !== "object") return res; throw new TypeError("@@toPrimitive must return a primitive value."); } return (hint === "string" ? String : Number)(input); }
-function _inheritsLoose(subClass, superClass) { subClass.prototype = Object.create(superClass.prototype); subClass.prototype.constructor = subClass; _setPrototypeOf(subClass, superClass); }
-function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
-var EventEmitter = __nccwpck_require__(4434);
-var lib = __nccwpck_require__(7853);
-function parentWrap(parent, prop) {
-  if (typeof parent !== 'function' || typeof prop !== 'function') {
-    return prop;
-  }
-  return function wrap() {
-    // Save the current parent method
-    var tmp = this.parent;
-
-    // Set parent to the previous method, call, and restore
-    this.parent = parent;
-    var res = prop.apply(this, arguments);
-    this.parent = tmp;
-    return res;
-  };
-}
-function extendClass(cls, name, props) {
-  props = props || {};
-  lib.keys(props).forEach(function (k) {
-    props[k] = parentWrap(cls.prototype[k], props[k]);
-  });
-  var subclass = /*#__PURE__*/function (_cls) {
-    _inheritsLoose(subclass, _cls);
-    function subclass() {
-      return _cls.apply(this, arguments) || this;
-    }
-    _createClass(subclass, [{
-      key: "typename",
-      get: function get() {
-        return name;
-      }
-    }]);
-    return subclass;
-  }(cls);
-  lib._assign(subclass.prototype, props);
-  return subclass;
-}
-var Obj = /*#__PURE__*/function () {
-  function Obj() {
-    // Unfortunately necessary for backwards compatibility
-    this.init.apply(this, arguments);
-  }
-  var _proto = Obj.prototype;
-  _proto.init = function init() {};
-  Obj.extend = function extend(name, props) {
-    if (typeof name === 'object') {
-      props = name;
-      name = 'anonymous';
-    }
-    return extendClass(this, name, props);
-  };
-  _createClass(Obj, [{
-    key: "typename",
-    get: function get() {
-      return this.constructor.name;
-    }
-  }]);
-  return Obj;
-}();
-var EmitterObj = /*#__PURE__*/function (_EventEmitter) {
-  _inheritsLoose(EmitterObj, _EventEmitter);
-  function EmitterObj() {
-    var _this2;
-    var _this;
-    _this = _EventEmitter.call(this) || this;
-    // Unfortunately necessary for backwards compatibility
-    (_this2 = _this).init.apply(_this2, arguments);
-    return _this;
-  }
-  var _proto2 = EmitterObj.prototype;
-  _proto2.init = function init() {};
-  EmitterObj.extend = function extend(name, props) {
-    if (typeof name === 'object') {
-      props = name;
-      name = 'anonymous';
-    }
-    return extendClass(this, name, props);
-  };
-  _createClass(EmitterObj, [{
-    key: "typename",
-    get: function get() {
-      return this.constructor.name;
-    }
-  }]);
-  return EmitterObj;
-}(EventEmitter);
-module.exports = {
-  Obj: Obj,
-  EmitterObj: EmitterObj
-};
-
-/***/ }),
-
-/***/ 715:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-function _inheritsLoose(subClass, superClass) { subClass.prototype = Object.create(superClass.prototype); subClass.prototype.constructor = subClass; _setPrototypeOf(subClass, superClass); }
-function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
-var lexer = __nccwpck_require__(8852);
-var nodes = __nccwpck_require__(6151);
-var Obj = (__nccwpck_require__(9695).Obj);
-var lib = __nccwpck_require__(7853);
-var Parser = /*#__PURE__*/function (_Obj) {
-  _inheritsLoose(Parser, _Obj);
-  function Parser() {
-    return _Obj.apply(this, arguments) || this;
-  }
-  var _proto = Parser.prototype;
-  _proto.init = function init(tokens) {
-    this.tokens = tokens;
-    this.peeked = null;
-    this.breakOnBlocks = null;
-    this.dropLeadingWhitespace = false;
-    this.extensions = [];
-  };
-  _proto.nextToken = function nextToken(withWhitespace) {
-    var tok;
-    if (this.peeked) {
-      if (!withWhitespace && this.peeked.type === lexer.TOKEN_WHITESPACE) {
-        this.peeked = null;
-      } else {
-        tok = this.peeked;
-        this.peeked = null;
-        return tok;
-      }
-    }
-    tok = this.tokens.nextToken();
-    if (!withWhitespace) {
-      while (tok && tok.type === lexer.TOKEN_WHITESPACE) {
-        tok = this.tokens.nextToken();
-      }
-    }
-    return tok;
-  };
-  _proto.peekToken = function peekToken() {
-    this.peeked = this.peeked || this.nextToken();
-    return this.peeked;
-  };
-  _proto.pushToken = function pushToken(tok) {
-    if (this.peeked) {
-      throw new Error('pushToken: can only push one token on between reads');
-    }
-    this.peeked = tok;
-  };
-  _proto.error = function error(msg, lineno, colno) {
-    if (lineno === undefined || colno === undefined) {
-      var tok = this.peekToken() || {};
-      lineno = tok.lineno;
-      colno = tok.colno;
-    }
-    if (lineno !== undefined) {
-      lineno += 1;
-    }
-    if (colno !== undefined) {
-      colno += 1;
-    }
-    return new lib.TemplateError(msg, lineno, colno);
-  };
-  _proto.fail = function fail(msg, lineno, colno) {
-    throw this.error(msg, lineno, colno);
-  };
-  _proto.skip = function skip(type) {
-    var tok = this.nextToken();
-    if (!tok || tok.type !== type) {
-      this.pushToken(tok);
-      return false;
-    }
-    return true;
-  };
-  _proto.expect = function expect(type) {
-    var tok = this.nextToken();
-    if (tok.type !== type) {
-      this.fail('expected ' + type + ', got ' + tok.type, tok.lineno, tok.colno);
-    }
-    return tok;
-  };
-  _proto.skipValue = function skipValue(type, val) {
-    var tok = this.nextToken();
-    if (!tok || tok.type !== type || tok.value !== val) {
-      this.pushToken(tok);
-      return false;
-    }
-    return true;
-  };
-  _proto.skipSymbol = function skipSymbol(val) {
-    return this.skipValue(lexer.TOKEN_SYMBOL, val);
-  };
-  _proto.advanceAfterBlockEnd = function advanceAfterBlockEnd(name) {
-    var tok;
-    if (!name) {
-      tok = this.peekToken();
-      if (!tok) {
-        this.fail('unexpected end of file');
-      }
-      if (tok.type !== lexer.TOKEN_SYMBOL) {
-        this.fail('advanceAfterBlockEnd: expected symbol token or ' + 'explicit name to be passed');
-      }
-      name = this.nextToken().value;
-    }
-    tok = this.nextToken();
-    if (tok && tok.type === lexer.TOKEN_BLOCK_END) {
-      if (tok.value.charAt(0) === '-') {
-        this.dropLeadingWhitespace = true;
-      }
-    } else {
-      this.fail('expected block end in ' + name + ' statement');
-    }
-    return tok;
-  };
-  _proto.advanceAfterVariableEnd = function advanceAfterVariableEnd() {
-    var tok = this.nextToken();
-    if (tok && tok.type === lexer.TOKEN_VARIABLE_END) {
-      this.dropLeadingWhitespace = tok.value.charAt(tok.value.length - this.tokens.tags.VARIABLE_END.length - 1) === '-';
-    } else {
-      this.pushToken(tok);
-      this.fail('expected variable end');
-    }
-  };
-  _proto.parseFor = function parseFor() {
-    var forTok = this.peekToken();
-    var node;
-    var endBlock;
-    if (this.skipSymbol('for')) {
-      node = new nodes.For(forTok.lineno, forTok.colno);
-      endBlock = 'endfor';
-    } else if (this.skipSymbol('asyncEach')) {
-      node = new nodes.AsyncEach(forTok.lineno, forTok.colno);
-      endBlock = 'endeach';
-    } else if (this.skipSymbol('asyncAll')) {
-      node = new nodes.AsyncAll(forTok.lineno, forTok.colno);
-      endBlock = 'endall';
-    } else {
-      this.fail('parseFor: expected for{Async}', forTok.lineno, forTok.colno);
-    }
-    node.name = this.parsePrimary();
-    if (!(node.name instanceof nodes.Symbol)) {
-      this.fail('parseFor: variable name expected for loop');
-    }
-    var type = this.peekToken().type;
-    if (type === lexer.TOKEN_COMMA) {
-      // key/value iteration
-      var key = node.name;
-      node.name = new nodes.Array(key.lineno, key.colno);
-      node.name.addChild(key);
-      while (this.skip(lexer.TOKEN_COMMA)) {
-        var prim = this.parsePrimary();
-        node.name.addChild(prim);
-      }
-    }
-    if (!this.skipSymbol('in')) {
-      this.fail('parseFor: expected "in" keyword for loop', forTok.lineno, forTok.colno);
-    }
-    node.arr = this.parseExpression();
-    this.advanceAfterBlockEnd(forTok.value);
-    node.body = this.parseUntilBlocks(endBlock, 'else');
-    if (this.skipSymbol('else')) {
-      this.advanceAfterBlockEnd('else');
-      node.else_ = this.parseUntilBlocks(endBlock);
-    }
-    this.advanceAfterBlockEnd();
-    return node;
-  };
-  _proto.parseMacro = function parseMacro() {
-    var macroTok = this.peekToken();
-    if (!this.skipSymbol('macro')) {
-      this.fail('expected macro');
-    }
-    var name = this.parsePrimary(true);
-    var args = this.parseSignature();
-    var node = new nodes.Macro(macroTok.lineno, macroTok.colno, name, args);
-    this.advanceAfterBlockEnd(macroTok.value);
-    node.body = this.parseUntilBlocks('endmacro');
-    this.advanceAfterBlockEnd();
-    return node;
-  };
-  _proto.parseCall = function parseCall() {
-    // a call block is parsed as a normal FunCall, but with an added
-    // 'caller' kwarg which is a Caller node.
-    var callTok = this.peekToken();
-    if (!this.skipSymbol('call')) {
-      this.fail('expected call');
-    }
-    var callerArgs = this.parseSignature(true) || new nodes.NodeList();
-    var macroCall = this.parsePrimary();
-    this.advanceAfterBlockEnd(callTok.value);
-    var body = this.parseUntilBlocks('endcall');
-    this.advanceAfterBlockEnd();
-    var callerName = new nodes.Symbol(callTok.lineno, callTok.colno, 'caller');
-    var callerNode = new nodes.Caller(callTok.lineno, callTok.colno, callerName, callerArgs, body);
-
-    // add the additional caller kwarg, adding kwargs if necessary
-    var args = macroCall.args.children;
-    if (!(args[args.length - 1] instanceof nodes.KeywordArgs)) {
-      args.push(new nodes.KeywordArgs());
-    }
-    var kwargs = args[args.length - 1];
-    kwargs.addChild(new nodes.Pair(callTok.lineno, callTok.colno, callerName, callerNode));
-    return new nodes.Output(callTok.lineno, callTok.colno, [macroCall]);
-  };
-  _proto.parseWithContext = function parseWithContext() {
-    var tok = this.peekToken();
-    var withContext = null;
-    if (this.skipSymbol('with')) {
-      withContext = true;
-    } else if (this.skipSymbol('without')) {
-      withContext = false;
-    }
-    if (withContext !== null) {
-      if (!this.skipSymbol('context')) {
-        this.fail('parseFrom: expected context after with/without', tok.lineno, tok.colno);
-      }
-    }
-    return withContext;
-  };
-  _proto.parseImport = function parseImport() {
-    var importTok = this.peekToken();
-    if (!this.skipSymbol('import')) {
-      this.fail('parseImport: expected import', importTok.lineno, importTok.colno);
-    }
-    var template = this.parseExpression();
-    if (!this.skipSymbol('as')) {
-      this.fail('parseImport: expected "as" keyword', importTok.lineno, importTok.colno);
-    }
-    var target = this.parseExpression();
-    var withContext = this.parseWithContext();
-    var node = new nodes.Import(importTok.lineno, importTok.colno, template, target, withContext);
-    this.advanceAfterBlockEnd(importTok.value);
-    return node;
-  };
-  _proto.parseFrom = function parseFrom() {
-    var fromTok = this.peekToken();
-    if (!this.skipSymbol('from')) {
-      this.fail('parseFrom: expected from');
-    }
-    var template = this.parseExpression();
-    if (!this.skipSymbol('import')) {
-      this.fail('parseFrom: expected import', fromTok.lineno, fromTok.colno);
-    }
-    var names = new nodes.NodeList();
-    var withContext;
-    while (1) {
-      // eslint-disable-line no-constant-condition
-      var nextTok = this.peekToken();
-      if (nextTok.type === lexer.TOKEN_BLOCK_END) {
-        if (!names.children.length) {
-          this.fail('parseFrom: Expected at least one import name', fromTok.lineno, fromTok.colno);
-        }
-
-        // Since we are manually advancing past the block end,
-        // need to keep track of whitespace control (normally
-        // this is done in `advanceAfterBlockEnd`
-        if (nextTok.value.charAt(0) === '-') {
-          this.dropLeadingWhitespace = true;
-        }
-        this.nextToken();
-        break;
-      }
-      if (names.children.length > 0 && !this.skip(lexer.TOKEN_COMMA)) {
-        this.fail('parseFrom: expected comma', fromTok.lineno, fromTok.colno);
-      }
-      var name = this.parsePrimary();
-      if (name.value.charAt(0) === '_') {
-        this.fail('parseFrom: names starting with an underscore cannot be imported', name.lineno, name.colno);
-      }
-      if (this.skipSymbol('as')) {
-        var alias = this.parsePrimary();
-        names.addChild(new nodes.Pair(name.lineno, name.colno, name, alias));
-      } else {
-        names.addChild(name);
-      }
-      withContext = this.parseWithContext();
-    }
-    return new nodes.FromImport(fromTok.lineno, fromTok.colno, template, names, withContext);
-  };
-  _proto.parseBlock = function parseBlock() {
-    var tag = this.peekToken();
-    if (!this.skipSymbol('block')) {
-      this.fail('parseBlock: expected block', tag.lineno, tag.colno);
-    }
-    var node = new nodes.Block(tag.lineno, tag.colno);
-    node.name = this.parsePrimary();
-    if (!(node.name instanceof nodes.Symbol)) {
-      this.fail('parseBlock: variable name expected', tag.lineno, tag.colno);
-    }
-    this.advanceAfterBlockEnd(tag.value);
-    node.body = this.parseUntilBlocks('endblock');
-    this.skipSymbol('endblock');
-    this.skipSymbol(node.name.value);
-    var tok = this.peekToken();
-    if (!tok) {
-      this.fail('parseBlock: expected endblock, got end of file');
-    }
-    this.advanceAfterBlockEnd(tok.value);
-    return node;
-  };
-  _proto.parseExtends = function parseExtends() {
-    var tagName = 'extends';
-    var tag = this.peekToken();
-    if (!this.skipSymbol(tagName)) {
-      this.fail('parseTemplateRef: expected ' + tagName);
-    }
-    var node = new nodes.Extends(tag.lineno, tag.colno);
-    node.template = this.parseExpression();
-    this.advanceAfterBlockEnd(tag.value);
-    return node;
-  };
-  _proto.parseInclude = function parseInclude() {
-    var tagName = 'include';
-    var tag = this.peekToken();
-    if (!this.skipSymbol(tagName)) {
-      this.fail('parseInclude: expected ' + tagName);
-    }
-    var node = new nodes.Include(tag.lineno, tag.colno);
-    node.template = this.parseExpression();
-    if (this.skipSymbol('ignore') && this.skipSymbol('missing')) {
-      node.ignoreMissing = true;
-    }
-    this.advanceAfterBlockEnd(tag.value);
-    return node;
-  };
-  _proto.parseIf = function parseIf() {
-    var tag = this.peekToken();
-    var node;
-    if (this.skipSymbol('if') || this.skipSymbol('elif') || this.skipSymbol('elseif')) {
-      node = new nodes.If(tag.lineno, tag.colno);
-    } else if (this.skipSymbol('ifAsync')) {
-      node = new nodes.IfAsync(tag.lineno, tag.colno);
-    } else {
-      this.fail('parseIf: expected if, elif, or elseif', tag.lineno, tag.colno);
-    }
-    node.cond = this.parseExpression();
-    this.advanceAfterBlockEnd(tag.value);
-    node.body = this.parseUntilBlocks('elif', 'elseif', 'else', 'endif');
-    var tok = this.peekToken();
-    switch (tok && tok.value) {
-      case 'elseif':
-      case 'elif':
-        node.else_ = this.parseIf();
-        break;
-      case 'else':
-        this.advanceAfterBlockEnd();
-        node.else_ = this.parseUntilBlocks('endif');
-        this.advanceAfterBlockEnd();
-        break;
-      case 'endif':
-        node.else_ = null;
-        this.advanceAfterBlockEnd();
-        break;
-      default:
-        this.fail('parseIf: expected elif, else, or endif, got end of file');
-    }
-    return node;
-  };
-  _proto.parseSet = function parseSet() {
-    var tag = this.peekToken();
-    if (!this.skipSymbol('set')) {
-      this.fail('parseSet: expected set', tag.lineno, tag.colno);
-    }
-    var node = new nodes.Set(tag.lineno, tag.colno, []);
-    var target;
-    while (target = this.parsePrimary()) {
-      node.targets.push(target);
-      if (!this.skip(lexer.TOKEN_COMMA)) {
-        break;
-      }
-    }
-    if (!this.skipValue(lexer.TOKEN_OPERATOR, '=')) {
-      if (!this.skip(lexer.TOKEN_BLOCK_END)) {
-        this.fail('parseSet: expected = or block end in set tag', tag.lineno, tag.colno);
-      } else {
-        node.body = new nodes.Capture(tag.lineno, tag.colno, this.parseUntilBlocks('endset'));
-        node.value = null;
-        this.advanceAfterBlockEnd();
-      }
-    } else {
-      node.value = this.parseExpression();
-      this.advanceAfterBlockEnd(tag.value);
-    }
-    return node;
-  };
-  _proto.parseSwitch = function parseSwitch() {
-    /*
-     * Store the tag names in variables in case someone ever wants to
-     * customize this.
-     */
-    var switchStart = 'switch';
-    var switchEnd = 'endswitch';
-    var caseStart = 'case';
-    var caseDefault = 'default';
-
-    // Get the switch tag.
-    var tag = this.peekToken();
-
-    // fail early if we get some unexpected tag.
-    if (!this.skipSymbol(switchStart) && !this.skipSymbol(caseStart) && !this.skipSymbol(caseDefault)) {
-      this.fail('parseSwitch: expected "switch," "case" or "default"', tag.lineno, tag.colno);
-    }
-
-    // parse the switch expression
-    var expr = this.parseExpression();
-
-    // advance until a start of a case, a default case or an endswitch.
-    this.advanceAfterBlockEnd(switchStart);
-    this.parseUntilBlocks(caseStart, caseDefault, switchEnd);
-
-    // this is the first case. it could also be an endswitch, we'll check.
-    var tok = this.peekToken();
-
-    // create new variables for our cases and default case.
-    var cases = [];
-    var defaultCase;
-
-    // while we're dealing with new cases nodes...
-    do {
-      // skip the start symbol and get the case expression
-      this.skipSymbol(caseStart);
-      var cond = this.parseExpression();
-      this.advanceAfterBlockEnd(switchStart);
-      // get the body of the case node and add it to the array of cases.
-      var body = this.parseUntilBlocks(caseStart, caseDefault, switchEnd);
-      cases.push(new nodes.Case(tok.line, tok.col, cond, body));
-      // get our next case
-      tok = this.peekToken();
-    } while (tok && tok.value === caseStart);
-
-    // we either have a default case or a switch end.
-    switch (tok.value) {
-      case caseDefault:
-        this.advanceAfterBlockEnd();
-        defaultCase = this.parseUntilBlocks(switchEnd);
-        this.advanceAfterBlockEnd();
-        break;
-      case switchEnd:
-        this.advanceAfterBlockEnd();
-        break;
-      default:
-        // otherwise bail because EOF
-        this.fail('parseSwitch: expected "case," "default" or "endswitch," got EOF.');
-    }
-
-    // and return the switch node.
-    return new nodes.Switch(tag.lineno, tag.colno, expr, cases, defaultCase);
-  };
-  _proto.parseStatement = function parseStatement() {
-    var tok = this.peekToken();
-    var node;
-    if (tok.type !== lexer.TOKEN_SYMBOL) {
-      this.fail('tag name expected', tok.lineno, tok.colno);
-    }
-    if (this.breakOnBlocks && lib.indexOf(this.breakOnBlocks, tok.value) !== -1) {
-      return null;
-    }
-    switch (tok.value) {
-      case 'raw':
-        return this.parseRaw();
-      case 'verbatim':
-        return this.parseRaw('verbatim');
-      case 'if':
-      case 'ifAsync':
-        return this.parseIf();
-      case 'for':
-      case 'asyncEach':
-      case 'asyncAll':
-        return this.parseFor();
-      case 'block':
-        return this.parseBlock();
-      case 'extends':
-        return this.parseExtends();
-      case 'include':
-        return this.parseInclude();
-      case 'set':
-        return this.parseSet();
-      case 'macro':
-        return this.parseMacro();
-      case 'call':
-        return this.parseCall();
-      case 'import':
-        return this.parseImport();
-      case 'from':
-        return this.parseFrom();
-      case 'filter':
-        return this.parseFilterStatement();
-      case 'switch':
-        return this.parseSwitch();
-      default:
-        if (this.extensions.length) {
-          for (var i = 0; i < this.extensions.length; i++) {
-            var ext = this.extensions[i];
-            if (lib.indexOf(ext.tags || [], tok.value) !== -1) {
-              return ext.parse(this, nodes, lexer);
-            }
-          }
-        }
-        this.fail('unknown block tag: ' + tok.value, tok.lineno, tok.colno);
-    }
-    return node;
-  };
-  _proto.parseRaw = function parseRaw(tagName) {
-    tagName = tagName || 'raw';
-    var endTagName = 'end' + tagName;
-    // Look for upcoming raw blocks (ignore all other kinds of blocks)
-    var rawBlockRegex = new RegExp('([\\s\\S]*?){%\\s*(' + tagName + '|' + endTagName + ')\\s*(?=%})%}');
-    var rawLevel = 1;
-    var str = '';
-    var matches = null;
-
-    // Skip opening raw token
-    // Keep this token to track line and column numbers
-    var begun = this.advanceAfterBlockEnd();
-
-    // Exit when there's nothing to match
-    // or when we've found the matching "endraw" block
-    while ((matches = this.tokens._extractRegex(rawBlockRegex)) && rawLevel > 0) {
-      var all = matches[0];
-      var pre = matches[1];
-      var blockName = matches[2];
-
-      // Adjust rawlevel
-      if (blockName === tagName) {
-        rawLevel += 1;
-      } else if (blockName === endTagName) {
-        rawLevel -= 1;
-      }
-
-      // Add to str
-      if (rawLevel === 0) {
-        // We want to exclude the last "endraw"
-        str += pre;
-        // Move tokenizer to beginning of endraw block
-        this.tokens.backN(all.length - pre.length);
-      } else {
-        str += all;
-      }
-    }
-    return new nodes.Output(begun.lineno, begun.colno, [new nodes.TemplateData(begun.lineno, begun.colno, str)]);
-  };
-  _proto.parsePostfix = function parsePostfix(node) {
-    var lookup;
-    var tok = this.peekToken();
-    while (tok) {
-      if (tok.type === lexer.TOKEN_LEFT_PAREN) {
-        // Function call
-        node = new nodes.FunCall(tok.lineno, tok.colno, node, this.parseSignature());
-      } else if (tok.type === lexer.TOKEN_LEFT_BRACKET) {
-        // Reference
-        lookup = this.parseAggregate();
-        if (lookup.children.length > 1) {
-          this.fail('invalid index');
-        }
-        node = new nodes.LookupVal(tok.lineno, tok.colno, node, lookup.children[0]);
-      } else if (tok.type === lexer.TOKEN_OPERATOR && tok.value === '.') {
-        // Reference
-        this.nextToken();
-        var val = this.nextToken();
-        if (val.type !== lexer.TOKEN_SYMBOL) {
-          this.fail('expected name as lookup value, got ' + val.value, val.lineno, val.colno);
-        }
-
-        // Make a literal string because it's not a variable
-        // reference
-        lookup = new nodes.Literal(val.lineno, val.colno, val.value);
-        node = new nodes.LookupVal(tok.lineno, tok.colno, node, lookup);
-      } else {
-        break;
-      }
-      tok = this.peekToken();
-    }
-    return node;
-  };
-  _proto.parseExpression = function parseExpression() {
-    var node = this.parseInlineIf();
-    return node;
-  };
-  _proto.parseInlineIf = function parseInlineIf() {
-    var node = this.parseOr();
-    if (this.skipSymbol('if')) {
-      var condNode = this.parseOr();
-      var bodyNode = node;
-      node = new nodes.InlineIf(node.lineno, node.colno);
-      node.body = bodyNode;
-      node.cond = condNode;
-      if (this.skipSymbol('else')) {
-        node.else_ = this.parseOr();
-      } else {
-        node.else_ = null;
-      }
-    }
-    return node;
-  };
-  _proto.parseOr = function parseOr() {
-    var node = this.parseAnd();
-    while (this.skipSymbol('or')) {
-      var node2 = this.parseAnd();
-      node = new nodes.Or(node.lineno, node.colno, node, node2);
-    }
-    return node;
-  };
-  _proto.parseAnd = function parseAnd() {
-    var node = this.parseNot();
-    while (this.skipSymbol('and')) {
-      var node2 = this.parseNot();
-      node = new nodes.And(node.lineno, node.colno, node, node2);
-    }
-    return node;
-  };
-  _proto.parseNot = function parseNot() {
-    var tok = this.peekToken();
-    if (this.skipSymbol('not')) {
-      return new nodes.Not(tok.lineno, tok.colno, this.parseNot());
-    }
-    return this.parseIn();
-  };
-  _proto.parseIn = function parseIn() {
-    var node = this.parseIs();
-    while (1) {
-      // eslint-disable-line no-constant-condition
-      // check if the next token is 'not'
-      var tok = this.nextToken();
-      if (!tok) {
-        break;
-      }
-      var invert = tok.type === lexer.TOKEN_SYMBOL && tok.value === 'not';
-      // if it wasn't 'not', put it back
-      if (!invert) {
-        this.pushToken(tok);
-      }
-      if (this.skipSymbol('in')) {
-        var node2 = this.parseIs();
-        node = new nodes.In(node.lineno, node.colno, node, node2);
-        if (invert) {
-          node = new nodes.Not(node.lineno, node.colno, node);
-        }
-      } else {
-        // if we'd found a 'not' but this wasn't an 'in', put back the 'not'
-        if (invert) {
-          this.pushToken(tok);
-        }
-        break;
-      }
-    }
-    return node;
-  }
-
-  // I put this right after "in" in the operator precedence stack. That can
-  // obviously be changed to be closer to Jinja.
-  ;
-  _proto.parseIs = function parseIs() {
-    var node = this.parseCompare();
-    // look for an is
-    if (this.skipSymbol('is')) {
-      // look for a not
-      var not = this.skipSymbol('not');
-      // get the next node
-      var node2 = this.parseCompare();
-      // create an Is node using the next node and the info from our Is node.
-      node = new nodes.Is(node.lineno, node.colno, node, node2);
-      // if we have a Not, create a Not node from our Is node.
-      if (not) {
-        node = new nodes.Not(node.lineno, node.colno, node);
-      }
-    }
-    // return the node.
-    return node;
-  };
-  _proto.parseCompare = function parseCompare() {
-    var compareOps = ['==', '===', '!=', '!==', '<', '>', '<=', '>='];
-    var expr = this.parseConcat();
-    var ops = [];
-    while (1) {
-      // eslint-disable-line no-constant-condition
-      var tok = this.nextToken();
-      if (!tok) {
-        break;
-      } else if (compareOps.indexOf(tok.value) !== -1) {
-        ops.push(new nodes.CompareOperand(tok.lineno, tok.colno, this.parseConcat(), tok.value));
-      } else {
-        this.pushToken(tok);
-        break;
-      }
-    }
-    if (ops.length) {
-      return new nodes.Compare(ops[0].lineno, ops[0].colno, expr, ops);
-    } else {
-      return expr;
-    }
-  }
-
-  // finds the '~' for string concatenation
-  ;
-  _proto.parseConcat = function parseConcat() {
-    var node = this.parseAdd();
-    while (this.skipValue(lexer.TOKEN_TILDE, '~')) {
-      var node2 = this.parseAdd();
-      node = new nodes.Concat(node.lineno, node.colno, node, node2);
-    }
-    return node;
-  };
-  _proto.parseAdd = function parseAdd() {
-    var node = this.parseSub();
-    while (this.skipValue(lexer.TOKEN_OPERATOR, '+')) {
-      var node2 = this.parseSub();
-      node = new nodes.Add(node.lineno, node.colno, node, node2);
-    }
-    return node;
-  };
-  _proto.parseSub = function parseSub() {
-    var node = this.parseMul();
-    while (this.skipValue(lexer.TOKEN_OPERATOR, '-')) {
-      var node2 = this.parseMul();
-      node = new nodes.Sub(node.lineno, node.colno, node, node2);
-    }
-    return node;
-  };
-  _proto.parseMul = function parseMul() {
-    var node = this.parseDiv();
-    while (this.skipValue(lexer.TOKEN_OPERATOR, '*')) {
-      var node2 = this.parseDiv();
-      node = new nodes.Mul(node.lineno, node.colno, node, node2);
-    }
-    return node;
-  };
-  _proto.parseDiv = function parseDiv() {
-    var node = this.parseFloorDiv();
-    while (this.skipValue(lexer.TOKEN_OPERATOR, '/')) {
-      var node2 = this.parseFloorDiv();
-      node = new nodes.Div(node.lineno, node.colno, node, node2);
-    }
-    return node;
-  };
-  _proto.parseFloorDiv = function parseFloorDiv() {
-    var node = this.parseMod();
-    while (this.skipValue(lexer.TOKEN_OPERATOR, '//')) {
-      var node2 = this.parseMod();
-      node = new nodes.FloorDiv(node.lineno, node.colno, node, node2);
-    }
-    return node;
-  };
-  _proto.parseMod = function parseMod() {
-    var node = this.parsePow();
-    while (this.skipValue(lexer.TOKEN_OPERATOR, '%')) {
-      var node2 = this.parsePow();
-      node = new nodes.Mod(node.lineno, node.colno, node, node2);
-    }
-    return node;
-  };
-  _proto.parsePow = function parsePow() {
-    var node = this.parseUnary();
-    while (this.skipValue(lexer.TOKEN_OPERATOR, '**')) {
-      var node2 = this.parseUnary();
-      node = new nodes.Pow(node.lineno, node.colno, node, node2);
-    }
-    return node;
-  };
-  _proto.parseUnary = function parseUnary(noFilters) {
-    var tok = this.peekToken();
-    var node;
-    if (this.skipValue(lexer.TOKEN_OPERATOR, '-')) {
-      node = new nodes.Neg(tok.lineno, tok.colno, this.parseUnary(true));
-    } else if (this.skipValue(lexer.TOKEN_OPERATOR, '+')) {
-      node = new nodes.Pos(tok.lineno, tok.colno, this.parseUnary(true));
-    } else {
-      node = this.parsePrimary();
-    }
-    if (!noFilters) {
-      node = this.parseFilter(node);
-    }
-    return node;
-  };
-  _proto.parsePrimary = function parsePrimary(noPostfix) {
-    var tok = this.nextToken();
-    var val;
-    var node = null;
-    if (!tok) {
-      this.fail('expected expression, got end of file');
-    } else if (tok.type === lexer.TOKEN_STRING) {
-      val = tok.value;
-    } else if (tok.type === lexer.TOKEN_INT) {
-      val = parseInt(tok.value, 10);
-    } else if (tok.type === lexer.TOKEN_FLOAT) {
-      val = parseFloat(tok.value);
-    } else if (tok.type === lexer.TOKEN_BOOLEAN) {
-      if (tok.value === 'true') {
-        val = true;
-      } else if (tok.value === 'false') {
-        val = false;
-      } else {
-        this.fail('invalid boolean: ' + tok.value, tok.lineno, tok.colno);
-      }
-    } else if (tok.type === lexer.TOKEN_NONE) {
-      val = null;
-    } else if (tok.type === lexer.TOKEN_REGEX) {
-      val = new RegExp(tok.value.body, tok.value.flags);
-    }
-    if (val !== undefined) {
-      node = new nodes.Literal(tok.lineno, tok.colno, val);
-    } else if (tok.type === lexer.TOKEN_SYMBOL) {
-      node = new nodes.Symbol(tok.lineno, tok.colno, tok.value);
-    } else {
-      // See if it's an aggregate type, we need to push the
-      // current delimiter token back on
-      this.pushToken(tok);
-      node = this.parseAggregate();
-    }
-    if (!noPostfix) {
-      node = this.parsePostfix(node);
-    }
-    if (node) {
-      return node;
-    } else {
-      throw this.error("unexpected token: " + tok.value, tok.lineno, tok.colno);
-    }
-  };
-  _proto.parseFilterName = function parseFilterName() {
-    var tok = this.expect(lexer.TOKEN_SYMBOL);
-    var name = tok.value;
-    while (this.skipValue(lexer.TOKEN_OPERATOR, '.')) {
-      name += '.' + this.expect(lexer.TOKEN_SYMBOL).value;
-    }
-    return new nodes.Symbol(tok.lineno, tok.colno, name);
-  };
-  _proto.parseFilterArgs = function parseFilterArgs(node) {
-    if (this.peekToken().type === lexer.TOKEN_LEFT_PAREN) {
-      // Get a FunCall node and add the parameters to the
-      // filter
-      var call = this.parsePostfix(node);
-      return call.args.children;
-    }
-    return [];
-  };
-  _proto.parseFilter = function parseFilter(node) {
-    while (this.skip(lexer.TOKEN_PIPE)) {
-      var name = this.parseFilterName();
-      node = new nodes.Filter(name.lineno, name.colno, name, new nodes.NodeList(name.lineno, name.colno, [node].concat(this.parseFilterArgs(node))));
-    }
-    return node;
-  };
-  _proto.parseFilterStatement = function parseFilterStatement() {
-    var filterTok = this.peekToken();
-    if (!this.skipSymbol('filter')) {
-      this.fail('parseFilterStatement: expected filter');
-    }
-    var name = this.parseFilterName();
-    var args = this.parseFilterArgs(name);
-    this.advanceAfterBlockEnd(filterTok.value);
-    var body = new nodes.Capture(name.lineno, name.colno, this.parseUntilBlocks('endfilter'));
-    this.advanceAfterBlockEnd();
-    var node = new nodes.Filter(name.lineno, name.colno, name, new nodes.NodeList(name.lineno, name.colno, [body].concat(args)));
-    return new nodes.Output(name.lineno, name.colno, [node]);
-  };
-  _proto.parseAggregate = function parseAggregate() {
-    var tok = this.nextToken();
-    var node;
-    switch (tok.type) {
-      case lexer.TOKEN_LEFT_PAREN:
-        node = new nodes.Group(tok.lineno, tok.colno);
-        break;
-      case lexer.TOKEN_LEFT_BRACKET:
-        node = new nodes.Array(tok.lineno, tok.colno);
-        break;
-      case lexer.TOKEN_LEFT_CURLY:
-        node = new nodes.Dict(tok.lineno, tok.colno);
-        break;
-      default:
-        return null;
-    }
-    while (1) {
-      // eslint-disable-line no-constant-condition
-      var type = this.peekToken().type;
-      if (type === lexer.TOKEN_RIGHT_PAREN || type === lexer.TOKEN_RIGHT_BRACKET || type === lexer.TOKEN_RIGHT_CURLY) {
-        this.nextToken();
-        break;
-      }
-      if (node.children.length > 0) {
-        if (!this.skip(lexer.TOKEN_COMMA)) {
-          this.fail('parseAggregate: expected comma after expression', tok.lineno, tok.colno);
-        }
-      }
-      if (node instanceof nodes.Dict) {
-        // TODO: check for errors
-        var key = this.parsePrimary();
-
-        // We expect a key/value pair for dicts, separated by a
-        // colon
-        if (!this.skip(lexer.TOKEN_COLON)) {
-          this.fail('parseAggregate: expected colon after dict key', tok.lineno, tok.colno);
-        }
-
-        // TODO: check for errors
-        var value = this.parseExpression();
-        node.addChild(new nodes.Pair(key.lineno, key.colno, key, value));
-      } else {
-        // TODO: check for errors
-        var expr = this.parseExpression();
-        node.addChild(expr);
-      }
-    }
-    return node;
-  };
-  _proto.parseSignature = function parseSignature(tolerant, noParens) {
-    var tok = this.peekToken();
-    if (!noParens && tok.type !== lexer.TOKEN_LEFT_PAREN) {
-      if (tolerant) {
-        return null;
-      } else {
-        this.fail('expected arguments', tok.lineno, tok.colno);
-      }
-    }
-    if (tok.type === lexer.TOKEN_LEFT_PAREN) {
-      tok = this.nextToken();
-    }
-    var args = new nodes.NodeList(tok.lineno, tok.colno);
-    var kwargs = new nodes.KeywordArgs(tok.lineno, tok.colno);
-    var checkComma = false;
-    while (1) {
-      // eslint-disable-line no-constant-condition
-      tok = this.peekToken();
-      if (!noParens && tok.type === lexer.TOKEN_RIGHT_PAREN) {
-        this.nextToken();
-        break;
-      } else if (noParens && tok.type === lexer.TOKEN_BLOCK_END) {
-        break;
-      }
-      if (checkComma && !this.skip(lexer.TOKEN_COMMA)) {
-        this.fail('parseSignature: expected comma after expression', tok.lineno, tok.colno);
-      } else {
-        var arg = this.parseExpression();
-        if (this.skipValue(lexer.TOKEN_OPERATOR, '=')) {
-          kwargs.addChild(new nodes.Pair(arg.lineno, arg.colno, arg, this.parseExpression()));
-        } else {
-          args.addChild(arg);
-        }
-      }
-      checkComma = true;
-    }
-    if (kwargs.children.length) {
-      args.addChild(kwargs);
-    }
-    return args;
-  };
-  _proto.parseUntilBlocks = function parseUntilBlocks() {
-    var prev = this.breakOnBlocks;
-    for (var _len = arguments.length, blockNames = new Array(_len), _key = 0; _key < _len; _key++) {
-      blockNames[_key] = arguments[_key];
-    }
-    this.breakOnBlocks = blockNames;
-    var ret = this.parse();
-    this.breakOnBlocks = prev;
-    return ret;
-  };
-  _proto.parseNodes = function parseNodes() {
-    var tok;
-    var buf = [];
-    while (tok = this.nextToken()) {
-      if (tok.type === lexer.TOKEN_DATA) {
-        var data = tok.value;
-        var nextToken = this.peekToken();
-        var nextVal = nextToken && nextToken.value;
-
-        // If the last token has "-" we need to trim the
-        // leading whitespace of the data. This is marked with
-        // the `dropLeadingWhitespace` variable.
-        if (this.dropLeadingWhitespace) {
-          // TODO: this could be optimized (don't use regex)
-          data = data.replace(/^\s*/, '');
-          this.dropLeadingWhitespace = false;
-        }
-
-        // Same for the succeeding block start token
-        if (nextToken && (nextToken.type === lexer.TOKEN_BLOCK_START && nextVal.charAt(nextVal.length - 1) === '-' || nextToken.type === lexer.TOKEN_VARIABLE_START && nextVal.charAt(this.tokens.tags.VARIABLE_START.length) === '-' || nextToken.type === lexer.TOKEN_COMMENT && nextVal.charAt(this.tokens.tags.COMMENT_START.length) === '-')) {
-          // TODO: this could be optimized (don't use regex)
-          data = data.replace(/\s*$/, '');
-        }
-        buf.push(new nodes.Output(tok.lineno, tok.colno, [new nodes.TemplateData(tok.lineno, tok.colno, data)]));
-      } else if (tok.type === lexer.TOKEN_BLOCK_START) {
-        this.dropLeadingWhitespace = false;
-        var n = this.parseStatement();
-        if (!n) {
-          break;
-        }
-        buf.push(n);
-      } else if (tok.type === lexer.TOKEN_VARIABLE_START) {
-        var e = this.parseExpression();
-        this.dropLeadingWhitespace = false;
-        this.advanceAfterVariableEnd();
-        buf.push(new nodes.Output(tok.lineno, tok.colno, [e]));
-      } else if (tok.type === lexer.TOKEN_COMMENT) {
-        this.dropLeadingWhitespace = tok.value.charAt(tok.value.length - this.tokens.tags.COMMENT_END.length - 1) === '-';
-      } else {
-        // Ignore comments, otherwise this should be an error
-        this.fail('Unexpected token at top-level: ' + tok.type, tok.lineno, tok.colno);
-      }
-    }
-    return buf;
-  };
-  _proto.parse = function parse() {
-    return new nodes.NodeList(0, 0, this.parseNodes());
-  };
-  _proto.parseAsRoot = function parseAsRoot() {
-    return new nodes.Root(0, 0, this.parseNodes());
-  };
-  return Parser;
-}(Obj); // var util = require('util');
-// var l = lexer.lex('{%- if x -%}\n hello {% endif %}');
-// var t;
-// while((t = l.nextToken())) {
-//     console.log(util.inspect(t));
-// }
-// var p = new Parser(lexer.lex('hello {% filter title %}' +
-//                              'Hello madam how are you' +
-//                              '{% endfilter %}'));
-// var n = p.parseAsRoot();
-// nodes.printNodes(n);
-module.exports = {
-  parse: function parse(src, extensions, opts) {
-    var p = new Parser(lexer.lex(src, opts));
-    if (extensions !== undefined) {
-      p.extensions = extensions;
-    }
-    return p.parseAsRoot();
-  },
-  Parser: Parser
-};
-
-/***/ }),
-
-/***/ 2544:
-/***/ ((module) => {
-
-
-
-function precompileGlobal(templates, opts) {
-  var out = '';
-  opts = opts || {};
-  for (var i = 0; i < templates.length; i++) {
-    var name = JSON.stringify(templates[i].name);
-    var template = templates[i].template;
-    out += '(function() {' + '(window.nunjucksPrecompiled = window.nunjucksPrecompiled || {})' + '[' + name + '] = (function() {\n' + template + '\n})();\n';
-    if (opts.asFunction) {
-      out += 'return function(ctx, cb) { return nunjucks.render(' + name + ', ctx, cb); }\n';
-    }
-    out += '})();\n';
-  }
-  return out;
-}
-module.exports = precompileGlobal;
-
-/***/ }),
-
-/***/ 4586:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-var fs = __nccwpck_require__(9896);
-var path = __nccwpck_require__(6928);
-var _require = __nccwpck_require__(7853),
-  _prettifyError = _require._prettifyError;
-var compiler = __nccwpck_require__(8993);
-var _require2 = __nccwpck_require__(4499),
-  Environment = _require2.Environment;
-var precompileGlobal = __nccwpck_require__(2544);
-function match(filename, patterns) {
-  if (!Array.isArray(patterns)) {
-    return false;
-  }
-  return patterns.some(function (pattern) {
-    return filename.match(pattern);
-  });
-}
-function precompileString(str, opts) {
-  opts = opts || {};
-  opts.isString = true;
-  var env = opts.env || new Environment([]);
-  var wrapper = opts.wrapper || precompileGlobal;
-  if (!opts.name) {
-    throw new Error('the "name" option is required when compiling a string');
-  }
-  return wrapper([_precompile(str, opts.name, env)], opts);
-}
-function precompile(input, opts) {
-  // The following options are available:
-  //
-  // * name: name of the template (auto-generated when compiling a directory)
-  // * isString: input is a string, not a file path
-  // * asFunction: generate a callable function
-  // * force: keep compiling on error
-  // * env: the Environment to use (gets extensions and async filters from it)
-  // * include: which file/folders to include (folders are auto-included, files are auto-excluded)
-  // * exclude: which file/folders to exclude (folders are auto-included, files are auto-excluded)
-  // * wrapper: function(templates, opts) {...}
-  //       Customize the output format to store the compiled template.
-  //       By default, templates are stored in a global variable used by the runtime.
-  //       A custom loader will be necessary to load your custom wrapper.
-
-  opts = opts || {};
-  var env = opts.env || new Environment([]);
-  var wrapper = opts.wrapper || precompileGlobal;
-  if (opts.isString) {
-    return precompileString(input, opts);
-  }
-  var pathStats = fs.existsSync(input) && fs.statSync(input);
-  var precompiled = [];
-  var templates = [];
-  function addTemplates(dir) {
-    fs.readdirSync(dir).forEach(function (file) {
-      var filepath = path.join(dir, file);
-      var subpath = filepath.substr(path.join(input, '/').length);
-      var stat = fs.statSync(filepath);
-      if (stat && stat.isDirectory()) {
-        subpath += '/';
-        if (!match(subpath, opts.exclude)) {
-          addTemplates(filepath);
-        }
-      } else if (match(subpath, opts.include)) {
-        templates.push(filepath);
-      }
-    });
-  }
-  if (pathStats.isFile()) {
-    precompiled.push(_precompile(fs.readFileSync(input, 'utf-8'), opts.name || input, env));
-  } else if (pathStats.isDirectory()) {
-    addTemplates(input);
-    for (var i = 0; i < templates.length; i++) {
-      var name = templates[i].replace(path.join(input, '/'), '');
-      try {
-        precompiled.push(_precompile(fs.readFileSync(templates[i], 'utf-8'), name, env));
-      } catch (e) {
-        if (opts.force) {
-          // Don't stop generating the output if we're
-          // forcing compilation.
-          console.error(e); // eslint-disable-line no-console
-        } else {
-          throw e;
-        }
-      }
-    }
-  }
-  return wrapper(precompiled, opts);
-}
-function _precompile(str, name, env) {
-  env = env || new Environment([]);
-  var asyncFilters = env.asyncFilters;
-  var extensions = env.extensionsList;
-  var template;
-  name = name.replace(/\\/g, '/');
-  try {
-    template = compiler.compile(str, asyncFilters, extensions, name, env.opts);
-  } catch (err) {
-    throw _prettifyError(name, false, err);
-  }
-  return {
-    name: name,
-    template: template
-  };
-}
-module.exports = {
-  precompile: precompile,
-  precompileString: precompileString
-};
-
-/***/ }),
-
-/***/ 7402:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-function _inheritsLoose(subClass, superClass) { subClass.prototype = Object.create(superClass.prototype); subClass.prototype.constructor = subClass; _setPrototypeOf(subClass, superClass); }
-function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
-var Loader = __nccwpck_require__(3391);
-var PrecompiledLoader = /*#__PURE__*/function (_Loader) {
-  _inheritsLoose(PrecompiledLoader, _Loader);
-  function PrecompiledLoader(compiledTemplates) {
-    var _this;
-    _this = _Loader.call(this) || this;
-    _this.precompiled = compiledTemplates || {};
-    return _this;
-  }
-  var _proto = PrecompiledLoader.prototype;
-  _proto.getSource = function getSource(name) {
-    if (this.precompiled[name]) {
-      return {
-        src: {
-          type: 'code',
-          obj: this.precompiled[name]
-        },
-        path: name
-      };
-    }
-    return null;
-  };
-  return PrecompiledLoader;
-}(Loader);
-module.exports = {
-  PrecompiledLoader: PrecompiledLoader
-};
-
-/***/ }),
-
-/***/ 9846:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-var lib = __nccwpck_require__(7853);
-var arrayFrom = Array.from;
-var supportsIterators = typeof Symbol === 'function' && Symbol.iterator && typeof arrayFrom === 'function';
-
-// Frames keep track of scoping both at compile-time and run-time so
-// we know how to access variables. Block tags can introduce special
-// variables, for example.
-var Frame = /*#__PURE__*/function () {
-  function Frame(parent, isolateWrites) {
-    this.variables = Object.create(null);
-    this.parent = parent;
-    this.topLevel = false;
-    // if this is true, writes (set) should never propagate upwards past
-    // this frame to its parent (though reads may).
-    this.isolateWrites = isolateWrites;
-  }
-  var _proto = Frame.prototype;
-  _proto.set = function set(name, val, resolveUp) {
-    // Allow variables with dots by automatically creating the
-    // nested structure
-    var parts = name.split('.');
-    var obj = this.variables;
-    var frame = this;
-    if (resolveUp) {
-      if (frame = this.resolve(parts[0], true)) {
-        frame.set(name, val);
-        return;
-      }
-    }
-    for (var i = 0; i < parts.length - 1; i++) {
-      var id = parts[i];
-      if (!obj[id]) {
-        obj[id] = {};
-      }
-      obj = obj[id];
-    }
-    obj[parts[parts.length - 1]] = val;
-  };
-  _proto.get = function get(name) {
-    var val = this.variables[name];
-    if (val !== undefined) {
-      return val;
-    }
-    return null;
-  };
-  _proto.lookup = function lookup(name) {
-    var p = this.parent;
-    var val = this.variables[name];
-    if (val !== undefined) {
-      return val;
-    }
-    return p && p.lookup(name);
-  };
-  _proto.resolve = function resolve(name, forWrite) {
-    var p = forWrite && this.isolateWrites ? undefined : this.parent;
-    var val = this.variables[name];
-    if (val !== undefined) {
-      return this;
-    }
-    return p && p.resolve(name);
-  };
-  _proto.push = function push(isolateWrites) {
-    return new Frame(this, isolateWrites);
-  };
-  _proto.pop = function pop() {
-    return this.parent;
-  };
-  return Frame;
-}();
-function makeMacro(argNames, kwargNames, func) {
-  return function macro() {
-    for (var _len = arguments.length, macroArgs = new Array(_len), _key = 0; _key < _len; _key++) {
-      macroArgs[_key] = arguments[_key];
-    }
-    var argCount = numArgs(macroArgs);
-    var args;
-    var kwargs = getKeywordArgs(macroArgs);
-    if (argCount > argNames.length) {
-      args = macroArgs.slice(0, argNames.length);
-
-      // Positional arguments that should be passed in as
-      // keyword arguments (essentially default values)
-      macroArgs.slice(args.length, argCount).forEach(function (val, i) {
-        if (i < kwargNames.length) {
-          kwargs[kwargNames[i]] = val;
-        }
-      });
-      args.push(kwargs);
-    } else if (argCount < argNames.length) {
-      args = macroArgs.slice(0, argCount);
-      for (var i = argCount; i < argNames.length; i++) {
-        var arg = argNames[i];
-
-        // Keyword arguments that should be passed as
-        // positional arguments, i.e. the caller explicitly
-        // used the name of a positional arg
-        args.push(kwargs[arg]);
-        delete kwargs[arg];
-      }
-      args.push(kwargs);
-    } else {
-      args = macroArgs;
-    }
-    return func.apply(this, args);
-  };
-}
-function makeKeywordArgs(obj) {
-  obj.__keywords = true;
-  return obj;
-}
-function isKeywordArgs(obj) {
-  return obj && Object.prototype.hasOwnProperty.call(obj, '__keywords');
-}
-function getKeywordArgs(args) {
-  var len = args.length;
-  if (len) {
-    var lastArg = args[len - 1];
-    if (isKeywordArgs(lastArg)) {
-      return lastArg;
-    }
-  }
-  return {};
-}
-function numArgs(args) {
-  var len = args.length;
-  if (len === 0) {
-    return 0;
-  }
-  var lastArg = args[len - 1];
-  if (isKeywordArgs(lastArg)) {
-    return len - 1;
-  } else {
-    return len;
-  }
-}
-
-// A SafeString object indicates that the string should not be
-// autoescaped. This happens magically because autoescaping only
-// occurs on primitive string objects.
-function SafeString(val) {
-  if (typeof val !== 'string') {
-    return val;
-  }
-  this.val = val;
-  this.length = val.length;
-}
-SafeString.prototype = Object.create(String.prototype, {
-  length: {
-    writable: true,
-    configurable: true,
-    value: 0
-  }
-});
-SafeString.prototype.valueOf = function valueOf() {
-  return this.val;
-};
-SafeString.prototype.toString = function toString() {
-  return this.val;
-};
-function copySafeness(dest, target) {
-  if (dest instanceof SafeString) {
-    return new SafeString(target);
-  }
-  return target.toString();
-}
-function markSafe(val) {
-  var type = typeof val;
-  if (type === 'string') {
-    return new SafeString(val);
-  } else if (type !== 'function') {
-    return val;
-  } else {
-    return function wrapSafe(args) {
-      var ret = val.apply(this, arguments);
-      if (typeof ret === 'string') {
-        return new SafeString(ret);
-      }
-      return ret;
-    };
-  }
-}
-function suppressValue(val, autoescape) {
-  val = val !== undefined && val !== null ? val : '';
-  if (autoescape && !(val instanceof SafeString)) {
-    val = lib.escape(val.toString());
-  }
-  return val;
-}
-function ensureDefined(val, lineno, colno) {
-  if (val === null || val === undefined) {
-    throw new lib.TemplateError('attempted to output null or undefined value', lineno + 1, colno + 1);
-  }
-  return val;
-}
-function memberLookup(obj, val) {
-  if (obj === undefined || obj === null) {
-    return undefined;
-  }
-  if (typeof obj[val] === 'function') {
-    return function () {
-      for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-        args[_key2] = arguments[_key2];
-      }
-      return obj[val].apply(obj, args);
-    };
-  }
-  return obj[val];
-}
-function callWrap(obj, name, context, args) {
-  if (!obj) {
-    throw new Error('Unable to call `' + name + '`, which is undefined or falsey');
-  } else if (typeof obj !== 'function') {
-    throw new Error('Unable to call `' + name + '`, which is not a function');
-  }
-  return obj.apply(context, args);
-}
-function contextOrFrameLookup(context, frame, name) {
-  var val = frame.lookup(name);
-  return val !== undefined ? val : context.lookup(name);
-}
-function handleError(error, lineno, colno) {
-  if (error.lineno) {
-    return error;
-  } else {
-    return new lib.TemplateError(error, lineno, colno);
-  }
-}
-function asyncEach(arr, dimen, iter, cb) {
-  if (lib.isArray(arr)) {
-    var len = arr.length;
-    lib.asyncIter(arr, function iterCallback(item, i, next) {
-      switch (dimen) {
-        case 1:
-          iter(item, i, len, next);
-          break;
-        case 2:
-          iter(item[0], item[1], i, len, next);
-          break;
-        case 3:
-          iter(item[0], item[1], item[2], i, len, next);
-          break;
-        default:
-          item.push(i, len, next);
-          iter.apply(this, item);
-      }
-    }, cb);
-  } else {
-    lib.asyncFor(arr, function iterCallback(key, val, i, len, next) {
-      iter(key, val, i, len, next);
-    }, cb);
-  }
-}
-function asyncAll(arr, dimen, func, cb) {
-  var finished = 0;
-  var len;
-  var outputArr;
-  function done(i, output) {
-    finished++;
-    outputArr[i] = output;
-    if (finished === len) {
-      cb(null, outputArr.join(''));
-    }
-  }
-  if (lib.isArray(arr)) {
-    len = arr.length;
-    outputArr = new Array(len);
-    if (len === 0) {
-      cb(null, '');
-    } else {
-      for (var i = 0; i < arr.length; i++) {
-        var item = arr[i];
-        switch (dimen) {
-          case 1:
-            func(item, i, len, done);
-            break;
-          case 2:
-            func(item[0], item[1], i, len, done);
-            break;
-          case 3:
-            func(item[0], item[1], item[2], i, len, done);
-            break;
-          default:
-            item.push(i, len, done);
-            func.apply(this, item);
-        }
-      }
-    }
-  } else {
-    var keys = lib.keys(arr || {});
-    len = keys.length;
-    outputArr = new Array(len);
-    if (len === 0) {
-      cb(null, '');
-    } else {
-      for (var _i = 0; _i < keys.length; _i++) {
-        var k = keys[_i];
-        func(k, arr[k], _i, len, done);
-      }
-    }
-  }
-}
-function fromIterator(arr) {
-  if (typeof arr !== 'object' || arr === null || lib.isArray(arr)) {
-    return arr;
-  } else if (supportsIterators && Symbol.iterator in arr) {
-    return arrayFrom(arr);
-  } else {
-    return arr;
-  }
-}
-module.exports = {
-  Frame: Frame,
-  makeMacro: makeMacro,
-  makeKeywordArgs: makeKeywordArgs,
-  numArgs: numArgs,
-  suppressValue: suppressValue,
-  ensureDefined: ensureDefined,
-  memberLookup: memberLookup,
-  contextOrFrameLookup: contextOrFrameLookup,
-  callWrap: callWrap,
-  handleError: handleError,
-  isArray: lib.isArray,
-  keys: lib.keys,
-  SafeString: SafeString,
-  copySafeness: copySafeness,
-  markSafe: markSafe,
-  asyncEach: asyncEach,
-  asyncAll: asyncAll,
-  inOperator: lib.inOperator,
-  fromIterator: fromIterator
-};
-
-/***/ }),
-
-/***/ 4259:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-
-var SafeString = (__nccwpck_require__(9846).SafeString);
-
-/**
- * Returns `true` if the object is a function, otherwise `false`.
- * @param { any } value
- * @returns { boolean }
- */
-function callable(value) {
-  return typeof value === 'function';
-}
-exports.callable = callable;
-
-/**
- * Returns `true` if the object is strictly not `undefined`.
- * @param { any } value
- * @returns { boolean }
- */
-function defined(value) {
-  return value !== undefined;
-}
-exports.defined = defined;
-
-/**
- * Returns `true` if the operand (one) is divisble by the test's argument
- * (two).
- * @param { number } one
- * @param { number } two
- * @returns { boolean }
- */
-function divisibleby(one, two) {
-  return one % two === 0;
-}
-exports.divisibleby = divisibleby;
-
-/**
- * Returns true if the string has been escaped (i.e., is a SafeString).
- * @param { any } value
- * @returns { boolean }
- */
-function escaped(value) {
-  return value instanceof SafeString;
-}
-exports.escaped = escaped;
-
-/**
- * Returns `true` if the arguments are strictly equal.
- * @param { any } one
- * @param { any } two
- */
-function equalto(one, two) {
-  return one === two;
-}
-exports.equalto = equalto;
-
-// Aliases
-exports.eq = exports.equalto;
-exports.sameas = exports.equalto;
-
-/**
- * Returns `true` if the value is evenly divisible by 2.
- * @param { number } value
- * @returns { boolean }
- */
-function even(value) {
-  return value % 2 === 0;
-}
-exports.even = even;
-
-/**
- * Returns `true` if the value is falsy - if I recall correctly, '', 0, false,
- * undefined, NaN or null. I don't know if we should stick to the default JS
- * behavior or attempt to replicate what Python believes should be falsy (i.e.,
- * empty arrays, empty dicts, not 0...).
- * @param { any } value
- * @returns { boolean }
- */
-function falsy(value) {
-  return !value;
-}
-exports.falsy = falsy;
-
-/**
- * Returns `true` if the operand (one) is greater or equal to the test's
- * argument (two).
- * @param { number } one
- * @param { number } two
- * @returns { boolean }
- */
-function ge(one, two) {
-  return one >= two;
-}
-exports.ge = ge;
-
-/**
- * Returns `true` if the operand (one) is greater than the test's argument
- * (two).
- * @param { number } one
- * @param { number } two
- * @returns { boolean }
- */
-function greaterthan(one, two) {
-  return one > two;
-}
-exports.greaterthan = greaterthan;
-
-// alias
-exports.gt = exports.greaterthan;
-
-/**
- * Returns `true` if the operand (one) is less than or equal to the test's
- * argument (two).
- * @param { number } one
- * @param { number } two
- * @returns { boolean }
- */
-function le(one, two) {
-  return one <= two;
-}
-exports.le = le;
-
-/**
- * Returns `true` if the operand (one) is less than the test's passed argument
- * (two).
- * @param { number } one
- * @param { number } two
- * @returns { boolean }
- */
-function lessthan(one, two) {
-  return one < two;
-}
-exports.lessthan = lessthan;
-
-// alias
-exports.lt = exports.lessthan;
-
-/**
- * Returns `true` if the string is lowercased.
- * @param { string } value
- * @returns { boolean }
- */
-function lower(value) {
-  return value.toLowerCase() === value;
-}
-exports.lower = lower;
-
-/**
- * Returns `true` if the operand (one) is less than or equal to the test's
- * argument (two).
- * @param { number } one
- * @param { number } two
- * @returns { boolean }
- */
-function ne(one, two) {
-  return one !== two;
-}
-exports.ne = ne;
-
-/**
- * Returns true if the value is strictly equal to `null`.
- * @param { any }
- * @returns { boolean }
- */
-function nullTest(value) {
-  return value === null;
-}
-exports["null"] = nullTest;
-
-/**
- * Returns true if value is a number.
- * @param { any }
- * @returns { boolean }
- */
-function number(value) {
-  return typeof value === 'number';
-}
-exports.number = number;
-
-/**
- * Returns `true` if the value is *not* evenly divisible by 2.
- * @param { number } value
- * @returns { boolean }
- */
-function odd(value) {
-  return value % 2 === 1;
-}
-exports.odd = odd;
-
-/**
- * Returns `true` if the value is a string, `false` if not.
- * @param { any } value
- * @returns { boolean }
- */
-function string(value) {
-  return typeof value === 'string';
-}
-exports.string = string;
-
-/**
- * Returns `true` if the value is not in the list of things considered falsy:
- * '', null, undefined, 0, NaN and false.
- * @param { any } value
- * @returns { boolean }
- */
-function truthy(value) {
-  return !!value;
-}
-exports.truthy = truthy;
-
-/**
- * Returns `true` if the value is undefined.
- * @param { any } value
- * @returns { boolean }
- */
-function undefinedTest(value) {
-  return value === undefined;
-}
-exports.undefined = undefinedTest;
-
-/**
- * Returns `true` if the string is uppercased.
- * @param { string } value
- * @returns { boolean }
- */
-function upper(value) {
-  return value.toUpperCase() === value;
-}
-exports.upper = upper;
-
-/**
- * If ES6 features are available, returns `true` if the value implements the
- * `Symbol.iterator` method. If not, it's a string or Array.
- *
- * Could potentially cause issues if a browser exists that has Set and Map but
- * not Symbol.
- *
- * @param { any } value
- * @returns { boolean }
- */
-function iterable(value) {
-  if (typeof Symbol !== 'undefined') {
-    return !!value[Symbol.iterator];
-  } else {
-    return Array.isArray(value) || typeof value === 'string';
-  }
-}
-exports.iterable = iterable;
-
-/**
- * If ES6 features are available, returns `true` if the value is an object hash
- * or an ES6 Map. Otherwise just return if it's an object hash.
- * @param { any } value
- * @returns { boolean }
- */
-function mapping(value) {
-  // only maps and object hashes
-  var bool = value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value);
-  if (Set) {
-    return bool && !(value instanceof Set);
-  } else {
-    return bool;
-  }
-}
-exports.mapping = mapping;
-
-/***/ }),
-
-/***/ 6297:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-
-
-var nodes = __nccwpck_require__(6151);
-var lib = __nccwpck_require__(7853);
-var sym = 0;
-function gensym() {
-  return 'hole_' + sym++;
-}
-
-// copy-on-write version of map
-function mapCOW(arr, func) {
-  var res = null;
-  for (var i = 0; i < arr.length; i++) {
-    var item = func(arr[i]);
-    if (item !== arr[i]) {
-      if (!res) {
-        res = arr.slice();
-      }
-      res[i] = item;
-    }
-  }
-  return res || arr;
-}
-function walk(ast, func, depthFirst) {
-  if (!(ast instanceof nodes.Node)) {
-    return ast;
-  }
-  if (!depthFirst) {
-    var astT = func(ast);
-    if (astT && astT !== ast) {
-      return astT;
-    }
-  }
-  if (ast instanceof nodes.NodeList) {
-    var children = mapCOW(ast.children, function (node) {
-      return walk(node, func, depthFirst);
-    });
-    if (children !== ast.children) {
-      ast = new nodes[ast.typename](ast.lineno, ast.colno, children);
-    }
-  } else if (ast instanceof nodes.CallExtension) {
-    var args = walk(ast.args, func, depthFirst);
-    var contentArgs = mapCOW(ast.contentArgs, function (node) {
-      return walk(node, func, depthFirst);
-    });
-    if (args !== ast.args || contentArgs !== ast.contentArgs) {
-      ast = new nodes[ast.typename](ast.extName, ast.prop, args, contentArgs);
-    }
-  } else {
-    var props = ast.fields.map(function (field) {
-      return ast[field];
-    });
-    var propsT = mapCOW(props, function (prop) {
-      return walk(prop, func, depthFirst);
-    });
-    if (propsT !== props) {
-      ast = new nodes[ast.typename](ast.lineno, ast.colno);
-      propsT.forEach(function (prop, i) {
-        ast[ast.fields[i]] = prop;
-      });
-    }
-  }
-  return depthFirst ? func(ast) || ast : ast;
-}
-function depthWalk(ast, func) {
-  return walk(ast, func, true);
-}
-function _liftFilters(node, asyncFilters, prop) {
-  var children = [];
-  var walked = depthWalk(prop ? node[prop] : node, function (descNode) {
-    var symbol;
-    if (descNode instanceof nodes.Block) {
-      return descNode;
-    } else if (descNode instanceof nodes.Filter && lib.indexOf(asyncFilters, descNode.name.value) !== -1 || descNode instanceof nodes.CallExtensionAsync) {
-      symbol = new nodes.Symbol(descNode.lineno, descNode.colno, gensym());
-      children.push(new nodes.FilterAsync(descNode.lineno, descNode.colno, descNode.name, descNode.args, symbol));
-    }
-    return symbol;
-  });
-  if (prop) {
-    node[prop] = walked;
-  } else {
-    node = walked;
-  }
-  if (children.length) {
-    children.push(node);
-    return new nodes.NodeList(node.lineno, node.colno, children);
-  } else {
-    return node;
-  }
-}
-function liftFilters(ast, asyncFilters) {
-  return depthWalk(ast, function (node) {
-    if (node instanceof nodes.Output) {
-      return _liftFilters(node, asyncFilters);
-    } else if (node instanceof nodes.Set) {
-      return _liftFilters(node, asyncFilters, 'value');
-    } else if (node instanceof nodes.For) {
-      return _liftFilters(node, asyncFilters, 'arr');
-    } else if (node instanceof nodes.If) {
-      return _liftFilters(node, asyncFilters, 'cond');
-    } else if (node instanceof nodes.CallExtension) {
-      return _liftFilters(node, asyncFilters, 'args');
-    } else {
-      return undefined;
-    }
-  });
-}
-function liftSuper(ast) {
-  return walk(ast, function (blockNode) {
-    if (!(blockNode instanceof nodes.Block)) {
-      return;
-    }
-    var hasSuper = false;
-    var symbol = gensym();
-    blockNode.body = walk(blockNode.body, function (node) {
-      // eslint-disable-line consistent-return
-      if (node instanceof nodes.FunCall && node.name.value === 'super') {
-        hasSuper = true;
-        return new nodes.Symbol(node.lineno, node.colno, symbol);
-      }
-    });
-    if (hasSuper) {
-      blockNode.body.children.unshift(new nodes.Super(0, 0, blockNode.name, new nodes.Symbol(0, 0, symbol)));
-    }
-  });
-}
-function convertStatements(ast) {
-  return depthWalk(ast, function (node) {
-    if (!(node instanceof nodes.If) && !(node instanceof nodes.For)) {
-      return undefined;
-    }
-    var async = false;
-    walk(node, function (child) {
-      if (child instanceof nodes.FilterAsync || child instanceof nodes.IfAsync || child instanceof nodes.AsyncEach || child instanceof nodes.AsyncAll || child instanceof nodes.CallExtensionAsync) {
-        async = true;
-        // Stop iterating by returning the node
-        return child;
-      }
-      return undefined;
-    });
-    if (async) {
-      if (node instanceof nodes.If) {
-        return new nodes.IfAsync(node.lineno, node.colno, node.cond, node.body, node.else_);
-      } else if (node instanceof nodes.For && !(node instanceof nodes.AsyncAll)) {
-        return new nodes.AsyncEach(node.lineno, node.colno, node.arr, node.name, node.body, node.else_);
-      }
-    }
-    return undefined;
-  });
-}
-function cps(ast, asyncFilters) {
-  return convertStatements(liftSuper(liftFilters(ast, asyncFilters)));
-}
-function transform(ast, asyncFilters) {
-  return cps(ast, asyncFilters || []);
-}
-
-// var parser = require('./parser');
-// var src = 'hello {% foo %}{% endfoo %} end';
-// var ast = transform(parser.parse(src, [new FooExtension()]), ['bar']);
-// nodes.printNodes(ast);
-
-module.exports = {
-  transform: transform
-};
 
 /***/ }),
 
@@ -36589,14 +30247,6 @@ module.exports = {
 
 /***/ }),
 
-/***/ 568:
-/***/ ((module) => {
-
-module.exports = eval("require")("chokidar");
-
-
-/***/ }),
-
 /***/ 2613:
 /***/ ((module) => {
 
@@ -36604,24 +30254,10 @@ module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("assert");
 
 /***/ }),
 
-/***/ 3167:
-/***/ ((module) => {
-
-module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("domain");
-
-/***/ }),
-
 /***/ 4434:
 /***/ ((module) => {
 
 module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("events");
-
-/***/ }),
-
-/***/ 9896:
-/***/ ((module) => {
-
-module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("fs");
 
 /***/ }),
 
@@ -36783,13 +30419,6 @@ module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:worker_
 /***/ ((module) => {
 
 module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:zlib");
-
-/***/ }),
-
-/***/ 6928:
-/***/ ((module) => {
-
-module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("path");
 
 /***/ }),
 
@@ -37024,18 +30653,6 @@ __webpack_unused_export__ = defaultContentType
 /******/ }
 /******/ 
 /************************************************************************/
-/******/ /* webpack/runtime/compat get default export */
-/******/ (() => {
-/******/ 	// getDefaultExport function for compatibility with non-harmony modules
-/******/ 	__nccwpck_require__.n = (module) => {
-/******/ 		var getter = module && module.__esModule ?
-/******/ 			() => (module['default']) :
-/******/ 			() => (module);
-/******/ 		__nccwpck_require__.d(getter, { a: getter });
-/******/ 		return getter;
-/******/ 	};
-/******/ })();
-/******/ 
 /******/ /* webpack/runtime/define property getters */
 /******/ (() => {
 /******/ 	// define getter functions for harmony exports
@@ -37174,8 +30791,8 @@ function setFailed(message) {
     actions_core_error(message);
 }
 
-// EXTERNAL MODULE: external "fs"
-var external_fs_ = __nccwpck_require__(9896);
+;// CONCATENATED MODULE: external "fs"
+const external_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("fs");
 ;// CONCATENATED MODULE: external "os"
 const external_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("os");
 ;// CONCATENATED MODULE: ./node_modules/@actions/github/lib/context.js
@@ -37189,8 +30806,8 @@ class Context {
         var _a, _b, _c;
         this.payload = {};
         if (process.env.GITHUB_EVENT_PATH) {
-            if ((0,external_fs_.existsSync)(process.env.GITHUB_EVENT_PATH)) {
-                this.payload = JSON.parse((0,external_fs_.readFileSync)(process.env.GITHUB_EVENT_PATH, { encoding: 'utf8' }));
+            if ((0,external_fs_namespaceObject.existsSync)(process.env.GITHUB_EVENT_PATH)) {
+                this.payload = JSON.parse((0,external_fs_namespaceObject.readFileSync)(process.env.GITHUB_EVENT_PATH, { encoding: 'utf8' }));
             }
             else {
                 const path = process.env.GITHUB_EVENT_PATH;
@@ -41558,17 +35175,6 @@ function retry(octokit, octokitOptions) {
 retry.VERSION = plugin_retry_dist_bundle_VERSION;
 
 
-;// CONCATENATED MODULE: ./src/functions/dedent.ts
-function dedent(value) {
-    let result = value.replace(/\r?\n([\t ]*)$/, '');
-    const indentations = result.match(/\n[\t ]+/g);
-    if (indentations !== null) {
-        const size = Math.min(...indentations.map(indentation => indentation.length - 1));
-        result = result.replace(new RegExp(`\\n[\\t ]{${size}}`, 'g'), '\n');
-    }
-    return result.replace(/^\r?\n/, '');
-}
-
 ;// CONCATENATED MODULE: ./src/version.ts
 // The version of the branch-deploy Action
 // Acceptable version formats:
@@ -41588,27 +35194,214 @@ const COLORS = {
     reset: '\u001b[0m' // reset
 };
 
-;// CONCATENATED MODULE: ./src/functions/trigger-check.ts
+;// CONCATENATED MODULE: ./src/functions/truncate-comment-body.ts
 
 
-// A simple function that checks the body of the message against the trigger
-// :param body: The content body of the message being checked (String)
-// :param trigger: The "trigger" phrase which is searched for in the body of the message (String)
-// :returns: true if a message activates the trigger, false otherwise
-function triggerCheck(body, trigger) {
-    // If the trigger is not activated, set the output to false and return with false
-    if (!body.startsWith(trigger)) {
-        debug(`comment body does not start with trigger: ${COLORS.highlight}${trigger}${COLORS.reset}`);
-        return false;
+const truncatedMessageStart = 'The message is too large to be posted as a comment.\n<details><summary>Click to see the truncated message</summary>\n';
+const truncatedMessageEnd = '\n</details>';
+// The maximum length of an issue comment body
+const maxCommentLength = 65536;
+// Helper function to truncate the body of a comment if it is too long. If the message is too long,
+// it will be truncated and wrapped in a details tag. If the message is short enough, it will be
+// returned as is.
+// :param message: The message to be truncated (String)
+function truncateCommentBody(message) {
+    // If the message is short enough, return it as is
+    if (message.length <= maxCommentLength) {
+        debug('comment body is within length limit');
+        return message;
     }
-    // Ensure the trigger match is complete: either end-of-string or followed by whitespace
-    const nextChar = body[trigger.length];
-    if (nextChar !== undefined && nextChar !== '' && !/\s/.test(nextChar)) {
-        debug(`comment body starts with trigger but is not complete: ${COLORS.highlight}${trigger}${COLORS.reset}`);
-        return false;
+    // if we make it here, the message is too long, so truncate it
+    warning(`✂️ truncating - comment body is too long - current: ${COLORS.highlight}${message.length}${COLORS.reset} characters - max: ${COLORS.highlight}${maxCommentLength}${COLORS.reset} characters`);
+    const truncated = message.substring(0, maxCommentLength - truncatedMessageStart.length - truncatedMessageEnd.length);
+    // return the truncated message wrapped in a details tag
+    return truncatedMessageStart + truncated + truncatedMessageEnd;
+}
+
+;// CONCATENATED MODULE: ./src/functions/api-headers.ts
+const API_HEADERS = {
+    'X-GitHub-Api-Version': '2022-11-28'
+};
+
+;// CONCATENATED MODULE: ./src/trust-boundaries.ts
+// This module preserves the action's reviewed legacy coercion boundaries.
+function branchDeployContext(context) {
+    return context;
+}
+/**
+ * These conversions preserve the action's established JavaScript trust
+ * boundaries. Callers make the same event, mode, and response decisions they
+ * did before the TypeScript migration; keeping the assertions here makes the
+ * unchecked assumptions reviewable without introducing new runtime rejection
+ * or fallback behavior.
+ */
+function issueCommentContext(context) {
+    return context;
+}
+function legacyApiError(error) {
+    return error;
+}
+function decodedLockData(value) {
+    return JSON.parse(value);
+}
+function decodedJsonValue(value) {
+    return JSON.parse(value);
+}
+function decodedDeploymentTemplateLiteral(value) {
+    return JSON.parse(value);
+}
+function regexCapture(match, index) {
+    return match[index];
+}
+function createdDeployment(value) {
+    return value;
+}
+function legacyDeploymentId(value) {
+    return value;
+}
+function legacyDeploymentStatusId(value) {
+    return value;
+}
+function legacyEnvironmentUrl(value) {
+    return value;
+}
+function legacyLockData(value) {
+    return value;
+}
+function legacyArrayElement(value) {
+    return value;
+}
+function legacyEnvironmentUrlMatch(value, pattern) {
+    return value.match(pattern);
+}
+function legacyLength(value) {
+    return value.length;
+}
+function legacyTruthy(value) {
+    return Boolean(value);
+}
+function legacyLooselyTrue(value) {
+    return value == true;
+}
+function legacyStrictTrue(value) {
+    return value === true;
+}
+function legacyIgnoredChecks(value) {
+    return legacyTruthy(value) ? value : [];
+}
+function repositoryFileContent(value) {
+    return value.content;
+}
+function legacyBranchRuleParameters(value) {
+    return value
+        .parameters;
+}
+function legacyDebugValue(value) {
+    return value;
+}
+function legacyCommitterLogin(value) {
+    return value.data?.committer?.login;
+}
+function legacyIssueCommentCreatedAt(context) {
+    return context?.payload?.comment?.created_at;
+}
+function legacyPullRequestEvent(context) {
+    const value = context;
+    return {
+        action: value?.payload?.action,
+        eventName: value?.eventName,
+        pullRequest: value?.payload?.pull_request
+    };
+}
+function legacyBranchTreeSha(value) {
+    return value?.data?.commit?.commit?.tree?.sha;
+}
+function legacyPrechecksCommitOid(value) {
+    return value?.repository?.pullRequest?.commits?.nodes?.[0]?.commit?.oid;
+}
+function prechecksGraphqlResult(value) {
+    return value;
+}
+function prechecksGraphqlContextsPageResult(value) {
+    return value;
+}
+function legacyPrechecksPullData(value) {
+    return value;
+}
+function legacyPrechecksPullRepository(value) {
+    return value;
+}
+
+;// CONCATENATED MODULE: ./src/functions/action-status.ts
+
+
+
+
+// Default failure reaction
+const thumbsDown = '-1';
+// Default success reaction
+const rocket = 'rocket';
+// Alt success reaction
+const thumbsUp = '+1';
+// Helper function to add a status update for the action that is running a branch deployment
+// It also updates the original comment with a reaction depending on the status of the deployment
+// :param context: The context of the action
+// :param octokit: The octokit object
+// :param reactionId: The id of the original reaction added to our trigger comment (Integer)
+// :param message: The message to be added to the action status (String)
+// :param success: Boolean indicating whether the deployment was successful (Boolean)
+// :param altSuccessReaction: Boolean indicating whether to use the alternate success reaction (Boolean)
+// :returns: Nothing
+async function actionStatus({ context, message: originalMessage, octokit, reactionId, result = 'failure' }) {
+    let message = originalMessage;
+    // check if message is null or empty
+    if (!message || message.length === 0) {
+        const log_url = `${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/actions/runs/${String(process.env['GITHUB_RUN_ID'])}`;
+        message = 'Unknown error, [check logs](' + log_url + ') for more details.';
     }
-    info(`✅ comment body starts with trigger: ${COLORS.highlight}${trigger}${COLORS.reset}`);
-    return true;
+    await octokit.rest.issues.createComment({
+        ...context.repo,
+        issue_number: context.issue.number,
+        body: truncateCommentBody(message),
+        headers: API_HEADERS
+    });
+    // Select the reaction to add to the issue_comment
+    let reaction;
+    if (result !== 'failure') {
+        if (result === 'alternate-success') {
+            reaction = thumbsUp;
+        }
+        else {
+            reaction = rocket;
+        }
+    }
+    else {
+        reaction = thumbsDown;
+    }
+    if (reactionId !== null) {
+        try {
+            await octokit.rest.reactions.deleteForIssueComment({
+                ...context.repo,
+                comment_id: issueCommentContext(context).payload.comment.id,
+                reaction_id: reactionId,
+                headers: API_HEADERS
+            });
+        }
+        catch (error) {
+            warning(`failed to remove the initial decorative reaction: ${legacyApiError(error).message}`);
+        }
+        try {
+            await octokit.rest.reactions.createForIssueComment({
+                ...context.repo,
+                comment_id: issueCommentContext(context).payload.comment.id,
+                content: reaction,
+                headers: API_HEADERS
+            });
+        }
+        catch (error) {
+            warning(`failed to add the final decorative reaction: ${legacyApiError(error).message}`);
+        }
+    }
 }
 
 ;// CONCATENATED MODULE: ./src/action-io.ts
@@ -41746,7 +35539,8 @@ const ACTION_STATE_KEYS = (/* unused pure expression or super */ null && ([
     'reaction_id',
     'ref',
     'review_decision',
-    'sha'
+    'sha',
+    'trusted_sha'
 ]));
 function getActionInput(name, options) {
     return getInput(name, options);
@@ -41764,132 +35558,21 @@ function getActionState(name) {
     return getState(name);
 }
 
-;// CONCATENATED MODULE: ./src/trust-boundaries.ts
-// This module preserves the action's reviewed legacy coercion boundaries.
-function branchDeployContext(context) {
-    return context;
-}
-/**
- * These conversions preserve the action's established JavaScript trust
- * boundaries. Callers make the same event, mode, and response decisions they
- * did before the TypeScript migration; keeping the assertions here makes the
- * unchecked assumptions reviewable without introducing new runtime rejection
- * or fallback behavior.
- */
-function issueCommentContext(context) {
-    return context;
-}
-function legacyApiError(error) {
-    return error;
-}
-function decodedLockData(value) {
-    return JSON.parse(value);
-}
-function decodedJsonValue(value) {
-    return JSON.parse(value);
-}
-function createdDeployment(value) {
-    return value;
-}
-function legacyDeploymentId(value) {
-    return value;
-}
-function legacyDeploymentStatusId(value) {
-    return value;
-}
-function legacyEnvironmentUrl(value) {
-    return value;
-}
-function legacyLockData(value) {
-    return value;
-}
-function legacyArrayElement(value) {
-    return value;
-}
-function legacyEnvironmentUrlMatch(value, pattern) {
-    return value.match(pattern);
-}
-function legacyLength(value) {
-    return value.length;
-}
-function legacyTruthy(value) {
-    return Boolean(value);
-}
-function legacyLooselyTrue(value) {
-    return value == true;
-}
-function legacyStrictTrue(value) {
-    return value === true;
-}
-function legacyIgnoredChecks(value) {
-    return legacyTruthy(value) ? value : [];
-}
-function repositoryFileContent(value) {
-    return value.content;
-}
-function legacyBranchRuleParameters(value) {
-    return value
-        .parameters;
-}
-function legacyDebugValue(value) {
-    return value;
-}
-function legacyCommitterLogin(value) {
-    return value.data?.committer?.login;
-}
-function legacyIssueCommentCreatedAt(context) {
-    return context?.payload?.comment?.created_at;
-}
-function legacyPullRequestEvent(context) {
-    const value = context;
-    return {
-        action: value?.payload?.action,
-        eventName: value?.eventName,
-        pullRequest: value?.payload?.pull_request
-    };
-}
-function legacyBranchTreeSha(value) {
-    return value?.data?.commit?.commit?.tree?.sha;
-}
-function legacyPrechecksCommitOid(value) {
-    return value?.repository?.pullRequest?.commits?.nodes?.[0]?.commit?.oid;
-}
-function prechecksGraphqlResult(value) {
-    return value;
-}
-function prechecksGraphqlContextsPageResult(value) {
-    return value;
-}
-function legacyPrechecksPullData(value) {
-    return value;
-}
-function legacyPrechecksPullRepository(value) {
-    return value;
-}
-function legacyDeploymentPayload(value) {
-    return value;
-}
-
 ;// CONCATENATED MODULE: ./src/functions/context-check.ts
-
 
 
 // A simple function that checks the event context to make sure it is valid
 // :param context: The GitHub Actions event context
 // :returns: Boolean - true if the context is valid, false otherwise
 function contextCheck(context) {
-    // Get the PR event context
-    let pr;
-    try {
-        pr = issueCommentContext(context).payload.issue.pull_request;
-    }
-    catch (error) {
-        throw new Error(`Could not get PR event context: ${String(error)}`);
-    }
+    const issue = context.eventName === 'issue_comment' ? context.payload?.issue : undefined;
+    const pullRequest = typeof issue === 'object' && issue !== null && 'pull_request' in issue
+        ? issue.pull_request
+        : undefined;
     // If the context is not valid, return false
     if (context.eventName !== 'issue_comment' ||
-        pr === null ||
-        pr === undefined) {
+        pullRequest === null ||
+        pullRequest === undefined) {
         saveActionState('bypass', 'true');
         warning('This Action can only be run in the context of a pull request comment');
         return false;
@@ -41898,156 +35581,676 @@ function contextCheck(context) {
     return true;
 }
 
-;// CONCATENATED MODULE: ./src/functions/lock-metadata.ts
-const LOCK_METADATA = {
-    lockInfoFlags: [' --info', ' --i', ' -i', ' --details', ' --d', ' -d'],
-    lockBranchSuffix: 'branch-deploy-lock',
-    globalLockBranch: 'global-branch-deploy-lock',
-    lockCommitMsg: 'lock [skip ci]',
-    lockFile: 'lock.json'
-};
-
-;// CONCATENATED MODULE: ./src/functions/api-headers.ts
-const API_HEADERS = {
-    'X-GitHub-Api-Version': '2022-11-28'
-};
-
-;// CONCATENATED MODULE: ./src/functions/naked-command-check.ts
-
-
-
-
-
-
-
-const thumbsDown = '-1';
-const docs = 'https://github.com/github/branch-deploy/blob/main/docs/naked-commands.md';
-// Helper function to check if a naked command was issued
-// :param body: The body of the issueops command
-// :param param_separator: The separator used to seperate the command from the parameters
-// :param triggers: All the triggers for the Action rolled up into an Array
-// :returns: true if a naked command was issued, false otherwise
-async function nakedCommandCheck(body, param_separator, triggers, octokit, context) {
-    let nakedCommand = false;
-    debug(`before - nakedCommandCheck: body: ${body}`);
-    body = body.trim();
-    // ////// checking for lock flags ////////
-    // if the body contains the globalFlag, exit right away as environments are not relevant
-    const globalFlag = getActionInput('global_lock_flag').trim();
-    if (body.includes(globalFlag)) {
-        debug('global lock flag found in naked command check');
-        return nakedCommand;
+;// CONCATENATED MODULE: ./src/functions/suggested-rulesets.ts
+const SUGGESTED_RULESETS = [
+    {
+        type: 'deletion' // ensure that the stable / default branch is protected from deletion
+    },
+    {
+        type: 'non_fast_forward' // ensure that the stable / default branch is protected from force pushes
+    },
+    {
+        type: 'pull_request', // ensure that the stable / default branch requires a PR to merge into
+        parameters: {
+            dismiss_stale_reviews_on_push: true, // Dismisses approvals when new commits are pushed to the branch
+            require_code_owner_review: true, // Require an approved review from code owners
+            required_approving_review_count: 1 // At least one approving review is required by default (or greater)
+        }
+    },
+    {
+        type: 'required_status_checks', // ensure that the stable / default branch requires checks to pass before merging into
+        parameters: {
+            strict_required_status_checks_policy: true // requires that the branch is up to date with the latest stable / default branch before merging
+        }
+    },
+    {
+        type: 'required_deployments' // ensure that the stable / default branch requires deployments to pass before merging into (can be any environment)
     }
-    // remove any lock flags from the body
-    LOCK_METADATA.lockInfoFlags.forEach(flag => {
-        body = body.replace(flag, '').trim();
-    });
-    // remove the --reason <text> from the body if it exists
-    if (body.includes('--reason')) {
-        debug(`'--reason' found in comment body: ${body} - attempting to remove for naked command checks`);
-        body = legacyArrayElement(body.split('--reason')[0]).trim();
-        debug(`comment body after '--reason' removal: ${body}`);
-    }
-    ////////// end lock flag checks //////////
-    // first remove any params
-    // Seperate the issueops command on the 'param_separator'
-    const paramCheck = body.split(param_separator);
-    paramCheck.shift(); // remove everything before the 'param_separator'
-    const params = paramCheck.join(param_separator); // join it all back together (in case there is another separator)
-    // if there is anything after the 'param_separator'; output it, log it, and remove it from the body for env checks
-    if (params !== '') {
-        body = legacyArrayElement(body.split(`${param_separator}${params}`)[0]).trim();
-        debug(`params were found and removed for naked command checks: ${params}`);
-    }
-    debug(`after - nakedCommandCheck: body: ${body}`);
-    // loop through all the triggers and check to see if the command is a naked command
-    for (const trigger of triggers) {
-        if (body === trigger) {
-            nakedCommand = true;
-            warning(`🩲 naked commands are ${COLORS.warning}not${COLORS.reset} allowed based on your configuration: ${COLORS.highlight}${body}${COLORS.reset}`);
-            warning(`📚 view the documentation around ${COLORS.highlight}naked commands${COLORS.reset} to learn more: ${docs}`);
-            const message = dedent(`
-      ### Missing Explicit Environment
+];
 
-      #### Suggestion
-
-      \`\`\`text
-      ${body} <environment>
-      \`\`\`
-
-      #### Explanation
-
-      This style of command is known as a "naked command" and is not allowed based on your configuration. "Naked commands" are commands that do not explicitly specify an environment, for example \`${body}\` would be a "naked command" whereas \`${body} <environment>\` would not be.
-
-      > View the [documentation](${docs}) to learn more
-    `);
-            // add a comment to the issue with the message
-            await octokit.rest.issues.createComment({
-                ...context.repo,
-                issue_number: context.issue.number,
-                body: message,
-                headers: API_HEADERS
-            });
-            // add a reaction to the issue_comment to indicate failure
-            await octokit.rest.reactions.createForIssueComment({
-                ...context.repo,
-                comment_id: issueCommentContext(context).payload.comment.id,
-                content: thumbsDown,
-                headers: API_HEADERS
-            });
-            break;
+;// CONCATENATED MODULE: ./src/functions/templates/error.ts
+const ERROR = {
+    messages: {
+        upgrade_or_public: {
+            status: 403,
+            message: 'Upgrade to GitHub Pro or make this repository public to enable this feature',
+            help_text: 'Rulesets are available in public repositories with GitHub Free and GitHub Free for organizations, and in public and private repositories with GitHub Pro, GitHub Team, and GitHub Enterprise Cloud. For more information see https://docs.github.com/en/get-started/learning-about-github/githubs-plans or https://docs.github.com/rest/repos/rules#get-rules-for-a-branch - (Upgrade to GitHub Pro or make this repository public to enable this feature.)'
         }
     }
-    return nakedCommand;
-}
+};
 
-;// CONCATENATED MODULE: ./src/functions/react-emote.ts
-
+;// CONCATENATED MODULE: ./src/functions/branch-ruleset-checks.ts
 
 
-// Fixed presets of allowed emote types as defined by GitHub
-const presets = [
-    '+1',
-    '-1',
-    'laugh',
-    'confused',
-    'heart',
-    'hooray',
-    'rocket',
-    'eyes'
-];
-// Helper function to add a reaction to an issue_comment
-// :param reaction: A string which determines the reaction to use (String)
-// :param context: The GitHub Actions event context
-// :param octokit: The octokit client
-// :returns: The reaction ID, or null when reactions are disabled or unavailable
-async function reactEmote(reaction, context, octokit) {
-    // Get the owner and repo from the context
-    const { owner, repo } = context.repo;
-    // If the reaction is not specified, return
-    if (!reaction || reaction.trim() === '') {
-        return null;
+
+
+
+
+async function branchRulesetChecks(context, octokit, data) {
+    const branch = data.branch;
+    const useSecurityWarnings = data.use_security_warnings !== false;
+    // Exit early if the user has disabled security warnings
+    if (!useSecurityWarnings) {
+        return { success: true };
     }
-    // Find the reaction in the list of presets, otherwise throw an error
-    const preset = presets.find(preset => preset === reaction.trim());
-    if (!preset) {
-        throw new Error(`Reaction "${reaction}" is not a valid preset`);
-    }
-    // Add the reaction to the issue_comment
     try {
-        const reactRes = await octokit.rest.reactions.createForIssueComment({
-            owner,
-            repo,
-            comment_id: issueCommentContext(context).payload.comment.id,
-            content: preset,
+        const { data: branchRules } = await octokit.rest.repos.getBranchRules({
+            ...context.repo,
+            branch,
             headers: API_HEADERS
         });
-        return reactRes.data.id;
+        debug(`branch ${COLORS.highlight}rulesets${COLORS.reset}: ${JSON.stringify(branchRules)}`);
+        const failed_checks = [];
+        // Leave a warning if no rulesets are defined
+        if (branchRules.length === 0) {
+            warning(`🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} are not defined for branch ${COLORS.highlight}${branch}${COLORS.reset}`);
+            failed_checks.push('missing_branch_rulesets');
+        }
+        else {
+            // Loop through the suggested rulesets and check them against the branch rules
+            SUGGESTED_RULESETS.forEach(suggestedRule => {
+                const ruleType = suggestedRule.type;
+                const branchRule = branchRules.find(rule => rule.type === ruleType);
+                if (!branchRule) {
+                    logMissingRule(branch, ruleType, failed_checks);
+                }
+                else if ('parameters' in suggestedRule) {
+                    checkRuleParameters(branch, ruleType, suggestedRule.parameters, branchRule, failed_checks);
+                }
+            });
+        }
+        logWarnings(failed_checks);
+        // If there are no failed checks, log a success message
+        if (failed_checks.length === 0) {
+            info(`🔐 branch ruleset checks ${COLORS.success}passed${COLORS.reset}`);
+        }
+        return { success: failed_checks.length === 0, failed_checks };
     }
     catch (error) {
-        warning(`failed to add the initial reaction; continuing without decorative reactions: ${legacyApiError(error).message}`);
+        const apiError = legacyApiError(error);
+        if (apiError.status === ERROR.messages.upgrade_or_public.status &&
+            apiError.message.includes(ERROR.messages.upgrade_or_public.message)) {
+            debug(ERROR.messages.upgrade_or_public.help_text);
+            return { success: false, failed_checks: ['upgrade_or_public_required'] };
+        }
+        else {
+            throw error;
+        }
+    }
+}
+function logMissingRule(branch, ruleType, failed_checks) {
+    warning(`🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} is missing a rule of type ${COLORS.highlight}${ruleType}${COLORS.reset}`);
+    failed_checks.push(`missing_${ruleType}`);
+}
+function checkRuleParameters(branch, ruleType, ruleParameters, branchRule, failed_checks) {
+    const branchRuleParameters = legacyBranchRuleParameters(branchRule);
+    Object.keys(ruleParameters).forEach(key => {
+        if (branchRuleParameters[key] !== ruleParameters[key]) {
+            if (key === 'required_approving_review_count') {
+                handleReviewCountMismatch(branch, ruleType, branchRule, failed_checks);
+            }
+            else {
+                logParameterMismatch(branch, ruleType, key, failed_checks);
+            }
+        }
+    });
+}
+function handleReviewCountMismatch(branch, ruleType, branchRule, failed_checks) {
+    const parameters = legacyBranchRuleParameters(branchRule);
+    if (parameters['required_approving_review_count'] === 0) {
+        warning(`🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains the required_approving_review_count parameter but it is set to 0`);
+        failed_checks.push(`mismatch_${ruleType}_required_approving_review_count`);
+    }
+    else {
+        debug(`required_approving_review_count is ${String(parameters['required_approving_review_count'])} - OK`);
+    }
+}
+function logParameterMismatch(branch, ruleType, key, failed_checks) {
+    warning(`🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains a rule of type ${COLORS.highlight}${ruleType}${COLORS.reset} with a parameter ${COLORS.highlight}${key}${COLORS.reset} which does not match the suggested parameter`);
+    failed_checks.push(`mismatch_${ruleType}_${key}`);
+}
+function logWarnings(failed_checks) {
+    if (failed_checks.length > 0) {
+        warning(`😨 the following branch ruleset warnings were detected: ${failed_checks.join(', ')}`);
+        warning(`📚 your branch ruleset settings may be insecure - please review the documentation: https://github.com/github/branch-deploy/blob/main/docs/branch-rulesets.md`);
+    }
+}
+
+;// CONCATENATED MODULE: ./src/functions/is-timestamp-older.ts
+
+
+// A helper method that checks if timestamp A is older than timestamp B
+// :param timestampA: The first timestamp to compare (String - format: "2024-10-21T19:10:24Z")
+// :param timestampB: The second timestamp to compare (String - format: "2024-10-21T19:10:24Z")
+// :returns: true if timestampA is older than timestampB, false otherwise
+function isTimestampOlder(timestampA, timestampB) {
+    // Defensive: handle null/undefined/empty
+    if (!legacyTruthy(timestampA) || !legacyTruthy(timestampB)) {
+        throw new Error('One or both timestamps are missing or empty.');
+    }
+    // Strict ISO 8601 UTC format: YYYY-MM-DDTHH:MM:SSZ
+    const ISO_UTC_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+    if (typeof timestampA !== 'string' ||
+        typeof timestampB !== 'string' ||
+        !ISO_UTC_REGEX.test(timestampA) ||
+        !ISO_UTC_REGEX.test(timestampB)) {
+        throw new Error(`Timestamps must be strings in the format YYYY-MM-DDTHH:MM:SSZ. Received: '${String(timestampA)}', '${String(timestampB)}'`);
+    }
+    // Parse the date strings into Date objects
+    const timestampADate = new Date(timestampA);
+    const timestampBDate = new Date(timestampB);
+    // Extra strict: ensure the parsed date matches the input string exactly (prevents JS date rollover)
+    const toStrictISOString = (d) => {
+        // Returns YYYY-MM-DDTHH:MM:SSZ
+        return (d.getUTCFullYear().toString().padStart(4, '0') +
+            '-' +
+            (d.getUTCMonth() + 1).toString().padStart(2, '0') +
+            '-' +
+            d.getUTCDate().toString().padStart(2, '0') +
+            'T' +
+            d.getUTCHours().toString().padStart(2, '0') +
+            ':' +
+            d.getUTCMinutes().toString().padStart(2, '0') +
+            ':' +
+            d.getUTCSeconds().toString().padStart(2, '0') +
+            'Z');
+    };
+    if (Number.isNaN(timestampADate.getTime()) ||
+        Number.isNaN(timestampBDate.getTime()) ||
+        toStrictISOString(timestampADate) !== timestampA ||
+        toStrictISOString(timestampBDate) !== timestampB) {
+        actions_core_error(`Invalid date parsing. Received: '${timestampA}' => ${String(timestampADate)}, '${timestampB}' => ${String(timestampBDate)}`);
+        throw new Error(`Invalid date format. Please ensure the dates are valid UTC timestamps. Received: '${timestampA}', '${timestampB}'`);
+    }
+    const result = timestampADate.getTime() < timestampBDate.getTime();
+    if (result) {
+        debug(`${timestampA} is older than ${timestampB}`);
+    }
+    else {
+        debug(`${timestampA} is not older than ${timestampB}`);
+    }
+    return result;
+}
+
+;// CONCATENATED MODULE: ./src/functions/commit-safety-checks.ts
+
+
+
+
+
+// A helper method to ensure that the commit being used is safe for deployment
+// These safety checks are supplemental to the checks found in `src/functions/prechecks.ts`
+// :param context: The context of the event
+// :param data: An object containing data such as the sha, the created_at time for the comment, and more
+function commitSafetyChecks(context, data) {
+    const commit = data.commit;
+    const inputs = data.inputs;
+    const sha = data.sha;
+    const comment_created_at = legacyIssueCommentCreatedAt(context);
+    const commit_created_at = commit?.author?.date; // fetch the timestamp that the commit was authored (format: "2024-10-21T19:10:24Z" - String)
+    const verified_at = commit?.verification?.verified_at;
+    debug(`comment_created_at: ${String(comment_created_at)}`);
+    debug(`commit_created_at: ${String(commit_created_at)}`);
+    debug(`verified_at: ${String(verified_at)}`);
+    // Defensive: Ensure required fields exist
+    if (!legacyTruthy(comment_created_at)) {
+        throw new Error('Missing context.payload.comment.created_at');
+    }
+    if (!legacyTruthy(commit_created_at)) {
+        throw new Error('Missing commit.author.date');
+    }
+    const isVerified = commit?.verification?.verified === true;
+    debug(`isVerified: ${isVerified}`);
+    setActionOutput('commit_verified', isVerified);
+    saveActionState('commit_verified', isVerified);
+    // check to ensure that the commit was authored before the comment was created
+    if (isTimestampOlder(comment_created_at, commit_created_at)) {
+        return {
+            message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. It was authored after the trigger comment was created.`,
+            status: false,
+            isVerified: isVerified
+        };
+    }
+    // begin the commit verification checks
+    if (isVerified) {
+        info(`🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`);
+    }
+    else if (inputs.commit_verification) {
+        warning(`🔑 commit signature is ${COLORS.error}invalid${COLORS.reset}`);
+    }
+    else {
+        // if we make it here, the commit is not valid but that is okay because commit verification is not enabled
+        debug(`🔑 commit does not contain a verified signature but ${COLORS.highlight}commit signing is not required${COLORS.reset} - ${COLORS.success}OK${COLORS.reset}`);
+    }
+    // If commit verification is enabled and the commit signature is not valid (or it is missing / undefined), exit
+    if (inputs.commit_verification && !isVerified) {
+        return {
+            message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`${String(commit?.verification?.reason)}\`\n\n> The commit signature is not valid. Please ensure the commit has been properly signed and try again.`,
+            status: false,
+            isVerified: isVerified
+        };
+    }
+    // if commit_verification is enabled and the verified_at timestamp is not present, throw an error
+    if (inputs.commit_verification && !legacyTruthy(verified_at)) {
+        return {
+            message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`${String(commit?.verification?.reason)}\`\n\n> The commit signature is not valid as there is no valid \`verified_at\` date. Please ensure the commit has been properly signed and try again.`,
+            status: false,
+            isVerified: isVerified
+        };
+    }
+    // check to ensure that the commit signature was authored before the comment was created
+    // even if the commit signature is valid, we still want to reject it if it was authored after the comment was created
+    if (inputs.commit_verification &&
+        isTimestampOlder(comment_created_at, verified_at)) {
+        return {
+            message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. The commit signature was verified after the trigger comment was created. Please try again if you recently pushed a new commit.`,
+            status: false,
+            isVerified: isVerified
+        };
+    }
+    // if we make it through all the checks, we can return a success object
+    return {
+        message: 'success',
+        status: true,
+        isVerified: isVerified
+    };
+}
+
+;// CONCATENATED MODULE: ./src/functions/dedent.ts
+function dedent(value) {
+    let result = value.replace(/\r?\n([\t ]*)$/, '');
+    const indentations = result.match(/\n[\t ]+/g);
+    if (indentations !== null) {
+        const size = Math.min(...indentations.map(indentation => indentation.length - 1));
+        result = result.replace(new RegExp(`\\n[\\t ]{${size}}`, 'g'), '\n');
+    }
+    return result.replace(/^\r?\n/, '');
+}
+
+;// CONCATENATED MODULE: ./src/functions/deployment.ts
+
+
+
+// Helper function to add deployment statuses to a PR / ref
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param ref: The ref to add the deployment status to
+// :param state: The state of the deployment
+// :param deploymentId: The id of the deployment
+// :param environment: The environment of the deployment
+// :param environment_url: The environment url of the deployment (default '')
+// :returns: The result of the deployment status creation (Object)
+async function createDeploymentStatus(octokit, context, ref, state, deploymentId, environment, environment_url = null) {
+    // Get the owner and the repo from the context
+    const { owner, repo } = context.repo;
+    const { data: result } = await octokit.rest.repos.createDeploymentStatus({
+        owner: owner,
+        repo: repo,
+        ref: ref,
+        deployment_id: legacyDeploymentStatusId(deploymentId),
+        state: state,
+        log_url: `${String(process.env['GITHUB_SERVER_URL'])}/${owner}/${repo}/actions/runs/${context.runId}`,
+        environment: environment,
+        environment_url: legacyEnvironmentUrl(environment_url),
+        headers: API_HEADERS
+    });
+    debug(`deploymentStatus.id: ${result.id}`);
+    debug(`deploymentStatus.url: ${result.url}`);
+    return result;
+}
+// Helper function to check and see if a given sha is active and deployed to a given environment
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param environment: The environment to check for (ex: production)
+// :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+// :returns: true if the deployment is active for the given environment at the given commit sha, false otherwise
+async function activeDeployment(octokit, context, environment, sha) {
+    const deployment = await latestActiveDeployment(octokit, context, environment);
+    // If no deployment was found, return false
+    if (deployment === null) {
+        return false;
+    }
+    // Otherwise, check to see if the deployment is active and the commit sha matches exactly
+    return deployment.state === 'ACTIVE' && deployment.commit.oid === sha;
+}
+// Helper function to get the latest deployment for a given environment
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param environment: The environment to get the latest deployment for (ex: production)
+// :returns: The result of the deployment (Object)
+// 'nodes' may look like this:
+// otherwise, nodes may look like this:
+// [
+//   {
+//       "createdAt": "2024-09-19T20:18:18Z",
+//       "environment": "production",
+//       "updatedAt": "2024-09-19T20:18:23Z",
+//       "id": "DE_kwDOID9x8N5sC6QZ",
+//       "payload": "{\\\"type\\\":\\\"branch-deploy\\\", \\\"sha\\\": \\\"315cec138fc9d7dbc8a47c6bba4217d3965ede3b\\\"}",
+//       "state": "ACTIVE",
+//       "creator": {
+//           "login": "github-actions"
+//       },
+//       "ref": {
+//           "name": "main"
+//       },
+//       "commit": {
+//           "oid": "315cec138fc9d7dbc8a47c6bba4217d3965ede3b"
+//       }
+//   }
+// ]
+async function latestActiveDeployment(octokit, context, environment) {
+    const repository = await deploymentPage(octokit, context, environment, 1, null, null);
+    const latest = repository.deployments.nodes[0];
+    if (latest === undefined) {
+        debug(`no deployments found for ${environment}`);
         return null;
     }
+    if (latest.state !== 'ACTIVE') {
+        debug(`latest deployment for ${environment} is ${latest.state}`);
+        return null;
+    }
+    return latest;
+}
+function buildQuery() {
+    return `
+    query BranchDeployments($repo_owner: String!, $repo_name: String!, $environment: String!, $first: Int!, $cursor: String) {
+      repository(owner: $repo_owner, name: $repo_name) {
+        id
+        nameWithOwner
+        deployments(environments: [$environment], first: $first, after: $cursor, orderBy: { field: CREATED_AT, direction: DESC }) {
+          nodes {
+            createdAt
+            environment
+            id
+            payload
+            state
+            commit {
+              oid
+            }
+          }
+          pageInfo {
+            endCursor
+            hasNextPage
+          }
+        }
+      }
+    }`;
+}
+async function deploymentPage(octokit, context, environment, first, cursor, expectedRepositoryId) {
+    const page = await octokit.graphql(buildQuery(), {
+        repo_owner: context.repo.owner,
+        repo_name: context.repo.repo,
+        environment,
+        first,
+        cursor
+    });
+    const repository = page.repository;
+    if (repository === null || repository.id === '') {
+        throw new Error('The deployment history has no repository identity');
+    }
+    if (repository.nameWithOwner.toLowerCase() !==
+        `${context.repo.owner}/${context.repo.repo}`.toLowerCase()) {
+        throw new Error('The deployment history belongs to another repository');
+    }
+    if (expectedRepositoryId !== null && repository.id !== expectedRepositoryId) {
+        throw new Error('The deployment history repository changed while paging');
+    }
+    if (repository.deployments.nodes.some(deployment => deployment.environment !== environment)) {
+        throw new Error('The deployment history belongs to another environment');
+    }
+    return repository;
+}
+function deploymentPayloadKind(payload) {
+    let parsed = payload;
+    if (typeof payload === 'string') {
+        try {
+            parsed = JSON.parse(payload);
+        }
+        catch {
+            return 'malformed';
+        }
+    }
+    if (typeof parsed !== 'object' || parsed === null) {
+        return parsed === null ? 'other' : 'malformed';
+    }
+    if (!('type' in parsed))
+        return 'other';
+    if (parsed.type === 'branch-deploy')
+        return 'branch-deploy';
+    return typeof parsed.type === 'string' ? 'other' : 'malformed';
+}
+async function latestBranchDeployDeployment(octokit, context, environment) {
+    let cursor = null;
+    let repositoryId = null;
+    const seenCursors = new Set();
+    while (true) {
+        const repository = await deploymentPage(octokit, context, environment, 100, cursor, repositoryId);
+        repositoryId = repository.id;
+        for (const deployment of repository.deployments.nodes) {
+            const payloadKind = deploymentPayloadKind(deployment.payload);
+            if (payloadKind === 'branch-deploy')
+                return deployment;
+            if (payloadKind === 'malformed')
+                return null;
+        }
+        const pageInfo = repository.deployments.pageInfo;
+        if (!pageInfo.hasNextPage)
+            return null;
+        if (pageInfo.endCursor === null || pageInfo.endCursor === '') {
+            throw new Error('The deployment page has no end cursor');
+        }
+        if (seenCursors.has(pageInfo.endCursor)) {
+            throw new Error('The deployment page cursor did not advance');
+        }
+        seenCursors.add(pageInfo.endCursor);
+        cursor = pageInfo.endCursor;
+    }
+}
+
+;// CONCATENATED MODULE: ./src/functions/timestamp.ts
+// Helper function to generate an ISO 8601 formatted timestamp string in UTC
+// :returns: An ISO 8601 formatted timestamp string (ex: 2025-01-01T00:00:00.000Z)
+function timestamp() {
+    const now = new Date();
+    return now.toISOString();
+}
+
+;// CONCATENATED MODULE: ./src/functions/json-code-block.ts
+function jsonCodeBlock(value) {
+    const json = JSON.stringify(value, null, 2) ?? 'null';
+    let longestBacktickRun = 0;
+    for (const match of json.matchAll(/`+/g)) {
+        longestBacktickRun = Math.max(longestBacktickRun, match[0].length);
+    }
+    const fence = '`'.repeat(Math.max(3, longestBacktickRun + 1));
+    return `${fence}json\n${json}\n${fence}`;
+}
+
+;// CONCATENATED MODULE: ./src/functions/deployment-confirmation.ts
+
+
+
+
+
+
+
+const deployment_confirmation_thumbsUp = '+1';
+const deployment_confirmation_thumbsDown = '-1';
+// Helper function to allow the original actor to confirm the deployment by adding a reaction to a comment
+// :param context: The context of the action
+// :param octokit: The octokit object
+// :returns: the original actor's confirmation decision or a timeout result
+async function deploymentConfirmation(context, octokit, data) {
+    const issueComment = issueCommentContext(context);
+    const metadata = {
+        type: data.deploymentType.toLowerCase(),
+        environment: {
+            name: data.environment,
+            url: data.environmentUrl !== null && data.environmentUrl !== ''
+                ? data.environmentUrl
+                : null
+        },
+        deployment: {
+            logs: data.log_url
+        },
+        git: {
+            branch: data.ref,
+            commit: data.sha,
+            verified: data.isVerified,
+            committer: String(data.committer),
+            html_url: data.commit_html_url
+        },
+        context: {
+            actor: context.actor,
+            noop: data.noopMode,
+            fork: data.isFork,
+            comment: {
+                created_at: issueComment.payload.comment.created_at,
+                updated_at: issueComment.payload.comment.updated_at,
+                body: data.body,
+                html_url: issueComment.payload.comment.html_url
+            }
+        },
+        parameters: {
+            raw: data.params !== null && data.params !== '' ? data.params : null,
+            parsed: data.parsed_params
+        }
+    };
+    const metadataBlock = jsonCodeBlock(metadata);
+    const messageHeader = dedent(`
+    ### Deployment Confirmation Required 🚦
+
+    In order to proceed with this deployment, __${context.actor}__ must react to this comment with either a 👍 or a 👎.
+
+    - Commit: [\`${data.sha}\`](${data.commit_html_url})
+    - Committer: \`${String(data.committer)}\` - **${data.isVerified ? 'verified' : 'unverified'}**
+    - Environment: \`${data.environment}\`
+    - Branch: \`${data.ref}\`
+    - Deployment Type: \`${data.deploymentType}\`
+
+    > You will have \`${data.deployment_confirmation_timeout}\` seconds to confirm this deployment ([logs](${data.log_url})).
+
+  `);
+    const message = [
+        messageHeader,
+        '',
+        '<details><summary>Details</summary>',
+        '',
+        '<!--- deployment-confirmation-metadata-start -->',
+        '',
+        metadataBlock,
+        '',
+        '<!--- deployment-confirmation-metadata-end -->',
+        '',
+        '</details>'
+    ].join('\n');
+    const comment = await octokit.rest.issues.createComment({
+        ...context.repo,
+        issue_number: context.issue.number,
+        body: message,
+        headers: API_HEADERS
+    });
+    const commentId = comment.data.id;
+    debug(`deployment confirmation comment id: ${commentId}`);
+    info(`⏰ waiting ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds for deployment confirmation`);
+    // Convert timeout to milliseconds for setTimeout
+    const timeoutMs = data.deployment_confirmation_timeout * 1000;
+    const startTime = Date.now();
+    const deadline = startTime + timeoutMs;
+    let pollInterval = 2000;
+    let firstPoll = true;
+    // Poll for reactions until we find a valid one or timeout
+    while (firstPoll || Date.now() < deadline) {
+        firstPoll = false;
+        try {
+            const decision = await findConfirmationReaction(context, octokit, commentId);
+            if (decision === 'confirmed') {
+                await octokit.rest.issues.updateComment({
+                    ...context.repo,
+                    comment_id: commentId,
+                    body: `${message}\n\n✅ Deployment confirmed by __${context.actor}__ at \`${timestamp()}\` UTC.`,
+                    headers: API_HEADERS
+                });
+                info(`✅ deployment confirmed by ${COLORS.highlight}${context.actor}${COLORS.reset} - sha: ${COLORS.highlight}${data.sha}${COLORS.reset}`);
+                return 'confirmed';
+            }
+            if (decision === 'rejected') {
+                await octokit.rest.issues.updateComment({
+                    ...context.repo,
+                    comment_id: commentId,
+                    body: `${message}\n\n❌ Deployment rejected by __${context.actor}__ at \`${timestamp()}\` UTC.`,
+                    headers: API_HEADERS
+                });
+                setFailed(`❌ deployment rejected by ${COLORS.highlight}${context.actor}${COLORS.reset}`);
+                return 'rejected';
+            }
+        }
+        catch (error) {
+            if (!isRetryableConfirmationError(error)) {
+                throw error;
+            }
+            warning(`temporary failure when checking for reactions on the deployment confirmation comment: ${legacyApiError(error).message}`);
+        }
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) {
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, Math.min(pollInterval, remainingMs)));
+        pollInterval = Math.min(pollInterval * 2, 10_000);
+    }
+    // Timeout reached without confirmation
+    await octokit.rest.issues.updateComment({
+        ...context.repo,
+        comment_id: commentId,
+        body: `${message}\n\n⏱️ Deployment confirmation timed out after \`${data.deployment_confirmation_timeout}\` seconds. The deployment request has been rejected at \`${timestamp()}\` UTC.`,
+        headers: API_HEADERS
+    });
+    setFailed(`⏱️ deployment confirmation timed out after ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds`);
+    return 'timed_out';
+}
+async function findConfirmationReaction(context, octokit, commentId) {
+    let page = 1;
+    while (true) {
+        const reactions = await octokit.rest.reactions.listForIssueComment({
+            ...context.repo,
+            comment_id: commentId,
+            per_page: 100,
+            page,
+            headers: API_HEADERS
+        });
+        for (const reaction of reactions.data) {
+            if (reaction.user === null) {
+                debug('ignoring reaction from an unknown user');
+            }
+            else if (reaction.user.login !== context.actor) {
+                debug(`ignoring reaction from ${reaction.user.login}, expected ${context.actor}`);
+            }
+            else if (reaction.content === deployment_confirmation_thumbsUp) {
+                return 'confirmed';
+            }
+            else if (reaction.content === deployment_confirmation_thumbsDown) {
+                return 'rejected';
+            }
+            else {
+                debug(`ignoring reaction: ${reaction.content}`);
+            }
+        }
+        if (reactions.data.length < 100) {
+            return null;
+        }
+        page += 1;
+    }
+}
+function isRetryableConfirmationError(error) {
+    const status = legacyApiError(error).status;
+    if (status === undefined) {
+        return true;
+    }
+    if ([408, 409, 429].includes(status)) {
+        return true;
+    }
+    return status >= 500 && status < 600;
 }
 
 ;// CONCATENATED MODULE: ./src/functions/check-input.ts
@@ -42071,106 +36274,19 @@ function checkInput(input) {
     return input;
 }
 
-;// CONCATENATED MODULE: ./src/functions/truncate-comment-body.ts
-
-
-const truncatedMessageStart = 'The message is too large to be posted as a comment.\n<details><summary>Click to see the truncated message</summary>\n';
-const truncatedMessageEnd = '\n</details>';
-// The maximum length of an issue comment body
-const maxCommentLength = 65536;
-// Helper function to truncate the body of a comment if it is too long. If the message is too long,
-// it will be truncated and wrapped in a details tag. If the message is short enough, it will be
-// returned as is.
-// :param message: The message to be truncated (String)
-function truncateCommentBody(message) {
-    // If the message is short enough, return it as is
-    if (message.length <= maxCommentLength) {
-        debug('comment body is within length limit');
-        return message;
-    }
-    // if we make it here, the message is too long, so truncate it
-    warning(`✂️ truncating - comment body is too long - current: ${COLORS.highlight}${message.length}${COLORS.reset} characters - max: ${COLORS.highlight}${maxCommentLength}${COLORS.reset} characters`);
-    const truncated = message.substring(0, maxCommentLength - truncatedMessageStart.length - truncatedMessageEnd.length);
-    // return the truncated message wrapped in a details tag
-    return truncatedMessageStart + truncated + truncatedMessageEnd;
-}
-
-;// CONCATENATED MODULE: ./src/functions/action-status.ts
-
-
-
-
-// Default failure reaction
-const action_status_thumbsDown = '-1';
-// Default success reaction
-const rocket = 'rocket';
-// Alt success reaction
-const thumbsUp = '+1';
-// Helper function to add a status update for the action that is running a branch deployment
-// It also updates the original comment with a reaction depending on the status of the deployment
-// :param context: The context of the action
-// :param octokit: The octokit object
-// :param reactionId: The id of the original reaction added to our trigger comment (Integer)
-// :param message: The message to be added to the action status (String)
-// :param success: Boolean indicating whether the deployment was successful (Boolean)
-// :param altSuccessReaction: Boolean indicating whether to use the alternate success reaction (Boolean)
-// :returns: Nothing
-async function actionStatus({ context, message: originalMessage, octokit, reactionId, result = 'failure' }) {
-    let message = originalMessage;
-    // check if message is null or empty
-    if (!message || message.length === 0) {
-        const log_url = `${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/actions/runs/${String(process.env['GITHUB_RUN_ID'])}`;
-        message = 'Unknown error, [check logs](' + log_url + ') for more details.';
-    }
-    await octokit.rest.issues.createComment({
-        ...context.repo,
-        issue_number: context.issue.number,
-        body: truncateCommentBody(message),
-        headers: API_HEADERS
-    });
-    // Select the reaction to add to the issue_comment
-    let reaction;
-    if (result !== 'failure') {
-        if (result === 'alternate-success') {
-            reaction = thumbsUp;
-        }
-        else {
-            reaction = rocket;
-        }
-    }
-    else {
-        reaction = action_status_thumbsDown;
-    }
-    if (reactionId !== null) {
-        try {
-            await octokit.rest.reactions.deleteForIssueComment({
-                ...context.repo,
-                comment_id: issueCommentContext(context).payload.comment.id,
-                reaction_id: reactionId,
-                headers: API_HEADERS
-            });
-        }
-        catch (error) {
-            warning(`failed to remove the initial decorative reaction: ${legacyApiError(error).message}`);
-        }
-        try {
-            await octokit.rest.reactions.createForIssueComment({
-                ...context.repo,
-                comment_id: issueCommentContext(context).payload.comment.id,
-                content: reaction,
-                headers: API_HEADERS
-            });
-        }
-        catch (error) {
-            warning(`failed to add the final decorative reaction: ${legacyApiError(error).message}`);
-        }
-    }
-}
+;// CONCATENATED MODULE: ./src/functions/lock-metadata.ts
+const LOCK_METADATA = {
+    lockInfoFlags: [' --info', ' --i', ' -i', ' --details', ' --d', ' -d'],
+    lockBranchSuffix: 'branch-deploy-lock',
+    globalLockBranch: 'global-branch-deploy-lock',
+    lockCommitMsg: 'lock [skip ci]',
+    lockFile: 'lock.json'
+};
 
 // EXTERNAL MODULE: external "util"
 var external_util_ = __nccwpck_require__(9023);
-// EXTERNAL MODULE: external "path"
-var external_path_ = __nccwpck_require__(6928);
+;// CONCATENATED MODULE: external "path"
+const external_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("path");
 ;// CONCATENATED MODULE: ./node_modules/yargs-parser/build/lib/string-utils.js
 /**
  * @license
@@ -43381,15 +37497,15 @@ const parser = new YargsParser({
         return env;
     },
     format: external_util_.format,
-    normalize: external_path_.normalize,
-    resolve: external_path_.resolve,
+    normalize: external_path_namespaceObject.normalize,
+    resolve: external_path_namespaceObject.resolve,
     require: (path) => {
         if (typeof lib_require !== 'undefined') {
             return lib_require(path);
         }
         else if (path.match(/\.json$/)) {
             // Addresses: https://github.com/yargs/yargs/issues/2040
-            return JSON.parse((0,external_fs_.readFileSync)(path, 'utf8'));
+            return JSON.parse((0,external_fs_namespaceObject.readFileSync)(path, 'utf8'));
         }
         else {
             throw Error('only .json config files are supported in ESM');
@@ -43455,7 +37571,7 @@ function onDeploymentChecks(environment_targets_sanitized, body, trigger, noop_t
     if (params !== '') {
         bodyFmt = legacyArrayElement(body.split(`${param_separator}${params}`)[0]).trim();
         paramsTrim = params.trim();
-        info(`🧮 detected parameters in command: ${COLORS.highlight}${paramsTrim}`);
+        info(`🧮 detected parameters in command: ${COLORS.highlight}${JSON.stringify(paramsTrim)}`);
         parsed_params = parseParams(paramsTrim);
         setActionOutput('params', paramsTrim);
         setActionOutput('parsed_params', parsed_params); // Also set the parsed parameters as an output, GitHub actions will serialize this as JSON -> https://github.com/actions/runner/blob/078eb3b381939ee6665f545234e1dca5ed07da84/src/Misc/layoutbin/hashFiles/index.js#L525
@@ -43821,1425 +37937,6 @@ async function environmentTargets(request) {
             environmentUrl: environmentUrl,
             environmentObj: environmentObj
         };
-    }
-}
-
-;// CONCATENATED MODULE: ./src/functions/deployment.ts
-
-
-
-// Helper function to add deployment statuses to a PR / ref
-// :param octokit: The octokit client
-// :param context: The GitHub Actions event context
-// :param ref: The ref to add the deployment status to
-// :param state: The state of the deployment
-// :param deploymentId: The id of the deployment
-// :param environment: The environment of the deployment
-// :param environment_url: The environment url of the deployment (default '')
-// :returns: The result of the deployment status creation (Object)
-async function createDeploymentStatus(octokit, context, ref, state, deploymentId, environment, environment_url = null) {
-    // Get the owner and the repo from the context
-    const { owner, repo } = context.repo;
-    const { data: result } = await octokit.rest.repos.createDeploymentStatus({
-        owner: owner,
-        repo: repo,
-        ref: ref,
-        deployment_id: legacyDeploymentStatusId(deploymentId),
-        state: state,
-        log_url: `${String(process.env['GITHUB_SERVER_URL'])}/${owner}/${repo}/actions/runs/${context.runId}`,
-        environment: environment,
-        environment_url: legacyEnvironmentUrl(environment_url),
-        headers: API_HEADERS
-    });
-    debug(`deploymentStatus.id: ${result.id}`);
-    debug(`deploymentStatus.url: ${result.url}`);
-    return result;
-}
-// Helper function to check and see if a given sha is active and deployed to a given environment
-// :param octokit: The octokit client
-// :param context: The GitHub Actions event context
-// :param environment: The environment to check for (ex: production)
-// :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
-// :returns: true if the deployment is active for the given environment at the given commit sha, false otherwise
-async function activeDeployment(octokit, context, environment, sha) {
-    const deployment = await latestActiveDeployment(octokit, context, environment);
-    // If no deployment was found, return false
-    if (deployment === null) {
-        return false;
-    }
-    // Otherwise, check to see if the deployment is active and the commit sha matches exactly
-    return deployment.state === 'ACTIVE' && deployment.commit.oid === sha;
-}
-// Helper function to get the latest deployment for a given environment
-// :param octokit: The octokit client
-// :param context: The GitHub Actions event context
-// :param environment: The environment to get the latest deployment for (ex: production)
-// :returns: The result of the deployment (Object)
-// 'nodes' may look like this:
-// otherwise, nodes may look like this:
-// [
-//   {
-//       "createdAt": "2024-09-19T20:18:18Z",
-//       "environment": "production",
-//       "updatedAt": "2024-09-19T20:18:23Z",
-//       "id": "DE_kwDOID9x8N5sC6QZ",
-//       "payload": "{\\\"type\\\":\\\"branch-deploy\\\", \\\"sha\\\": \\\"315cec138fc9d7dbc8a47c6bba4217d3965ede3b\\\"}",
-//       "state": "ACTIVE",
-//       "creator": {
-//           "login": "github-actions"
-//       },
-//       "ref": {
-//           "name": "main"
-//       },
-//       "commit": {
-//           "oid": "315cec138fc9d7dbc8a47c6bba4217d3965ede3b"
-//       }
-//   }
-// ]
-async function latestActiveDeployment(octokit, context, environment) {
-    const { owner, repo } = context.repo;
-    const variables = {
-        repo_owner: owner,
-        repo_name: repo,
-        environment: environment
-    };
-    let queryNumber = 1;
-    let data = await octokit.graphql(buildQuery(), variables);
-    // nodes may be empty if no matching deployments were found - ex: []
-    let nodes = data.repository.deployments.nodes;
-    // If no deployments were found, return null
-    if (nodes.length === 0) {
-        debug(`no deployments found for ${environment}`);
-        return null;
-    }
-    // Check for an active deployment in the first page of deployments
-    let activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE');
-    if (activeDeployment) {
-        debug(`found active deployment for ${environment} in page ${queryNumber}`);
-        return activeDeployment;
-    }
-    // Paginate to find the active deployment if it exists
-    let hasNextPage = data.repository.deployments.pageInfo.hasNextPage;
-    let endCursor = data.repository.deployments.pageInfo.endCursor;
-    while (hasNextPage) {
-        queryNumber++;
-        data = await octokit.graphql(buildQuery(endCursor), variables);
-        nodes = data.repository.deployments.nodes;
-        activeDeployment = nodes.find(deployment => deployment.state === 'ACTIVE');
-        if (activeDeployment) {
-            debug(`found active deployment for ${environment} in page ${queryNumber}`);
-            return activeDeployment;
-        }
-        else {
-            debug(`no active deployment found for ${environment} in page ${queryNumber}`);
-        }
-        hasNextPage = data.repository.deployments.pageInfo.hasNextPage;
-        endCursor = data.repository.deployments.pageInfo.endCursor;
-    }
-    debug(`no active deployment found for ${environment} after ${queryNumber} pages`);
-    // If no active deployment was found, return null
-    return null;
-}
-function buildQuery(page = null) {
-    return `
-    query ($repo_owner: String!, $repo_name: String!, $environment: String!) {
-      repository(owner: $repo_owner, name: $repo_name) {
-        deployments(environments: [$environment], first: 100, after: ${String(page)}, orderBy: { field: CREATED_AT, direction: DESC }) {
-          nodes {
-            createdAt
-            environment
-            updatedAt
-            id
-            payload
-            state
-            ref {
-              name
-            }
-            creator {
-              login
-            }
-            commit {
-              oid
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-          }
-        }
-      }
-    }`;
-}
-
-;// CONCATENATED MODULE: ./src/functions/deprecated-checks.ts
-
-
-
-
-// The old and common trigger for noop style deployments
-const oldNoopInput = '.deploy noop';
-const docsLink = 'https://github.com/github/branch-deploy/blob/main/docs/deprecated.md';
-const deprecated_checks_thumbsDown = '-1';
-// A helper function to check against common inputs to see if they are deprecated
-// :param body: The content body of the message being checked (String)
-// :param octokit: The octokit object
-// :param context: The context of the action
-// :returns: true if the input is deprecated, false otherwise
-async function isDeprecated(body, octokit, context) {
-    // If the body of the payload starts with the common 'old noop' trigger, warn the user and exit
-    if (body.startsWith(oldNoopInput)) {
-        warning(`'${oldNoopInput}' is deprecated. Please view the docs for more information: ${docsLink}#deploy-noop`);
-        const message = dedent(`
-      ### Deprecated Input Detected
-
-      ⚠️ Command is Deprecated ⚠️
-
-      The \`${oldNoopInput}\` command is deprecated. The new default is now \`.noop\`. Please view the docs for more information: ${docsLink}#deploy-noop
-    `);
-        // add a comment to the issue with the message
-        await octokit.rest.issues.createComment({
-            ...context.repo,
-            issue_number: context.issue.number,
-            body: message,
-            headers: API_HEADERS
-        });
-        // add a reaction to the issue_comment to indicate failure
-        await octokit.rest.reactions.createForIssueComment({
-            ...context.repo,
-            comment_id: issueCommentContext(context).payload.comment.id,
-            content: deprecated_checks_thumbsDown,
-            headers: API_HEADERS
-        });
-        return true;
-    }
-    // if we get here, the input is not deprecated
-    return false;
-}
-
-;// CONCATENATED MODULE: ./src/functions/valid-permissions.ts
-
-
-// Helper function to check if an actor has permissions to use this Action in a given repository
-// :param octokit: The octokit client
-// :param context: The GitHub Actions event context
-// :param validPermissionsArray: An array of permissions that the actor must have
-// :returns: An error string if the actor doesn't have permissions, otherwise true
-async function validPermissions(octokit, context, validPermissionsArray) {
-    // fetch the defined permissions from the Action input
-    setActionOutput('actor', context.actor);
-    // Get the permissions of the user who made the comment
-    const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel({
-        ...context.repo,
-        username: context.actor,
-        headers: API_HEADERS
-    });
-    // Check permission API call status code
-    if (permissionRes.status !== 200) {
-        return `Permission check returns non-200 status: ${permissionRes.status}`;
-    }
-    // Check to ensure the user has at least write permission on the repo
-    const actorPermission = permissionRes.data.permission;
-    if (!validPermissionsArray.includes(actorPermission)) {
-        return `👋 @${context.actor}, that command requires the following permission(s): \`${validPermissionsArray.join('/')}\`\n\nYour current permissions: \`${actorPermission}\``;
-    }
-    // Return true if the user has permissions
-    return true;
-}
-
-;// CONCATENATED MODULE: ./src/functions/admin.ts
-
-
-
-
-
-
-
-const GITHUB_USERNAME_REGEX = /^(?:[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}|[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(_[a-zA-Z0-9]+))$/i;
-const defaultAdminOctokitFactory = token => getOctokit(token, { additionalPlugins: [retry] });
-// Helper function to check if a user exists in an org team
-// :param actor: The user to check
-// :param orgTeams: An array of org/team names
-// :returns: True if the user is in the org team, false otherwise
-async function orgTeamCheck(actor, orgTeams, createClient) {
-    // This pat needs org read permissions if you are using org/teams to define admins
-    const adminsPat = getActionInput('admins_pat');
-    // If no admin_pat is provided, then we cannot check for org team memberships
-    if (!adminsPat || adminsPat.length === 0 || adminsPat === 'false') {
-        warning(`🚨 no ${COLORS.highlight}admins_pat${COLORS.reset} provided, skipping admin check for org team membership`);
-        return false;
-    }
-    // Create a new octokit client with the admins_pat and the retry plugin
-    const octokit = createClient(adminsPat);
-    // Loop through all org/team names
-    for (const orgTeam of orgTeams) {
-        // Split the org/team name into org and team
-        const [org, team] = orgTeam.split('/');
-        try {
-            // Make an API call to get the org id
-            const orgData = await octokit.rest.orgs.get({
-                org: legacyArrayElement(org),
-                headers: API_HEADERS
-            });
-            const orgId = orgData.data.id;
-            // Make an API call to get the team id
-            const teamData = await octokit.rest.teams.getByName({
-                org: legacyArrayElement(org),
-                team_slug: legacyArrayElement(team),
-                headers: API_HEADERS
-            });
-            const teamId = teamData.data.id;
-            // This API call checks if the user exists in the team for the given org
-            const result = await octokit.request(`GET /organizations/${orgId}/team/${teamId}/members/${actor}`);
-            // If the status code is a 204, the user is in the team
-            if (result.status === 204) {
-                debug(`${actor} is in ${orgTeam}`);
-                return true;
-                // If some other status code occurred, return false and output a warning
-            }
-            else {
-                warning(`non 204 response from org team check: ${result.status}`);
-            }
-        }
-        catch (error) {
-            const apiError = legacyApiError(error);
-            debug(`orgTeamCheck() error.status: ${String(apiError.status)}`);
-            // If any of the API calls returns a 404, the user is not in the team
-            if (apiError.status === 404) {
-                debug(`${actor} is not a member of the ${orgTeam} team`);
-                // If some other error occurred, output a warning
-            }
-            else {
-                warning(`error checking org team membership: ${String(error)}`);
-            }
-        }
-    }
-    // If we get here, the user is not in any of the org teams
-    return false;
-}
-// Helper function to check if a user is set as an admin for branch-deployments
-// :param context: The GitHub Actions event context
-// :returns: true if the user is an admin, false otherwise (Boolean)
-async function isAdmin(context, createClient = defaultAdminOctokitFactory) {
-    // Get the admins string from the action inputs
-    const admins = getActionInput('admins');
-    debug(`raw admins value: ${admins}`);
-    // Sanitized the input to remove any whitespace and split into an array
-    const adminsSanitized = admins
-        .split(',')
-        .map(admin => admin.trim().toLowerCase());
-    // loop through admins
-    const handles = [];
-    const orgTeams = [];
-    adminsSanitized.forEach(admin => {
-        // If the item contains a '/', then it is a org/team
-        if (admin.includes('/')) {
-            orgTeams.push(admin);
-        }
-        // Otherwise, it is a github handle
-        else {
-            // Check if the github handle is valid
-            if (GITHUB_USERNAME_REGEX.test(admin)) {
-                // Add the handle to the list of handles and remove @ from the start of the handle
-                handles.push(admin.replace('@', ''));
-            }
-            else {
-                debug(`${admin} is not a valid GitHub username... skipping admin check`);
-            }
-        }
-    });
-    const isAdminMsg = `🔮 ${COLORS.highlight}${context.actor}${COLORS.reset} is an ${COLORS.highlight}admin`;
-    // Check if the user is in the admin handle list
-    if (handles.includes(context.actor.toLowerCase())) {
-        debug(`${context.actor} is an admin via handle reference`);
-        info(isAdminMsg);
-        return true;
-    }
-    // Check if the user is in the org/team list
-    if (orgTeams.length > 0) {
-        const result = await orgTeamCheck(context.actor, orgTeams, createClient);
-        if (result) {
-            debug(`${context.actor} is an admin via org team reference`);
-            info(isAdminMsg);
-            return true;
-        }
-    }
-    // If we get here, the user is not an admin
-    debug(`${context.actor} is not an admin`);
-    return false;
-}
-
-;// CONCATENATED MODULE: ./src/functions/outdated-check.ts
-
-
-
-// Helper function to check to see if the PR branch is outdated in anyway based on the Action's configuration
-//
-// outdated_mode can be: pr_base, default_branch, or strict (default)
-//
-// :param context: The context of the Action
-// :param octokit: An authenticated instance of the GitHub client
-// :param data: An object containing all of the data needed for this function
-// :return: A boolean value indicating if the PR branch is outdated or not
-async function isOutdated(context, octokit, data) {
-    debug(`outdated_mode: ${data.outdated_mode}`);
-    // Helper function to compare two branches
-    // :param baseBranch: The base branch to compare against
-    // :param prBranch: The PR branch to compare
-    // :return: An object containing a boolean value indicating if the PR branch is behind the base branch or not, and a string containing the name of the branch that is behind
-    async function compareBranches(baseBranch, prBranch) {
-        // if the mergeStateStatus is BEHIND, then we know the PR is behind the base branch
-        // in this case we can skip the commit comparison
-        if (data.mergeStateStatus === 'BEHIND') {
-            debug(`mergeStateStatus is BEHIND - exiting isOutdated logic early`);
-            return { outdated: true, branch: baseBranch.data.name };
-        }
-        const compare = await octokit.rest.repos.compareCommits({
-            ...context.repo,
-            base: baseBranch.data.commit.sha,
-            head: prBranch.data.head.sha,
-            headers: API_HEADERS
-        });
-        if (compare.data.behind_by > 0) {
-            const commits = compare.data.behind_by === 1 ? 'commit' : 'commits';
-            warning(`The PR branch is behind the base branch by ${COLORS.highlight}${compare.data.behind_by} ${commits}${COLORS.reset}`);
-            return { outdated: true, branch: baseBranch.data.name };
-        }
-        else {
-            debug(`The PR branch is not behind the base branch - OK`);
-            return { outdated: false, branch: baseBranch.data.name };
-        }
-    }
-    // Check based on the outdated_mode
-    // pr_base: compare the PR branch to the base branch it is targeting
-    // default_branch: compare the PR branch to the default branch of the repo (aka the "stable" branch)
-    // strict: compare the PR branch to both the base branch and the default branch (default mode)
-    switch (data.outdated_mode) {
-        case 'pr_base':
-            debug(`checking isOutdated with pr_base mode`);
-            return await compareBranches(data.baseBranch, data.pr);
-        case 'default_branch':
-            debug(`checking isOutdated with default_branch mode`);
-            return await compareBranches(data.stableBaseBranch, data.pr);
-        case 'strict': {
-            debug(`checking isOutdated with strict mode`);
-            const isBehindBaseBranch = await compareBranches(data.baseBranch, data.pr);
-            const isBehindStableBaseBranch = await compareBranches(data.stableBaseBranch, data.pr);
-            // Return the first branch that is behind (if any)
-            if (isBehindBaseBranch.outdated) {
-                return isBehindBaseBranch;
-            }
-            else if (isBehindStableBaseBranch.outdated) {
-                return isBehindStableBaseBranch;
-            }
-            else {
-                // If neither branch is behind, then the PR is not outdated
-                return {
-                    outdated: false,
-                    branch: `${String(data.baseBranch.data.name)}|${String(data.stableBaseBranch.data.name)}`
-                };
-            }
-        }
-    }
-}
-
-;// CONCATENATED MODULE: ./src/functions/string-to-array.ts
-
-// Helper function to convert a String to an Array specifically in Actions
-// :param string: A comma seperated string to convert to an array
-// :return Array: The function returns an Array - can be empty
-function stringToArray(string) {
-    try {
-        // If the String is empty, return an empty Array
-        if (string.trim() === '') {
-            debug('in stringToArray(), an empty String was found so an empty Array was returned');
-            return [];
-        }
-        // Split up the String on commas, trim each element, and return the Array
-        const stringArray = string.split(',').map(target => target.trim());
-        const results = [];
-        // filter out empty items
-        for (const item of stringArray) {
-            if (item === '') {
-                continue;
-            }
-            results.push(item);
-        }
-        return results;
-    }
-    catch (error) {
-        actions_core_error(`failed string for debugging purposes: ${string}`);
-        throw new Error(`could not convert String to Array - error: ${String(error)}`);
-    }
-}
-
-;// CONCATENATED MODULE: ./src/functions/prechecks.ts
-
-
-
-
-
-
-
-
-
-// Runs precheck logic before the branch deployment can proceed
-// :param context: The context of the event
-// :param octokit: The octokit client
-// :param data: An object containing data about the event, input options, and more
-// :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
-async function prechecks(context, octokit, data) {
-    // Setup the message variable
-    let message;
-    // Check if the user has valid permissions
-    const validPermissionsRes = await validPermissions(octokit, context, data.inputs.permissions);
-    if (validPermissionsRes !== true) {
-        return { message: validPermissionsRes, status: false };
-    }
-    // Get the PR data
-    const pr = await octokit.rest.pulls.get({
-        ...context.repo,
-        pull_number: context.issue.number,
-        headers: API_HEADERS
-    });
-    if (pr.status !== 200) {
-        message = `Could not retrieve PR info: ${pr.status}`;
-        return { message: message, status: false };
-    }
-    const prData = legacyPrechecksPullData(pr.data);
-    // save sha
-    let sha = prData.head.sha;
-    // set an output which is the branch name this PR is targeting to merge into
-    const baseRef = pr.data?.base?.ref;
-    setActionOutput('base_ref', baseRef);
-    debug(`base_ref: ${String(baseRef)}`);
-    // Setup the skipCi, skipReview, and draft_permitted_targets variables
-    const skipCiArray = stringToArray(data.inputs.skipCi);
-    const skipReviewsArray = stringToArray(data.inputs.skipReviews);
-    const draftPermittedTargetsArray = stringToArray(data.inputs.draft_permitted_targets);
-    const skipCi = skipCiArray.includes(data.environment);
-    const skipReviews = skipReviewsArray.includes(data.environment);
-    const allowDraftDeploy = draftPermittedTargetsArray.includes(data.environment);
-    const checks = data.inputs.checks;
-    const ignoredChecks = legacyIgnoredChecks(data.inputs.ignored_checks);
-    let ref = prData.head.ref;
-    const noopMode = data.environmentObj.noop;
-    let forkBypass = false;
-    const isFork = legacyLooselyTrue(prData.head.repo?.fork);
-    // Make an API call to get the base branch
-    // https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#get-a-branch
-    const stableBaseBranch = await octokit.rest.repos.getBranch({
-        ...context.repo,
-        branch: data.inputs.stable_branch,
-        headers: API_HEADERS
-    });
-    // we also want to output the default branch tree sha of the base branch (e.g. the default branch)
-    // this can be useful for subsequent workflow steps that may need to do commit comparisons
-    setActionOutput('default_branch_tree_sha', legacyBranchTreeSha(stableBaseBranch));
-    // Check to see if the "stable" branch was used as the deployment target
-    if (data.environmentObj.stable_branch_used) {
-        // the sha now becomes the sha of the base branch for "stable branch" deployments
-        sha = stableBaseBranch.data.commit.sha;
-        ref = data.inputs.stable_branch;
-        // setting forkBypass to true because the stable branch is being used as the deployment target, even though the command is executed on a fork.
-        forkBypass = true;
-        debug(`${data.inputs.trigger} command used with '${data.inputs.stable_branch}' branch - setting ref to ${ref}`);
-    }
-    const nonDefaultTargetBranchUsed = data.inputs.stable_branch !== baseRef;
-    const isNotStableBranchDeploy = !data.environmentObj.stable_branch_used;
-    const nonDefaultDeploysAllowed = data.inputs.allow_non_default_target_branch_deployments;
-    const securityWarningsEnabled = data.inputs.use_security_warnings;
-    if (nonDefaultTargetBranchUsed) {
-        setActionOutput('non_default_target_branch_used', 'true');
-    }
-    // If the PR is targeting a branch other than the default branch (and it is not a stable branch deploy) reject the deployment, unless the Action is explicitly configured to allow it
-    if (isNotStableBranchDeploy &&
-        nonDefaultTargetBranchUsed &&
-        !nonDefaultDeploysAllowed) {
-        return {
-            message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`${String(baseRef)}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
-            status: false
-        };
-    }
-    if (isNotStableBranchDeploy &&
-        nonDefaultTargetBranchUsed &&
-        nonDefaultDeploysAllowed &&
-        securityWarningsEnabled) {
-        warning(`🚨 this pull request is attempting to merge into the \`${String(baseRef)}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`) - this action is potentially dangerous`);
-    }
-    // Determine whether to use the ref or sha depending on if the PR is from a fork or not
-    // Note: We should not export fork values if the stable_branch is being used here
-    if (isFork && !forkBypass) {
-        info(`🍴 the pull request is a ${COLORS.highlight}fork${COLORS.reset}`);
-        info(`🍴 fork: the ref (${COLORS.highlight}${ref}${COLORS.reset}) output will be replaced with the commit sha (${COLORS.highlight}${prData.head.sha}${COLORS.reset})`);
-        debug(`the pull request is from a fork, using sha instead of ref`);
-        setActionOutput('fork', 'true');
-        saveActionState('fork', 'true');
-        // If this Action's inputs have been configured to explicitly prevent forks, exit
-        if (!data.inputs.allowForks) {
-            message = `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`;
-            return { message: message, status: false };
-        }
-        // Set some outputs specific to forks
-        const pullRepository = legacyPrechecksPullRepository(prData.head.repo);
-        const label = prData.head.label;
-        const forkRef = prData.head.ref;
-        const forkCheckout = `${label.replace(':', '-')} ${forkRef}`;
-        const forkFullName = pullRepository.full_name;
-        setActionOutput('fork_ref', forkRef);
-        setActionOutput('fork_label', label);
-        setActionOutput('fork_checkout', forkCheckout);
-        setActionOutput('fork_full_name', forkFullName);
-        debug(`fork_ref: ${forkRef}`);
-        debug(`fork_label: ${label}`);
-        debug(`fork_checkout: ${forkCheckout}`);
-        debug(`fork_full_name: ${forkFullName}`);
-        // If this pull request is a fork, use the exact SHA rather than the branch name
-        ref = prData.head.sha;
-    }
-    else {
-        // If this PR is NOT a fork, we can safely use the branch name
-        setActionOutput('fork', 'false');
-        saveActionState('fork', 'false');
-    }
-    // Check to ensure PR CI checks are passing and the PR has been reviewed
-    const query = `query($owner:String!, $name:String!, $number:Int!) {
-                  repository(owner:$owner, name:$name) {
-                    pullRequest(number:$number) {
-                      reviewDecision
-                      mergeStateStatus
-                      reviews(states: APPROVED) {
-                        totalCount
-                      }
-                      commits(last: 1) {
-                        nodes {
-                          commit {
-                            id
-                            oid
-                            statusCheckRollup {
-                              state
-                              contexts(first:100) {
-                                nodes {
-                                  ... on CheckRun {
-                                    isRequired(pullRequestNumber:$number)
-                                    conclusion
-                                    name
-                                  }
-                                  ... on StatusContext {
-                                    isRequired(pullRequestNumber:$number)
-                                    state
-                                    context
-                                  }
-                                }
-                                pageInfo {
-                                  endCursor
-                                  hasNextPage
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }`;
-    // Note: https://docs.github.com/en/graphql/overview/schema-previews#merge-info-preview (mergeStateStatus)
-    const variables = {
-        owner: context.repo.owner,
-        name: context.repo.repo,
-        number: parseInt(String(data.issue_number)),
-        headers: {
-            Accept: 'application/vnd.github.merge-info-preview+json'
-        }
-    };
-    // Make the GraphQL query
-    const result = prechecksGraphqlResult(await octokit.graphql(query, variables));
-    // Fetch the commit oid which is the SHA1 hash of the commit
-    const commit_oid = legacyPrechecksCommitOid(result);
-    // Check the reviewDecision
-    let reviewDecision;
-    if (skipReviews && !isFork) {
-        // If skipReviews is true, we bypass the results the graphql
-        // This logic is not applied on forks as all PRs from forks must have the required reviews (if requested)
-        reviewDecision = 'skip_reviews';
-    }
-    else {
-        // Otherwise, grab the reviewDecision from the GraphQL result
-        reviewDecision = result.repository.pullRequest.reviewDecision;
-        if (reviewDecision === 'APPROVED') {
-            info(`🟢 the pull request is ${COLORS.success}approved${COLORS.reset}`);
-        }
-    }
-    // If pull request reviews are not required and the PR is from a fork and the request isn't a deploy to the stable branch, we need to alert the user that this is potentially dangerous
-    if (reviewDecision === null && isFork && !forkBypass) {
-        warning('🚨 pull request reviews are not enforced by this repository and this operation is being performed on a fork - this operation is dangerous! You should require reviews via branch protection settings (or rulesets) to ensure that the changes being deployed are the changes that you reviewed.');
-    }
-    // Grab the mergeStateStatus from the GraphQL result
-    const mergeStateStatus = result.repository.pullRequest.mergeStateStatus;
-    // Grab the draft status
-    const isDraft = prData.draft;
-    // log some extra details if the state of the PR is in a 'draft'
-    if (legacyTruthy(isDraft) && !allowDraftDeploy) {
-        warning(`deployment requested on a draft PR from a non-allowed environment`);
-    }
-    else if (legacyTruthy(isDraft) && allowDraftDeploy) {
-        info(`📓 deployment requested on a ${COLORS.highlight}draft${COLORS.reset} pull request from an ${COLORS.highlight}allowed${COLORS.reset} environment`);
-    }
-    const checkEvaluation = await evaluateCommitChecks({
-        checks,
-        environment: data.environment,
-        ignoredChecks,
-        octokit,
-        pullRequestNumber: context.issue.number,
-        result,
-        skipCi
-    });
-    const commitStatus = checkEvaluation.commitStatus;
-    const filterChecksResults = 'filterChecksResult' in checkEvaluation
-        ? checkEvaluation.filterChecksResult
-        : undefined;
-    const checksUnavailableMessage = `### ⚠️ Cannot proceed with deployment\n\n- commitStatus: \`UNAVAILABLE\`\n\n> The Action could not verify all CI checks for this pull request, so no deployment was started. Retry the command after GitHub's check data is available, or explicitly configure \`skip_ci\` for this environment.`;
-    if (checkEvaluation.kind === 'unavailable') {
-        debug(`could not retrieve PR commit status: ${String(checkEvaluation.error)}`);
-        warning('CI check verification is unavailable; deployment will not proceed');
-        // Try to display the raw GraphQL result for debugging purposes
-        try {
-            debug('raw graphql result for debugging:');
-            debug(legacyDebugValue(result));
-        } /* node:coverage ignore next */
-        catch {
-            debug('Could not output raw graphql result for debugging - This is bad');
-        }
-    }
-    // Get admin data
-    const userIsAdmin = await isAdmin(context);
-    // Make an API call to get the base branch that the pull request is targeting
-    const baseBranch = await octokit.rest.repos.getBranch({
-        ...context.repo,
-        branch: prData.base.ref,
-        headers: API_HEADERS
-    });
-    // Check to see if the branch is outdated or not based on the Action's configuration
-    const outdated = await isOutdated(context, octokit, {
-        baseBranch: baseBranch, // this is the base branch that the PR is targeting
-        stableBaseBranch: stableBaseBranch, // this is the 'stable' branch (aka: the default branch of the repo)
-        pr: { data: { head: { sha: prData.head.sha } } },
-        mergeStateStatus: mergeStateStatus,
-        outdated_mode: data.inputs.outdated_mode
-    });
-    const approvedReviewsCount = result.repository.pullRequest.reviews?.totalCount;
-    // log values for debugging
-    debug('precheck values for debugging:');
-    debug(`reviewDecision: ${String(reviewDecision)}`);
-    debug(`mergeStateStatus: ${String(mergeStateStatus)}`);
-    debug(`commitStatus: ${String(commitStatus)}`);
-    debug(`userIsAdmin: ${userIsAdmin}`);
-    debug(`update_branch: ${data.inputs.update_branch}`);
-    debug(`skipCi: ${skipCi}`);
-    debug(`skipReviews: ${skipReviews}`);
-    debug(`allowForks: ${data.inputs.allowForks}`);
-    debug(`forkBypass: ${forkBypass}`);
-    debug(`environment: ${data.environment}`);
-    debug(`outdated: ${outdated.outdated}`);
-    debug(`approvedReviewsCount: ${String(approvedReviewsCount)}`);
-    // output values
-    setActionOutput('commit_status', commitStatus);
-    setActionOutput('review_decision', reviewDecision);
-    setActionOutput('is_outdated', outdated.outdated);
-    setActionOutput('merge_state_status', mergeStateStatus);
-    setActionOutput('approved_reviews_count', approvedReviewsCount);
-    // save state values
-    saveActionState('review_decision', reviewDecision);
-    saveActionState('approved_reviews_count', approvedReviewsCount);
-    // Check if the branch exists before proceeding with deployment
-    // Skip this check if:
-    // 1. We're deploying to the stable branch (e.g., `.deploy main`)
-    // 2. We're deploying an exact SHA (allow_sha_deployments is enabled and a SHA was provided)
-    // 3. The PR is from a fork (we use SHA for forks, not branch names)
-    if (!data.environmentObj.stable_branch_used &&
-        data.environmentObj.sha === null &&
-        !isFork) {
-        debug(`checking if branch exists: ${ref}`);
-        try {
-            await octokit.rest.repos.getBranch({
-                ...context.repo,
-                branch: ref,
-                headers: API_HEADERS
-            });
-            info(`✅ branch exists: ${ref}`);
-        }
-        catch (error) {
-            const apiError = legacyApiError(error);
-            if (apiError.status === 404) {
-                message = `### ⚠️ Cannot proceed with deployment\n\n- ref: \`${ref}\`\n\nThe branch for this pull request no longer exists. This can happen if the branch was deleted after the PR was merged or closed. If you need to deploy, you can:\n- Use the stable branch deployment (e.g., \`${data.inputs.trigger} ${data.inputs.stable_branch}\`)\n- Use an exact SHA deployment if enabled (e.g., \`${data.inputs.trigger} ${sha}\`)\n\n> If you are running this command on a closed pull request, you can also try reopening the pull request to restore the branch for a deployment.`;
-                warning(`branch does not exist: ${ref}`);
-                return { message: message, status: false };
-            }
-            // If it's not a 404 error, it's unexpected - hard stop
-            message = `### ⚠️ Cannot proceed with deployment\n\n- ref: \`${ref}\`\n\n> An unexpected error occurred while checking if the branch exists: \`${apiError.message}\``;
-            actions_core_error(`unexpected error checking if branch exists: ${apiError.message}`);
-            return { message: message, status: false };
-        }
-    }
-    // Always allow deployments to the "stable" branch regardless of CI checks or PR review
-    if (data.environmentObj.stable_branch_used) {
-        message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`;
-        info(message);
-        debug('note: deployments to the stable branch do not require PR review or passing CI checks on the working branch');
-        // If allow_sha_deployments are enabled and the sha is not null, always allow the deployment
-        // note: this is an "unsafe" option
-        // this option is "unsafe" because it bypasses all checks and we cannot guarantee that the sha being deployed has...
-        // ... passed any CI checks or has been reviewed. Additionally, the user could be deploying a sha from a forked repo...
-        // ... which could contain malicious code or a sha that has not been reviewed or tested from another user's branch...
-        // ... this style of deployment is not recommended and should only be used in very specific situations. Read more here:
-        // https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md
-    }
-    else if (data.inputs.allow_sha_deployments &&
-        data.environmentObj.sha !== null) {
-        message = `✅ deployment requested using an exact ${COLORS.highlight}sha${COLORS.reset}`;
-        info(message);
-        warning(`⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md`);
-        debug(`an exact sha was used, using sha instead of ref`);
-        // since an exact sha was used, we overwrite both the ref and sha values with the exact sha that was provided by the user
-        sha = data.environmentObj.sha;
-        ref = data.environmentObj.sha;
-        setActionOutput('sha_deployment', sha);
-        // A missing rollup is allowed, but incomplete or malformed check data cannot be treated as an empty rollup
-    }
-    else if (commitStatus === 'UNAVAILABLE' && commit_oid === undefined) {
-        message = checksUnavailableMessage;
-        return { message: message, status: false };
-        // If the commit sha (from the PR head) does not exactly match the sha returned from the graphql query, something is wrong
-        // This could occur if the branch had a commit pushed to it in between the rest call and the graphql query
-        // In this case, we should not proceed with the deployment as we cannot guarantee the sha is safe for a variety of reasons
-    }
-    else if (sha !== commit_oid) {
-        message = `### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: \`${sha}\`\n- commit_oid: \`${String(commit_oid)}\`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.`;
-        return { message: message, status: false };
-        // The commit identity was verified, but its complete check state was not
-    }
-    else if (commitStatus === 'UNAVAILABLE') {
-        message = checksUnavailableMessage;
-        return { message: message, status: false };
-        // If the requested operation (deploy or noop) is taking place on a fork, that fork is NOT using the stable branch (i.e. `.deploy main`), the PR is...
-        // not approved -> do not allow bypassing the lack of reviews. Enforce that ALL PRs originating from forks must have the required reviews.
-        // Deploying forks without reviews is a security risk and will not be allowed
-        // This logic will even apply to noop deployments and ignore the value of skip_reviews if it is set out of an abundance of caution
-        // This logic will also apply even if the requested deployer is an admin
-    }
-    else if (isFork &&
-        !forkBypass &&
-        (reviewDecision === 'REVIEW_REQUIRED' ||
-            reviewDecision === 'CHANGES_REQUESTED')) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.`;
-        debug(`rejecting deployment from fork without required reviews - noopMode: ${noopMode}`);
-        return { message: message, status: false };
-        // If allow_sha_deployments are not enabled and a sha was provided, exit
-    }
-    else if (!data.inputs.allow_sha_deployments &&
-        data.environmentObj.sha !== null) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- allow_sha_deployments: \`${data.inputs.allow_sha_deployments}\`\n\n> sha deployments have not been enabled`;
-        return { message: message, status: false };
-        // If update_branch is not "disabled", proceed with 'update_branch' logic
-    }
-    else if ((commitStatus === 'SUCCESS' ||
-        commitStatus === null ||
-        commitStatus === 'skip_ci') &&
-        data.inputs.update_branch !== 'disabled' &&
-        outdated.outdated) {
-        // If the update_branch param is set to "warn", warn and exit
-        if (data.inputs.update_branch === 'warn') {
-            message = `### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${String(mergeStateStatus)}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Please ensure your branch is up to date with the \`${String(outdated.branch)}\` branch and try again`;
-            return { message: message, status: false };
-        }
-        // Execute the logic below only if update_branch is set to "force"
-        // This logic will attempt to update the pull request's branch so that it is no longer 'behind'
-        debug(`update_branch is set to ${COLORS.highlight}${data.inputs.update_branch}${COLORS.reset}`);
-        // Make an API call to update the PR branch
-        try {
-            const result = await octokit.rest.pulls.updateBranch({
-                ...context.repo,
-                pull_number: context.issue.number,
-                headers: API_HEADERS
-            });
-            // If the result is not a 202, return an error message and exit
-            if (result.status !== 202) {
-                message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with the \`${String(outdated.branch)}\` branch`;
-                return { message: message, status: false };
-            }
-            // If the result is a 202, let the user know the branch was updated and exit so they can retry
-            message = `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${String(mergeStateStatus)}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> I went ahead and updated your branch with \`${data.inputs.stable_branch}\` - Please try again once this operation is complete`;
-            return { message: message, status: false };
-        }
-        catch (error) {
-            message = `### ⚠️ Cannot proceed with deployment\n\n\`\`\`text\n${legacyApiError(error).message}\n\`\`\``;
-            return { message: message, status: false };
-        }
-        // If the mergeStateStatus is in DRAFT and allowDraftDeploy is true, alert and exit
-    }
-    else if (legacyTruthy(isDraft) && !allowDraftDeploy) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state`;
-        return { message: message, status: false };
-        // If the mergeStateStatus is in DIRTY, alert and exit
-    }
-    else if (mergeStateStatus === 'DIRTY') {
-        message = `### ⚠️ Cannot proceed with deployment\n- mergeStateStatus: \`${mergeStateStatus}\`\n\n> A merge commit cannot be cleanly created`;
-        return { message: message, status: false };
-        // If everything is OK, print a nice message
-    }
-    else if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
-        message = '✅ PR is approved and all CI checks passed';
-        info(message);
-        // CI checks have not been defined AND required reviewers have not been defined
-    }
-    else if (reviewDecision === null && commitStatus === null) {
-        message =
-            '🎛️ CI checks have not been defined and required reviewers have not been defined';
-        info(message);
-        // CI checks have been defined BUT required reviewers have not been defined
-    }
-    else if (reviewDecision === null && commitStatus === 'SUCCESS') {
-        message =
-            '🎛️ CI checks have been defined but required reviewers have not been defined';
-        info(message);
-        // CI checks are passing and reviews are set to be bypassed
-    }
-    else if (commitStatus === 'SUCCESS' && reviewDecision === 'skip_reviews') {
-        message =
-            '✅ CI checks passed and required reviewers have been disabled for this environment';
-        info(message);
-        // CI checks have not been defined and reviews are set to be bypassed
-    }
-    else if (commitStatus === null && reviewDecision === 'skip_reviews') {
-        message =
-            '✅ CI checks have not been defined and required reviewers have been disabled for this environment';
-        info(message);
-        // CI checks are set to be bypassed and the pull request is approved
-    }
-    else if (commitStatus === 'skip_ci' && reviewDecision === 'APPROVED') {
-        message =
-            '✅ CI requirements have been disabled for this environment and the PR has been approved';
-        info(message);
-        // CI checks are set to be bypassed BUT required reviews have not been defined
-    }
-    else if (commitStatus === 'skip_ci' && reviewDecision === null) {
-        message =
-            '🎛️ CI requirements have been disabled for this environment and required reviewers have not been defined';
-        info(message);
-        // CI checks are set to be bypassed and the PR has not been reviewed BUT it is a noop deploy
-    }
-    else if (commitStatus === 'skip_ci' &&
-        (reviewDecision === 'REVIEW_REQUIRED' ||
-            reviewDecision === 'CHANGES_REQUESTED') &&
-        noopMode) {
-        message =
-            '✅ CI requirements have been disabled for this environment and **noop** requested';
-        info(message);
-        info('note: noop deployments do not require pr review and ignore "changes requested" reviews');
-        // If CI checks are set to be bypassed and the deployer is an admin
-    }
-    else if (commitStatus === 'skip_ci' && userIsAdmin) {
-        message =
-            '✅ CI requirements have been disabled for this environment and approval is bypassed due to admin rights';
-        info(message);
-        // If CI checks are set to be bypassed and PR reviews are also set to by bypassed
-    }
-    else if (commitStatus === 'skip_ci' && reviewDecision === 'skip_reviews') {
-        message =
-            '✅ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment';
-        info(message);
-        // If CI is passing and the PR has not been reviewed BUT it is a noop deploy
-    }
-    else if ((reviewDecision === 'REVIEW_REQUIRED' ||
-        reviewDecision === 'CHANGES_REQUESTED') &&
-        commitStatus === 'SUCCESS' &&
-        noopMode) {
-        message = `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`;
-        info(message);
-        debug('note: noop deployments do not require pr review and ignore "changes requested" reviews');
-        // If CI is passing and the deployer is an admin
-    }
-    else if (commitStatus === 'SUCCESS' && userIsAdmin) {
-        message = '✅ CI is passing and approval is bypassed due to admin rights';
-        info(message);
-        // If CI is undefined and the deployer is an admin
-    }
-    else if (commitStatus === null && userIsAdmin) {
-        message =
-            '✅ CI checks have not been defined and approval is bypassed due to admin rights';
-        info(message);
-        // If CI has not been defined but the PR has been approved
-    }
-    else if (commitStatus === null && reviewDecision === 'APPROVED') {
-        message = '✅ CI checks have not been defined but the PR has been approved';
-        info(message);
-        // If CI is pending and the PR has not been reviewed BUT it is a noop deploy
-    }
-    else if ((reviewDecision === 'REVIEW_REQUIRED' ||
-        reviewDecision === 'CHANGES_REQUESTED') &&
-        commitStatus === 'PENDING' &&
-        noopMode) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Reviews are not required for a noop deployment but CI checks must be passing in order to continue`;
-        return { message: message, status: false };
-        // If CI is pending and reviewers have not been defined and it is NOT a noop deploy
-    }
-    else if (reviewDecision === null &&
-        commitStatus === 'PENDING' &&
-        !noopMode) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`;
-        return { message: message, status: false };
-        // If CI is pending and reviewers have not been defined and it IS a noop deploy
-    }
-    else if (reviewDecision === null &&
-        commitStatus === 'PENDING' &&
-        noopMode) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`;
-        info('note: even noop deploys require CI to finish and be in a passing state');
-        return { message: message, status: false };
-        // If CI checked have not been defined, the PR has not been reviewed, and it IS a noop deploy
-    }
-    else if ((reviewDecision === 'REVIEW_REQUIRED' ||
-        reviewDecision === 'CHANGES_REQUESTED') &&
-        commitStatus === null &&
-        noopMode) {
-        message = `✅ CI checks have not been defined and ${COLORS.highlight}noop${COLORS.reset} requested`;
-        info(message);
-        info('note: noop deployments do not require pr review and ignore "changes requested" reviews');
-        // If CI checks are pending, the PR has not been reviewed, and it is not a noop deploy
-    }
-    else if ((reviewDecision === 'REVIEW_REQUIRED' ||
-        reviewDecision === 'CHANGES_REQUESTED') &&
-        commitStatus === 'PENDING' &&
-        !noopMode) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing and the PR must be approved in order to continue`;
-        return { message: message, status: false };
-        // If the PR is considered 'approved' but CI checks are pending and it is not a noop deploy
-    }
-    else if ((reviewDecision === 'APPROVED' ||
-        reviewDecision === null ||
-        reviewDecision === 'skip_reviews') &&
-        commitStatus === 'PENDING' &&
-        !noopMode) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`;
-        return { message: message, status: false };
-        // Regardless of the reviewDecision or noop, if the commitStatus is 'MISSING' this means that a user has explicitly requested a CI check to be passing with the `checks: <check1>,<check2>,<etc>` input option, but the check could not be found in the GraphQL result
-        // In this case, we should alert the user that the check could not be found and exit
-    }
-    else if (commitStatus === 'MISSING') {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> ${legacyArrayElement(filterChecksResults).message}`;
-        return { message: message, status: false };
-        // If CI is passing but the PR is missing an approval, let the user know
-    }
-    else if ((reviewDecision === 'REVIEW_REQUIRED' ||
-        reviewDecision === 'CHANGES_REQUESTED') &&
-        commitStatus === 'SUCCESS') {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks are passing but an approval is required before you can proceed with deployment`;
-        return { message: message, status: false };
-        // If the PR is approved but CI is failing
-    }
-    else if (reviewDecision === 'APPROVED' && commitStatus === 'FAILURE') {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is approved but CI checks are failing`;
-        return { message: message, status: false };
-        // If the PR does not require approval but CI is failing
-    }
-    else if ((reviewDecision === null || reviewDecision === 'skip_reviews') &&
-        commitStatus === 'FAILURE') {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request does not require approvals but CI checks are failing`;
-        return { message: message, status: false };
-        // If the PR is NOT reviewed and CI checks have NOT been defined and NOT a noop deploy
-    }
-    else if ((reviewDecision === 'REVIEW_REQUIRED' ||
-        reviewDecision === 'CHANGES_REQUESTED') &&
-        commitStatus === null &&
-        !noopMode) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${String(commitStatus)}\`\n\n> Your pull request is missing required approvals`;
-        info('note: CI checks have not been defined so they will not be evaluated');
-        return { message: message, status: false };
-        // If the PR is NOT reviewed and CI checks have been disabled and NOT a noop deploy
-    }
-    else if ((reviewDecision === 'REVIEW_REQUIRED' ||
-        reviewDecision === 'CHANGES_REQUESTED') &&
-        commitStatus === 'skip_ci' &&
-        !noopMode) {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is missing required approvals`;
-        info('note: CI checks are disabled for this environment so they will not be evaluated');
-        return { message: message, status: false };
-        // If it is not a noop deploy and the PR has requested changes with failing CI checks
-    }
-    else if (!noopMode &&
-        reviewDecision === 'CHANGES_REQUESTED' &&
-        commitStatus === 'FAILURE') {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request needs to address the requested changes, get approvals, and have passing CI checks before you can proceed with deployment`;
-        return { message: message, status: false };
-        // If it is not a noop deploy and the PR is missing required reviews with failing CI checks
-    }
-    else if (!noopMode &&
-        reviewDecision === 'REVIEW_REQUIRED' &&
-        commitStatus === 'FAILURE') {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request needs to get approvals and have passing CI checks before you can proceed with deployment`;
-        return { message: message, status: false };
-        // If there are any other errors blocking deployment, let the user know
-    }
-    else {
-        message = `### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${String(commitStatus)}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`;
-        return { message: message, status: false };
-    }
-    // Return a success message
-    return {
-        message: message,
-        status: true,
-        ref: ref,
-        noopMode: noopMode,
-        sha: sha,
-        isFork: isFork
-    };
-}
-async function evaluateCommitChecks({ checks, environment, ignoredChecks, octokit, pullRequestNumber, result, skipCi }) {
-    if (skipCi) {
-        info(`⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${environment}${COLORS.reset} environment`);
-        return { commitStatus: 'skip_ci', kind: 'skipped' };
-    }
-    try {
-        const commit = result.repository.pullRequest.commits?.nodes?.[0]?.commit;
-        if (commit === undefined) {
-            throw new Error('The GraphQL response did not include a commit');
-        }
-        const statusCheckRollup = commit.statusCheckRollup;
-        const explicitChecks = Array.isArray(checks) && checks.length > 0;
-        if (explicitChecks && statusCheckRollup === null) {
-            const filterChecksResult = filterChecks(checks, [], ignoredChecks, false);
-            return {
-                commitStatus: 'MISSING',
-                filterChecksResult,
-                kind: 'missing'
-            };
-        }
-        if (statusCheckRollup === null) {
-            info('💡 no CI checks have been defined for this pull request');
-            return { commitStatus: null, kind: 'no-checks' };
-        }
-        if (statusCheckRollup === undefined) {
-            throw new Error('The GraphQL response did not include a check rollup');
-        }
-        if (checks === 'all' && ignoredChecks.length === 0) {
-            return statusCheckRollup.state === 'SUCCESS'
-                ? { commitStatus: 'SUCCESS', kind: 'passed' }
-                : { commitStatus: statusCheckRollup.state, kind: 'failed' };
-        }
-        const checkResults = await loadAllCheckResults(octokit, pullRequestNumber, commit, statusCheckRollup);
-        const filterChecksResult = filterChecks(checks, checkResults, ignoredChecks, checks === 'required');
-        if (filterChecksResult.status === 'SUCCESS') {
-            return {
-                commitStatus: 'SUCCESS',
-                filterChecksResult,
-                kind: 'passed'
-            };
-        }
-        if (filterChecksResult.status === 'MISSING') {
-            return {
-                commitStatus: 'MISSING',
-                filterChecksResult,
-                kind: 'missing'
-            };
-        }
-        return {
-            commitStatus: 'FAILURE',
-            filterChecksResult,
-            kind: 'failed'
-        };
-    }
-    catch (error) {
-        return { commitStatus: 'UNAVAILABLE', error, kind: 'unavailable' };
-    }
-}
-async function loadAllCheckResults(octokit, pullRequestNumber, commit, statusCheckRollup) {
-    const checkResults = [...statusCheckRollup.contexts.nodes];
-    let pageInfo = statusCheckRollup.contexts.pageInfo;
-    if (!pageInfo) {
-        throw new Error('The GraphQL response did not include check page info');
-    }
-    if (!pageInfo.hasNextPage) {
-        return checkResults;
-    }
-    if (commit.id === undefined || commit.id === '') {
-        throw new Error('The GraphQL response did not include a commit node ID');
-    }
-    const query = `query($commitId:ID!, $cursor:String!, $number:Int!) {
-                  node(id:$commitId) {
-                    ... on Commit {
-                      id
-                      oid
-                      statusCheckRollup {
-                        state
-                        contexts(first:100, after:$cursor) {
-                          nodes {
-                            ... on CheckRun {
-                              isRequired(pullRequestNumber:$number)
-                              conclusion
-                              name
-                            }
-                            ... on StatusContext {
-                              isRequired(pullRequestNumber:$number)
-                              state
-                              context
-                            }
-                          }
-                          pageInfo {
-                            endCursor
-                            hasNextPage
-                          }
-                        }
-                      }
-                    }
-                  }
-                }`;
-    const seenCursors = new Set();
-    while (pageInfo.hasNextPage) {
-        const cursor = pageInfo.endCursor;
-        if (cursor === null || cursor === '') {
-            throw new Error('The check page has no end cursor');
-        }
-        if (seenCursors.has(cursor)) {
-            throw new Error('The check page cursor did not advance');
-        }
-        seenCursors.add(cursor);
-        const page = prechecksGraphqlContextsPageResult(await octokit.graphql(query, {
-            commitId: commit.id,
-            cursor,
-            number: pullRequestNumber
-        }));
-        if (!page.node) {
-            throw new Error('The paginated commit node is unavailable');
-        }
-        if (page.node.id !== commit.id || page.node.oid !== commit.oid) {
-            throw new Error('The paginated check data belongs to another commit');
-        }
-        if (page.node.statusCheckRollup === null) {
-            throw new Error('The paginated check rollup is unavailable');
-        }
-        checkResults.push(...page.node.statusCheckRollup.contexts.nodes);
-        pageInfo = page.node.statusCheckRollup.contexts.pageInfo;
-        if (!pageInfo) {
-            throw new Error('The paginated check response has no page info');
-        }
-    }
-    return checkResults;
-}
-// A helper function to filter out ignored checks and return the combined status of the remaining checks
-// :param checks: the checks input option
-// :param checkResults: An array of check results (objects) from the graphql query
-// :param ignoredChecks: An array of check names to ignore
-// :param required: A boolean to determine if a check being a required check should be considered
-// :returns: An object containing a message (if a failure occurs), and a string representing the status of the checks
-// example: {message: '...', status: 'SUCCESS'}
-// The status will be one of the following: 'SUCCESS', 'FAILURE', 'MISSING'
-function filterChecks(checks, checkResults, ignoredChecks, required) {
-    const healthyCheckStatuses = ['SUCCESS', 'SKIPPED', 'NEUTRAL'];
-    const checksDisplay = typeof checks === 'string' ? checks : checks.join(',');
-    debug(`filterChecks() - checks: ${checksDisplay}`);
-    debug(`filterChecks() - ignoredChecks: ${ignoredChecks.join(',')}`);
-    debug(`filterChecks() - required: ${required}`);
-    // If checks is an array (meaning it isn't just `required` or `all`) and it contains items
-    const checksProvided = typeof checks !== 'string' && checks.length > 0;
-    // If a set of values is provided for the `checks` input option, ensure all of them exist in checkResults
-    // Example: if `checks` is set to `['test', 'lint', 'build']`, ensure that all of those checks exist in checkResults
-    if (checksProvided) {
-        const missingChecks = checks.filter(ch => !checkResults.some(cr => checkName(cr) === ch));
-        if (missingChecks.length > 0) {
-            warning(`the ${COLORS.info}checks${COLORS.reset} input option requires that all of the following checks are passing: ${COLORS.highlight}${checks.join(', ')}${COLORS.reset} - however, the following checks are missing: ${COLORS.highlight}${missingChecks.join(', ')}${COLORS.reset}`);
-            return {
-                message: `The \`checks\` input option requires that all of the following checks are passing: \`${checks.join(',')}\`. However, the following checks are missing: \`${missingChecks.join(',')}\``,
-                status: 'MISSING'
-            };
-        }
-    }
-    // Filter the checkResults based on user input (checks), ignoring checks, and required flag
-    const filteredChecks = checkResults
-        .filter(check => {
-        if (checksProvided) {
-            // check if the `checks` input option explicitly includes the name of the check that was found
-            const name = checkName(check);
-            const isIncluded = checks.some(checkName => checkName === name);
-            if (isIncluded) {
-                debug(`filterChecks() - explicitly including ci check: ${String(name)}`);
-            }
-            else {
-                debug(`filterChecks() - ${String(name)} is not in the explicit list of checks to include (${checksDisplay})`);
-            }
-            return isIncluded;
-        }
-        // If checks is 'all' or 'required', don't filter by name
-        // This means that checks is either 'required' or 'all'
-        // filter() expects a boolean to be returned
-        return true;
-    })
-        .filter(check => {
-        // Filter out ignored checks
-        const name = checkName(check);
-        const isIgnored = ignoredChecks.some(ignoredCheck => ignoredCheck === name);
-        if (isIgnored) {
-            debug(`filterChecks() - ignoring ci check: ${String(name)}`);
-        }
-        // If required is true, only keep checks that are required
-        return !isIgnored && (required ? check.isRequired : true);
-    });
-    // Determine if all remaining checks are in a healthy state
-    const allHealthy = filteredChecks.every(check => healthyCheckStatuses.some(status => status === checkStatus(check)));
-    // If no checks remain after filtering, default to SUCCESS
-    if (filteredChecks.length === 0) {
-        const message = 'filterChecks() - after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined';
-        debug(message);
-        return { message: message, status: 'SUCCESS' };
-    }
-    return {
-        message: allHealthy
-            ? 'all checks passed'
-            : 'one or more checks did not pass',
-        status: allHealthy ? 'SUCCESS' : 'FAILURE'
-    };
-}
-function checkName(check) {
-    const name = 'name' in check ? check.name : undefined;
-    const context = 'context' in check ? check.context : undefined;
-    return name ?? context;
-}
-function checkStatus(check) {
-    const conclusion = 'conclusion' in check ? check.conclusion : undefined;
-    const state = 'state' in check ? check.state : undefined;
-    return conclusion ?? state;
-}
-
-;// CONCATENATED MODULE: ./src/functions/suggested-rulesets.ts
-const SUGGESTED_RULESETS = [
-    {
-        type: 'deletion' // ensure that the stable / default branch is protected from deletion
-    },
-    {
-        type: 'non_fast_forward' // ensure that the stable / default branch is protected from force pushes
-    },
-    {
-        type: 'pull_request', // ensure that the stable / default branch requires a PR to merge into
-        parameters: {
-            dismiss_stale_reviews_on_push: true, // Dismisses approvals when new commits are pushed to the branch
-            require_code_owner_review: true, // Require an approved review from code owners
-            required_approving_review_count: 1 // At least one approving review is required by default (or greater)
-        }
-    },
-    {
-        type: 'required_status_checks', // ensure that the stable / default branch requires checks to pass before merging into
-        parameters: {
-            strict_required_status_checks_policy: true // requires that the branch is up to date with the latest stable / default branch before merging
-        }
-    },
-    {
-        type: 'required_deployments' // ensure that the stable / default branch requires deployments to pass before merging into (can be any environment)
-    }
-];
-
-;// CONCATENATED MODULE: ./src/functions/templates/error.ts
-const ERROR = {
-    messages: {
-        upgrade_or_public: {
-            status: 403,
-            message: 'Upgrade to GitHub Pro or make this repository public to enable this feature',
-            help_text: 'Rulesets are available in public repositories with GitHub Free and GitHub Free for organizations, and in public and private repositories with GitHub Pro, GitHub Team, and GitHub Enterprise Cloud. For more information see https://docs.github.com/en/get-started/learning-about-github/githubs-plans or https://docs.github.com/rest/repos/rules#get-rules-for-a-branch - (Upgrade to GitHub Pro or make this repository public to enable this feature.)'
-        }
-    }
-};
-
-;// CONCATENATED MODULE: ./src/functions/branch-ruleset-checks.ts
-
-
-
-
-
-
-async function branchRulesetChecks(context, octokit, data) {
-    const branch = data.branch;
-    const useSecurityWarnings = data.use_security_warnings !== false;
-    // Exit early if the user has disabled security warnings
-    if (!useSecurityWarnings) {
-        return { success: true };
-    }
-    try {
-        const { data: branchRules } = await octokit.rest.repos.getBranchRules({
-            ...context.repo,
-            branch,
-            headers: API_HEADERS
-        });
-        debug(`branch ${COLORS.highlight}rulesets${COLORS.reset}: ${JSON.stringify(branchRules)}`);
-        const failed_checks = [];
-        // Leave a warning if no rulesets are defined
-        if (branchRules.length === 0) {
-            warning(`🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} are not defined for branch ${COLORS.highlight}${branch}${COLORS.reset}`);
-            failed_checks.push('missing_branch_rulesets');
-        }
-        else {
-            // Loop through the suggested rulesets and check them against the branch rules
-            SUGGESTED_RULESETS.forEach(suggestedRule => {
-                const ruleType = suggestedRule.type;
-                const branchRule = branchRules.find(rule => rule.type === ruleType);
-                if (!branchRule) {
-                    logMissingRule(branch, ruleType, failed_checks);
-                }
-                else if ('parameters' in suggestedRule) {
-                    checkRuleParameters(branch, ruleType, suggestedRule.parameters, branchRule, failed_checks);
-                }
-            });
-        }
-        logWarnings(failed_checks);
-        // If there are no failed checks, log a success message
-        if (failed_checks.length === 0) {
-            info(`🔐 branch ruleset checks ${COLORS.success}passed${COLORS.reset}`);
-        }
-        return { success: failed_checks.length === 0, failed_checks };
-    }
-    catch (error) {
-        const apiError = legacyApiError(error);
-        if (apiError.status === ERROR.messages.upgrade_or_public.status &&
-            apiError.message.includes(ERROR.messages.upgrade_or_public.message)) {
-            debug(ERROR.messages.upgrade_or_public.help_text);
-            return { success: false, failed_checks: ['upgrade_or_public_required'] };
-        }
-        else {
-            throw error;
-        }
-    }
-}
-function logMissingRule(branch, ruleType, failed_checks) {
-    warning(`🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} is missing a rule of type ${COLORS.highlight}${ruleType}${COLORS.reset}`);
-    failed_checks.push(`missing_${ruleType}`);
-}
-function checkRuleParameters(branch, ruleType, ruleParameters, branchRule, failed_checks) {
-    const branchRuleParameters = legacyBranchRuleParameters(branchRule);
-    Object.keys(ruleParameters).forEach(key => {
-        if (branchRuleParameters[key] !== ruleParameters[key]) {
-            if (key === 'required_approving_review_count') {
-                handleReviewCountMismatch(branch, ruleType, branchRule, failed_checks);
-            }
-            else {
-                logParameterMismatch(branch, ruleType, key, failed_checks);
-            }
-        }
-    });
-}
-function handleReviewCountMismatch(branch, ruleType, branchRule, failed_checks) {
-    const parameters = legacyBranchRuleParameters(branchRule);
-    if (parameters['required_approving_review_count'] === 0) {
-        warning(`🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains the required_approving_review_count parameter but it is set to 0`);
-        failed_checks.push(`mismatch_${ruleType}_required_approving_review_count`);
-    }
-    else {
-        debug(`required_approving_review_count is ${String(parameters['required_approving_review_count'])} - OK`);
-    }
-}
-function logParameterMismatch(branch, ruleType, key, failed_checks) {
-    warning(`🔐 branch ${COLORS.highlight}rulesets${COLORS.reset} for branch ${COLORS.highlight}${branch}${COLORS.reset} contains a rule of type ${COLORS.highlight}${ruleType}${COLORS.reset} with a parameter ${COLORS.highlight}${key}${COLORS.reset} which does not match the suggested parameter`);
-    failed_checks.push(`mismatch_${ruleType}_${key}`);
-}
-function logWarnings(failed_checks) {
-    if (failed_checks.length > 0) {
-        warning(`😨 the following branch ruleset warnings were detected: ${failed_checks.join(', ')}`);
-        warning(`📚 your branch ruleset settings may be insecure - please review the documentation: https://github.com/github/branch-deploy/blob/main/docs/branch-rulesets.md`);
     }
 }
 
@@ -46053,6 +38750,1265 @@ async function lock(request) {
     });
 }
 
+;// CONCATENATED MODULE: ./src/functions/valid-permissions.ts
+
+
+// Helper function to check if an actor has permissions to use this Action in a given repository
+// :param octokit: The octokit client
+// :param context: The GitHub Actions event context
+// :param validPermissionsArray: An array of permissions that the actor must have
+// :returns: An error string if the actor doesn't have permissions, otherwise true
+async function validPermissions(octokit, context, validPermissionsArray) {
+    // fetch the defined permissions from the Action input
+    setActionOutput('actor', context.actor);
+    // Get the permissions of the user who made the comment
+    const permissionRes = await octokit.rest.repos.getCollaboratorPermissionLevel({
+        ...context.repo,
+        username: context.actor,
+        headers: API_HEADERS
+    });
+    // Check permission API call status code
+    if (permissionRes.status !== 200) {
+        return `Permission check returns non-200 status: ${permissionRes.status}`;
+    }
+    // Check to ensure the user has at least write permission on the repo
+    const actorPermission = permissionRes.data.permission;
+    if (!validPermissionsArray.includes(actorPermission)) {
+        return `👋 @${context.actor}, that command requires the following permission(s): \`${validPermissionsArray.join('/')}\`\n\nYour current permissions: \`${actorPermission}\``;
+    }
+    // Return true if the user has permissions
+    return true;
+}
+
+;// CONCATENATED MODULE: ./src/functions/admin.ts
+
+
+
+
+
+
+
+const GITHUB_USERNAME_REGEX = /^(?:[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}|[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(_[a-zA-Z0-9]+))$/i;
+const defaultAdminOctokitFactory = token => getOctokit(token, { additionalPlugins: [retry] });
+// Helper function to check if a user exists in an org team
+// :param actor: The user to check
+// :param orgTeams: An array of org/team names
+// :returns: True if the user is in the org team, false otherwise
+async function orgTeamCheck(actor, orgTeams, createClient) {
+    // This pat needs org read permissions if you are using org/teams to define admins
+    const adminsPat = getActionInput('admins_pat');
+    // If no admin_pat is provided, then we cannot check for org team memberships
+    if (!adminsPat || adminsPat.length === 0 || adminsPat === 'false') {
+        warning(`🚨 no ${COLORS.highlight}admins_pat${COLORS.reset} provided, skipping admin check for org team membership`);
+        return false;
+    }
+    // Create a new octokit client with the admins_pat and the retry plugin
+    const octokit = createClient(adminsPat);
+    // Loop through all org/team names
+    for (const orgTeam of orgTeams) {
+        // Split the org/team name into org and team
+        const [org, team] = orgTeam.split('/');
+        try {
+            // Make an API call to get the org id
+            const orgData = await octokit.rest.orgs.get({
+                org: legacyArrayElement(org),
+                headers: API_HEADERS
+            });
+            const orgId = orgData.data.id;
+            // Make an API call to get the team id
+            const teamData = await octokit.rest.teams.getByName({
+                org: legacyArrayElement(org),
+                team_slug: legacyArrayElement(team),
+                headers: API_HEADERS
+            });
+            const teamId = teamData.data.id;
+            // This API call checks if the user exists in the team for the given org
+            const result = await octokit.request(`GET /organizations/${orgId}/team/${teamId}/members/${actor}`);
+            // If the status code is a 204, the user is in the team
+            if (result.status === 204) {
+                debug(`${actor} is in ${orgTeam}`);
+                return true;
+                // If some other status code occurred, return false and output a warning
+            }
+            else {
+                warning(`non 204 response from org team check: ${result.status}`);
+            }
+        }
+        catch (error) {
+            const apiError = legacyApiError(error);
+            debug(`orgTeamCheck() error.status: ${String(apiError.status)}`);
+            // If any of the API calls returns a 404, the user is not in the team
+            if (apiError.status === 404) {
+                debug(`${actor} is not a member of the ${orgTeam} team`);
+                // If some other error occurred, output a warning
+            }
+            else {
+                warning(`error checking org team membership: ${String(error)}`);
+            }
+        }
+    }
+    // If we get here, the user is not in any of the org teams
+    return false;
+}
+// Helper function to check if a user is set as an admin for branch-deployments
+// :param context: The GitHub Actions event context
+// :returns: true if the user is an admin, false otherwise (Boolean)
+async function isAdmin(context, createClient = defaultAdminOctokitFactory) {
+    // Get the admins string from the action inputs
+    const admins = getActionInput('admins');
+    debug(`raw admins value: ${admins}`);
+    // Sanitized the input to remove any whitespace and split into an array
+    const adminsSanitized = admins
+        .split(',')
+        .map(admin => admin.trim().toLowerCase());
+    // loop through admins
+    const handles = [];
+    const orgTeams = [];
+    adminsSanitized.forEach(admin => {
+        // If the item contains a '/', then it is a org/team
+        if (admin.includes('/')) {
+            orgTeams.push(admin);
+        }
+        // Otherwise, it is a github handle
+        else {
+            // Check if the github handle is valid
+            if (GITHUB_USERNAME_REGEX.test(admin)) {
+                // Add the handle to the list of handles and remove @ from the start of the handle
+                handles.push(admin.replace('@', ''));
+            }
+            else {
+                debug(`${admin} is not a valid GitHub username... skipping admin check`);
+            }
+        }
+    });
+    const isAdminMsg = `🔮 ${COLORS.highlight}${context.actor}${COLORS.reset} is an ${COLORS.highlight}admin`;
+    // Check if the user is in the admin handle list
+    if (handles.includes(context.actor.toLowerCase())) {
+        debug(`${context.actor} is an admin via handle reference`);
+        info(isAdminMsg);
+        return true;
+    }
+    // Check if the user is in the org/team list
+    if (orgTeams.length > 0) {
+        const result = await orgTeamCheck(context.actor, orgTeams, createClient);
+        if (result) {
+            debug(`${context.actor} is an admin via org team reference`);
+            info(isAdminMsg);
+            return true;
+        }
+    }
+    // If we get here, the user is not an admin
+    debug(`${context.actor} is not an admin`);
+    return false;
+}
+
+;// CONCATENATED MODULE: ./src/functions/outdated-check.ts
+
+
+
+// Helper function to check to see if the PR branch is outdated in anyway based on the Action's configuration
+//
+// outdated_mode can be: pr_base, default_branch, or strict (default)
+//
+// :param context: The context of the Action
+// :param octokit: An authenticated instance of the GitHub client
+// :param data: An object containing all of the data needed for this function
+// :return: A boolean value indicating if the PR branch is outdated or not
+async function isOutdated(context, octokit, data) {
+    debug(`outdated_mode: ${data.outdated_mode}`);
+    // Helper function to compare two branches
+    // :param baseBranch: The base branch to compare against
+    // :param prBranch: The PR branch to compare
+    // :return: An object containing a boolean value indicating if the PR branch is behind the base branch or not, and a string containing the name of the branch that is behind
+    async function compareBranches(baseBranch, prBranch) {
+        // if the mergeStateStatus is BEHIND, then we know the PR is behind the base branch
+        // in this case we can skip the commit comparison
+        if (data.mergeStateStatus === 'BEHIND') {
+            debug(`mergeStateStatus is BEHIND - exiting isOutdated logic early`);
+            return { outdated: true, branch: baseBranch.data.name };
+        }
+        const compare = await octokit.rest.repos.compareCommits({
+            ...context.repo,
+            base: baseBranch.data.commit.sha,
+            head: prBranch.data.head.sha,
+            headers: API_HEADERS
+        });
+        if (compare.data.behind_by > 0) {
+            const commits = compare.data.behind_by === 1 ? 'commit' : 'commits';
+            warning(`The PR branch is behind the base branch by ${COLORS.highlight}${compare.data.behind_by} ${commits}${COLORS.reset}`);
+            return { outdated: true, branch: baseBranch.data.name };
+        }
+        else {
+            debug(`The PR branch is not behind the base branch - OK`);
+            return { outdated: false, branch: baseBranch.data.name };
+        }
+    }
+    // Check based on the outdated_mode
+    // pr_base: compare the PR branch to the base branch it is targeting
+    // default_branch: compare the PR branch to the default branch of the repo (aka the "stable" branch)
+    // strict: compare the PR branch to both the base branch and the default branch (default mode)
+    switch (data.outdated_mode) {
+        case 'pr_base':
+            debug(`checking isOutdated with pr_base mode`);
+            return await compareBranches(data.baseBranch, data.pr);
+        case 'default_branch':
+            debug(`checking isOutdated with default_branch mode`);
+            return await compareBranches(data.stableBaseBranch, data.pr);
+        case 'strict': {
+            debug(`checking isOutdated with strict mode`);
+            const isBehindBaseBranch = await compareBranches(data.baseBranch, data.pr);
+            const isBehindStableBaseBranch = await compareBranches(data.stableBaseBranch, data.pr);
+            // Return the first branch that is behind (if any)
+            if (isBehindBaseBranch.outdated) {
+                return isBehindBaseBranch;
+            }
+            else if (isBehindStableBaseBranch.outdated) {
+                return isBehindStableBaseBranch;
+            }
+            else {
+                // If neither branch is behind, then the PR is not outdated
+                return {
+                    outdated: false,
+                    branch: `${String(data.baseBranch.data.name)}|${String(data.stableBaseBranch.data.name)}`
+                };
+            }
+        }
+    }
+}
+
+;// CONCATENATED MODULE: ./src/functions/string-to-array.ts
+
+// Helper function to convert a String to an Array specifically in Actions
+// :param string: A comma seperated string to convert to an array
+// :return Array: The function returns an Array - can be empty
+function stringToArray(string) {
+    try {
+        // If the String is empty, return an empty Array
+        if (string.trim() === '') {
+            debug('in stringToArray(), an empty String was found so an empty Array was returned');
+            return [];
+        }
+        // Split up the String on commas, trim each element, and return the Array
+        const stringArray = string.split(',').map(target => target.trim());
+        const results = [];
+        // filter out empty items
+        for (const item of stringArray) {
+            if (item === '') {
+                continue;
+            }
+            results.push(item);
+        }
+        return results;
+    }
+    catch (error) {
+        actions_core_error(`failed string for debugging purposes: ${string}`);
+        throw new Error(`could not convert String to Array - error: ${String(error)}`);
+    }
+}
+
+;// CONCATENATED MODULE: ./src/functions/precheck-gates.ts
+
+function accept(message, logs = [{ level: 'info', message }]) {
+    return { kind: 'proceed', logs, message, mode: 'ordinary' };
+}
+function reject(message, logs = []) {
+    return { kind: 'reject', logs, message };
+}
+function evaluatePrecheckGates({ allowDraftDeploy, allowShaDeployments, commitOid, commitStatus, exactSha, forkBypass, isDraft, isFork, mergeStateStatus, missingCheckMessage, noopMode, outdated, outdatedBranch, reviewDecision, sha, stableBranch, stableBranchUsed, updateBranch, userIsAdmin }) {
+    if (stableBranchUsed) {
+        const message = `✅ deployment to the ${COLORS.highlight}stable${COLORS.reset} branch requested`;
+        return {
+            kind: 'proceed',
+            logs: [
+                { level: 'info', message },
+                {
+                    level: 'debug',
+                    message: 'note: deployments to the stable branch do not require PR review or passing CI checks on the working branch'
+                }
+            ],
+            message,
+            mode: 'stable'
+        };
+    }
+    if (allowShaDeployments && exactSha !== null) {
+        const message = `✅ deployment requested using an exact ${COLORS.highlight}sha${COLORS.reset}`;
+        return {
+            kind: 'proceed',
+            logs: [
+                { level: 'info', message },
+                {
+                    level: 'warning',
+                    message: `⚠️ sha deployments are ${COLORS.warning}unsafe${COLORS.reset} as they bypass all checks - read more here: https://github.com/github/branch-deploy/blob/main/docs/sha-deployments.md`
+                },
+                {
+                    level: 'debug',
+                    message: 'an exact sha was used, using sha instead of ref'
+                }
+            ],
+            message,
+            mode: 'sha',
+            sha: exactSha
+        };
+    }
+    const checksUnavailableMessage = `### ⚠️ Cannot proceed with deployment\n\n- commitStatus: \`UNAVAILABLE\`\n\n> The Action could not verify all CI checks for this pull request, so no deployment was started. Retry the command after GitHub's check data is available, or explicitly configure \`skip_ci\` for this environment.`;
+    if (commitStatus === 'UNAVAILABLE' && commitOid === undefined) {
+        return reject(checksUnavailableMessage);
+    }
+    if (sha !== commitOid) {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\nThe commit sha from the PR head does not match the commit sha from the graphql query\n\n- sha: \`${sha}\`\n- commit_oid: \`${String(commitOid)}\`\n\nThis is unexpected and could be caused by a commit being pushed to the branch after the initial rest call was made. Please review your PR timeline and try again.`);
+    }
+    if (commitStatus === 'UNAVAILABLE') {
+        return reject(checksUnavailableMessage);
+    }
+    if (isFork &&
+        !forkBypass &&
+        (reviewDecision === 'REVIEW_REQUIRED' ||
+            reviewDecision === 'CHANGES_REQUESTED')) {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n\n> All deployments from forks **must** have the required reviews before they can proceed. Please ensure this PR has been reviewed and approved before trying again.`, [
+            {
+                level: 'debug',
+                message: `rejecting deployment from fork without required reviews - noopMode: ${noopMode}`
+            }
+        ]);
+    }
+    if (!allowShaDeployments && exactSha !== null) {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- allow_sha_deployments: \`${allowShaDeployments}\`\n\n> sha deployments have not been enabled`);
+    }
+    if ((commitStatus === 'SUCCESS' ||
+        commitStatus === null ||
+        commitStatus === 'skip_ci') &&
+        updateBranch !== 'disabled' &&
+        outdated) {
+        if (updateBranch === 'warn') {
+            return reject(`### ⚠️ Cannot proceed with deployment\n\nYour branch is behind the base branch and will need to be updated before deployments can continue.\n\n- mergeStateStatus: \`${String(mergeStateStatus)}\`\n- update_branch: \`${updateBranch}\`\n\n> Please ensure your branch is up to date with the \`${String(outdatedBranch)}\` branch and try again`);
+        }
+        return {
+            kind: 'update-branch',
+            logs: [
+                {
+                    level: 'debug',
+                    message: `update_branch is set to ${COLORS.highlight}${updateBranch}${COLORS.reset}`
+                }
+            ],
+            message: `### ⚠️ Cannot proceed with deployment\n\n- mergeStateStatus: \`${String(mergeStateStatus)}\`\n- update_branch: \`${updateBranch}\`\n\n> I went ahead and updated your branch with \`${stableBranch}\` - Please try again once this operation is complete`
+        };
+    }
+    if (isDraft && !allowDraftDeploy) {
+        return reject('### ⚠️ Cannot proceed with deployment\n\n> Your pull request is in a draft state');
+    }
+    if (mergeStateStatus === 'DIRTY') {
+        return reject(`### ⚠️ Cannot proceed with deployment\n- mergeStateStatus: \`${mergeStateStatus}\`\n\n> A merge commit cannot be cleanly created`);
+    }
+    if (reviewDecision === 'APPROVED' && commitStatus === 'SUCCESS') {
+        return accept('✅ PR is approved and all CI checks passed');
+    }
+    if (reviewDecision === null && commitStatus === null) {
+        return accept('🎛️ CI checks have not been defined and required reviewers have not been defined');
+    }
+    if (reviewDecision === null && commitStatus === 'SUCCESS') {
+        return accept('🎛️ CI checks have been defined but required reviewers have not been defined');
+    }
+    if (commitStatus === 'SUCCESS' && reviewDecision === 'skip_reviews') {
+        return accept('✅ CI checks passed and required reviewers have been disabled for this environment');
+    }
+    if (commitStatus === null && reviewDecision === 'skip_reviews') {
+        return accept('✅ CI checks have not been defined and required reviewers have been disabled for this environment');
+    }
+    if (commitStatus === 'skip_ci' && reviewDecision === 'APPROVED') {
+        return accept('✅ CI requirements have been disabled for this environment and the PR has been approved');
+    }
+    if (commitStatus === 'skip_ci' && reviewDecision === null) {
+        return accept('🎛️ CI requirements have been disabled for this environment and required reviewers have not been defined');
+    }
+    if (commitStatus === 'skip_ci' &&
+        (reviewDecision === 'REVIEW_REQUIRED' ||
+            reviewDecision === 'CHANGES_REQUESTED') &&
+        noopMode) {
+        const message = '✅ CI requirements have been disabled for this environment and **noop** requested';
+        return accept(message, [
+            { level: 'info', message },
+            {
+                level: 'info',
+                message: 'note: noop deployments do not require pr review and ignore "changes requested" reviews'
+            }
+        ]);
+    }
+    if (commitStatus === 'skip_ci' && userIsAdmin) {
+        return accept('✅ CI requirements have been disabled for this environment and approval is bypassed due to admin rights');
+    }
+    if (commitStatus === 'skip_ci' && reviewDecision === 'skip_reviews') {
+        return accept('✅ CI requirements have been disabled for this environment and pr reviews have also been disabled for this environment');
+    }
+    if ((reviewDecision === 'REVIEW_REQUIRED' ||
+        reviewDecision === 'CHANGES_REQUESTED') &&
+        commitStatus === 'SUCCESS' &&
+        noopMode) {
+        const message = `✅ all CI checks passed and ${COLORS.highlight}noop${COLORS.reset} deployment requested`;
+        return accept(message, [
+            { level: 'info', message },
+            {
+                level: 'debug',
+                message: 'note: noop deployments do not require pr review and ignore "changes requested" reviews'
+            }
+        ]);
+    }
+    if (commitStatus === 'SUCCESS' && userIsAdmin) {
+        return accept('✅ CI is passing and approval is bypassed due to admin rights');
+    }
+    if (commitStatus === null && userIsAdmin) {
+        return accept('✅ CI checks have not been defined and approval is bypassed due to admin rights');
+    }
+    if (commitStatus === null && reviewDecision === 'APPROVED') {
+        return accept('✅ CI checks have not been defined but the PR has been approved');
+    }
+    if ((reviewDecision === 'REVIEW_REQUIRED' ||
+        reviewDecision === 'CHANGES_REQUESTED') &&
+        commitStatus === 'PENDING' &&
+        noopMode) {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Reviews are not required for a noop deployment but CI checks must be passing in order to continue`);
+    }
+    if (reviewDecision === null && commitStatus === 'PENDING' && !noopMode) {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`);
+    }
+    if (reviewDecision === null && commitStatus === 'PENDING' && noopMode) {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`, [
+            {
+                level: 'info',
+                message: 'note: even noop deploys require CI to finish and be in a passing state'
+            }
+        ]);
+    }
+    if ((reviewDecision === 'REVIEW_REQUIRED' ||
+        reviewDecision === 'CHANGES_REQUESTED') &&
+        commitStatus === null &&
+        noopMode) {
+        const message = `✅ CI checks have not been defined and ${COLORS.highlight}noop${COLORS.reset} requested`;
+        return accept(message, [
+            { level: 'info', message },
+            {
+                level: 'info',
+                message: 'note: noop deployments do not require pr review and ignore "changes requested" reviews'
+            }
+        ]);
+    }
+    if ((reviewDecision === 'REVIEW_REQUIRED' ||
+        reviewDecision === 'CHANGES_REQUESTED') &&
+        commitStatus === 'PENDING' &&
+        !noopMode) {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing and the PR must be approved in order to continue`);
+    }
+    if ((reviewDecision === 'APPROVED' ||
+        reviewDecision === null ||
+        reviewDecision === 'skip_reviews') &&
+        commitStatus === 'PENDING' &&
+        !noopMode) {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks must be passing in order to continue`);
+    }
+    if (commitStatus === 'MISSING') {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> ${missingCheckMessage}`);
+    }
+    if ((reviewDecision === 'REVIEW_REQUIRED' ||
+        reviewDecision === 'CHANGES_REQUESTED') &&
+        commitStatus === 'SUCCESS') {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> CI checks are passing but an approval is required before you can proceed with deployment`);
+    }
+    if (reviewDecision === 'APPROVED' && commitStatus === 'FAILURE') {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is approved but CI checks are failing`);
+    }
+    if ((reviewDecision === null || reviewDecision === 'skip_reviews') &&
+        commitStatus === 'FAILURE') {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request does not require approvals but CI checks are failing`);
+    }
+    if ((reviewDecision === 'REVIEW_REQUIRED' ||
+        reviewDecision === 'CHANGES_REQUESTED') &&
+        commitStatus === null &&
+        !noopMode) {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${String(commitStatus)}\`\n\n> Your pull request is missing required approvals`, [
+            {
+                level: 'info',
+                message: 'note: CI checks have not been defined so they will not be evaluated'
+            }
+        ]);
+    }
+    if ((reviewDecision === 'REVIEW_REQUIRED' ||
+        reviewDecision === 'CHANGES_REQUESTED') &&
+        commitStatus === 'skip_ci' &&
+        !noopMode) {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request is missing required approvals`, [
+            {
+                level: 'info',
+                message: 'note: CI checks are disabled for this environment so they will not be evaluated'
+            }
+        ]);
+    }
+    if (!noopMode &&
+        reviewDecision === 'CHANGES_REQUESTED' &&
+        commitStatus === 'FAILURE') {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request needs to address the requested changes, get approvals, and have passing CI checks before you can proceed with deployment`);
+    }
+    if (!noopMode &&
+        reviewDecision === 'REVIEW_REQUIRED' &&
+        commitStatus === 'FAILURE') {
+        return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${reviewDecision}\`\n- commitStatus: \`${commitStatus}\`\n\n> Your pull request needs to get approvals and have passing CI checks before you can proceed with deployment`);
+    }
+    return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${String(commitStatus)}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`);
+}
+
+;// CONCATENATED MODULE: ./src/functions/prechecks.ts
+
+
+
+
+
+
+
+
+
+
+// Runs precheck logic before the branch deployment can proceed
+// :param context: The context of the event
+// :param octokit: The octokit client
+// :param data: An object containing data about the event, input options, and more
+// :returns: An object that contains the results of the prechecks, message, ref, status, and noopMode
+async function prechecks(context, octokit, data) {
+    // Setup the message variable
+    let message;
+    // Check if the user has valid permissions
+    const validPermissionsRes = await validPermissions(octokit, context, data.inputs.permissions);
+    if (validPermissionsRes !== true) {
+        return { message: validPermissionsRes, status: false };
+    }
+    // Get the PR data
+    const pr = await octokit.rest.pulls.get({
+        ...context.repo,
+        pull_number: context.issue.number,
+        headers: API_HEADERS
+    });
+    if (pr.status !== 200) {
+        message = `Could not retrieve PR info: ${pr.status}`;
+        return { message: message, status: false };
+    }
+    const prData = legacyPrechecksPullData(pr.data);
+    // save sha
+    let sha = prData.head.sha;
+    // set an output which is the branch name this PR is targeting to merge into
+    const baseRef = pr.data?.base?.ref;
+    setActionOutput('base_ref', baseRef);
+    debug(`base_ref: ${String(baseRef)}`);
+    // Setup the skipCi, skipReview, and draft_permitted_targets variables
+    const skipCiArray = stringToArray(data.inputs.skipCi);
+    const skipReviewsArray = stringToArray(data.inputs.skipReviews);
+    const draftPermittedTargetsArray = stringToArray(data.inputs.draft_permitted_targets);
+    const skipCi = skipCiArray.includes(data.environment);
+    const skipReviews = skipReviewsArray.includes(data.environment);
+    const allowDraftDeploy = draftPermittedTargetsArray.includes(data.environment);
+    const checks = data.inputs.checks;
+    const ignoredChecks = legacyIgnoredChecks(data.inputs.ignored_checks);
+    let ref = prData.head.ref;
+    const noopMode = data.environmentObj.noop;
+    let forkBypass = false;
+    const isFork = legacyLooselyTrue(prData.head.repo?.fork);
+    // Make an API call to get the base branch
+    // https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#get-a-branch
+    const stableBaseBranch = await octokit.rest.repos.getBranch({
+        ...context.repo,
+        branch: data.inputs.stable_branch,
+        headers: API_HEADERS
+    });
+    // we also want to output the default branch tree sha of the base branch (e.g. the default branch)
+    // this can be useful for subsequent workflow steps that may need to do commit comparisons
+    setActionOutput('default_branch_tree_sha', legacyBranchTreeSha(stableBaseBranch));
+    // Check to see if the "stable" branch was used as the deployment target
+    if (data.environmentObj.stable_branch_used) {
+        // the sha now becomes the sha of the base branch for "stable branch" deployments
+        sha = stableBaseBranch.data.commit.sha;
+        ref = data.inputs.stable_branch;
+        // setting forkBypass to true because the stable branch is being used as the deployment target, even though the command is executed on a fork.
+        forkBypass = true;
+        debug(`${data.inputs.trigger} command used with '${data.inputs.stable_branch}' branch - setting ref to ${ref}`);
+    }
+    const nonDefaultTargetBranchUsed = data.inputs.stable_branch !== baseRef;
+    const isNotStableBranchDeploy = !data.environmentObj.stable_branch_used;
+    const nonDefaultDeploysAllowed = data.inputs.allow_non_default_target_branch_deployments;
+    const securityWarningsEnabled = data.inputs.use_security_warnings;
+    if (nonDefaultTargetBranchUsed) {
+        setActionOutput('non_default_target_branch_used', 'true');
+    }
+    // If the PR is targeting a branch other than the default branch (and it is not a stable branch deploy) reject the deployment, unless the Action is explicitly configured to allow it
+    if (isNotStableBranchDeploy &&
+        nonDefaultTargetBranchUsed &&
+        !nonDefaultDeploysAllowed) {
+        return {
+            message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`${String(baseRef)}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
+            status: false
+        };
+    }
+    if (isNotStableBranchDeploy &&
+        nonDefaultTargetBranchUsed &&
+        nonDefaultDeploysAllowed &&
+        securityWarningsEnabled) {
+        warning(`🚨 this pull request is attempting to merge into the \`${String(baseRef)}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`) - this action is potentially dangerous`);
+    }
+    // Determine whether to use the ref or sha depending on if the PR is from a fork or not
+    // Note: We should not export fork values if the stable_branch is being used here
+    if (isFork && !forkBypass) {
+        info(`🍴 the pull request is a ${COLORS.highlight}fork${COLORS.reset}`);
+        info(`🍴 fork: the ref (${COLORS.highlight}${ref}${COLORS.reset}) output will be replaced with the commit sha (${COLORS.highlight}${prData.head.sha}${COLORS.reset})`);
+        debug(`the pull request is from a fork, using sha instead of ref`);
+        setActionOutput('fork', 'true');
+        saveActionState('fork', 'true');
+        // If this Action's inputs have been configured to explicitly prevent forks, exit
+        if (!data.inputs.allowForks) {
+            message = `### ⚠️ Cannot proceed with deployment\n\nThis Action has been explicity configured to prevent deployments from forks. You can change this via this Action's inputs if needed`;
+            return { message: message, status: false };
+        }
+        // Set some outputs specific to forks
+        const pullRepository = legacyPrechecksPullRepository(prData.head.repo);
+        const label = prData.head.label;
+        const forkRef = prData.head.ref;
+        const forkCheckout = `${label.replace(':', '-')} ${forkRef}`;
+        const forkFullName = pullRepository.full_name;
+        setActionOutput('fork_ref', forkRef);
+        setActionOutput('fork_label', label);
+        setActionOutput('fork_checkout', forkCheckout);
+        setActionOutput('fork_full_name', forkFullName);
+        debug(`fork_ref: ${forkRef}`);
+        debug(`fork_label: ${label}`);
+        debug(`fork_checkout: ${forkCheckout}`);
+        debug(`fork_full_name: ${forkFullName}`);
+        // If this pull request is a fork, use the exact SHA rather than the branch name
+        ref = prData.head.sha;
+    }
+    else {
+        // If this PR is NOT a fork, we can safely use the branch name
+        setActionOutput('fork', 'false');
+        saveActionState('fork', 'false');
+    }
+    // Check to ensure PR CI checks are passing and the PR has been reviewed
+    const query = `query($owner:String!, $name:String!, $number:Int!) {
+                  repository(owner:$owner, name:$name) {
+                    pullRequest(number:$number) {
+                      reviewDecision
+                      mergeStateStatus
+                      reviews(states: APPROVED) {
+                        totalCount
+                      }
+                      commits(last: 1) {
+                        nodes {
+                          commit {
+                            id
+                            oid
+                            statusCheckRollup {
+                              state
+                              contexts(first:100) {
+                                nodes {
+                                  ... on CheckRun {
+                                    id
+                                    databaseId
+                                    startedAt
+                                    completedAt
+                                    checkSuite {
+                                      app { databaseId }
+                                    }
+                                    isRequired(pullRequestNumber:$number)
+                                    conclusion
+                                    name
+                                  }
+                                  ... on StatusContext {
+                                    id
+                                    createdAt
+                                    updatedAt
+                                    isRequired(pullRequestNumber:$number)
+                                    state
+                                    context
+                                  }
+                                }
+                                pageInfo {
+                                  endCursor
+                                  hasNextPage
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }`;
+    // Note: https://docs.github.com/en/graphql/overview/schema-previews#merge-info-preview (mergeStateStatus)
+    const variables = {
+        owner: context.repo.owner,
+        name: context.repo.repo,
+        number: parseInt(String(data.issue_number)),
+        headers: {
+            Accept: 'application/vnd.github.merge-info-preview+json'
+        }
+    };
+    // Make the GraphQL query
+    const result = prechecksGraphqlResult(await octokit.graphql(query, variables));
+    // Fetch the commit oid which is the SHA1 hash of the commit
+    const commit_oid = legacyPrechecksCommitOid(result);
+    // Check the reviewDecision
+    let reviewDecision;
+    if (skipReviews && !isFork) {
+        // If skipReviews is true, we bypass the results the graphql
+        // This logic is not applied on forks as all PRs from forks must have the required reviews (if requested)
+        reviewDecision = 'skip_reviews';
+    }
+    else {
+        // Otherwise, grab the reviewDecision from the GraphQL result
+        reviewDecision = result.repository.pullRequest.reviewDecision;
+        if (reviewDecision === 'APPROVED') {
+            info(`🟢 the pull request is ${COLORS.success}approved${COLORS.reset}`);
+        }
+    }
+    // If pull request reviews are not required and the PR is from a fork and the request isn't a deploy to the stable branch, we need to alert the user that this is potentially dangerous
+    if (reviewDecision === null && isFork && !forkBypass) {
+        warning('🚨 pull request reviews are not enforced by this repository and this operation is being performed on a fork - this operation is dangerous! You should require reviews via branch protection settings (or rulesets) to ensure that the changes being deployed are the changes that you reviewed.');
+    }
+    // Grab the mergeStateStatus from the GraphQL result
+    const mergeStateStatus = result.repository.pullRequest.mergeStateStatus;
+    // Grab the draft status
+    const isDraft = prData.draft;
+    // log some extra details if the state of the PR is in a 'draft'
+    if (legacyTruthy(isDraft) && !allowDraftDeploy) {
+        warning(`deployment requested on a draft PR from a non-allowed environment`);
+    }
+    else if (legacyTruthy(isDraft) && allowDraftDeploy) {
+        info(`📓 deployment requested on a ${COLORS.highlight}draft${COLORS.reset} pull request from an ${COLORS.highlight}allowed${COLORS.reset} environment`);
+    }
+    const checkEvaluation = await evaluateCommitChecks({
+        checks,
+        environment: data.environment,
+        ignoredChecks,
+        octokit,
+        pullRequestNumber: context.issue.number,
+        result,
+        skipCi
+    });
+    const commitStatus = checkEvaluation.commitStatus;
+    const filterChecksResults = 'filterChecksResult' in checkEvaluation
+        ? checkEvaluation.filterChecksResult
+        : undefined;
+    if (checkEvaluation.kind === 'unavailable') {
+        debug(`could not retrieve PR commit status: ${String(checkEvaluation.error)}`);
+        warning('CI check verification is unavailable; deployment will not proceed');
+        // Try to display the raw GraphQL result for debugging purposes
+        try {
+            debug('raw graphql result for debugging:');
+            debug(legacyDebugValue(result));
+        } /* node:coverage ignore next */
+        catch {
+            debug('Could not output raw graphql result for debugging - This is bad');
+        }
+    }
+    // Get admin data
+    const userIsAdmin = await isAdmin(context);
+    // Make an API call to get the base branch that the pull request is targeting
+    const baseBranch = prData.base.ref === data.inputs.stable_branch
+        ? stableBaseBranch
+        : await octokit.rest.repos.getBranch({
+            ...context.repo,
+            branch: prData.base.ref,
+            headers: API_HEADERS
+        });
+    // Check to see if the branch is outdated or not based on the Action's configuration
+    const outdated = await isOutdated(context, octokit, {
+        baseBranch: baseBranch, // this is the base branch that the PR is targeting
+        stableBaseBranch: stableBaseBranch, // this is the 'stable' branch (aka: the default branch of the repo)
+        pr: { data: { head: { sha: prData.head.sha } } },
+        mergeStateStatus: mergeStateStatus,
+        outdated_mode: data.inputs.outdated_mode
+    });
+    const approvedReviewsCount = result.repository.pullRequest.reviews?.totalCount;
+    // log values for debugging
+    debug('precheck values for debugging:');
+    debug(`reviewDecision: ${String(reviewDecision)}`);
+    debug(`mergeStateStatus: ${String(mergeStateStatus)}`);
+    debug(`commitStatus: ${String(commitStatus)}`);
+    debug(`userIsAdmin: ${userIsAdmin}`);
+    debug(`update_branch: ${data.inputs.update_branch}`);
+    debug(`skipCi: ${skipCi}`);
+    debug(`skipReviews: ${skipReviews}`);
+    debug(`allowForks: ${data.inputs.allowForks}`);
+    debug(`forkBypass: ${forkBypass}`);
+    debug(`environment: ${data.environment}`);
+    debug(`outdated: ${outdated.outdated}`);
+    debug(`approvedReviewsCount: ${String(approvedReviewsCount)}`);
+    // output values
+    setActionOutput('commit_status', commitStatus);
+    setActionOutput('review_decision', reviewDecision);
+    setActionOutput('is_outdated', outdated.outdated);
+    setActionOutput('merge_state_status', mergeStateStatus);
+    setActionOutput('approved_reviews_count', approvedReviewsCount);
+    // save state values
+    saveActionState('review_decision', reviewDecision);
+    saveActionState('approved_reviews_count', approvedReviewsCount);
+    // Check if the branch exists before proceeding with deployment
+    // Skip this check if:
+    // 1. We're deploying to the stable branch (e.g., `.deploy main`)
+    // 2. We're deploying an exact SHA (allow_sha_deployments is enabled and a SHA was provided)
+    // 3. The PR is from a fork (we use SHA for forks, not branch names)
+    if (!data.environmentObj.stable_branch_used &&
+        data.environmentObj.sha === null &&
+        !isFork) {
+        debug(`checking if branch exists: ${ref}`);
+        try {
+            await octokit.rest.repos.getBranch({
+                ...context.repo,
+                branch: ref,
+                headers: API_HEADERS
+            });
+            info(`✅ branch exists: ${ref}`);
+        }
+        catch (error) {
+            const apiError = legacyApiError(error);
+            if (apiError.status === 404) {
+                message = `### ⚠️ Cannot proceed with deployment\n\n- ref: \`${ref}\`\n\nThe branch for this pull request no longer exists. This can happen if the branch was deleted after the PR was merged or closed. If you need to deploy, you can:\n- Use the stable branch deployment (e.g., \`${data.inputs.trigger} ${data.inputs.stable_branch}\`)\n- Use an exact SHA deployment if enabled (e.g., \`${data.inputs.trigger} ${sha}\`)\n\n> If you are running this command on a closed pull request, you can also try reopening the pull request to restore the branch for a deployment.`;
+                warning(`branch does not exist: ${ref}`);
+                return { message: message, status: false };
+            }
+            // If it's not a 404 error, it's unexpected - hard stop
+            message = `### ⚠️ Cannot proceed with deployment\n\n- ref: \`${ref}\`\n\n> An unexpected error occurred while checking if the branch exists: \`${apiError.message}\``;
+            actions_core_error(`unexpected error checking if branch exists: ${apiError.message}`);
+            return { message: message, status: false };
+        }
+    }
+    const gateDecision = evaluatePrecheckGates({
+        allowDraftDeploy,
+        allowShaDeployments: data.inputs.allow_sha_deployments,
+        commitOid: commit_oid,
+        commitStatus,
+        exactSha: data.environmentObj.sha,
+        forkBypass,
+        isDraft: legacyTruthy(isDraft),
+        isFork,
+        mergeStateStatus,
+        missingCheckMessage: commitStatus === 'MISSING'
+            ? legacyArrayElement(filterChecksResults).message
+            : '',
+        noopMode,
+        outdated: outdated.outdated,
+        outdatedBranch: outdated.branch,
+        reviewDecision,
+        sha,
+        stableBranch: data.inputs.stable_branch,
+        stableBranchUsed: data.environmentObj.stable_branch_used,
+        updateBranch: data.inputs.update_branch,
+        userIsAdmin
+    });
+    for (const log of gateDecision.logs) {
+        if (log.level === 'info')
+            info(log.message);
+        else if (log.level === 'warning')
+            warning(log.message);
+        else
+            debug(log.message);
+    }
+    if (gateDecision.kind === 'reject') {
+        return { message: gateDecision.message, status: false };
+    }
+    if (gateDecision.kind === 'update-branch') {
+        try {
+            const result = await octokit.rest.pulls.updateBranch({
+                ...context.repo,
+                pull_number: context.issue.number,
+                headers: API_HEADERS
+            });
+            if (result.status !== 202) {
+                message = `### ⚠️ Cannot proceed with deployment\n\n- update_branch http code: \`${result.status}\`\n- update_branch: \`${data.inputs.update_branch}\`\n\n> Failed to update pull request branch with the \`${String(outdated.branch)}\` branch`;
+                return { message, status: false };
+            }
+            return { message: gateDecision.message, status: false };
+        }
+        catch (error) {
+            message = `### ⚠️ Cannot proceed with deployment\n\n\`\`\`text\n${legacyApiError(error).message}\n\`\`\``;
+            return { message, status: false };
+        }
+    }
+    if (gateDecision.mode === 'sha') {
+        sha = gateDecision.sha;
+        ref = sha;
+        setActionOutput('sha_deployment', sha);
+    }
+    message = gateDecision.message;
+    // Return a success message
+    return {
+        message: message,
+        status: true,
+        ref: ref,
+        noopMode: noopMode,
+        sha: sha,
+        isFork: isFork
+    };
+}
+async function evaluateCommitChecks({ checks, environment, ignoredChecks, octokit, pullRequestNumber, result, skipCi }) {
+    if (skipCi) {
+        info(`⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${environment}${COLORS.reset} environment`);
+        return { commitStatus: 'skip_ci', kind: 'skipped' };
+    }
+    try {
+        const commit = result.repository.pullRequest.commits?.nodes?.[0]?.commit;
+        if (commit === undefined) {
+            throw new Error('The GraphQL response did not include a commit');
+        }
+        const statusCheckRollup = commit.statusCheckRollup;
+        const explicitChecks = Array.isArray(checks) && checks.length > 0;
+        if (explicitChecks && statusCheckRollup === null) {
+            const filterChecksResult = filterChecks(checks, [], ignoredChecks, false);
+            return {
+                commitStatus: 'MISSING',
+                filterChecksResult,
+                kind: 'missing'
+            };
+        }
+        if (statusCheckRollup === null) {
+            info('💡 no CI checks have been defined for this pull request');
+            return { commitStatus: null, kind: 'no-checks' };
+        }
+        if (statusCheckRollup === undefined) {
+            throw new Error('The GraphQL response did not include a check rollup');
+        }
+        const checkResults = await loadAllCheckResults(octokit, pullRequestNumber, commit, statusCheckRollup);
+        const filterChecksResult = filterChecks(checks, checkResults, ignoredChecks, checks === 'required');
+        if (filterChecksResult.status === 'SUCCESS') {
+            return {
+                commitStatus: 'SUCCESS',
+                filterChecksResult,
+                kind: 'passed'
+            };
+        }
+        if (filterChecksResult.status === 'MISSING') {
+            return {
+                commitStatus: 'MISSING',
+                filterChecksResult,
+                kind: 'missing'
+            };
+        }
+        return {
+            commitStatus: filterChecksResult.status,
+            filterChecksResult,
+            kind: 'failed'
+        };
+    }
+    catch (error) {
+        return { commitStatus: 'UNAVAILABLE', error, kind: 'unavailable' };
+    }
+}
+async function loadAllCheckResults(octokit, pullRequestNumber, commit, statusCheckRollup) {
+    const checkResults = [...statusCheckRollup.contexts.nodes];
+    let pageInfo = statusCheckRollup.contexts.pageInfo;
+    if (!pageInfo) {
+        throw new Error('The GraphQL response did not include check page info');
+    }
+    if (!pageInfo.hasNextPage) {
+        return checkResults;
+    }
+    if (commit.id === undefined || commit.id === '') {
+        throw new Error('The GraphQL response did not include a commit node ID');
+    }
+    const query = `query($commitId:ID!, $cursor:String!, $number:Int!) {
+                  node(id:$commitId) {
+                    ... on Commit {
+                      id
+                      oid
+                      statusCheckRollup {
+                        state
+                        contexts(first:100, after:$cursor) {
+                          nodes {
+                            ... on CheckRun {
+                              id
+                              databaseId
+                              startedAt
+                              completedAt
+                              checkSuite {
+                                app { databaseId }
+                              }
+                              isRequired(pullRequestNumber:$number)
+                              conclusion
+                              name
+                            }
+                            ... on StatusContext {
+                              id
+                              createdAt
+                              updatedAt
+                              isRequired(pullRequestNumber:$number)
+                              state
+                              context
+                            }
+                          }
+                          pageInfo {
+                            endCursor
+                            hasNextPage
+                          }
+                        }
+                      }
+                    }
+                  }
+                }`;
+    const seenCursors = new Set();
+    while (pageInfo.hasNextPage) {
+        const cursor = pageInfo.endCursor;
+        if (cursor === null || cursor === '') {
+            throw new Error('The check page has no end cursor');
+        }
+        if (seenCursors.has(cursor)) {
+            throw new Error('The check page cursor did not advance');
+        }
+        seenCursors.add(cursor);
+        const page = prechecksGraphqlContextsPageResult(await octokit.graphql(query, {
+            commitId: commit.id,
+            cursor,
+            number: pullRequestNumber
+        }));
+        if (!page.node) {
+            throw new Error('The paginated commit node is unavailable');
+        }
+        if (page.node.id !== commit.id || page.node.oid !== commit.oid) {
+            throw new Error('The paginated check data belongs to another commit');
+        }
+        if (page.node.statusCheckRollup === null) {
+            throw new Error('The paginated check rollup is unavailable');
+        }
+        checkResults.push(...page.node.statusCheckRollup.contexts.nodes);
+        pageInfo = page.node.statusCheckRollup.contexts.pageInfo;
+        if (!pageInfo) {
+            throw new Error('The paginated check response has no page info');
+        }
+    }
+    return checkResults;
+}
+// A helper function to filter out ignored checks and return the combined status of the remaining checks
+// :param checks: the checks input option
+// :param checkResults: An array of check results (objects) from the graphql query
+// :param ignoredChecks: An array of check names to ignore
+// :param required: A boolean to determine if a check being a required check should be considered
+// :returns: An object containing a message (if a failure occurs), and a string representing the status of the checks
+// example: {message: '...', status: 'SUCCESS'}
+// The status will be one of the following: 'SUCCESS', 'FAILURE', 'MISSING'
+function filterChecks(checks, checkResults, ignoredChecks, required) {
+    const healthyCheckStatuses = ['SUCCESS', 'SKIPPED', 'NEUTRAL'];
+    checkResults = latestCheckResults(checkResults);
+    const checksDisplay = typeof checks === 'string' ? checks : checks.join(',');
+    debug(`filterChecks() - checks: ${checksDisplay}`);
+    debug(`filterChecks() - ignoredChecks: ${ignoredChecks.join(',')}`);
+    debug(`filterChecks() - required: ${required}`);
+    // If checks is an array (meaning it isn't just `required` or `all`) and it contains items
+    const checksProvided = typeof checks !== 'string' && checks.length > 0;
+    // If a set of values is provided for the `checks` input option, ensure all of them exist in checkResults
+    // Example: if `checks` is set to `['test', 'lint', 'build']`, ensure that all of those checks exist in checkResults
+    if (checksProvided) {
+        const missingChecks = checks.filter(ch => !checkResults.some(cr => checkName(cr) === ch));
+        if (missingChecks.length > 0) {
+            warning(`the ${COLORS.info}checks${COLORS.reset} input option requires that all of the following checks are passing: ${COLORS.highlight}${checks.join(', ')}${COLORS.reset} - however, the following checks are missing: ${COLORS.highlight}${missingChecks.join(', ')}${COLORS.reset}`);
+            return {
+                message: `The \`checks\` input option requires that all of the following checks are passing: \`${checks.join(',')}\`. However, the following checks are missing: \`${missingChecks.join(',')}\``,
+                status: 'MISSING'
+            };
+        }
+    }
+    // Filter the checkResults based on user input (checks), ignoring checks, and required flag
+    const filteredChecks = checkResults
+        .filter(check => {
+        if (checksProvided) {
+            // check if the `checks` input option explicitly includes the name of the check that was found
+            const name = checkName(check);
+            const isIncluded = checks.some(checkName => checkName === name);
+            if (isIncluded) {
+                debug(`filterChecks() - explicitly including ci check: ${String(name)}`);
+            }
+            else {
+                debug(`filterChecks() - ${String(name)} is not in the explicit list of checks to include (${checksDisplay})`);
+            }
+            return isIncluded;
+        }
+        // If checks is 'all' or 'required', don't filter by name
+        // This means that checks is either 'required' or 'all'
+        // filter() expects a boolean to be returned
+        return true;
+    })
+        .filter(check => {
+        // Filter out ignored checks
+        const name = checkName(check);
+        const isIgnored = ignoredChecks.some(ignoredCheck => ignoredCheck === name);
+        if (isIgnored) {
+            debug(`filterChecks() - ignoring ci check: ${String(name)}`);
+        }
+        // If required is true, only keep checks that are required
+        return !isIgnored && (required ? check.isRequired : true);
+    });
+    // Determine if all remaining checks are in a healthy state
+    const unhealthyChecks = filteredChecks.filter(check => !healthyCheckStatuses.some(status => status === checkStatus(check)));
+    // If no checks remain after filtering, default to SUCCESS
+    if (filteredChecks.length === 0) {
+        const message = 'filterChecks() - after filtering, no checks remain - this will result in a SUCCESS state as it is treated as if no checks are defined';
+        debug(message);
+        return { message: message, status: 'SUCCESS' };
+    }
+    if (unhealthyChecks.length === 0) {
+        return { message: 'all checks passed', status: 'SUCCESS' };
+    }
+    const pendingStatuses = [null, undefined, 'EXPECTED', 'PENDING'];
+    const allPending = unhealthyChecks.every(check => pendingStatuses.some(status => status === checkStatus(check)));
+    return {
+        message: allPending
+            ? 'one or more checks are pending'
+            : 'one or more checks did not pass',
+        status: allPending ? 'PENDING' : 'FAILURE'
+    };
+}
+function isCheckRun(check) {
+    return 'name' in check && typeof check.name === 'string';
+}
+function checkIdentity(check) {
+    if (isCheckRun(check)) {
+        return `check:${String(checkIntegrationId(check))}:${check.name}`;
+    }
+    return `status:${String(Reflect.get(check, 'context'))}`;
+}
+function checkIntegrationId(check) {
+    const databaseId = check.checkSuite?.app?.databaseId;
+    return typeof databaseId === 'number' && Number.isSafeInteger(databaseId)
+        ? databaseId
+        : null;
+}
+function validateCheckResult(check) {
+    if (typeof check.isRequired !== 'boolean') {
+        throw new Error('A check result has an invalid required-check flag');
+    }
+    if (isCheckRun(check)) {
+        if (check.name === '') {
+            throw new Error('A check run has an invalid name');
+        }
+        return;
+    }
+    if (!('context' in check) ||
+        typeof check.context !== 'string' ||
+        check.context === '') {
+        throw new Error('A status context has an invalid name');
+    }
+}
+function checkTimestamp(check) {
+    const value = isCheckRun(check)
+        ? (check.startedAt ?? check.completedAt)
+        : 'updatedAt' in check
+            ? (check.updatedAt ?? check.createdAt)
+            : undefined;
+    if (value === undefined || value === null) {
+        throw new Error('A duplicate check result is missing its timestamp');
+    }
+    const timestamp = Date.parse(value);
+    if (!Number.isFinite(timestamp)) {
+        throw new Error(`A check result has an invalid timestamp: ${value}`);
+    }
+    return timestamp;
+}
+function checkDatabaseId(check) {
+    return isCheckRun(check) ? (check.databaseId ?? null) : null;
+}
+function checkNodeId(check) {
+    return 'id' in check ? check.id : undefined;
+}
+function latestCheckResults(checkResults) {
+    const latest = new Map();
+    for (const check of checkResults) {
+        validateCheckResult(check);
+        const identity = checkIdentity(check);
+        const candidate = {
+            check,
+            checkRun: isCheckRun(check),
+            integrationId: isCheckRun(check) ? checkIntegrationId(check) : null
+        };
+        const currentEntry = latest.get(identity);
+        if (currentEntry === undefined) {
+            latest.set(identity, candidate);
+            continue;
+        }
+        const current = currentEntry.check;
+        const currentId = checkDatabaseId(current);
+        const candidateId = checkDatabaseId(check);
+        if (currentId !== null && candidateId !== null) {
+            if (candidateId > currentId)
+                latest.set(identity, candidate);
+            if (candidateId !== currentId)
+                continue;
+        }
+        if (currentEntry.checkRun) {
+            if (currentEntry.integrationId === null ||
+                candidate.integrationId === null) {
+                throw new Error(`A duplicate check result is missing its integration identity: ${identity}`);
+            }
+        }
+        const currentTimestamp = checkTimestamp(current);
+        const candidateTimestamp = checkTimestamp(check);
+        if (candidateTimestamp > currentTimestamp) {
+            latest.set(identity, candidate);
+            continue;
+        }
+        if (candidateTimestamp < currentTimestamp)
+            continue;
+        const currentNodeId = checkNodeId(current);
+        const candidateNodeId = checkNodeId(check);
+        if (currentNodeId === undefined ||
+            candidateNodeId === undefined ||
+            currentNodeId !== candidateNodeId) {
+            throw new Error(`Check ordering is ambiguous for ${identity}`);
+        }
+    }
+    return [...latest.values()].map(entry => entry.check);
+}
+function checkName(check) {
+    const name = 'name' in check ? check.name : undefined;
+    const context = 'context' in check ? check.context : undefined;
+    return name ?? context;
+}
+function checkStatus(check) {
+    const conclusion = 'conclusion' in check ? check.conclusion : undefined;
+    const state = 'state' in check ? check.state : undefined;
+    const status = conclusion ?? state;
+    const validStatuses = [
+        null,
+        undefined,
+        'ACTION_REQUIRED',
+        'CANCELLED',
+        'ERROR',
+        'EXPECTED',
+        'FAILURE',
+        'NEUTRAL',
+        'PENDING',
+        'SKIPPED',
+        'STALE',
+        'STARTUP_FAILURE',
+        'SUCCESS',
+        'TIMED_OUT'
+    ];
+    if (!validStatuses.some(value => value === status)) {
+        throw new Error(`A check result has an invalid status: ${String(status)}`);
+    }
+    return status;
+}
+
+;// CONCATENATED MODULE: ./src/functions/selected-ref-check.ts
+
+async function selectedRefMatches(octokit, context, request) {
+    if (request.exactSha || request.isFork)
+        return true;
+    if (request.stableBranchUsed) {
+        const branch = await octokit.rest.repos.getBranch({
+            ...context.repo,
+            branch: request.stableBranch,
+            headers: API_HEADERS
+        });
+        return branch.data.commit.sha === request.expectedSha;
+    }
+    const pull = await octokit.rest.pulls.get({
+        ...context.repo,
+        pull_number: context.issue.number,
+        headers: API_HEADERS
+    });
+    return pull.data.head.sha === request.expectedSha;
+}
+
 ;// CONCATENATED MODULE: ./src/functions/unlock.ts
 
 
@@ -46230,270 +40186,69 @@ async function unlock(request) {
     }
 }
 
-;// CONCATENATED MODULE: ./src/functions/label.ts
+;// CONCATENATED MODULE: ./src/functions/valid-deployment-order.ts
 
 
-// Helper function to add labels to a pull request
-// :param context: The GitHub Actions event context
+
+
+// Helper function to ensure the deployment order is enforced (if any)
 // :param octokit: The octokit client
-// :param labelsToAdd: An array of labels to add to the pull request (Array)
-// :parm labelsToRemove: An array of labels to remove from the pull request (Array)
-// :returns: An object containing the labels added and removed (Object)
-async function label(context, octokit, labelsToAdd, labelsToRemove) {
-    // Get the owner, repo, and issue number from the context
-    const { owner, repo } = context.repo;
-    const issueNumber = context.issue.number;
-    let addedLabels = []; // an array of labels that were actually added
-    const removedLabels = []; // an array of labels that were actually removed
-    // exit early if there are no labels to add or remove
-    if (labelsToAdd.length === 0 && labelsToRemove.length === 0) {
-        debug('🏷️ no labels to add or remove');
-        return {
-            added: [],
-            removed: []
-        };
-    }
-    // first, find and cleanup labelsToRemove if any are provided
-    if (labelsToRemove.length > 0) {
-        // Fetch current labels on the issue
-        debug('fetching current labels on the issue');
-        const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
-            owner: owner,
-            repo: repo,
-            issue_number: issueNumber,
-            headers: API_HEADERS
-        });
-        const currentLabels = currentLabelsResult.data.map(label => label.name);
-        debug(`current labels: ${currentLabels.join(',')}`);
-        debug(`labels to remove: ${labelsToRemove.join(',')}`);
-        // Remove unwanted labels
-        for (const label of labelsToRemove) {
-            if (currentLabels.includes(label)) {
-                await octokit.rest.issues.removeLabel({
-                    owner: owner,
-                    repo: repo,
-                    issue_number: issueNumber,
-                    name: label,
-                    headers: API_HEADERS
-                });
-                info(`🏷️ label removed: ${label}`);
-                removedLabels.push(label);
-            }
-            else {
-                debug(`🏷️ label not found: '${label}' so it was not removed`);
-            }
-        }
-    }
-    // now, add the labels if any are provided
-    if (labelsToAdd.length > 0) {
-        debug(`attempting to apply labels: ${labelsToAdd.join(',')}`);
-        await octokit.rest.issues.addLabels({
-            owner: owner,
-            repo: repo,
-            issue_number: issueNumber,
-            labels: [...labelsToAdd],
-            headers: API_HEADERS
-        });
-        info(`🏷️ labels added: ${labelsToAdd.join(',')}`);
-        addedLabels = labelsToAdd;
-    }
-    return {
-        added: addedLabels,
-        removed: removedLabels
-    };
-}
-
-// EXTERNAL MODULE: ./node_modules/nunjucks/index.js
-var nunjucks = __nccwpck_require__(8115);
-var nunjucks_default = /*#__PURE__*/__nccwpck_require__.n(nunjucks);
-;// CONCATENATED MODULE: ./src/functions/json-code-block.ts
-function jsonCodeBlock(value) {
-    const json = JSON.stringify(value, null, 2) ?? 'null';
-    let longestBacktickRun = 0;
-    for (const match of json.matchAll(/`+/g)) {
-        longestBacktickRun = Math.max(longestBacktickRun, match[0].length);
-    }
-    const fence = '`'.repeat(Math.max(3, longestBacktickRun + 1));
-    return `${fence}json\n${json}\n${fence}`;
-}
-
-;// CONCATENATED MODULE: ./src/functions/post-deploy-message.ts
-
-
-
-
-
-
-
-// Helper function construct a post deployment message
 // :param context: The GitHub Actions event context
-// :param data: A data object containing attributes of the message
-//   - attribute: environment: The environment of the deployment (String)
-//   - attribute: environment_url: The environment url of the deployment (String)
-//   - attribute: status: The status of the deployment (String)
-//   - attribute: noop: Indicates whether the deployment is a noop or not (Boolean)
-//   - attribute: ref: The ref (branch) which is being used for deployment (String)
-//   - attribute: sha: The exact commit SHA of the deployment (String)
-//   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
-//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
-//   - attribute: deployment_id: The id of the deployment (String)
-//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
-//   - attribute: params: The raw string of deployment parameters (String)
-//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
-//   - attribute: deployment_end_time: The time the deployment ended - this value is not _exact_ but it is very close (String)
-//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
-//   - attribute: total_seconds: The total amount of seconds that the deployment took (Int)
-// :returns: The formatted message (String)
-function postDeployMessage(context, data) {
-    // fetch the inputs
-    const environment_url_in_comment = getBooleanActionInput('environment_url_in_comment');
-    const deployMessagePath = checkInput(getActionInput('deploy_message_path'));
-    const vars = {
-        environment: data.environment,
-        environment_url: data.environment_url === '' ? null : data.environment_url,
-        status: data.status,
-        noop: data.noop,
-        ref: data.ref,
-        sha: data.sha,
-        approved_reviews_count: data.approved_reviews_count
-            ? parseInt(data.approved_reviews_count)
-            : null,
-        review_decision: data.review_decision === '' ? null : data.review_decision,
-        deployment_id: data.deployment_id ? parseInt(data.deployment_id) : null,
-        fork: data.fork,
-        params: data.params === '' ? null : data.params,
-        parsed_params: data.parsed_params === '' ? null : data.parsed_params,
-        deployment_end_time: data.deployment_end_time,
-        actor: context.actor,
-        logs: `${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/actions/runs/${String(process.env['GITHUB_RUN_ID'])}`,
-        commit_verified: data.commit_verified,
-        total_seconds: data.total_seconds
-    };
-    // if the 'deployMessagePath' exists, use that instead of the env var option
-    // the env var option can often fail if the message is too long so this is the preferred option
-    if (deployMessagePath !== null) {
-        if ((0,external_node_fs_namespaceObject.existsSync)(deployMessagePath)) {
-            debug('using deployMessagePath');
-            nunjucks_default().configure({ autoescape: true });
-            return nunjucks_default().render(deployMessagePath, vars);
+// :param enforced_deployment_order: The enforced deployment order (ex: ['development', 'staging', 'production'])
+// :param environment: The environment to check for (ex: production)
+// :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
+// :returns: an object with the valid: true if the deployment order is valid, false otherwise, and results: an array of the previous environments in the enforced deployment order that do not have active deployments
+async function validDeploymentOrder(octokit, context, enforced_deployment_order, environment, sha) {
+    info(`🚦 deployment order is ${COLORS.highlight}enforced${COLORS.reset}`);
+    if (new Set(enforced_deployment_order).size !== enforced_deployment_order.length) {
+        throw new Error('The enforced deployment order contains duplicate environments');
+    }
+    const environmentIndex = enforced_deployment_order.indexOf(environment);
+    if (environmentIndex === -1) {
+        throw new Error(`The requested environment is not present in the enforced deployment order: ${environment}`);
+    }
+    if (enforced_deployment_order.length === 1) {
+        warning(`💡 Having only one environment in the enforced deployment order will always cause the deployment order checks to pass if the environment names match. This is likely not what you want. Please either unset the enforced deployment order or add more environments to it.`);
+        return { valid: enforced_deployment_order[0] === environment, results: [] };
+    }
+    // if the enforced deployment order is set, check to see if the current environment is the first in the list
+    // this indicates that we can proceed with the deployment right away as there are no previous environments to gate it
+    if (enforced_deployment_order[0] === environment) {
+        info(`🚦 deployment order checks passed as ${COLORS.highlight}${environment}${COLORS.reset} is the first environment in the enforced deployment order`);
+        return { valid: true, results: [] };
+    }
+    // determine all the previous environments in the enforced deployment order prior to the current environment
+    const previous_environments = enforced_deployment_order.slice(0, environmentIndex);
+    debug(`environments that require active deployments: ${previous_environments.join(',')}`);
+    // iterate over the previous environments and check to see if they have an active deployment
+    const results = [];
+    for (const previous_environment of previous_environments) {
+        debug(`checking if ${previous_environment} has an active deployment`);
+        const is_active = await activeDeployment(octokit, context, previous_environment, sha);
+        if (!is_active) {
+            actions_core_error(`🚦 deployment order checks failed as ${COLORS.highlight}${previous_environment}${COLORS.reset} does not have an active deployment at sha: ${sha}`);
+            results.push({ environment: previous_environment, active: false });
+            continue;
         }
+        debug(`deployment for ${previous_environment} is active at sha: ${sha}`);
+        results.push({ environment: previous_environment, active: true });
     }
-    else {
-        debug(`deployMessagePath is not set - ${String(deployMessagePath)}`);
+    // if all previous environments have active deployments, we can proceed with the deployment
+    if (results.every(result => result.active)) {
+        info(`🚦 deployment order checks passed as all previous environments have active deployments`);
+        return { valid: true, results: results };
     }
-    const parsedParams = vars.parsed_params === null || vars.parsed_params === ''
-        ? null
-        : decodedJsonValue(vars.parsed_params);
-    const metadata = {
-        status: vars.status,
-        environment: {
-            name: vars.environment,
-            url: vars.environment_url
-        },
-        deployment: {
-            id: vars.deployment_id,
-            timestamp: vars.deployment_end_time,
-            logs: vars.logs,
-            duration: vars.total_seconds
-        },
-        git: {
-            branch: vars.ref,
-            commit: vars.sha,
-            verified: vars.commit_verified
-        },
-        context: {
-            actor: vars.actor,
-            noop: vars.noop,
-            fork: vars.fork
-        },
-        reviews: {
-            count: vars.approved_reviews_count,
-            decision: vars.review_decision
-        },
-        parameters: {
-            raw: vars.params,
-            parsed: parsedParams
-        }
-    };
-    const metadataBlock = jsonCodeBlock(metadata);
-    const deployment_metadata = [
-        '<details><summary>Details</summary>',
-        '',
-        '<!--- post-deploy-metadata-start -->',
-        '',
-        metadataBlock,
-        '',
-        '<!--- post-deploy-metadata-end -->',
-        '',
-        '</details>'
-    ].join('\n');
-    // If we get here, try to use the env var option with the default message structure
-    const deployMessageEnvVar = checkInput(process.env['DEPLOY_MESSAGE']);
-    let deployTypeString = ' '; // a single space as a default
-    // Set the mode and deploy type based on the deployment mode
-    if (data.noop) {
-        deployTypeString = ' **noop** ';
-    }
-    // Dynamically set the message text depending if the deployment succeeded or failed
-    let message;
-    let deployStatus;
-    if (data.status === 'success') {
-        message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${data.ref}\` to **${data.environment}**`;
-        deployStatus = '✅';
-    }
-    else if (data.status === 'failure') {
-        message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${data.ref}\` to **${data.environment}**`;
-        deployStatus = '❌';
-    }
-    else {
-        message = `Warning:${deployTypeString}deployment status is unknown, please use caution`;
-        deployStatus = '⚠️';
-    }
-    // Conditionally format the message body
-    let message_fmt;
-    if (deployMessageEnvVar !== null) {
-        const customMessageFmt = deployMessageEnvVar
-            .replace(/\\n/g, '\n')
-            .replace(/\\t/g, '\t');
-        message_fmt = [
-            `### Deployment Results ${deployStatus}`,
-            '',
-            message,
-            '',
-            '<details><summary>Show Results</summary>',
-            '',
-            customMessageFmt,
-            '',
-            '</details>',
-            '',
-            deployment_metadata
-        ].join('\n');
-    }
-    else {
-        message_fmt = [
-            `### Deployment Results ${deployStatus}`,
-            '',
-            message,
-            '',
-            deployment_metadata
-        ].join('\n');
-    }
-    // Conditionally add the environment url to the message body
-    // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
-    if (data.environment_url !== null &&
-        data.environment_url !== '' &&
-        data.status === 'success' &&
-        !data.noop &&
-        environment_url_in_comment) {
-        const environment_url_short = data.environment_url
-            .replace('https://', '')
-            .replace('http://', '');
-        message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${data.environment_url})`;
-    }
-    return message_fmt;
+    // set an output that contains all the environments that do not have active deployments but need them for a deployment to proceed
+    const needs_to_be_deployed = results
+        .filter(result => !result.active)
+        .map(result => result.environment)
+        .join(',');
+    setActionOutput('needs_to_be_deployed', needs_to_be_deployed);
+    // if we made it this far, it means that not all previous environments have active deployments and we cannot proceed
+    return { valid: false, results: results };
 }
 
-;// CONCATENATED MODULE: ./src/functions/post-deploy.ts
+;// CONCATENATED MODULE: ./src/functions/deployment-operation.ts
 
 
 
@@ -46504,466 +40259,226 @@ function postDeployMessage(context, data) {
 
 
 
-const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`;
-const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`;
-// Helper function to help facilitate the process of completing a deployment
-// :param context: The GitHub Actions event context
-// :param octokit: The octokit client
-// :param data: The data object containing the deployment details:
-//   - attribute: sha: The exact commit SHA of the deployment (String)
-//   - attribute: comment_id: The comment_id which initially triggered the deployment Action
-//   - attribute: reaction_id: The reaction_id which was initially added to the comment that triggered the Action
-//   - attribute: status: The status of the deployment (String)
-//   - attribute: ref: The ref (branch) which is being used for deployment (String)
-//   - attribute: noop: Indicates whether the deployment is a noop or not (Boolean)
-//   - attribute: deployment_id: The id of the deployment (String)
-//   - attribute: environment: The environment of the deployment (String)
-//   - attribute: environment_url: The environment url of the deployment (String)
-//   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
-//   - attribute: labels: A dictionary of labels to apply to the issue (Object)
-//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
-//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
-//   - attribute: params: The raw string of deployment parameters (String)
-//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
-//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
-//   - attribute: deployment_start_time: The timestamp of when the deployment started (String)
-// :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
-async function postDeploy(context, octokit, data) {
-    // check the inputs to ensure they are valid
-    validateInputs(data);
-    // check the deployment status
-    const success = data.status === 'success';
-    // this is the timestamp that we consider the deployment to have ended at for logging and auditing purposes
-    // it is not the exact time the deployment ended, but it is very close
-    const now = new Date();
-    const deployment_end_time = now.toISOString();
-    debug(`deployment_end_time: ${deployment_end_time}`);
-    // calculate the total amount of seconds that the deployment took
-    const total_seconds = calculateDeploymentTime(data.deployment_start_time, deployment_end_time);
-    info(`🕒 deployment completed in ${COLORS.highlight}${total_seconds}${COLORS.reset} seconds`);
-    setActionOutput('total_seconds', total_seconds);
-    const message = postDeployMessage(context, {
-        environment: data.environment,
-        environment_url: data.environment_url,
-        status: data.status,
-        noop: data.noop,
-        ref: data.ref,
-        sha: data.sha,
-        approved_reviews_count: data.approved_reviews_count,
-        deployment_id: data.deployment_id,
-        review_decision: data.review_decision,
-        fork: data.fork,
-        params: data.params,
-        parsed_params: data.parsed_params,
-        deployment_end_time: deployment_end_time,
-        commit_verified: data.commit_verified,
-        total_seconds: total_seconds
-    });
-    const reactionId = data.reaction_id === null ||
-        data.reaction_id === undefined ||
-        data.reaction_id === ''
-        ? null
-        : parseInt(data.reaction_id);
-    // update the action status to indicate the result of the deployment as a comment
+
+
+
+
+
+
+
+
+
+function terminal(request, outcome) {
+    return { ...outcome, operation: request.operation };
+}
+async function reportFailure(request, message) {
     await actionStatus({
-        context,
-        octokit,
-        reactionId,
-        message,
-        result: success ? 'success' : 'failure'
+        context: request.context,
+        octokit: request.octokit,
+        reactionId: request.reactionId,
+        message
     });
-    // Update the deployment status of the branch-deploy
-    let deploymentStatus;
-    let labelsToAdd;
-    let labelsToRemove;
-    if (success) {
-        deploymentStatus = 'success';
-        if (data.noop) {
-            labelsToAdd = data.labels.successful_noop;
-            labelsToRemove = data.labels.failed_noop;
-        }
-        else {
-            labelsToAdd = data.labels.successful_deploy;
-            labelsToRemove = data.labels.failed_deploy;
-        }
-    }
-    else {
-        deploymentStatus = 'failure';
-        if (data.noop) {
-            labelsToAdd = data.labels.failed_noop;
-            labelsToRemove = data.labels.successful_noop;
-        }
-        else {
-            labelsToAdd = data.labels.failed_deploy;
-            labelsToRemove = data.labels.successful_deploy;
-        }
-    }
-    debug(`deploymentStatus: ${deploymentStatus}`);
-    // if the deployment mode is noop, return here
-    if (data.noop) {
-        debug('deployment mode: noop');
-        // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
-        const lockResponse = await lock({
-            octokit,
-            context,
-            ref: null,
-            reactionId: null,
-            sticky: false,
-            environment: data.environment,
-            mode: { type: 'details', postDeployStep: false },
-            leaveComment: true
-        });
-        if (lockResponse.status === 'ambiguous') {
-            return undefined;
-        }
-        // obtain the lockData from the lock response
-        const lockData = lockResponse.lockData;
-        debug(JSON.stringify(lockData));
-        // if the lock is sticky, we will NOT remove it
-        if (lockData?.sticky === true) {
-            info(stickyMsg);
-        }
-        else if (lockData === null) {
-            warning('💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running');
-        }
-        else {
-            info(nonStickyMsg);
-            debug(`lockData.sticky: ${String(lockData.sticky)}`);
-            // remove the lock - use silent mode
-            await unlock({
-                octokit,
-                context,
-                reactionId: null,
-                target: { type: 'environment', environment: data.environment },
-                mode: 'silent'
-            });
-        }
-        // check to see if the pull request labels should be applied or not
-        if (data.labels.skip_successful_noop_labels_if_approved &&
-            data.review_decision === 'APPROVED') {
-            info(`⏩ skipping noop labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`);
-        }
-        else {
-            // attempt to add labels to the pull request (if any)
-            await label(context, octokit, labelsToAdd, labelsToRemove);
-        }
-        info(`✅ ${COLORS.success}post deploy completed! (noop)${COLORS.reset}`);
-        return 'success - noop';
-    }
-    // update the final deployment status with either success or failure
-    await createDeploymentStatus(octokit, context, data.ref, deploymentStatus, data.deployment_id, data.environment, data.environment_url // can be null
-    );
-    // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
-    const lockResponse = await lock({
-        octokit,
-        context,
-        ref: null,
-        reactionId: null,
-        sticky: false,
-        environment: data.environment,
-        mode: { type: 'details', postDeployStep: true },
-        leaveComment: false
-    });
-    if (lockResponse.status === 'ambiguous') {
-        return undefined;
-    }
-    // obtain the lockData from the lock response
-    const lockData = lockResponse.lockData;
-    debug(JSON.stringify(lockData));
-    // if the lock is sticky, we will NOT remove it
-    if (lockData?.sticky === true) {
-        info(stickyMsg);
-    }
-    else {
-        info(nonStickyMsg);
-        debug(`lockData.sticky: ${String(lockData?.sticky)}`);
-        // remove the lock - use silent mode
-        await unlock({
-            octokit,
-            context,
-            reactionId: null,
-            target: { type: 'environment', environment: data.environment },
-            mode: 'silent'
-        });
-    }
-    // check to see if the pull request labels should be applied or not
-    if (data.labels.skip_successful_deploy_labels_if_approved &&
-        data.review_decision === 'APPROVED') {
-        info(`⏩ skipping deploy labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`);
-    }
-    else {
-        // attempt to add labels to the pull request (if any)
-        await label(context, octokit, labelsToAdd, labelsToRemove);
-    }
-    // if the post deploy comment logic completes successfully, return
-    info(`✅ ${COLORS.success}post deploy completed!${COLORS.reset}`);
-    return 'success';
+    saveActionState('bypass', 'true');
+    setFailed(message);
 }
-function validateInput(input, name) {
-    if (input === null || input === undefined || legacyLength(input) === 0) {
-        throw new Error(`no ${name} provided`);
-    }
-}
-function validateInputs(data) {
-    const requiredInputs = [
-        'comment_id',
-        'status',
-        'ref',
-        'environment',
-        'sha',
-        'commit_verified'
-    ];
-    requiredInputs.forEach(input => {
-        validateInput(data[input], input);
-    });
-    if (data.noop === null || data.noop === undefined) {
-        throw new Error('no noop value provided');
-    }
-    if (!data.noop) {
-        // if the deployment is not a noop (e.g. a `.deploy`) then we need to validate a few extra inputs
-        const additionalInputs = ['deployment_id'];
-        additionalInputs.forEach(input => {
-            validateInput(data[input], input);
-        });
-    }
-}
-// Helper function to calculate the deployment time in seconds
-// :param start_time: The timestamp of when the deployment started (String)
-// :param end_time: The timestamp of when the deployment ended (String)
-// :returns: The total amount of seconds that the deployment took (Integer) - rounded to the nearest second
-function calculateDeploymentTime(start_time, end_time) {
-    const start = new Date(start_time);
-    const end = new Date(end_time);
-    return Math.round((end.getTime() - start.getTime()) / 1000);
-}
-
-;// CONCATENATED MODULE: ./src/functions/post.ts
-
-
-
-
-
-
-
-
-
-
-
-
-async function post() {
+async function enforceDeploymentOrder(request, environment, ref, sha) {
+    const { context, inputs, octokit, reactionId } = request;
+    let order;
     try {
-        const token = getActionState('actionsToken');
-        const bypass = getActionState('bypass') === 'true';
-        const skip_completing = getBooleanActionInput('skip_completing');
-        const data = {
-            sha: getActionState('sha'),
-            ref: getActionState('ref'),
-            comment_id: getActionState('comment_id'),
-            reaction_id: getActionState('reaction_id'),
-            noop: getActionState('noop') === 'true',
-            deployment_id: getActionState('deployment_id'),
-            environment: getActionState('environment'),
-            environment_url: checkInput(getActionState('environment_url')),
-            approved_reviews_count: getActionState('approved_reviews_count'),
-            review_decision: getActionState('review_decision'),
-            status: getActionInput('status'),
-            fork: getActionState('fork') === 'true',
-            params: getActionState('params'),
-            parsed_params: getActionState('parsed_params'),
-            labels: {
-                successful_deploy: stringToArray(getActionInput('successful_deploy_labels')),
-                successful_noop: stringToArray(getActionInput('successful_noop_labels')),
-                failed_deploy: stringToArray(getActionInput('failed_deploy_labels')),
-                failed_noop: stringToArray(getActionInput('failed_noop_labels')),
-                skip_successful_noop_labels_if_approved: getBooleanActionInput('skip_successful_noop_labels_if_approved'),
-                skip_successful_deploy_labels_if_approved: getBooleanActionInput('skip_successful_deploy_labels_if_approved')
-            },
-            commit_verified: getActionState('commit_verified') === 'true',
-            deployment_start_time: getActionState('deployment_start_time')
-        };
-        // If bypass is set, exit the workflow
-        if (bypass) {
-            warning(`⛔ ${COLORS.highlight}bypass${COLORS.reset} set, exiting`);
-            return;
-        }
-        // Check the context of the event to ensure it is valid, return if it is not
-        const actionContext = branchDeployContext(github_context);
-        if (!contextCheck(actionContext)) {
-            return;
-        }
-        // Skip the process of completing a deployment, return
-        if (skip_completing) {
-            info(`⏩ ${COLORS.highlight}skip_completing${COLORS.reset} set, exiting`);
-            return;
-        }
-        // Create an octokit client with the retry plugin
-        const octokit = getOctokit(token, {
-            userAgent: `github/branch-deploy@${src_version_VERSION}`,
-            additionalPlugins: [retry]
-        });
-        info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`);
-        // Set the environment_url
-        if (data.environment_url === null) {
-            debug('environment_url not set, its value is null');
-        }
-        await postDeploy(actionContext, octokit, data);
-        return;
+        order = await validDeploymentOrder(octokit, context, inputs.enforced_deployment_order, environment, sha);
     }
     catch (error) {
         const apiError = legacyApiError(error);
-        actions_core_error(apiError.stack);
+        const message = dedent(`
+      ### Invalid Deployment Order
+
+      ${apiError.message}
+    `);
+        await actionStatus({ context, octokit, reactionId, message });
+        saveActionState('bypass', 'true');
         setFailed(apiError.message);
+        return terminal(request, {
+            runResult: 'failure',
+            decision: 'failure',
+            reasonCode: 'deployment_order_failed',
+            environment,
+            ref,
+            sha
+        });
     }
-}
+    if (order.valid)
+        return null;
+    const environments = order.results
+        .map(result => {
+        const color = result.active ? COLORS.success : COLORS.error;
+        return `${color}${result.environment}${COLORS.reset}`;
+    })
+        .join(',');
+    const markdown = order.results
+        .map(result => {
+        const emoji = result.active ? '🟢' : '🔴';
+        return `- ${emoji} **${result.environment}**`;
+    })
+        .join('\n');
+    const message = dedent(`
+    ### 🚦 Invalid Deployment Order
 
-;// CONCATENATED MODULE: ./src/functions/identical-commit-check.ts
+    The deployment to \`${environment}\` cannot be proceed as the following environments need successful deployments first:
 
-
-
-
-
-// Helper function to check if the current deployment's ref is identical to the merge commit
-// :param octokit: the authenticated octokit instance
-// :param context: the context object
-// :param environment: the environment to check
-// :return: true if the current deployment's ref is identical to the merge commit, false otherwise
-async function identicalCommitCheck(octokit, context, environment) {
-    // get the owner and the repo from the context
-    const { owner, repo } = context.repo;
-    // find the default branch
-    const { data: repoData } = await octokit.rest.repos.get({
-        owner,
-        repo,
-        headers: API_HEADERS
-    });
-    const defaultBranchName = repoData.default_branch;
-    debug(`default branch name: ${defaultBranchName}`);
-    // get the latest commit on the default branch of the repo
-    const { data: defaultBranchData } = await octokit.rest.repos.getBranch({
-        owner,
-        repo,
-        branch: defaultBranchName,
-        headers: API_HEADERS
-    });
-    const defaultBranchTreeSha = defaultBranchData.commit.commit.tree.sha;
-    debug(`default branch tree sha: ${defaultBranchTreeSha}`);
-    const latestDefaultBranchCommitSha = defaultBranchData.commit.sha;
-    info(`📍 latest commit sha on ${COLORS.highlight}${defaultBranchName}${COLORS.reset}: ${COLORS.info}${latestDefaultBranchCommitSha}${COLORS.reset}`);
-    // find the latest deployment with the payload type of branch-deploy
-    const { data: deploymentsData } = await octokit.rest.repos.listDeployments({
-        owner,
-        repo,
+    ${markdown}
+  `);
+    await actionStatus({ context, octokit, reactionId, message });
+    saveActionState('bypass', 'true');
+    setFailed(`🚦 deployment order checks failed as not all previous environments have active deployments: ${environments}`);
+    return terminal(request, {
+        runResult: 'failure',
+        decision: 'failure',
+        reasonCode: 'deployment_order_failed',
         environment,
-        sort: 'created_at',
-        direction: 'desc',
-        per_page: 100,
+        ref,
+        sha
+    });
+}
+async function prepareDeployment(request, progress) {
+    const { body, context, inputs, issueNumber, octokit, reactionId } = request;
+    const environmentResult = await environmentTargets({
+        mode: 'deployment',
+        environment: inputs.environment,
+        body,
+        trigger: inputs.trigger,
+        alternateTrigger: inputs.noop_trigger,
+        stableBranch: inputs.stable_branch,
+        context,
+        octokit,
+        reactionId,
+        environmentUrls: inputs.environment_urls,
+        paramSeparator: inputs.param_separator
+    });
+    debug(`environmentObj: ${JSON.stringify(environmentResult)}`);
+    if (environmentResult.environment === false ||
+        !legacyTruthy(environmentResult.environment)) {
+        debug('No valid environment targets found');
+        return terminal(request, {
+            runResult: 'safe-exit',
+            decision: 'stop',
+            reasonCode: 'invalid_environment'
+        });
+    }
+    const environment = environmentResult.environment;
+    progress.environment = environment;
+    const stableBranchUsed = environmentResult.environmentObj.stable_branch_used;
+    info(`🌍 environment: ${COLORS.highlight}${environment}`);
+    saveActionState('environment', environment);
+    setActionOutput('environment', environment);
+    const precheck = await prechecks(context, octokit, {
+        environment,
+        environmentObj: environmentResult.environmentObj,
+        issue_number: issueNumber,
+        inputs
+    });
+    progress.ref = precheck.ref ?? null;
+    progress.sha = precheck.sha ?? null;
+    setActionOutput('ref', precheck.ref);
+    saveActionState('ref', precheck.ref);
+    setActionOutput('sha', precheck.sha);
+    saveActionState('sha', precheck.sha);
+    debug(`precheckResults.sha: ${String(precheck.sha)}`);
+    if (!precheck.status) {
+        await reportFailure(request, precheck.message);
+        return terminal(request, {
+            runResult: 'failure',
+            decision: 'failure',
+            reasonCode: 'prechecks_failed',
+            environment
+        });
+    }
+    await branchRulesetChecks(context, octokit, {
+        branch: inputs.stable_branch,
+        use_security_warnings: inputs.use_security_warnings
+    });
+    const commitData = await octokit.rest.repos.getCommit({
+        ...context.repo,
+        ref: precheck.sha,
         headers: API_HEADERS
     });
-    // loop through all deployments and look for the latest deployment with the payload type of branch-deploy
-    let latestDeploymentTreeSha;
-    let createdAt;
-    let deploymentId;
-    for (const deployment of deploymentsData) {
-        if (legacyDeploymentPayload(deployment.payload).type === 'branch-deploy') {
-            latestDeploymentTreeSha = deployment.sha;
-            createdAt = deployment.created_at;
-            deploymentId = deployment.id;
-            // get the tree sha of the latest deployment
-            const commitData = await octokit.rest.repos.getCommit({
-                owner,
-                repo,
-                ref: latestDeploymentTreeSha,
-                headers: API_HEADERS
-            });
-            latestDeploymentTreeSha = commitData.data.commit.tree.sha;
-            break;
-        }
-        else {
-            debug(`deployment.payload.type is not of the branch-deploy type: ${String(legacyDeploymentPayload(deployment.payload).type)} - skipping...`);
-            continue;
-        }
+    const committer = legacyCommitterLogin(commitData);
+    if (committer === null || committer === undefined) {
+        warning('⚠️ could not find the login of the committer - https://github.com/github/branch-deploy/issues/379');
     }
-    info(`🌲 latest default ${COLORS.info}branch${COLORS.reset} tree sha: ${COLORS.info}${defaultBranchTreeSha}${COLORS.reset}`);
-    info(`🌲 latest ${COLORS.info}deployment${COLORS.reset} tree sha:     ${COLORS.info}${String(latestDeploymentTreeSha)}${COLORS.reset}`);
-    debug('💡 latest deployment with payload type of "branch-deploy"');
-    debug(`🕛 latest deployment created at: ${String(createdAt)}`);
-    debug(`🧮 latest deployment id: ${String(deploymentId)}`);
-    // if the latest deployment sha is identical to the latest commit on the default branch then return true
-    const result = latestDeploymentTreeSha === defaultBranchTreeSha;
-    if (result) {
-        info(`🟰 the latest deployment tree sha is ${COLORS.highlight}equal${COLORS.reset} to the default branch tree sha`);
-        info(`🌲 identical commit trees will ${COLORS.highlight}not${COLORS.reset} be re-deployed based on your configuration`);
-        info(`✅ deployments for the ${COLORS.highlight}${environment}${COLORS.reset} environment are ${COLORS.success}up to date${COLORS.reset}`);
-        setActionOutput('continue', 'false');
-        setActionOutput('environment', environment);
+    const safety = commitSafetyChecks(context, {
+        commit: commitData.data.commit,
+        sha: commitData.data.sha,
+        inputs
+    });
+    if (!safety.status && !stableBranchUsed) {
+        await reportFailure(request, safety.message);
+        return terminal(request, {
+            runResult: 'failure',
+            decision: 'failure',
+            reasonCode: 'commit_safety_failed',
+            environment,
+            ref: precheck.ref,
+            sha: precheck.sha
+        });
     }
-    else {
-        // if the latest deployment sha is not identical to the latest commit on the default branch then we need to create a new deployment
-        // this deployment should use the latest commit on the default branch to ensure that the repository is deployed at its latest state
-        // a scenario where this might occur is if the default branch is force-pushed and you need to start a new deployment from the latest commit on the default branch
-        info(`💡 the latest deployment tree sha is ${COLORS.highlight}not${COLORS.reset} equal to the default branch tree sha`);
-        info(`🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${latestDefaultBranchCommitSha}${COLORS.reset}`);
-        info(`🚀 a ${COLORS.success}new deployment${COLORS.reset} will be created based on your configuration`);
-        setActionOutput('continue', 'true');
-        setActionOutput('environment', environment);
-        setActionOutput('sha', latestDefaultBranchCommitSha);
-        saveActionState('sha', latestDefaultBranchCommitSha);
+    if (!safety.status) {
+        warning('commit safety checks failed but the stable branch is being used so the workflow will continue - you should inspect recent commits on this branch as a precaution');
     }
-    return result;
+    if (inputs.enforced_deployment_order.length > 0 && !stableBranchUsed) {
+        const orderFailure = await enforceDeploymentOrder(request, environment, precheck.ref, precheck.sha);
+        if (orderFailure !== null)
+            return orderFailure;
+    }
+    return {
+        commitHtmlUrl: commitData.data.html_url,
+        committer,
+        environment,
+        environmentResult,
+        isVerified: safety.isVerified,
+        precheck
+    };
 }
-
-;// CONCATENATED MODULE: ./src/functions/unlock-on-merge.ts
-
-
-
-
-
-
-
-
-
-// Helper function to automatically find, and release a deployment lock when a pull request is merged
-// :param octokit: the authenticated octokit instance
-// :param context: the context object
-// :param environment_targets: the environment targets to check for unlocking
-// :return: true if all locks were released successfully, false otherwise
-async function unlockOnMerge(octokit, context, environment_targets) {
-    const event = legacyPullRequestEvent(context);
-    const pullRequest = event.pullRequest;
-    // first, check the context to ensure that the event is a pull request 'closed' event and that the pull request was merged
-    if (event.eventName !== 'pull_request' ||
-        event.action !== 'closed' ||
-        pullRequest?.merged !== true) {
-        warning(`this workflow can only run in the context of a ${COLORS.highlight}merged${COLORS.reset} pull request`);
-        info(`event name: ${String(event.eventName)}, action: ${String(event.action)}, merged: ${String(pullRequest?.merged)}`);
-        // many pull requests in a project will end up being closed without being merged, so we can just log this so its clear
-        if (event.action === 'closed') {
-            info(`pull request was closed but not merged so this workflow will not run - OK`);
-        }
-        return false;
+async function acquireDeploymentLock(request, ready) {
+    const { context, inputs, octokit, reactionId } = request;
+    const { environment, precheck } = ready;
+    info(`🍯 sticky_locks: ${COLORS.highlight}${inputs.sticky_locks}${COLORS.reset}`);
+    info(`🍯 sticky_locks_for_noop: ${COLORS.highlight}${inputs.sticky_locks_for_noop}${COLORS.reset}`);
+    const sticky = precheck.noopMode
+        ? inputs.sticky_locks_for_noop
+        : inputs.sticky_locks;
+    if (precheck.noopMode) {
+        debug(`🔒 noop mode detected and using stickyLocks: ${sticky}`);
     }
-    // loop through all the environment targets and check each one for a lock associated with this merged pull request
-    const releasedEnvironments = [];
-    for (const environment of environment_targets.split(',')) {
-        // construct the lock branch name for this environment
-        const lockBranch = `${constructValidBranchName(environment)}-${LOCK_METADATA.lockBranchSuffix}`;
-        // Check if the lock branch exists
-        const branchExists = await checkBranch(octokit, context, lockBranch);
-        // if the lock branch does not exist at all, then there is no lock to release
-        if (!branchExists) {
-            info(`⏩ no lock branch found for environment ${COLORS.highlight}${environment}${COLORS.reset} - skipping...`);
-            continue;
-        }
-        // attempt to fetch the lockFile for this branch
-        const lockFile = await checkLockFile(octokit, context, lockBranch);
-        // check to see if the lockFile exists and if it does, check to see if it has a link property
-        if (legacyTruthy(lockFile) && legacyTruthy(lockFile.link)) {
-            // if the lockFile has a link property, find the PR number from the link
-            const prNumber = legacyArrayElement(legacyArrayElement(lockFile.link.split('/pull/')[1]).split('#issuecomment')[0]);
-            info(`🔍 checking lock for PR ${COLORS.info}${prNumber}${COLORS.reset} (env: ${COLORS.highlight}${environment}${COLORS.reset})`);
-            // if the PR number matches the PR number of the merged pull request, then this lock is associated with the merged pull request
-            if (prNumber === pullRequest.number.toString()) {
-                // release the lock
+    const leaveComment = !sticky;
+    debug(`🔒 stickyLocks: ${sticky}`);
+    debug(`💬 leaveComment: ${leaveComment}`);
+    const lockResponse = await lock({
+        octokit,
+        context,
+        ref: precheck.ref,
+        reactionId,
+        sticky,
+        environment,
+        mode: { type: 'acquire', postDeployStep: false },
+        leaveComment
+    });
+    if (lockResponse.status === false || lockResponse.status === 'ambiguous') {
+        return terminal(request, {
+            runResult: 'safe-exit',
+            decision: 'stop',
+            reasonCode: 'lock_conflict',
+            environment,
+            ref: precheck.ref,
+            sha: precheck.sha
+        });
+    }
+    let cleanupAttempted = false;
+    return {
+        cleanup: async (reason) => {
+            if (sticky || cleanupAttempted)
+                return;
+            cleanupAttempted = true;
+            try {
                 const result = await unlock({
                     octokit,
                     context,
@@ -46971,29 +40486,598 @@ async function unlockOnMerge(octokit, context, environment_targets) {
                     target: { type: 'environment', environment },
                     mode: 'silent'
                 });
-                // if the result is 'removed lock - silent', then the lock was successfully removed - append to the array for later use
-                if (result === 'removed lock - silent') {
-                    releasedEnvironments.push(environment);
+                if (result === 'failed to delete lock (bad status code) - silent') {
+                    warning(`failed to release the non-sticky deployment lock ${reason}`);
                 }
-                else {
-                    debug(`unlock result for unlock-on-merge: ${result}`);
-                }
-                // log the result and format the output as it will always be a string ending with '- silent'
-                const resultFmt = result.replace('- silent', '');
-                info(`🔓 ${resultFmt.trim()} - environment: ${COLORS.highlight}${environment}${COLORS.reset}`);
             }
-            else {
-                info(`⏩ lock for PR ${COLORS.info}${prNumber}${COLORS.reset} (env: ${COLORS.highlight}${environment}${COLORS.reset}) is not associated with PR ${COLORS.info}${pullRequest.number}${COLORS.reset} - skipping...`);
+            catch (error) {
+                warning(`failed to release the non-sticky deployment lock ${reason}: ${legacyApiError(error).message}`);
             }
         }
-        else {
-            info(`⏩ no lock file found for environment ${COLORS.highlight}${environment}${COLORS.reset} - skipping...`);
-            continue;
-        }
+    };
+}
+async function changedRefOutcome(request, ready, lease, deploymentType) {
+    const { context, inputs, octokit, reactionId } = request;
+    const unchanged = await selectedRefMatches(octokit, context, {
+        exactSha: ready.environmentResult.environmentObj.sha !== null,
+        expectedSha: ready.precheck.sha,
+        isFork: ready.precheck.isFork,
+        stableBranch: inputs.stable_branch,
+        stableBranchUsed: ready.environmentResult.environmentObj.stable_branch_used
+    });
+    if (unchanged)
+        return null;
+    const message = dedent(`
+    ### Deployment Ref Changed
+
+    The selected branch moved after deployment checks completed. Run the command again so the new commit can be reviewed and checked.
+  `);
+    saveActionState('bypass', 'true');
+    await lease.cleanup('after the selected ref changed');
+    try {
+        await actionStatus({ context, octokit, reactionId, message });
     }
-    // if we get here, all locks had a best effort attempt to be released
-    setActionOutput('unlocked_environments', releasedEnvironments.join(','));
-    return true;
+    catch (error) {
+        warning(`failed to report the changed deployment ref: ${legacyApiError(error).message}`);
+    }
+    setFailed('the selected deployment ref changed after prechecks');
+    return terminal(request, {
+        runResult: 'failure',
+        decision: 'failure',
+        reasonCode: 'ref_changed',
+        deploymentType,
+        environment: ready.environment,
+        ref: ready.precheck.ref,
+        sha: ready.precheck.sha
+    });
+}
+async function confirmDeployment(request, ready, lease, deploymentType, githubRunId, logUrl) {
+    if (!request.inputs.deployment_confirmation)
+        return null;
+    const { body, context, inputs, octokit } = request;
+    const { environment, environmentResult, precheck } = ready;
+    let confirmation;
+    try {
+        confirmation = await deploymentConfirmation(context, octokit, {
+            sha: precheck.sha,
+            ref: precheck.ref,
+            deploymentType,
+            environment,
+            environmentUrl: environmentResult.environmentUrl,
+            deployment_confirmation_timeout: inputs.deployment_confirmation_timeout,
+            isVerified: ready.isVerified,
+            log_url: logUrl,
+            body,
+            params: environmentResult.environmentObj.params,
+            parsed_params: environmentResult.environmentObj.parsed_params,
+            github_run_id: githubRunId,
+            noopMode: precheck.noopMode,
+            isFork: precheck.isFork,
+            committer: ready.committer,
+            commit_html_url: ready.commitHtmlUrl
+        });
+    }
+    catch (error) {
+        await lease.cleanup('after confirmation failed');
+        throw error;
+    }
+    if (confirmation === 'confirmed') {
+        debug('deploymentConfirmation() was successful - continuing with the deployment');
+        return null;
+    }
+    await lease.cleanup('after confirmation did not complete');
+    saveActionState('bypass', 'true');
+    debug('❌ deployment not confirmed - exiting');
+    return terminal(request, {
+        runResult: 'failure',
+        decision: 'failure',
+        reasonCode: confirmation === 'rejected'
+            ? 'confirmation_rejected'
+            : 'confirmation_timed_out',
+        deploymentType,
+        environment,
+        ref: precheck.ref,
+        sha: precheck.sha
+    });
+}
+async function createStartedComment(request, ready, deploymentType, deploymentStartTime, logUrl) {
+    const { body, context, issueComment, octokit } = request;
+    const { environment, environmentResult, precheck } = ready;
+    const metadata = {
+        type: deploymentType.toLowerCase(),
+        environment: {
+            name: environment,
+            url: environmentResult.environmentUrl !== null &&
+                environmentResult.environmentUrl !== ''
+                ? environmentResult.environmentUrl
+                : null
+        },
+        deployment: { timestamp: deploymentStartTime, logs: logUrl },
+        git: {
+            branch: precheck.ref,
+            commit: precheck.sha,
+            verified: ready.isVerified,
+            committer: String(ready.committer),
+            html_url: ready.commitHtmlUrl
+        },
+        context: {
+            actor: context.actor,
+            noop: precheck.noopMode,
+            fork: precheck.isFork,
+            comment: {
+                created_at: issueComment.payload.comment.created_at,
+                updated_at: issueComment.payload.comment.updated_at,
+                body,
+                html_url: issueComment.payload.comment.html_url
+            }
+        },
+        parameters: {
+            raw: environmentResult.environmentObj.params !== null &&
+                environmentResult.environmentObj.params !== ''
+                ? environmentResult.environmentObj.params
+                : null,
+            parsed: environmentResult.environmentObj.parsed_params
+        }
+    };
+    const header = dedent(`
+    ### Deployment Triggered 🚀
+
+    __${context.actor}__, started a __${deploymentType}__ deployment to __${environment}__ (${deploymentType}: \`${precheck.ref}\`)
+
+    You can watch the progress [here](${logUrl}) 🔗
+
+  `);
+    const response = await octokit.rest.issues.createComment({
+        ...context.repo,
+        issue_number: context.issue.number,
+        body: [
+            header,
+            '',
+            '<details><summary>Details</summary>',
+            '',
+            '<!--- pre-deploy-metadata-start -->',
+            '',
+            jsonCodeBlock(metadata),
+            '',
+            '<!--- pre-deploy-metadata-end -->',
+            '',
+            '</details>'
+        ].join('\n'),
+        headers: API_HEADERS
+    });
+    setActionOutput('initial_comment_id', response.data.id);
+    saveActionState('initial_comment_id', response.data.id);
+    return response.data.id;
+}
+async function createDeployment(request, ready, lease, deploymentType, deploymentStartTime, githubRunId, startedCommentId, progress) {
+    const { context, inputs, issueComment, octokit, reactionId } = request;
+    const { environment, environmentResult, precheck } = ready;
+    const requiredContexts = inputs.required_contexts === '' || inputs.required_contexts === 'false'
+        ? []
+        : inputs.required_contexts.split(',').map(item => item.trim());
+    const production = inputs.production_environments.includes(environment);
+    debug(`production_environment: ${production}`);
+    const autoMerge = environmentResult.environmentObj.sha === null &&
+        inputs.update_branch !== 'disabled';
+    const response = await octokit.rest.repos.createDeployment({
+        ...context.repo,
+        ref: precheck.ref,
+        auto_merge: autoMerge,
+        required_contexts: requiredContexts,
+        environment,
+        production_environment: production,
+        payload: {
+            type: 'branch-deploy',
+            sha: precheck.sha,
+            params: environmentResult.environmentObj.params,
+            parsed_params: environmentResult.environmentObj.parsed_params,
+            github_run_id: githubRunId,
+            initial_comment_id: issueComment.payload.comment.id,
+            initial_reaction_id: reactionId,
+            deployment_started_comment_id: startedCommentId,
+            timestamp: deploymentStartTime,
+            commit_verified: ready.isVerified,
+            actor: context.actor,
+            stable_branch_used: environmentResult.environmentObj.stable_branch_used
+        },
+        headers: API_HEADERS
+    });
+    const deployment = createdDeployment(response.data);
+    progress.deploymentId = deployment.id ?? null;
+    setActionOutput('deployment_id', deployment.id);
+    saveActionState('deployment_id', deployment.id);
+    if ('message' in deployment) {
+        if (!deployment.message.includes('Auto-merged')) {
+            throw new Error(`GitHub did not create a deployment: ${deployment.message}`);
+        }
+        await lease.cleanup('after GitHub requested a base branch update');
+        const message = dedent(`
+      ### ⚠️ Deployment Warning
+
+      - Message: ${deployment.message}
+      - Note: If you have required CI checks, you may need to manually push a commit to re-run them
+
+      > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
+    `);
+        await actionStatus({ context, octokit, reactionId, message });
+        warning(message);
+        saveActionState('bypass', 'true');
+        return terminal(request, {
+            runResult: 'safe-exit',
+            decision: 'stop',
+            reasonCode: 'base_branch_update_required',
+            deploymentType,
+            environment,
+            ref: precheck.ref,
+            sha: precheck.sha
+        });
+    }
+    if (deployment.sha !== precheck.sha) {
+        saveActionState('bypass', 'true');
+        try {
+            await createDeploymentStatus(octokit, context, precheck.ref, 'error', deployment.id, environment, environmentResult.environmentUrl);
+        }
+        catch (error) {
+            warning(`failed to mark the mismatched deployment as an error: ${legacyApiError(error).message}`);
+        }
+        await lease.cleanup('after GitHub created the deployment at an unexpected commit');
+        const message = dedent(`
+      ### Deployment Commit Changed
+
+      GitHub created the deployment at a different commit than the one that passed deployment checks. The deployment was marked as an error.
+    `);
+        try {
+            await actionStatus({ context, octokit, reactionId, message });
+        }
+        catch (error) {
+            warning(`failed to report the mismatched deployment: ${legacyApiError(error).message}`);
+        }
+        setFailed('the created deployment SHA did not match the checked SHA');
+        return terminal(request, {
+            runResult: 'failure',
+            decision: 'failure',
+            reasonCode: 'deployment_sha_mismatch',
+            deploymentType,
+            deploymentId: deployment.id,
+            environment,
+            ref: precheck.ref,
+            sha: precheck.sha
+        });
+    }
+    info(`📓 deployment id: ${COLORS.highlight}${String(deployment.id)}${COLORS.reset}`);
+    debug(`deployment.url: ${String(deployment.url)}`);
+    debug(`deployment.created_at: ${String(deployment.created_at)}`);
+    debug(`deployment.updated_at: ${String(deployment.updated_at)}`);
+    debug(`deployment.statuses_url: ${String(deployment.statuses_url)}`);
+    await createDeploymentStatus(octokit, context, precheck.ref, 'in_progress', legacyDeploymentId(deployment.id), environment, environmentResult.environmentUrl);
+    info(`🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${precheck.sha}${COLORS.reset}`);
+    info(`🚀 ${COLORS.success}deployment started!${COLORS.reset}`);
+    setActionOutput('continue', 'true');
+    return terminal(request, {
+        runResult: 'success',
+        decision: 'continue',
+        reasonCode: 'deployment_ready',
+        deploymentType,
+        deploymentId: deployment.id,
+        environment,
+        ref: precheck.ref,
+        sha: precheck.sha
+    });
+}
+async function continueDeployment(request, ready, lease, progress) {
+    const { context } = request;
+    const { environment, environmentResult, precheck } = ready;
+    const githubRunId = parseInt(process.env['GITHUB_RUN_ID'] ?? '');
+    const deploymentType = precheck.noopMode
+        ? 'noop'
+        : environmentResult.environmentObj.sha !== null
+            ? 'sha'
+            : 'branch';
+    progress.deploymentType = deploymentType;
+    const logUrl = `${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/actions/runs/${githubRunId}`;
+    const confirmationFailure = await confirmDeployment(request, ready, lease, deploymentType, githubRunId, logUrl);
+    if (confirmationFailure !== null)
+        return confirmationFailure;
+    const earlyRefFailure = await changedRefOutcome(request, ready, lease, deploymentType);
+    if (earlyRefFailure !== null)
+        return earlyRefFailure;
+    const deploymentStartTime = timestamp();
+    debug(`deployment_start_time: ${deploymentStartTime}`);
+    saveActionState('deployment_start_time', deploymentStartTime);
+    const startedCommentId = await createStartedComment(request, ready, deploymentType, deploymentStartTime, logUrl);
+    const finalRefFailure = await changedRefOutcome(request, ready, lease, deploymentType);
+    if (finalRefFailure !== null)
+        return finalRefFailure;
+    setActionOutput('noop', precheck.noopMode);
+    if (precheck.noopMode) {
+        setActionOutput('continue', 'true');
+        saveActionState('noop', precheck.noopMode);
+        info(`🧑‍🚀 commit sha to noop: ${COLORS.highlight}${precheck.sha}${COLORS.reset}`);
+        info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`);
+        return terminal(request, {
+            runResult: 'success - noop',
+            decision: 'continue',
+            reasonCode: 'noop_ready',
+            deploymentType,
+            environment,
+            ref: precheck.ref,
+            sha: precheck.sha
+        });
+    }
+    saveActionState('noop', precheck.noopMode);
+    return createDeployment(request, ready, lease, deploymentType, deploymentStartTime, githubRunId, startedCommentId, progress);
+}
+async function runDeploymentOperation(request) {
+    let lease = null;
+    const progress = {
+        deploymentId: null,
+        deploymentType: null,
+        environment: null,
+        ref: null,
+        sha: null
+    };
+    try {
+        const ready = await prepareDeployment(request, progress);
+        if ('reasonCode' in ready)
+            return ready;
+        const lockResult = await acquireDeploymentLock(request, ready);
+        if ('reasonCode' in lockResult)
+            return lockResult;
+        lease = lockResult;
+        return await continueDeployment(request, ready, lease, progress);
+    }
+    catch (error) {
+        saveActionState('bypass', 'true');
+        if (lease !== null) {
+            await lease.cleanup('after deployment orchestration failed');
+        }
+        return terminal(request, {
+            runResult: undefined,
+            decision: 'failure',
+            reasonCode: 'unexpected_error',
+            deploymentId: progress.deploymentId,
+            deploymentType: progress.deploymentType,
+            environment: progress.environment,
+            ref: progress.ref,
+            sha: progress.sha,
+            error
+        });
+    }
+}
+
+;// CONCATENATED MODULE: ./src/functions/direct-operation.ts
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+async function showLockDetails(request, environment) {
+    const { context, inputs, octokit, operation, reactionId } = request;
+    debug('detailsOnly lock request detected');
+    const lockResponse = await lock({
+        octokit,
+        context,
+        ref: null,
+        reactionId,
+        sticky: null,
+        environment: null,
+        mode: { type: 'details', postDeployStep: false },
+        leaveComment: true
+    });
+    if (lockResponse.status === false || lockResponse.status === 'ambiguous') {
+        saveActionState('bypass', 'true');
+        return {
+            runResult: 'failure',
+            decision: 'failure',
+            reasonCode: 'lock_conflict',
+            operation,
+            environment
+        };
+    }
+    const lockData = legacyLockData(lockResponse.lockData);
+    if (lockResponse.status !== null) {
+        const totalTime = timeDiff(lockData.created_at, new Date().toISOString());
+        let globalMessage = '';
+        let environmentMessage = `- __Environment__: \`${String(lockData.environment)}\``;
+        let lockBranchName = `${String(constructValidBranchName(lockData.environment))}-${LOCK_METADATA.lockBranchSuffix}`;
+        if (legacyStrictTrue(lockData.global)) {
+            globalMessage = dedent(`
+
+        This is a **global** deploy lock - All environments are currently locked
+
+      `);
+            environmentMessage = dedent(`
+        - __Environments__: \`all\`
+        - __Global__: \`true\`
+      `);
+            info(`🌏 there is a ${COLORS.highlight}global${COLORS.reset} deployment lock on this repository`);
+            lockBranchName = LOCK_METADATA.globalLockBranch;
+        }
+        const lockMessageHeader = dedent(`
+      ### Lock Details 🔒
+
+      The deployment lock is currently claimed by __${lockData.created_by}__${globalMessage}
+    `);
+        const lockMessageDetails = dedent(`
+      - __Branch__: \`${String(lockData.branch)}\`
+      - __Created At__: \`${lockData.created_at}\`
+      - __Created By__: \`${lockData.created_by}\`
+      - __Sticky__: \`${String(lockData.sticky)}\`
+      ${environmentMessage}
+      - __Comment Link__: [click here](${lockData.link})
+      - __Lock Link__: [click here](${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/blob/${lockBranchName}/${LOCK_METADATA.lockFile})
+
+      The current lock has been active for \`${totalTime}\`
+
+      > If you need to release the lock, please comment \`${lockData.unlock_command}\`
+    `);
+        await actionStatus({
+            context,
+            octokit,
+            reactionId,
+            message: [
+                lockMessageHeader,
+                formatLockReason(lockData.reason),
+                lockMessageDetails
+            ].join('\n\n'),
+            result: 'alternate-success'
+        });
+        info(`🔒 the deployment lock is currently claimed by ${COLORS.highlight}${lockData.created_by}`);
+    }
+    else {
+        const lockTarget = lockResponse.global ? 'global' : lockResponse.environment;
+        const lockCommand = lockResponse.global
+            ? `${inputs.lock_trigger} ${lockResponse.globalFlag}`
+            : `${inputs.lock_trigger} ${String(lockTarget)}`;
+        const lockMessage = dedent(`
+      ### Lock Details 🔒
+
+      No active \`${String(lockTarget)}\` deployment locks found for the \`${context.repo.owner}/${context.repo.repo}\` repository
+
+      > If you need to create a \`${String(lockTarget)}\` lock, please comment \`${lockCommand}\`
+    `);
+        await actionStatus({
+            context,
+            octokit,
+            reactionId,
+            message: lockMessage,
+            result: 'alternate-success'
+        });
+        info('✅ no active deployment locks found');
+    }
+    saveActionState('bypass', 'true');
+    return {
+        runResult: 'safe-exit',
+        decision: 'complete',
+        reasonCode: 'lock_info_completed',
+        operation,
+        environment
+    };
+}
+async function acquireDirectLock(request, environment, progress) {
+    const { context, octokit, operation, reactionId } = request;
+    const pr = await octokit.rest.pulls.get({
+        ...context.repo,
+        pull_number: context.issue.number,
+        headers: API_HEADERS
+    });
+    const ref = pr.data.head.ref;
+    progress.ref = ref;
+    const lockResponse = await lock({
+        octokit,
+        context,
+        ref,
+        reactionId,
+        sticky: true,
+        environment: null,
+        mode: { type: 'acquire', postDeployStep: false },
+        leaveComment: true
+    });
+    saveActionState('bypass', 'true');
+    const reasonCode = lockResponse.status === true
+        ? 'lock_acquired'
+        : lockResponse.status === 'owner'
+            ? 'lock_already_owned'
+            : 'lock_conflict';
+    return {
+        runResult: 'safe-exit',
+        decision: reasonCode === 'lock_conflict' ? 'stop' : 'complete',
+        reasonCode,
+        operation,
+        environment,
+        ref
+    };
+}
+async function releaseDirectLock(request, environment) {
+    const { context, octokit, operation, reactionId } = request;
+    debug('running unlock command logic');
+    const unlocked = await unlock({
+        octokit,
+        context,
+        reactionId,
+        target: { type: 'context' },
+        mode: 'interactive'
+    });
+    saveActionState('bypass', 'true');
+    if (!unlocked)
+        setFailed('failed to remove the deployment lock');
+    return {
+        runResult: 'safe-exit',
+        decision: unlocked ? 'complete' : 'failure',
+        reasonCode: unlocked ? 'unlock_completed' : 'unlock_failed',
+        operation,
+        environment
+    };
+}
+async function runDirectOperation(request) {
+    const { body, command, context, inputs, octokit, operation, reactionId } = request;
+    const progress = {
+        environment: null,
+        ref: null
+    };
+    try {
+        const permission = await validPermissions(octokit, context, inputs.permissions);
+        if (permission !== true) {
+            await actionStatus({ context, octokit, reactionId, message: permission });
+            saveActionState('bypass', 'true');
+            setFailed(permission);
+            return {
+                runResult: 'failure',
+                decision: 'failure',
+                reasonCode: 'permission_denied',
+                operation
+            };
+        }
+        const target = await environmentTargets({
+            mode: 'lock',
+            environment: request.environment,
+            body,
+            trigger: inputs.lock_trigger,
+            alternateTrigger: inputs.unlock_trigger,
+            context,
+            octokit,
+            reactionId
+        });
+        if (target.environment === false) {
+            debug('No valid environment targets found for lock/unlock request');
+            return {
+                runResult: 'safe-exit',
+                decision: 'stop',
+                reasonCode: 'invalid_environment',
+                operation
+            };
+        }
+        progress.environment = target.environment;
+        if (command.dispatch === 'lock_info') {
+            return await showLockDetails(request, target.environment);
+        }
+        if (command.dispatch === 'lock') {
+            return await acquireDirectLock(request, target.environment, progress);
+        }
+        return await releaseDirectLock(request, target.environment);
+    }
+    catch (error) {
+        saveActionState('bypass', 'true');
+        return {
+            runResult: undefined,
+            decision: 'failure',
+            reasonCode: 'unexpected_error',
+            operation,
+            environment: progress.environment,
+            ref: progress.ref,
+            error
+        };
+    }
 }
 
 ;// CONCATENATED MODULE: ./src/functions/help.ts
@@ -47197,6 +41281,86 @@ async function help(octokit, context, reactionId, inputs) {
     });
 }
 
+;// CONCATENATED MODULE: ./src/functions/identical-commit-check.ts
+
+
+
+
+
+// Helper function to check if the current deployment's ref is identical to the merge commit
+// :param octokit: the authenticated octokit instance
+// :param context: the context object
+// :param environment: the environment to check
+// :return: true if the current deployment's ref is identical to the merge commit, false otherwise
+async function identicalCommitCheck(octokit, context, environment) {
+    // get the owner and the repo from the context
+    const { owner, repo } = context.repo;
+    // find the default branch
+    const { data: repoData } = await octokit.rest.repos.get({
+        owner,
+        repo,
+        headers: API_HEADERS
+    });
+    const defaultBranchName = repoData.default_branch;
+    debug(`default branch name: ${defaultBranchName}`);
+    // get the latest commit on the default branch of the repo
+    const { data: defaultBranchData } = await octokit.rest.repos.getBranch({
+        owner,
+        repo,
+        branch: defaultBranchName,
+        headers: API_HEADERS
+    });
+    const defaultBranchTreeSha = defaultBranchData.commit.commit.tree.sha;
+    debug(`default branch tree sha: ${defaultBranchTreeSha}`);
+    const latestDefaultBranchCommitSha = defaultBranchData.commit.sha;
+    info(`📍 latest commit sha on ${COLORS.highlight}${defaultBranchName}${COLORS.reset}: ${COLORS.info}${latestDefaultBranchCommitSha}${COLORS.reset}`);
+    const latestDeployment = await latestBranchDeployDeployment(octokit, context, environment);
+    let latestDeploymentTreeSha;
+    let createdAt;
+    let deploymentId;
+    if (latestDeployment?.state === 'ACTIVE') {
+        createdAt = latestDeployment.createdAt;
+        deploymentId = latestDeployment.id;
+        const commitData = await octokit.rest.repos.getCommit({
+            owner,
+            repo,
+            ref: latestDeployment.commit.oid,
+            headers: API_HEADERS
+        });
+        latestDeploymentTreeSha = commitData.data.commit.tree.sha;
+    }
+    else if (latestDeployment !== null) {
+        debug(`latest branch-deploy deployment is ${latestDeployment.state} - skipping...`);
+    }
+    info(`🌲 latest default ${COLORS.info}branch${COLORS.reset} tree sha: ${COLORS.info}${defaultBranchTreeSha}${COLORS.reset}`);
+    info(`🌲 latest ${COLORS.info}deployment${COLORS.reset} tree sha:     ${COLORS.info}${String(latestDeploymentTreeSha)}${COLORS.reset}`);
+    debug('💡 latest deployment with payload type of "branch-deploy"');
+    debug(`🕛 latest deployment created at: ${String(createdAt)}`);
+    debug(`🧮 latest deployment id: ${String(deploymentId)}`);
+    // if the latest deployment sha is identical to the latest commit on the default branch then return true
+    const result = latestDeploymentTreeSha === defaultBranchTreeSha;
+    if (result) {
+        info(`🟰 the latest deployment tree sha is ${COLORS.highlight}equal${COLORS.reset} to the default branch tree sha`);
+        info(`🌲 identical commit trees will ${COLORS.highlight}not${COLORS.reset} be re-deployed based on your configuration`);
+        info(`✅ deployments for the ${COLORS.highlight}${environment}${COLORS.reset} environment are ${COLORS.success}up to date${COLORS.reset}`);
+        setActionOutput('continue', 'false');
+        setActionOutput('environment', environment);
+    }
+    else {
+        // if the latest deployment sha is not identical to the latest commit on the default branch then we need to create a new deployment
+        // this deployment should use the latest commit on the default branch to ensure that the repository is deployed at its latest state
+        // a scenario where this might occur is if the default branch is force-pushed and you need to start a new deployment from the latest commit on the default branch
+        info(`💡 the latest deployment tree sha is ${COLORS.highlight}not${COLORS.reset} equal to the default branch tree sha`);
+        info(`🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${latestDefaultBranchCommitSha}${COLORS.reset}`);
+        info(`🚀 a ${COLORS.success}new deployment${COLORS.reset} will be created based on your configuration`);
+        setActionOutput('continue', 'true');
+        setActionOutput('environment', environment);
+        setActionOutput('sha', latestDefaultBranchCommitSha);
+        saveActionState('sha', latestDefaultBranchCommitSha);
+    }
+    return result;
+}
+
 ;// CONCATENATED MODULE: ./src/functions/inputs.ts
 
 
@@ -47228,7 +41392,7 @@ const LITERAL_ACTION_INPUT_VALUES = {
 // :param inputName: The name of the input being validated (string)
 // :param inputValue: The input value to validate (string)
 // :param validValues: An array of valid values for the input (array)
-function inputs_validateInput(inputName, inputValue, validValues) {
+function validateInput(inputName, inputValue, validValues) {
     const validValue = validValues.find(value => value === inputValue);
     if (validValue === undefined) {
         throw new Error(`Invalid value for '${inputName}': ${inputValue}. Must be one of: ${validValues.join(', ')}`);
@@ -47288,11 +41452,11 @@ function getInputs() {
     const deployment_confirmation = getBooleanActionInput('deployment_confirmation');
     const deployment_confirmation_timeout = getIntInput('deployment_confirmation_timeout');
     // validate inputs
-    const update_branch = inputs_validateInput('update_branch', getActionInput('update_branch'), UPDATE_BRANCH_VALUES);
-    const outdated_mode = inputs_validateInput('outdated_mode', getActionInput('outdated_mode'), OUTDATED_MODE_VALUES);
+    const update_branch = validateInput('update_branch', getActionInput('update_branch'), UPDATE_BRANCH_VALUES);
+    const outdated_mode = validateInput('outdated_mode', getActionInput('outdated_mode'), OUTDATED_MODE_VALUES);
     let checks;
     if (rawChecks === 'all' || rawChecks === 'required') {
-        checks = inputs_validateInput('checks', rawChecks, CHECKS_MODE_VALUES);
+        checks = validateInput('checks', rawChecks, CHECKS_MODE_VALUES);
     }
     else {
         checks = stringToArray(rawChecks);
@@ -47339,210 +41503,161 @@ function getInputs() {
     };
 }
 
-;// CONCATENATED MODULE: ./src/functions/valid-deployment-order.ts
+;// CONCATENATED MODULE: ./src/functions/trigger-check.ts
 
 
-
-
-// Helper function to ensure the deployment order is enforced (if any)
-// :param octokit: The octokit client
-// :param context: The GitHub Actions event context
-// :param enforced_deployment_order: The enforced deployment order (ex: ['development', 'staging', 'production'])
-// :param environment: The environment to check for (ex: production)
-// :param sha: The sha to check for (ex: cb2bc0193184e779a5efc05e48acdfd1026f59a7)
-// :returns: an object with the valid: true if the deployment order is valid, false otherwise, and results: an array of the previous environments in the enforced deployment order that do not have active deployments
-async function validDeploymentOrder(octokit, context, enforced_deployment_order, environment, sha) {
-    info(`🚦 deployment order is ${COLORS.highlight}enforced${COLORS.reset}`);
-    if (enforced_deployment_order.length === 1) {
-        warning(`💡 Having only one environment in the enforced deployment order will always cause the deployment order checks to pass if the environment names match. This is likely not what you want. Please either unset the enforced deployment order or add more environments to it.`);
-        return { valid: enforced_deployment_order[0] === environment, results: [] };
+// A simple function that checks the body of the message against the trigger
+// :param body: The content body of the message being checked (String)
+// :param trigger: The "trigger" phrase which is searched for in the body of the message (String)
+// :returns: true if a message activates the trigger, false otherwise
+function triggerCheck(body, trigger) {
+    // If the trigger is not activated, set the output to false and return with false
+    if (!body.startsWith(trigger)) {
+        debug(`comment body does not start with trigger: ${COLORS.highlight}${trigger}${COLORS.reset}`);
+        return false;
     }
-    // if the enforced deployment order is set, check to see if the current environment is the first in the list
-    // this indicates that we can proceed with the deployment right away as there are no previous environments to gate it
-    if (enforced_deployment_order[0] === environment) {
-        info(`🚦 deployment order checks passed as ${COLORS.highlight}${environment}${COLORS.reset} is the first environment in the enforced deployment order`);
-        return { valid: true, results: [] };
+    // Ensure the trigger match is complete: either end-of-string or followed by whitespace
+    const nextChar = body[trigger.length];
+    if (nextChar !== undefined && nextChar !== '' && !/\s/.test(nextChar)) {
+        debug(`comment body starts with trigger but is not complete: ${COLORS.highlight}${trigger}${COLORS.reset}`);
+        return false;
     }
-    // determine all the previous environments in the enforced deployment order prior to the current environment
-    const previous_environments = enforced_deployment_order.slice(0, enforced_deployment_order.indexOf(environment));
-    debug(`environments that require active deployments: ${previous_environments.join(',')}`);
-    // iterate over the previous environments and check to see if they have an active deployment
-    const results = [];
-    for (const previous_environment of previous_environments) {
-        debug(`checking if ${previous_environment} has an active deployment`);
-        const is_active = await activeDeployment(octokit, context, previous_environment, sha);
-        if (!is_active) {
-            actions_core_error(`🚦 deployment order checks failed as ${COLORS.highlight}${previous_environment}${COLORS.reset} does not have an active deployment at sha: ${sha}`);
-            results.push({ environment: previous_environment, active: false });
-            continue;
-        }
-        debug(`deployment for ${previous_environment} is active at sha: ${sha}`);
-        results.push({ environment: previous_environment, active: true });
-    }
-    // if all previous environments have active deployments, we can proceed with the deployment
-    if (results.every(result => result.active)) {
-        info(`🚦 deployment order checks passed as all previous environments have active deployments`);
-        return { valid: true, results: results };
-    }
-    // set an output that contains all the environments that do not have active deployments but need them for a deployment to proceed
-    const needs_to_be_deployed = results
-        .filter(result => !result.active)
-        .map(result => result.environment)
-        .join(',');
-    setActionOutput('needs_to_be_deployed', needs_to_be_deployed);
-    // if we made it this far, it means that not all previous environments have active deployments and we cannot proceed
-    return { valid: false, results: results };
+    info(`✅ comment body starts with trigger: ${COLORS.highlight}${trigger}${COLORS.reset}`);
+    return true;
 }
 
-;// CONCATENATED MODULE: ./src/functions/is-timestamp-older.ts
+;// CONCATENATED MODULE: ./src/functions/issue-command.ts
 
 
-// A helper method that checks if timestamp A is older than timestamp B
-// :param timestampA: The first timestamp to compare (String - format: "2024-10-21T19:10:24Z")
-// :param timestampB: The second timestamp to compare (String - format: "2024-10-21T19:10:24Z")
-// :returns: true if timestampA is older than timestampB, false otherwise
-function isTimestampOlder(timestampA, timestampB) {
-    // Defensive: handle null/undefined/empty
-    if (!legacyTruthy(timestampA) || !legacyTruthy(timestampB)) {
-        throw new Error('One or both timestamps are missing or empty.');
+function analyzeNakedCommand(body, paramSeparator, triggers, globalFlag) {
+    let normalized = body.trim();
+    if (normalized.includes(globalFlag)) {
+        return { body: normalized, globalBypass: true, isNaked: false, params: '' };
     }
-    // Strict ISO 8601 UTC format: YYYY-MM-DDTHH:MM:SSZ
-    const ISO_UTC_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-    if (typeof timestampA !== 'string' ||
-        typeof timestampB !== 'string' ||
-        !ISO_UTC_REGEX.test(timestampA) ||
-        !ISO_UTC_REGEX.test(timestampB)) {
-        throw new Error(`Timestamps must be strings in the format YYYY-MM-DDTHH:MM:SSZ. Received: '${String(timestampA)}', '${String(timestampB)}'`);
+    for (const flag of LOCK_METADATA.lockInfoFlags) {
+        normalized = normalized.replace(flag, '').trim();
     }
-    // Parse the date strings into Date objects
-    const timestampADate = new Date(timestampA);
-    const timestampBDate = new Date(timestampB);
-    // Extra strict: ensure the parsed date matches the input string exactly (prevents JS date rollover)
-    const toStrictISOString = (d) => {
-        // Returns YYYY-MM-DDTHH:MM:SSZ
-        return (d.getUTCFullYear().toString().padStart(4, '0') +
-            '-' +
-            (d.getUTCMonth() + 1).toString().padStart(2, '0') +
-            '-' +
-            d.getUTCDate().toString().padStart(2, '0') +
-            'T' +
-            d.getUTCHours().toString().padStart(2, '0') +
-            ':' +
-            d.getUTCMinutes().toString().padStart(2, '0') +
-            ':' +
-            d.getUTCSeconds().toString().padStart(2, '0') +
-            'Z');
-    };
-    if (Number.isNaN(timestampADate.getTime()) ||
-        Number.isNaN(timestampBDate.getTime()) ||
-        toStrictISOString(timestampADate) !== timestampA ||
-        toStrictISOString(timestampBDate) !== timestampB) {
-        actions_core_error(`Invalid date parsing. Received: '${timestampA}' => ${String(timestampADate)}, '${timestampB}' => ${String(timestampBDate)}`);
-        throw new Error(`Invalid date format. Please ensure the dates are valid UTC timestamps. Received: '${timestampA}', '${timestampB}'`);
+    if (normalized.includes('--reason')) {
+        normalized = normalized.slice(0, normalized.indexOf('--reason')).trim();
     }
-    const result = timestampADate.getTime() < timestampBDate.getTime();
-    if (result) {
-        debug(`${timestampA} is older than ${timestampB}`);
+    const paramParts = normalized.split(paramSeparator);
+    paramParts.shift();
+    const params = paramParts.join(paramSeparator);
+    if (params !== '') {
+        normalized = normalized.split(`${paramSeparator}${params}`)[0]?.trim() ?? '';
     }
-    else {
-        debug(`${timestampA} is not older than ${timestampB}`);
-    }
-    return result;
-}
-
-;// CONCATENATED MODULE: ./src/functions/commit-safety-checks.ts
-
-
-
-
-
-// A helper method to ensure that the commit being used is safe for deployment
-// These safety checks are supplemental to the checks found in `src/functions/prechecks.ts`
-// :param context: The context of the event
-// :param data: An object containing data such as the sha, the created_at time for the comment, and more
-function commitSafetyChecks(context, data) {
-    const commit = data.commit;
-    const inputs = data.inputs;
-    const sha = data.sha;
-    const comment_created_at = legacyIssueCommentCreatedAt(context);
-    const commit_created_at = commit?.author?.date; // fetch the timestamp that the commit was authored (format: "2024-10-21T19:10:24Z" - String)
-    const verified_at = commit?.verification?.verified_at;
-    debug(`comment_created_at: ${String(comment_created_at)}`);
-    debug(`commit_created_at: ${String(commit_created_at)}`);
-    debug(`verified_at: ${String(verified_at)}`);
-    // Defensive: Ensure required fields exist
-    if (!legacyTruthy(comment_created_at)) {
-        throw new Error('Missing context.payload.comment.created_at');
-    }
-    if (!legacyTruthy(commit_created_at)) {
-        throw new Error('Missing commit.author.date');
-    }
-    const isVerified = commit?.verification?.verified === true;
-    debug(`isVerified: ${isVerified}`);
-    setActionOutput('commit_verified', isVerified);
-    saveActionState('commit_verified', isVerified);
-    // check to ensure that the commit was authored before the comment was created
-    if (isTimestampOlder(comment_created_at, commit_created_at)) {
-        return {
-            message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. It was authored after the trigger comment was created.`,
-            status: false,
-            isVerified: isVerified
-        };
-    }
-    // begin the commit verification checks
-    if (isVerified) {
-        info(`🔑 commit signature is ${COLORS.success}valid${COLORS.reset}`);
-    }
-    else if (inputs.commit_verification) {
-        warning(`🔑 commit signature is ${COLORS.error}invalid${COLORS.reset}`);
-    }
-    else {
-        // if we make it here, the commit is not valid but that is okay because commit verification is not enabled
-        debug(`🔑 commit does not contain a verified signature but ${COLORS.highlight}commit signing is not required${COLORS.reset} - ${COLORS.success}OK${COLORS.reset}`);
-    }
-    // If commit verification is enabled and the commit signature is not valid (or it is missing / undefined), exit
-    if (inputs.commit_verification && !isVerified) {
-        return {
-            message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`${String(commit?.verification?.reason)}\`\n\n> The commit signature is not valid. Please ensure the commit has been properly signed and try again.`,
-            status: false,
-            isVerified: isVerified
-        };
-    }
-    // if commit_verification is enabled and the verified_at timestamp is not present, throw an error
-    if (inputs.commit_verification && !legacyTruthy(verified_at)) {
-        return {
-            message: `### ⚠️ Cannot proceed with deployment\n\n- commit: \`${sha}\`\n- verification failed reason: \`${String(commit?.verification?.reason)}\`\n\n> The commit signature is not valid as there is no valid \`verified_at\` date. Please ensure the commit has been properly signed and try again.`,
-            status: false,
-            isVerified: isVerified
-        };
-    }
-    // check to ensure that the commit signature was authored before the comment was created
-    // even if the commit signature is valid, we still want to reject it if it was authored after the comment was created
-    if (inputs.commit_verification &&
-        isTimestampOlder(comment_created_at, verified_at)) {
-        return {
-            message: `### ⚠️ Cannot proceed with deployment\n\nThe latest commit is not safe for deployment. The commit signature was verified after the trigger comment was created. Please try again if you recently pushed a new commit.`,
-            status: false,
-            isVerified: isVerified
-        };
-    }
-    // if we make it through all the checks, we can return a success object
     return {
-        message: 'success',
-        status: true,
-        isVerified: isVerified
+        body: normalized,
+        globalBypass: false,
+        isNaked: triggers.some(trigger => normalized === trigger),
+        params
+    };
+}
+function analyzeIssueCommand(body, config) {
+    const matches = {
+        deploy: triggerCheck(body, config.trigger),
+        noop: triggerCheck(body, config.noopTrigger),
+        lock: triggerCheck(body, config.lockTrigger),
+        unlock: triggerCheck(body, config.unlockTrigger),
+        help: triggerCheck(body, config.helpTrigger),
+        lockInfoAlias: triggerCheck(body, config.lockInfoAlias)
+    };
+    const hasLockInfoFlag = LOCK_METADATA.lockInfoFlags.some(flag => body.includes(flag));
+    let operation = 'none';
+    let outputType = null;
+    if (matches.deploy || matches.noop) {
+        operation = matches.noop ? 'noop' : 'deploy';
+        outputType = 'deploy';
+    }
+    else if (matches.lock) {
+        operation = hasLockInfoFlag ? 'lock_info' : 'lock';
+        outputType = 'lock';
+    }
+    else if (matches.unlock) {
+        operation = 'unlock';
+        outputType = 'unlock';
+    }
+    else if (matches.help) {
+        operation = 'help';
+        outputType = 'help';
+    }
+    else if (matches.lockInfoAlias) {
+        operation = 'lock_info';
+        outputType = 'lock-info-alias';
+    }
+    const dispatch = matches.help
+        ? 'help'
+        : matches.lock || matches.lockInfoAlias
+            ? hasLockInfoFlag || matches.lockInfoAlias
+                ? 'lock_info'
+                : 'lock'
+            : matches.unlock
+                ? 'unlock'
+                : matches.deploy || matches.noop
+                    ? 'deployment'
+                    : 'none';
+    return {
+        dispatch,
+        hasLockInfoFlag,
+        matches,
+        naked: analyzeNakedCommand(body, config.paramSeparator, [
+            config.trigger,
+            config.noopTrigger,
+            config.lockTrigger,
+            config.unlockTrigger,
+            config.lockInfoAlias
+        ], config.globalFlag),
+        operation,
+        outputType
     };
 }
 
-;// CONCATENATED MODULE: ./src/functions/timestamp.ts
-// Helper function to generate an ISO 8601 formatted timestamp string in UTC
-// :returns: An ISO 8601 formatted timestamp string (ex: 2025-01-01T00:00:00.000Z)
-function timestamp() {
-    const now = new Date();
-    return now.toISOString();
+;// CONCATENATED MODULE: ./src/functions/deprecated-checks.ts
+
+
+
+
+// The old and common trigger for noop style deployments
+const oldNoopInput = '.deploy noop';
+const docsLink = 'https://github.com/github/branch-deploy/blob/main/docs/deprecated.md';
+const deprecated_checks_thumbsDown = '-1';
+// A helper function to check against common inputs to see if they are deprecated
+// :param body: The content body of the message being checked (String)
+// :param octokit: The octokit object
+// :param context: The context of the action
+// :returns: true if the input is deprecated, false otherwise
+async function isDeprecated(body, octokit, context) {
+    // If the body of the payload starts with the common 'old noop' trigger, warn the user and exit
+    if (body.startsWith(oldNoopInput)) {
+        warning(`'${oldNoopInput}' is deprecated. Please view the docs for more information: ${docsLink}#deploy-noop`);
+        const message = dedent(`
+      ### Deprecated Input Detected
+
+      ⚠️ Command is Deprecated ⚠️
+
+      The \`${oldNoopInput}\` command is deprecated. The new default is now \`.noop\`. Please view the docs for more information: ${docsLink}#deploy-noop
+    `);
+        // add a comment to the issue with the message
+        await octokit.rest.issues.createComment({
+            ...context.repo,
+            issue_number: context.issue.number,
+            body: message,
+            headers: API_HEADERS
+        });
+        // add a reaction to the issue_comment to indicate failure
+        await octokit.rest.reactions.createForIssueComment({
+            ...context.repo,
+            comment_id: issueCommentContext(context).payload.comment.id,
+            content: deprecated_checks_thumbsDown,
+            headers: API_HEADERS
+        });
+        return true;
+    }
+    // if we get here, the input is not deprecated
+    return false;
 }
 
-;// CONCATENATED MODULE: ./src/functions/deployment-confirmation.ts
+;// CONCATENATED MODULE: ./src/functions/naked-command-check.ts
 
 
 
@@ -47550,182 +41665,960 @@ function timestamp() {
 
 
 
-const deployment_confirmation_thumbsUp = '+1';
-const deployment_confirmation_thumbsDown = '-1';
-// Helper function to allow the original actor to confirm the deployment by adding a reaction to a comment
-// :param context: The context of the action
-// :param octokit: The octokit object
-// :returns: the original actor's confirmation decision or a timeout result
-async function deploymentConfirmation(context, octokit, data) {
-    const issueComment = issueCommentContext(context);
+const naked_command_check_thumbsDown = '-1';
+const docs = 'https://github.com/github/branch-deploy/blob/main/docs/naked-commands.md';
+// Helper function to check if a naked command was issued
+// :param body: The body of the issueops command
+// :param param_separator: The separator used to seperate the command from the parameters
+// :param triggers: All the triggers for the Action rolled up into an Array
+// :returns: true if a naked command was issued, false otherwise
+async function nakedCommandCheck(body, param_separator, triggers, octokit, context, analysis) {
+    debug(`before - nakedCommandCheck: body: ${body}`);
+    const globalFlag = getActionInput('global_lock_flag').trim();
+    const result = analysis ?? analyzeNakedCommand(body, param_separator, triggers, globalFlag);
+    body = result.body;
+    // ////// checking for lock flags ////////
+    // if the body contains the globalFlag, exit right away as environments are not relevant
+    if (result.globalBypass) {
+        debug('global lock flag found in naked command check');
+        return false;
+    }
+    const params = result.params;
+    if (params !== '') {
+        debug(`params were found and removed for naked command checks: ${params}`);
+    }
+    debug(`after - nakedCommandCheck: body: ${body}`);
+    if (result.isNaked) {
+        warning(`🩲 naked commands are ${COLORS.warning}not${COLORS.reset} allowed based on your configuration: ${COLORS.highlight}${body}${COLORS.reset}`);
+        warning(`📚 view the documentation around ${COLORS.highlight}naked commands${COLORS.reset} to learn more: ${docs}`);
+        const message = dedent(`
+      ### Missing Explicit Environment
+
+      #### Suggestion
+
+      \`\`\`text
+      ${body} <environment>
+      \`\`\`
+
+      #### Explanation
+
+      This style of command is known as a "naked command" and is not allowed based on your configuration. "Naked commands" are commands that do not explicitly specify an environment, for example \`${body}\` would be a "naked command" whereas \`${body} <environment>\` would not be.
+
+      > View the [documentation](${docs}) to learn more
+    `);
+        // add a comment to the issue with the message
+        await octokit.rest.issues.createComment({
+            ...context.repo,
+            issue_number: context.issue.number,
+            body: message,
+            headers: API_HEADERS
+        });
+        // add a reaction to the issue_comment to indicate failure
+        await octokit.rest.reactions.createForIssueComment({
+            ...context.repo,
+            comment_id: issueCommentContext(context).payload.comment.id,
+            content: naked_command_check_thumbsDown,
+            headers: API_HEADERS
+        });
+    }
+    return result.isNaked;
+}
+
+;// CONCATENATED MODULE: ./src/functions/label.ts
+
+
+// Helper function to add labels to a pull request
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :param labelsToAdd: An array of labels to add to the pull request (Array)
+// :parm labelsToRemove: An array of labels to remove from the pull request (Array)
+// :returns: An object containing the labels added and removed (Object)
+async function label(context, octokit, labelsToAdd, labelsToRemove) {
+    // Get the owner, repo, and issue number from the context
+    const { owner, repo } = context.repo;
+    const issueNumber = context.issue.number;
+    let addedLabels = []; // an array of labels that were actually added
+    const removedLabels = []; // an array of labels that were actually removed
+    // exit early if there are no labels to add or remove
+    if (labelsToAdd.length === 0 && labelsToRemove.length === 0) {
+        debug('🏷️ no labels to add or remove');
+        return {
+            added: [],
+            removed: []
+        };
+    }
+    // first, find and cleanup labelsToRemove if any are provided
+    if (labelsToRemove.length > 0) {
+        // Fetch current labels on the issue
+        debug('fetching current labels on the issue');
+        const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
+            owner: owner,
+            repo: repo,
+            issue_number: issueNumber,
+            headers: API_HEADERS
+        });
+        const currentLabels = currentLabelsResult.data.map(label => label.name);
+        debug(`current labels: ${currentLabels.join(',')}`);
+        debug(`labels to remove: ${labelsToRemove.join(',')}`);
+        // Remove unwanted labels
+        for (const label of labelsToRemove) {
+            if (currentLabels.includes(label)) {
+                await octokit.rest.issues.removeLabel({
+                    owner: owner,
+                    repo: repo,
+                    issue_number: issueNumber,
+                    name: label,
+                    headers: API_HEADERS
+                });
+                info(`🏷️ label removed: ${label}`);
+                removedLabels.push(label);
+            }
+            else {
+                debug(`🏷️ label not found: '${label}' so it was not removed`);
+            }
+        }
+    }
+    // now, add the labels if any are provided
+    if (labelsToAdd.length > 0) {
+        debug(`attempting to apply labels: ${labelsToAdd.join(',')}`);
+        await octokit.rest.issues.addLabels({
+            owner: owner,
+            repo: repo,
+            issue_number: issueNumber,
+            labels: [...labelsToAdd],
+            headers: API_HEADERS
+        });
+        info(`🏷️ labels added: ${labelsToAdd.join(',')}`);
+        addedLabels = labelsToAdd;
+    }
+    return {
+        added: addedLabels,
+        removed: removedLabels
+    };
+}
+
+;// CONCATENATED MODULE: ./src/functions/deployment-template.ts
+
+const IDENTIFIER = /^[a-z_][a-z0-9_]*$/u;
+const COMPARISON = /^([a-z_][a-z0-9_]*)\s*(===|==|!==|!=)\s*("(?:[^"\\]|\\.)*"|true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)$/u;
+const TERNARY = /^("(?:[^"\\]|\\.)*"|true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)\s+if\s+(.+?)\s+else\s+("(?:[^"\\]|\\.)*"|true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)$/u;
+function parseLiteral(value) {
+    return decodedDeploymentTemplateLiteral(value);
+}
+function htmlEscape(value) {
+    return value
+        .replace(/&/gu, '&amp;')
+        .replace(/</gu, '&lt;')
+        .replace(/>/gu, '&gt;')
+        .replace(/"/gu, '&quot;')
+        .replace(/'/gu, '&#39;');
+}
+function variable(variables, name) {
+    if (!Object.hasOwn(variables, name)) {
+        throw new Error(`Unknown deployment template variable: ${name}`);
+    }
+    return variables[name] ?? null;
+}
+function evaluateCondition(expression, variables) {
+    const trimmed = expression.trim();
+    if (trimmed.startsWith('not ')) {
+        const name = trimmed.slice(4).trim();
+        if (!IDENTIFIER.test(name)) {
+            throw new Error(`Unsupported deployment template condition: ${trimmed}`);
+        }
+        const value = variable(variables, name);
+        if (typeof value !== 'boolean') {
+            throw new Error(`Deployment template condition is not boolean: ${trimmed}`);
+        }
+        return !value;
+    }
+    if (IDENTIFIER.test(trimmed)) {
+        const value = variable(variables, trimmed);
+        if (typeof value !== 'boolean') {
+            throw new Error(`Deployment template condition is not boolean: ${trimmed}`);
+        }
+        return value;
+    }
+    const comparison = trimmed.match(COMPARISON);
+    if (comparison === null) {
+        throw new Error(`Unsupported deployment template condition: ${trimmed}`);
+    }
+    const name = regexCapture(comparison, 1);
+    const operator = regexCapture(comparison, 2);
+    const literal = regexCapture(comparison, 3);
+    const equal = variable(variables, name) === parseLiteral(literal);
+    return operator === '===' || operator === '==' ? equal : !equal;
+}
+function renderExpression(expression, variables) {
+    const trimmed = expression.trim();
+    if (IDENTIFIER.test(trimmed)) {
+        const value = variable(variables, trimmed);
+        const rendered = value === null ? '' : String(value);
+        return trimmed === 'results' ? rendered : htmlEscape(rendered);
+    }
+    const ternary = trimmed.match(TERNARY);
+    if (ternary === null) {
+        throw new Error(`Unsupported deployment template expression: ${trimmed}`);
+    }
+    const whenTrue = regexCapture(ternary, 1);
+    const condition = regexCapture(ternary, 2);
+    const whenFalse = regexCapture(ternary, 3);
+    const value = evaluateCondition(condition, variables)
+        ? parseLiteral(whenTrue)
+        : parseLiteral(whenFalse);
+    return value === null ? '' : String(value);
+}
+function renderDeploymentTemplate(template, variables) {
+    const tokenPattern = /(\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\})/gu;
+    const frames = [];
+    let active = true;
+    let cursor = 0;
+    let output = '';
+    for (const match of template.matchAll(tokenPattern)) {
+        const token = match[0];
+        const index = match.index;
+        const text = template.slice(cursor, index);
+        if (text.includes('{{') || text.includes('{%') || text.includes('{#')) {
+            throw new Error('Malformed deployment template syntax');
+        }
+        if (active)
+            output += text;
+        if (token.startsWith('{{')) {
+            const rendered = renderExpression(token.slice(2, -2), variables);
+            if (active)
+                output += rendered;
+        }
+        else {
+            const statement = token.slice(2, -2).trim();
+            if (statement.startsWith('if ')) {
+                const frame = {
+                    condition: evaluateCondition(statement.slice(3), variables),
+                    parentActive: active,
+                    seenElse: false
+                };
+                frames.push(frame);
+                active = frame.parentActive && frame.condition;
+            }
+            else if (statement === 'else') {
+                const frame = frames.at(-1);
+                if (frame === undefined || frame.seenElse) {
+                    throw new Error('Unexpected deployment template else statement');
+                }
+                frame.seenElse = true;
+                active = frame.parentActive && !frame.condition;
+            }
+            else if (statement === 'endif') {
+                const frame = frames.pop();
+                if (frame === undefined) {
+                    throw new Error('Unexpected deployment template endif statement');
+                }
+                active = frame.parentActive;
+            }
+            else {
+                throw new Error(`Unsupported deployment template statement: ${statement}`);
+            }
+        }
+        cursor = index + token.length;
+    }
+    const remaining = template.slice(cursor);
+    if (remaining.includes('{{') ||
+        remaining.includes('{%') ||
+        remaining.includes('{#')) {
+        throw new Error('Malformed deployment template syntax');
+    }
+    if (frames.length !== 0) {
+        throw new Error('Unclosed deployment template if statement');
+    }
+    if (active)
+        output += remaining;
+    return output;
+}
+
+;// CONCATENATED MODULE: ./src/functions/post-deploy-message.ts
+
+
+
+
+
+
+// Helper function construct a post deployment message
+// :param context: The GitHub Actions event context
+// :param data: A data object containing attributes of the message
+//   - attribute: environment: The environment of the deployment (String)
+//   - attribute: environment_url: The environment url of the deployment (String)
+//   - attribute: status: The status of the deployment (String)
+//   - attribute: noop: Indicates whether the deployment is a noop or not (Boolean)
+//   - attribute: ref: The ref (branch) which is being used for deployment (String)
+//   - attribute: sha: The exact commit SHA of the deployment (String)
+//   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
+//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
+//   - attribute: deployment_id: The id of the deployment (String)
+//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
+//   - attribute: params: The raw string of deployment parameters (String)
+//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
+//   - attribute: deployment_end_time: The time the deployment ended - this value is not _exact_ but it is very close (String)
+//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
+//   - attribute: total_seconds: The total amount of seconds that the deployment took (Int)
+// :returns: The formatted message (String)
+function postDeployMessage(context, data, template = null) {
+    // fetch the inputs
+    const environment_url_in_comment = getBooleanActionInput('environment_url_in_comment');
+    const deploymentResults = checkInput(process.env['DEPLOY_MESSAGE']);
+    const vars = {
+        environment: data.environment,
+        environment_url: data.environment_url === '' ? null : data.environment_url,
+        status: data.status,
+        noop: data.noop,
+        ref: data.ref,
+        sha: data.sha,
+        approved_reviews_count: data.approved_reviews_count
+            ? parseInt(data.approved_reviews_count)
+            : null,
+        review_decision: data.review_decision === '' ? null : data.review_decision,
+        deployment_id: data.deployment_id ? parseInt(data.deployment_id) : null,
+        fork: data.fork,
+        params: data.params === '' ? null : data.params,
+        parsed_params: data.parsed_params === '' ? null : data.parsed_params,
+        deployment_end_time: data.deployment_end_time,
+        actor: context.actor,
+        logs: `${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/actions/runs/${String(process.env['GITHUB_RUN_ID'])}`,
+        commit_verified: data.commit_verified,
+        total_seconds: data.total_seconds,
+        results: deploymentResults ?? ''
+    };
+    if (template !== null) {
+        debug('using trusted deployment template');
+        return renderDeploymentTemplate(template, vars);
+    }
+    const parsedParams = vars.parsed_params === null || vars.parsed_params === ''
+        ? null
+        : decodedJsonValue(vars.parsed_params);
     const metadata = {
-        type: data.deploymentType.toLowerCase(),
+        status: vars.status,
         environment: {
-            name: data.environment,
-            url: data.environmentUrl !== null && data.environmentUrl !== ''
-                ? data.environmentUrl
-                : null
+            name: vars.environment,
+            url: vars.environment_url
         },
         deployment: {
-            logs: data.log_url
+            id: vars.deployment_id,
+            timestamp: vars.deployment_end_time,
+            logs: vars.logs,
+            duration: vars.total_seconds
         },
         git: {
-            branch: data.ref,
-            commit: data.sha,
-            verified: data.isVerified,
-            committer: String(data.committer),
-            html_url: data.commit_html_url
+            branch: vars.ref,
+            commit: vars.sha,
+            verified: vars.commit_verified
         },
         context: {
-            actor: context.actor,
-            noop: data.noopMode,
-            fork: data.isFork,
-            comment: {
-                created_at: issueComment.payload.comment.created_at,
-                updated_at: issueComment.payload.comment.updated_at,
-                body: data.body,
-                html_url: issueComment.payload.comment.html_url
-            }
+            actor: vars.actor,
+            noop: vars.noop,
+            fork: vars.fork
+        },
+        reviews: {
+            count: vars.approved_reviews_count,
+            decision: vars.review_decision
         },
         parameters: {
-            raw: data.params !== null && data.params !== '' ? data.params : null,
-            parsed: data.parsed_params
+            raw: vars.params,
+            parsed: parsedParams
         }
     };
     const metadataBlock = jsonCodeBlock(metadata);
-    const messageHeader = dedent(`
-    ### Deployment Confirmation Required 🚦
-
-    In order to proceed with this deployment, __${context.actor}__ must react to this comment with either a 👍 or a 👎.
-
-    - Commit: [\`${data.sha}\`](${data.commit_html_url})
-    - Committer: \`${String(data.committer)}\` - **${data.isVerified ? 'verified' : 'unverified'}**
-    - Environment: \`${data.environment}\`
-    - Branch: \`${data.ref}\`
-    - Deployment Type: \`${data.deploymentType}\`
-
-    > You will have \`${data.deployment_confirmation_timeout}\` seconds to confirm this deployment ([logs](${data.log_url})).
-
-  `);
-    const message = [
-        messageHeader,
-        '',
+    const deployment_metadata = [
         '<details><summary>Details</summary>',
         '',
-        '<!--- deployment-confirmation-metadata-start -->',
+        '<!--- post-deploy-metadata-start -->',
         '',
         metadataBlock,
         '',
-        '<!--- deployment-confirmation-metadata-end -->',
+        '<!--- post-deploy-metadata-end -->',
         '',
         '</details>'
     ].join('\n');
-    const comment = await octokit.rest.issues.createComment({
-        ...context.repo,
-        issue_number: context.issue.number,
-        body: message,
-        headers: API_HEADERS
-    });
-    const commentId = comment.data.id;
-    debug(`deployment confirmation comment id: ${commentId}`);
-    info(`⏰ waiting ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds for deployment confirmation`);
-    // Convert timeout to milliseconds for setTimeout
-    const timeoutMs = data.deployment_confirmation_timeout * 1000;
-    const startTime = Date.now();
-    const deadline = startTime + timeoutMs;
-    let pollInterval = 2000;
-    let firstPoll = true;
-    // Poll for reactions until we find a valid one or timeout
-    while (firstPoll || Date.now() < deadline) {
-        firstPoll = false;
-        try {
-            const decision = await findConfirmationReaction(context, octokit, commentId);
-            if (decision === 'confirmed') {
-                await octokit.rest.issues.updateComment({
-                    ...context.repo,
-                    comment_id: commentId,
-                    body: `${message}\n\n✅ Deployment confirmed by __${context.actor}__ at \`${timestamp()}\` UTC.`,
-                    headers: API_HEADERS
-                });
-                info(`✅ deployment confirmed by ${COLORS.highlight}${context.actor}${COLORS.reset} - sha: ${COLORS.highlight}${data.sha}${COLORS.reset}`);
-                return 'confirmed';
-            }
-            if (decision === 'rejected') {
-                await octokit.rest.issues.updateComment({
-                    ...context.repo,
-                    comment_id: commentId,
-                    body: `${message}\n\n❌ Deployment rejected by __${context.actor}__ at \`${timestamp()}\` UTC.`,
-                    headers: API_HEADERS
-                });
-                setFailed(`❌ deployment rejected by ${COLORS.highlight}${context.actor}${COLORS.reset}`);
-                return 'rejected';
-            }
-        }
-        catch (error) {
-            if (!isRetryableConfirmationError(error)) {
-                throw error;
-            }
-            warning(`temporary failure when checking for reactions on the deployment confirmation comment: ${legacyApiError(error).message}`);
-        }
-        const remainingMs = deadline - Date.now();
-        if (remainingMs <= 0) {
-            break;
-        }
-        await new Promise(resolve => setTimeout(resolve, Math.min(pollInterval, remainingMs)));
-        pollInterval = Math.min(pollInterval * 2, 10_000);
+    // If we get here, try to use the env var option with the default message structure
+    const deployMessageEnvVar = deploymentResults;
+    let deployTypeString = ' '; // a single space as a default
+    // Set the mode and deploy type based on the deployment mode
+    if (data.noop) {
+        deployTypeString = ' **noop** ';
     }
-    // Timeout reached without confirmation
-    await octokit.rest.issues.updateComment({
-        ...context.repo,
-        comment_id: commentId,
-        body: `${message}\n\n⏱️ Deployment confirmation timed out after \`${data.deployment_confirmation_timeout}\` seconds. The deployment request has been rejected at \`${timestamp()}\` UTC.`,
-        headers: API_HEADERS
-    });
-    setFailed(`⏱️ deployment confirmation timed out after ${COLORS.highlight}${data.deployment_confirmation_timeout}${COLORS.reset} seconds`);
-    return 'timed_out';
+    // Dynamically set the message text depending if the deployment succeeded or failed
+    let message;
+    let deployStatus;
+    if (data.status === 'success') {
+        message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${data.ref}\` to **${data.environment}**`;
+        deployStatus = '✅';
+    }
+    else if (data.status === 'failure') {
+        message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${data.ref}\` to **${data.environment}**`;
+        deployStatus = '❌';
+    }
+    else {
+        message = `Warning:${deployTypeString}deployment status is unknown, please use caution`;
+        deployStatus = '⚠️';
+    }
+    // Conditionally format the message body
+    let message_fmt;
+    if (deployMessageEnvVar !== null) {
+        const customMessageFmt = deployMessageEnvVar
+            .replace(/\\n/g, '\n')
+            .replace(/\\t/g, '\t');
+        message_fmt = [
+            `### Deployment Results ${deployStatus}`,
+            '',
+            message,
+            '',
+            '<details><summary>Show Results</summary>',
+            '',
+            customMessageFmt,
+            '',
+            '</details>',
+            '',
+            deployment_metadata
+        ].join('\n');
+    }
+    else {
+        message_fmt = [
+            `### Deployment Results ${deployStatus}`,
+            '',
+            message,
+            '',
+            deployment_metadata
+        ].join('\n');
+    }
+    // Conditionally add the environment url to the message body
+    // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
+    if (data.environment_url !== null &&
+        data.environment_url !== '' &&
+        data.status === 'success' &&
+        !data.noop &&
+        environment_url_in_comment) {
+        const environment_url_short = data.environment_url
+            .replace('https://', '')
+            .replace('http://', '');
+        message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${data.environment_url})`;
+    }
+    return message_fmt;
 }
-async function findConfirmationReaction(context, octokit, commentId) {
-    let page = 1;
-    while (true) {
-        const reactions = await octokit.rest.reactions.listForIssueComment({
+
+;// CONCATENATED MODULE: external "node:path"
+const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
+;// CONCATENATED MODULE: ./src/functions/trusted-deployment-template.ts
+
+
+
+function validRepositoryPath(path) {
+    return (path !== '' &&
+        !external_node_path_namespaceObject.posix.isAbsolute(path) &&
+        !path.includes('\\') &&
+        path
+            .split('/')
+            .every(segment => segment !== '' && segment !== '.' && segment !== '..'));
+}
+function decodeTemplate(value) {
+    if (typeof value !== 'object' ||
+        value === null ||
+        !('type' in value) ||
+        value.type !== 'file' ||
+        !('encoding' in value) ||
+        value.encoding !== 'base64' ||
+        !('content' in value) ||
+        typeof value.content !== 'string') {
+        throw new Error('Trusted deployment template response is not a file');
+    }
+    return Buffer.from(value.content, 'base64').toString('utf8');
+}
+async function loadTrustedDeploymentTemplate(octokit, context, path, trustedSha) {
+    if (!validRepositoryPath(path)) {
+        throw new Error('deploy_message_path must be a repository-relative path without traversal segments');
+    }
+    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu.test(trustedSha)) {
+        throw new Error('Trusted deployment template SHA is invalid');
+    }
+    try {
+        const response = await octokit.rest.repos.getContent({
             ...context.repo,
-            comment_id: commentId,
-            per_page: 100,
-            page,
+            path,
+            ref: trustedSha,
             headers: API_HEADERS
         });
-        for (const reaction of reactions.data) {
-            if (reaction.user === null) {
-                debug('ignoring reaction from an unknown user');
-            }
-            else if (reaction.user.login !== context.actor) {
-                debug(`ignoring reaction from ${reaction.user.login}, expected ${context.actor}`);
-            }
-            else if (reaction.content === deployment_confirmation_thumbsUp) {
-                return 'confirmed';
-            }
-            else if (reaction.content === deployment_confirmation_thumbsDown) {
-                return 'rejected';
-            }
-            else {
-                debug(`ignoring reaction: ${reaction.content}`);
-            }
-        }
-        if (reactions.data.length < 100) {
+        return decodeTemplate(response.data);
+    }
+    catch (error) {
+        if (legacyApiError(error).status === 404)
             return null;
-        }
-        page += 1;
+        throw error;
     }
 }
-function isRetryableConfirmationError(error) {
-    const status = legacyApiError(error).status;
-    if (status === undefined) {
-        return true;
+
+;// CONCATENATED MODULE: ./src/functions/post-deploy.ts
+
+
+
+
+
+
+
+
+
+
+
+
+const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`;
+const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`;
+// Helper function to help facilitate the process of completing a deployment
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :param data: The data object containing the deployment details:
+//   - attribute: sha: The exact commit SHA of the deployment (String)
+//   - attribute: comment_id: The comment_id which initially triggered the deployment Action
+//   - attribute: reaction_id: The reaction_id which was initially added to the comment that triggered the Action
+//   - attribute: status: The status of the deployment (String)
+//   - attribute: ref: The ref (branch) which is being used for deployment (String)
+//   - attribute: noop: Indicates whether the deployment is a noop or not (Boolean)
+//   - attribute: deployment_id: The id of the deployment (String)
+//   - attribute: environment: The environment of the deployment (String)
+//   - attribute: environment_url: The environment url of the deployment (String)
+//   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
+//   - attribute: labels: A dictionary of labels to apply to the issue (Object)
+//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
+//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
+//   - attribute: params: The raw string of deployment parameters (String)
+//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
+//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
+//   - attribute: deployment_start_time: The timestamp of when the deployment started (String)
+// :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
+async function postDeploy(context, octokit, data) {
+    // check the inputs to ensure they are valid
+    validateInputs(data);
+    // check the deployment status
+    const success = data.status === 'success';
+    // this is the timestamp that we consider the deployment to have ended at for logging and auditing purposes
+    // it is not the exact time the deployment ended, but it is very close
+    const now = new Date();
+    const deployment_end_time = now.toISOString();
+    debug(`deployment_end_time: ${deployment_end_time}`);
+    // calculate the total amount of seconds that the deployment took
+    const total_seconds = calculateDeploymentTime(data.deployment_start_time, deployment_end_time);
+    info(`🕒 deployment completed in ${COLORS.highlight}${total_seconds}${COLORS.reset} seconds`);
+    setActionOutput('total_seconds', total_seconds);
+    const deployMessagePath = checkInput(getActionInput('deploy_message_path'));
+    const template = deployMessagePath === null
+        ? null
+        : await loadTrustedDeploymentTemplate(octokit, context, deployMessagePath, data.trusted_sha);
+    const message = postDeployMessage(context, {
+        environment: data.environment,
+        environment_url: data.environment_url,
+        status: data.status,
+        noop: data.noop,
+        ref: data.ref,
+        sha: data.sha,
+        approved_reviews_count: data.approved_reviews_count,
+        deployment_id: data.deployment_id,
+        review_decision: data.review_decision,
+        fork: data.fork,
+        params: data.params,
+        parsed_params: data.parsed_params,
+        deployment_end_time: deployment_end_time,
+        commit_verified: data.commit_verified,
+        total_seconds: total_seconds
+    }, template);
+    const reactionId = data.reaction_id === null ||
+        data.reaction_id === undefined ||
+        data.reaction_id === ''
+        ? null
+        : parseInt(data.reaction_id);
+    // update the action status to indicate the result of the deployment as a comment
+    await actionStatus({
+        context,
+        octokit,
+        reactionId,
+        message,
+        result: success ? 'success' : 'failure'
+    });
+    // Update the deployment status of the branch-deploy
+    let deploymentStatus;
+    let labelsToAdd;
+    let labelsToRemove;
+    if (success) {
+        deploymentStatus = 'success';
+        if (data.noop) {
+            labelsToAdd = data.labels.successful_noop;
+            labelsToRemove = data.labels.failed_noop;
+        }
+        else {
+            labelsToAdd = data.labels.successful_deploy;
+            labelsToRemove = data.labels.failed_deploy;
+        }
     }
-    if ([408, 409, 429].includes(status)) {
-        return true;
+    else {
+        deploymentStatus = 'failure';
+        if (data.noop) {
+            labelsToAdd = data.labels.failed_noop;
+            labelsToRemove = data.labels.successful_noop;
+        }
+        else {
+            labelsToAdd = data.labels.failed_deploy;
+            labelsToRemove = data.labels.successful_deploy;
+        }
     }
-    return status >= 500 && status < 600;
+    debug(`deploymentStatus: ${deploymentStatus}`);
+    // if the deployment mode is noop, return here
+    if (data.noop) {
+        debug('deployment mode: noop');
+        // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
+        const lockResponse = await lock({
+            octokit,
+            context,
+            ref: null,
+            reactionId: null,
+            sticky: false,
+            environment: data.environment,
+            mode: { type: 'details', postDeployStep: false },
+            leaveComment: true
+        });
+        if (lockResponse.status === 'ambiguous') {
+            return undefined;
+        }
+        // obtain the lockData from the lock response
+        const lockData = lockResponse.lockData;
+        debug(JSON.stringify(lockData));
+        // if the lock is sticky, we will NOT remove it
+        if (lockData?.sticky === true) {
+            info(stickyMsg);
+        }
+        else if (lockData === null) {
+            warning('💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running');
+        }
+        else {
+            info(nonStickyMsg);
+            debug(`lockData.sticky: ${String(lockData.sticky)}`);
+            // remove the lock - use silent mode
+            await unlock({
+                octokit,
+                context,
+                reactionId: null,
+                target: { type: 'environment', environment: data.environment },
+                mode: 'silent'
+            });
+        }
+        // check to see if the pull request labels should be applied or not
+        if (success &&
+            data.labels.skip_successful_noop_labels_if_approved &&
+            data.review_decision === 'APPROVED') {
+            info(`⏩ skipping noop labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`);
+        }
+        else {
+            // attempt to add labels to the pull request (if any)
+            await label(context, octokit, labelsToAdd, labelsToRemove);
+        }
+        info(`✅ ${COLORS.success}post deploy completed! (noop)${COLORS.reset}`);
+        return 'success - noop';
+    }
+    // update the final deployment status with either success or failure
+    await createDeploymentStatus(octokit, context, data.ref, deploymentStatus, data.deployment_id, data.environment, data.environment_url // can be null
+    );
+    // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
+    const lockResponse = await lock({
+        octokit,
+        context,
+        ref: null,
+        reactionId: null,
+        sticky: false,
+        environment: data.environment,
+        mode: { type: 'details', postDeployStep: true },
+        leaveComment: false
+    });
+    if (lockResponse.status === 'ambiguous') {
+        return undefined;
+    }
+    // obtain the lockData from the lock response
+    const lockData = lockResponse.lockData;
+    debug(JSON.stringify(lockData));
+    // if the lock is sticky, we will NOT remove it
+    if (lockData?.sticky === true) {
+        info(stickyMsg);
+    }
+    else if (lockData === null) {
+        warning('💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running');
+    }
+    else {
+        info(nonStickyMsg);
+        debug(`lockData.sticky: ${String(lockData.sticky)}`);
+        // remove the lock - use silent mode
+        await unlock({
+            octokit,
+            context,
+            reactionId: null,
+            target: { type: 'environment', environment: data.environment },
+            mode: 'silent'
+        });
+    }
+    // check to see if the pull request labels should be applied or not
+    if (success &&
+        data.labels.skip_successful_deploy_labels_if_approved &&
+        data.review_decision === 'APPROVED') {
+        info(`⏩ skipping deploy labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`);
+    }
+    else {
+        // attempt to add labels to the pull request (if any)
+        await label(context, octokit, labelsToAdd, labelsToRemove);
+    }
+    // if the post deploy comment logic completes successfully, return
+    info(`✅ ${COLORS.success}post deploy completed!${COLORS.reset}`);
+    return 'success';
+}
+function post_deploy_validateInput(input, name) {
+    if (input === null || input === undefined || legacyLength(input) === 0) {
+        throw new Error(`no ${name} provided`);
+    }
+}
+function validateInputs(data) {
+    const requiredInputs = [
+        'comment_id',
+        'status',
+        'ref',
+        'environment',
+        'sha',
+        'commit_verified',
+        'trusted_sha'
+    ];
+    requiredInputs.forEach(input => {
+        post_deploy_validateInput(data[input], input);
+    });
+    if (data.noop === null || data.noop === undefined) {
+        throw new Error('no noop value provided');
+    }
+    if (!data.noop) {
+        // if the deployment is not a noop (e.g. a `.deploy`) then we need to validate a few extra inputs
+        const additionalInputs = ['deployment_id'];
+        additionalInputs.forEach(input => {
+            post_deploy_validateInput(data[input], input);
+        });
+    }
+}
+// Helper function to calculate the deployment time in seconds
+// :param start_time: The timestamp of when the deployment started (String)
+// :param end_time: The timestamp of when the deployment ended (String)
+// :returns: The total amount of seconds that the deployment took (Integer) - rounded to the nearest second
+function calculateDeploymentTime(start_time, end_time) {
+    const start = new Date(start_time);
+    const end = new Date(end_time);
+    return Math.round((end.getTime() - start.getTime()) / 1000);
+}
+
+;// CONCATENATED MODULE: ./src/functions/post.ts
+
+
+
+
+
+
+
+
+
+
+
+
+async function post() {
+    try {
+        const token = getActionState('actionsToken');
+        const bypass = getActionState('bypass') === 'true';
+        const skip_completing = getBooleanActionInput('skip_completing');
+        const data = {
+            sha: getActionState('sha'),
+            ref: getActionState('ref'),
+            comment_id: getActionState('comment_id'),
+            reaction_id: getActionState('reaction_id'),
+            noop: getActionState('noop') === 'true',
+            deployment_id: getActionState('deployment_id'),
+            environment: getActionState('environment'),
+            environment_url: checkInput(getActionState('environment_url')),
+            approved_reviews_count: getActionState('approved_reviews_count'),
+            review_decision: getActionState('review_decision'),
+            status: getActionInput('status'),
+            fork: getActionState('fork') === 'true',
+            params: getActionState('params'),
+            parsed_params: getActionState('parsed_params'),
+            labels: {
+                successful_deploy: stringToArray(getActionInput('successful_deploy_labels')),
+                successful_noop: stringToArray(getActionInput('successful_noop_labels')),
+                failed_deploy: stringToArray(getActionInput('failed_deploy_labels')),
+                failed_noop: stringToArray(getActionInput('failed_noop_labels')),
+                skip_successful_noop_labels_if_approved: getBooleanActionInput('skip_successful_noop_labels_if_approved'),
+                skip_successful_deploy_labels_if_approved: getBooleanActionInput('skip_successful_deploy_labels_if_approved')
+            },
+            commit_verified: getActionState('commit_verified') === 'true',
+            deployment_start_time: getActionState('deployment_start_time'),
+            trusted_sha: getActionState('trusted_sha')
+        };
+        // If bypass is set, exit the workflow
+        if (bypass) {
+            warning(`⛔ ${COLORS.highlight}bypass${COLORS.reset} set, exiting`);
+            return;
+        }
+        // Check the context of the event to ensure it is valid, return if it is not
+        const actionContext = branchDeployContext(github_context);
+        if (!contextCheck(actionContext)) {
+            return;
+        }
+        // Skip the process of completing a deployment, return
+        if (skip_completing) {
+            info(`⏩ ${COLORS.highlight}skip_completing${COLORS.reset} set, exiting`);
+            return;
+        }
+        // Create an octokit client with the retry plugin
+        const octokit = getOctokit(token, {
+            userAgent: `github/branch-deploy@${src_version_VERSION}`,
+            additionalPlugins: [retry]
+        });
+        info(`🧑‍🚀 commit SHA: ${COLORS.highlight}${data.sha}${COLORS.reset}`);
+        // Set the environment_url
+        if (data.environment_url === null) {
+            debug('environment_url not set, its value is null');
+        }
+        await postDeploy(actionContext, octokit, data);
+        return;
+    }
+    catch (error) {
+        const apiError = legacyApiError(error);
+        actions_core_error(apiError.stack);
+        setFailed(apiError.message);
+    }
+}
+
+;// CONCATENATED MODULE: ./src/functions/react-emote.ts
+
+
+
+// Fixed presets of allowed emote types as defined by GitHub
+const presets = [
+    '+1',
+    '-1',
+    'laugh',
+    'confused',
+    'heart',
+    'hooray',
+    'rocket',
+    'eyes'
+];
+// Helper function to add a reaction to an issue_comment
+// :param reaction: A string which determines the reaction to use (String)
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :returns: The reaction ID, or null when reactions are disabled or unavailable
+async function reactEmote(reaction, context, octokit) {
+    // Get the owner and repo from the context
+    const { owner, repo } = context.repo;
+    // If the reaction is not specified, return
+    if (!reaction || reaction.trim() === '') {
+        return null;
+    }
+    // Find the reaction in the list of presets, otherwise throw an error
+    const preset = presets.find(preset => preset === reaction.trim());
+    if (!preset) {
+        throw new Error(`Reaction "${reaction}" is not a valid preset`);
+    }
+    // Add the reaction to the issue_comment
+    try {
+        const reactRes = await octokit.rest.reactions.createForIssueComment({
+            owner,
+            repo,
+            comment_id: issueCommentContext(context).payload.comment.id,
+            content: preset,
+            headers: API_HEADERS
+        });
+        return reactRes.data.id;
+    }
+    catch (error) {
+        warning(`failed to add the initial reaction; continuing without decorative reactions: ${legacyApiError(error).message}`);
+        return null;
+    }
+}
+
+;// CONCATENATED MODULE: ./src/functions/unlock-on-merge.ts
+
+
+
+
+
+
+
+
+
+// Helper function to automatically find, and release a deployment lock when a pull request is merged
+// :param octokit: the authenticated octokit instance
+// :param context: the context object
+// :param environment_targets: the environment targets to check for unlocking
+// :return: true if all locks were released successfully, false otherwise
+async function unlockOnMerge(octokit, context, environment_targets) {
+    const event = legacyPullRequestEvent(context);
+    const pullRequest = event.pullRequest;
+    // first, check the context to ensure that the event is a pull request 'closed' event and that the pull request was merged
+    if (event.eventName !== 'pull_request' ||
+        event.action !== 'closed' ||
+        pullRequest?.merged !== true) {
+        warning(`this workflow can only run in the context of a ${COLORS.highlight}merged${COLORS.reset} pull request`);
+        info(`event name: ${String(event.eventName)}, action: ${String(event.action)}, merged: ${String(pullRequest?.merged)}`);
+        // many pull requests in a project will end up being closed without being merged, so we can just log this so its clear
+        if (event.action === 'closed') {
+            info(`pull request was closed but not merged so this workflow will not run - OK`);
+        }
+        return false;
+    }
+    // loop through all the environment targets and check each one for a lock associated with this merged pull request
+    const releasedEnvironments = [];
+    for (const environment of environment_targets.split(',')) {
+        // construct the lock branch name for this environment
+        const lockBranch = `${constructValidBranchName(environment)}-${LOCK_METADATA.lockBranchSuffix}`;
+        // Check if the lock branch exists
+        const branchExists = await checkBranch(octokit, context, lockBranch);
+        // if the lock branch does not exist at all, then there is no lock to release
+        if (!branchExists) {
+            info(`⏩ no lock branch found for environment ${COLORS.highlight}${environment}${COLORS.reset} - skipping...`);
+            continue;
+        }
+        // attempt to fetch the lockFile for this branch
+        const lockFile = await checkLockFile(octokit, context, lockBranch);
+        // check to see if the lockFile exists and if it does, check to see if it has a link property
+        if (legacyTruthy(lockFile) && legacyTruthy(lockFile.link)) {
+            // if the lockFile has a link property, find the PR number from the link
+            const prNumber = legacyArrayElement(legacyArrayElement(lockFile.link.split('/pull/')[1]).split('#issuecomment')[0]);
+            info(`🔍 checking lock for PR ${COLORS.info}${prNumber}${COLORS.reset} (env: ${COLORS.highlight}${environment}${COLORS.reset})`);
+            // if the PR number matches the PR number of the merged pull request, then this lock is associated with the merged pull request
+            if (prNumber === pullRequest.number.toString()) {
+                // release the lock
+                const result = await unlock({
+                    octokit,
+                    context,
+                    reactionId: null,
+                    target: { type: 'environment', environment },
+                    mode: 'silent'
+                });
+                // if the result is 'removed lock - silent', then the lock was successfully removed - append to the array for later use
+                if (result === 'removed lock - silent') {
+                    releasedEnvironments.push(environment);
+                }
+                else {
+                    debug(`unlock result for unlock-on-merge: ${result}`);
+                }
+                // log the result and format the output as it will always be a string ending with '- silent'
+                const resultFmt = result.replace('- silent', '');
+                info(`🔓 ${resultFmt.trim()} - environment: ${COLORS.highlight}${environment}${COLORS.reset}`);
+            }
+            else {
+                info(`⏩ lock for PR ${COLORS.info}${prNumber}${COLORS.reset} (env: ${COLORS.highlight}${environment}${COLORS.reset}) is not associated with PR ${COLORS.info}${pullRequest.number}${COLORS.reset} - skipping...`);
+            }
+        }
+        else {
+            info(`⏩ no lock file found for environment ${COLORS.highlight}${environment}${COLORS.reset} - skipping...`);
+            continue;
+        }
+    }
+    // if we get here, all locks had a best effort attempt to be released
+    setActionOutput('unlocked_environments', releasedEnvironments.join(','));
+    return true;
 }
 
 ;// CONCATENATED MODULE: ./src/operation-result.ts
@@ -47750,6 +42643,8 @@ const OPERATION_REASON_CODES = (/* unused pure expression or super */ null && ([
     'prechecks_failed',
     'commit_safety_failed',
     'deployment_order_failed',
+    'ref_changed',
+    'deployment_sha_mismatch',
     'confirmation_rejected',
     'confirmation_timed_out',
     'noop_ready',
@@ -47788,90 +42683,97 @@ function finishOperation(runResult, result) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function finish(outcome) {
+    if (outcome.error !== undefined) {
+        const error = legacyApiError(outcome.error);
+        actions_core_error(error.stack);
+        setFailed(error.message);
+    }
+    return finishOperation(outcome.runResult, {
+        schema_version: 1,
+        decision: outcome.decision,
+        reason_code: outcome.reasonCode,
+        operation: outcome.operation,
+        deployment_type: outcome.deploymentType ?? null,
+        environment: outcome.environment ?? null,
+        ref: outcome.ref ?? null,
+        sha: outcome.sha ?? null,
+        deployment_id: outcome.deploymentId ?? null
+    });
+}
+function main_terminal(operation, outcome) {
+    return finish({ ...outcome, operation });
+}
 // :returns: 'success', 'success - noop', 'success - merge deploy mode', 'failure', 'safe-exit', 'success - unlock on merge mode' or raises an error
 async function run() {
     let operation = 'none';
-    let deploymentType = null;
-    let resultEnvironment = null;
-    let resultRef = null;
-    let resultSha = null;
-    let resultDeploymentId = null;
-    const finish = (runResult, decision, reasonCode) => finishOperation(runResult, {
-        schema_version: 1,
-        decision,
-        reason_code: reasonCode,
-        operation,
-        deployment_type: deploymentType,
-        environment: resultEnvironment,
-        ref: resultRef,
-        sha: resultSha,
-        deployment_id: resultDeploymentId
-    });
     try {
         info(`🛸 github/branch-deploy ${COLORS.info}${src_version_VERSION}${COLORS.reset}`);
         debug(`context: ${JSON.stringify(github_context)}`);
-        // Get the inputs for the branch-deploy Action
         const token = getActionInput('github_token', { required: true });
-        // get all the Actions inputs and roll up them into a single object
         const inputs = getInputs();
-        // Create an octokit client with the retry plugin
         const octokit = getOctokit(token, {
             userAgent: `github/branch-deploy@${src_version_VERSION}`,
             additionalPlugins: [retry]
         });
-        // Set the state so that the post run logic will trigger
         saveActionState('isPost', 'true');
         saveActionState('actionsToken', token);
-        // setup the environment variable which is dynamically set throughout the Action
-        let environment = inputs.environment;
-        // If we are running in the 'unlock on merge' mode, run auto-unlock logic
         if (inputs.unlockOnMergeMode) {
             operation = 'unlock_on_merge';
-            resultEnvironment = inputs.environment;
             info(`🏃 running in 'unlock on merge' mode`);
             await unlockOnMerge(octokit, github_context, inputs.environment_targets);
             saveActionState('bypass', 'true');
-            return finish('success - unlock on merge mode', 'complete', 'unlock_on_merge_completed');
+            return main_terminal(operation, {
+                runResult: 'success - unlock on merge mode',
+                decision: 'complete',
+                reasonCode: 'unlock_on_merge_completed',
+                environment: inputs.environment
+            });
         }
-        // If we are running in the merge deploy mode, run commit checks
         if (inputs.mergeDeployMode) {
             operation = 'merge_deploy';
-            resultEnvironment = environment;
             info(`🏃 running in 'merge deploy' mode`);
-            const identical = await identicalCommitCheck(octokit, github_context, environment);
-            // always bypass post run logic as they is an entirely alternate workflow from the core branch-deploy Action
+            const identical = await identicalCommitCheck(octokit, github_context, inputs.environment);
             saveActionState('bypass', 'true');
-            return finish('success - merge deploy mode', identical ? 'stop' : 'continue', identical ? 'merge_deploy_not_required' : 'merge_deploy_required');
+            return main_terminal(operation, {
+                runResult: 'success - merge deploy mode',
+                decision: identical ? 'stop' : 'continue',
+                reasonCode: identical
+                    ? 'merge_deploy_not_required'
+                    : 'merge_deploy_required',
+                environment: inputs.environment
+            });
         }
-        // Get the body of the IssueOps command
         const actionContext = branchDeployContext(github_context);
-        const issueComment = issueCommentContext(actionContext);
-        const body = issueComment.payload.comment.body.trim();
-        // Check the context of the event to ensure it is valid, return if it is not
         if (!contextCheck(github_context)) {
             saveActionState('bypass', 'true');
-            return finish('safe-exit', 'stop', 'unsupported_event');
+            return main_terminal(operation, {
+                runResult: 'safe-exit',
+                decision: 'stop',
+                reasonCode: 'unsupported_event'
+            });
         }
-        // deprecated command/input checks
+        saveActionState('trusted_sha', github_context.sha);
+        const issueComment = issueCommentContext(actionContext);
+        const body = issueComment.payload.comment.body.trim();
         if (await isDeprecated(body, octokit, github_context)) {
             saveActionState('bypass', 'true');
-            return finish('safe-exit', 'stop', 'deprecated_command');
+            return main_terminal(operation, {
+                runResult: 'safe-exit',
+                decision: 'stop',
+                reasonCode: 'deprecated_command'
+            });
         }
+        const command = analyzeIssueCommand(body, {
+            globalFlag: inputs.global_lock_flag,
+            helpTrigger: inputs.help_trigger,
+            lockInfoAlias: inputs.lock_info_alias,
+            lockTrigger: inputs.lock_trigger,
+            noopTrigger: inputs.noop_trigger,
+            paramSeparator: inputs.param_separator,
+            trigger: inputs.trigger,
+            unlockTrigger: inputs.unlock_trigger
+        });
         if (inputs.disable_naked_commands &&
             (await nakedCommandCheck(body, inputs.param_separator, [
                 inputs.trigger,
@@ -47879,714 +42781,95 @@ async function run() {
                 inputs.lock_trigger,
                 inputs.unlock_trigger,
                 inputs.lock_info_alias
-            ], octokit, github_context))) {
+            ], octokit, github_context, command.naked))) {
             saveActionState('bypass', 'true');
-            return finish('safe-exit', 'stop', 'naked_command_disabled');
+            return main_terminal(operation, {
+                runResult: 'safe-exit',
+                decision: 'stop',
+                reasonCode: 'naked_command_disabled'
+            });
         }
-        // Get variables from the event context
-        const issue_number = issueComment.payload.issue.number;
-        const { owner, repo } = github_context.repo;
-        // set helpful outputs that can be used in other Actions / steps
+        const issueNumber = issueComment.payload.issue.number;
         setActionOutput('comment_body', body);
-        setActionOutput('issue_number', issue_number);
-        // check if the comment is a trigger and what type of trigger it is
-        const isDeploy = triggerCheck(body, inputs.trigger);
-        const isNoopDeploy = triggerCheck(body, inputs.noop_trigger);
-        const isLock = triggerCheck(body, inputs.lock_trigger);
-        const isUnlock = triggerCheck(body, inputs.unlock_trigger);
-        const isHelp = triggerCheck(body, inputs.help_trigger);
-        const isLockInfoAlias = triggerCheck(body, inputs.lock_info_alias);
-        if (isDeploy || isNoopDeploy) {
-            operation = isNoopDeploy ? 'noop' : 'deploy';
-            setActionOutput('type', 'deploy');
-        }
-        else if (isLock) {
-            operation = LOCK_METADATA.lockInfoFlags.some(flag => body.includes(flag))
-                ? 'lock_info'
-                : 'lock';
-            setActionOutput('type', 'lock');
-        }
-        else if (isUnlock) {
-            operation = 'unlock';
-            setActionOutput('type', 'unlock');
-        }
-        else if (isHelp) {
-            operation = 'help';
-            setActionOutput('type', 'help');
-        }
-        else if (isLockInfoAlias) {
-            operation = 'lock_info';
-            setActionOutput('type', 'lock-info-alias');
-        }
-        else {
-            // if no trigger is detected, exit here
+        setActionOutput('issue_number', issueNumber);
+        if (command.outputType === null) {
             saveActionState('bypass', 'true');
             setActionOutput('triggered', 'false');
             info('⛔ no trigger detected in comment - exiting');
-            return finish('safe-exit', 'stop', 'no_trigger');
+            return main_terminal(operation, {
+                runResult: 'safe-exit',
+                decision: 'stop',
+                reasonCode: 'no_trigger'
+            });
         }
-        // If we made it this far, the action has been triggered in one manner or another
+        operation = command.operation;
+        setActionOutput('type', command.outputType);
         setActionOutput('triggered', 'true');
-        // Add the reaction to the issue_comment which triggered the Action
         const reactionId = await reactEmote(inputs.reaction, actionContext, octokit);
         setActionOutput('comment_id', issueComment.payload.comment.id);
         saveActionState('comment_id', issueComment.payload.comment.id);
         setActionOutput('initial_reaction_id', reactionId ?? '');
         saveActionState('reaction_id', reactionId ?? '');
         setActionOutput('actor_handle', issueComment.payload.comment.user.login);
-        // If the command is a help request
-        if (isHelp) {
+        if (command.dispatch === 'help') {
             debug('help command detected');
-            // Check to ensure the user has valid permissions
-            const validPermissionsRes = await validPermissions(octokit, github_context, inputs.permissions);
-            // If the user doesn't have valid permissions, return an error
-            if (validPermissionsRes !== true) {
+            const permission = await validPermissions(octokit, github_context, inputs.permissions);
+            if (permission !== true) {
                 await actionStatus({
                     context: actionContext,
                     octokit,
                     reactionId,
-                    message: validPermissionsRes
+                    message: permission
                 });
-                // Set the bypass state to true so that the post run logic will not run
                 saveActionState('bypass', 'true');
-                setFailed(validPermissionsRes);
-                return finish('failure', 'failure', 'permission_denied');
+                setFailed(permission);
+                return main_terminal(operation, {
+                    runResult: 'failure',
+                    decision: 'failure',
+                    reasonCode: 'permission_denied'
+                });
             }
-            // Run the help command and exit
             await help(octokit, github_context, reactionId, inputs);
             saveActionState('bypass', 'true');
-            return finish('safe-exit', 'complete', 'help_completed');
+            return main_terminal(operation, {
+                runResult: 'safe-exit',
+                decision: 'complete',
+                reasonCode: 'help_completed'
+            });
         }
-        // If the command is a lock/unlock request
-        if (isLock || isUnlock || isLockInfoAlias) {
-            // Check to ensure the user has valid permissions
-            const validPermissionsRes = await validPermissions(octokit, github_context, inputs.permissions);
-            // If the user doesn't have valid permissions, return an error
-            if (validPermissionsRes !== true) {
-                await actionStatus({
-                    context: actionContext,
-                    octokit,
-                    reactionId,
-                    message: validPermissionsRes
-                });
-                // Set the bypass state to true so that the post run logic will not run
-                saveActionState('bypass', 'true');
-                setFailed(validPermissionsRes);
-                return finish('failure', 'failure', 'permission_denied');
-            }
-            // Check if the environment being locked/unlocked is a valid environment
-            const lockEnvTargetCheckObj = await environmentTargets({
-                mode: 'lock',
-                environment,
+        if (command.dispatch === 'lock' ||
+            command.dispatch === 'lock_info' ||
+            command.dispatch === 'unlock') {
+            return finish(await runDirectOperation({
                 body,
-                trigger: inputs.lock_trigger,
-                alternateTrigger: inputs.unlock_trigger,
+                command: { ...command, dispatch: command.dispatch },
                 context: actionContext,
+                environment: inputs.environment,
+                inputs,
                 octokit,
+                operation,
                 reactionId
-            });
-            // extract the environment target from the lockEnvTargetCheckObj
-            const lockEnvTargetCheck = lockEnvTargetCheckObj.environment;
-            resultEnvironment =
-                lockEnvTargetCheck === false ? null : lockEnvTargetCheck;
-            // If the environment targets are not valid, then exit
-            if (lockEnvTargetCheck === false) {
-                debug('No valid environment targets found for lock/unlock request');
-                return finish('safe-exit', 'stop', 'invalid_environment');
-            }
-            // If it is a lock or lock info releated request
-            if (isLock || isLockInfoAlias) {
-                // If the lock request is only for details
-                if (LOCK_METADATA.lockInfoFlags.some(substring => body.includes(substring)) ||
-                    isLockInfoAlias) {
-                    debug('detailsOnly lock request detected');
-                    // Get the lock details from the lock file
-                    const lockResponse = await lock({
-                        octokit,
-                        context: actionContext,
-                        ref: null,
-                        reactionId,
-                        sticky: null,
-                        environment: null,
-                        mode: { type: 'details', postDeployStep: false },
-                        leaveComment: true
-                    });
-                    // extract values from the lock response
-                    const lockStatus = lockResponse.status;
-                    if (lockStatus === false || lockStatus === 'ambiguous') {
-                        saveActionState('bypass', 'true');
-                        return finish('failure', 'failure', 'lock_conflict');
-                    }
-                    const lockData = legacyLockData(lockResponse.lockData);
-                    // If a lock was found
-                    if (lockStatus !== null) {
-                        // Find the total time since the lock was created
-                        const totalTime = timeDiff(lockData.created_at, new Date().toISOString());
-                        // special comment for global deploy locks
-                        let globalMsg = '';
-                        let environmentMsg = `- __Environment__: \`${String(lockData.environment)}\``;
-                        let lockBranchName = `${String(constructValidBranchName(lockData.environment))}-${LOCK_METADATA.lockBranchSuffix}`;
-                        if (legacyStrictTrue(lockData.global)) {
-                            globalMsg = dedent(`
-
-              This is a **global** deploy lock - All environments are currently locked
-
-              `);
-                            environmentMsg = dedent(`
-              - __Environments__: \`all\`
-              - __Global__: \`true\`
-              `);
-                            info(`🌏 there is a ${COLORS.highlight}global${COLORS.reset} deployment lock on this repository`);
-                            lockBranchName = LOCK_METADATA.globalLockBranch;
-                        }
-                        // Format the lock details message
-                        const lockMessageHeader = dedent(`
-            ### Lock Details 🔒
-
-            The deployment lock is currently claimed by __${lockData.created_by}__${globalMsg}
-            `);
-                        const lockMessageDetails = dedent(`
-            - __Branch__: \`${String(lockData.branch)}\`
-            - __Created At__: \`${lockData.created_at}\`
-            - __Created By__: \`${lockData.created_by}\`
-            - __Sticky__: \`${String(lockData.sticky)}\`
-            ${environmentMsg}
-            - __Comment Link__: [click here](${lockData.link})
-            - __Lock Link__: [click here](${String(process.env['GITHUB_SERVER_URL'])}/${owner}/${repo}/blob/${lockBranchName}/${LOCK_METADATA.lockFile})
-
-            The current lock has been active for \`${totalTime}\`
-
-            > If you need to release the lock, please comment \`${lockData.unlock_command}\`
-            `);
-                        const lockMessage = [
-                            lockMessageHeader,
-                            formatLockReason(lockData.reason),
-                            lockMessageDetails
-                        ].join('\n\n');
-                        // Update the issue comment with the lock details
-                        await actionStatus({
-                            context: actionContext,
-                            octokit,
-                            reactionId,
-                            message: lockMessage,
-                            result: 'alternate-success'
-                        });
-                        info(`🔒 the deployment lock is currently claimed by ${COLORS.highlight}${lockData.created_by}`);
-                    }
-                    else {
-                        // format the lock details message
-                        let lockCommand;
-                        let lockTarget;
-                        if (lockResponse.global) {
-                            lockTarget = 'global';
-                            lockCommand = `${inputs.lock_trigger} ${lockResponse.globalFlag}`;
-                        }
-                        else {
-                            lockTarget = lockResponse.environment;
-                            lockCommand = `${inputs.lock_trigger} ${String(lockTarget)}`;
-                        }
-                        const lockMessage = dedent(`
-            ### Lock Details 🔒
-
-            No active \`${String(lockTarget)}\` deployment locks found for the \`${owner}/${repo}\` repository
-
-            > If you need to create a \`${String(lockTarget)}\` lock, please comment \`${lockCommand}\`
-            `);
-                        await actionStatus({
-                            context: actionContext,
-                            octokit,
-                            reactionId,
-                            message: lockMessage,
-                            result: 'alternate-success'
-                        });
-                        info('✅ no active deployment locks found');
-                    }
-                    // Exit the action since we are done after obtaining only the lock details with --details
-                    saveActionState('bypass', 'true');
-                    return finish('safe-exit', 'complete', 'lock_info_completed');
-                }
-                // If the request is a lock request, attempt to claim the lock with a sticky request with the logic below
-                // Get the ref to use with the lock request
-                const pr = await octokit.rest.pulls.get({
-                    ...github_context.repo,
-                    pull_number: github_context.issue.number,
-                    headers: API_HEADERS
-                });
-                resultRef = pr.data.head.ref;
-                // Send the lock request
-                const lockResponse = await lock({
-                    octokit,
-                    context: actionContext,
-                    ref: pr.data.head.ref,
-                    reactionId,
-                    sticky: true,
-                    environment: null,
-                    mode: { type: 'acquire', postDeployStep: false },
-                    leaveComment: true
-                });
-                saveActionState('bypass', 'true');
-                if (lockResponse.status === true) {
-                    return finish('safe-exit', 'complete', 'lock_acquired');
-                }
-                if (lockResponse.status === 'owner') {
-                    return finish('safe-exit', 'complete', 'lock_already_owned');
-                }
-                return finish('safe-exit', 'stop', 'lock_conflict');
-            }
-            else {
-                // if it isn't a lock or lock info command, it must be an unlock command
-                debug('running unlock command logic');
-                const unlocked = await unlock({
-                    octokit,
-                    context: actionContext,
-                    reactionId,
-                    target: { type: 'context' },
-                    mode: 'interactive'
-                });
-                saveActionState('bypass', 'true');
-                if (unlocked) {
-                    return finish('safe-exit', 'complete', 'unlock_completed');
-                }
-                setFailed('failed to remove the deployment lock');
-                return finish('safe-exit', 'failure', 'unlock_failed');
-            }
+            }));
         }
-        // Check if the default environment is being overwritten by an explicit environment
-        const environmentObj = await environmentTargets({
-            mode: 'deployment',
-            environment,
+        return finish(await runDeploymentOperation({
             body,
-            trigger: inputs.trigger,
-            alternateTrigger: inputs.noop_trigger,
-            stableBranch: inputs.stable_branch,
             context: actionContext,
+            inputs,
+            issueComment,
+            issueNumber,
             octokit,
-            reactionId,
-            environmentUrls: inputs.environment_urls,
-            paramSeparator: inputs.param_separator
-        });
-        // convert the environmentObj to a json string and debug log it
-        debug(`environmentObj: ${JSON.stringify(environmentObj)}`);
-        // If the environment targets are not valid, then exit
-        if (environmentObj.environment === false) {
-            debug('No valid environment targets found');
-            return finish('safe-exit', 'stop', 'invalid_environment');
-        }
-        if (!legacyTruthy(environmentObj.environment)) {
-            debug('No valid environment targets found');
-            return finish('safe-exit', 'stop', 'invalid_environment');
-        }
-        // deconstruct the environment object to get the environment
-        environment = environmentObj.environment;
-        resultEnvironment = environment;
-        // deconstruct the environment object to get the stable_branch_used value
-        const stableBranchUsed = environmentObj.environmentObj.stable_branch_used;
-        // Final params computed by environment
-        const params = environmentObj.environmentObj.params;
-        const parsed_params = environmentObj.environmentObj.parsed_params;
-        info(`🌍 environment: ${COLORS.highlight}${environment}`);
-        saveActionState('environment', environment);
-        setActionOutput('environment', environment);
-        const data = {
-            environment: environment,
-            environmentObj: environmentObj.environmentObj,
-            issue_number: issue_number,
-            inputs: inputs
-        };
-        // Execute prechecks to ensure the Action can proceed
-        const precheckResults = await prechecks(actionContext, octokit, data);
-        resultRef = precheckResults.ref ?? null;
-        resultSha = precheckResults.sha ?? null;
-        setActionOutput('ref', precheckResults.ref);
-        saveActionState('ref', precheckResults.ref);
-        setActionOutput('sha', precheckResults.sha);
-        saveActionState('sha', precheckResults.sha);
-        debug(`precheckResults.sha: ${String(precheckResults.sha)}`);
-        // If the prechecks failed, run the actionStatus function and return
-        // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
-        if (!precheckResults.status) {
-            await actionStatus({
-                context: actionContext,
-                octokit,
-                reactionId,
-                message: precheckResults.message
-            });
-            // Set the bypass state to true so that the post run logic will not run
-            saveActionState('bypass', 'true');
-            setFailed(precheckResults.message);
-            return finish('failure', 'failure', 'prechecks_failed');
-        }
-        // run branch ruleset checks
-        await branchRulesetChecks(github_context, octokit, {
-            branch: inputs.stable_branch,
-            use_security_warnings: inputs.use_security_warnings
-        });
-        // fetch commit data from the API
-        const commitData = await octokit.rest.repos.getCommit({
-            owner: github_context.repo.owner,
-            repo: github_context.repo.repo,
-            ref: precheckResults.sha, // exact SHAs can be used here in the ref parameter (which is what we want)
-            headers: API_HEADERS
-        });
-        const committer = legacyCommitterLogin(commitData);
-        const commit_html_url = commitData.data.html_url;
-        if (committer === null || committer === undefined) {
-            warning('⚠️ could not find the login of the committer - https://github.com/github/branch-deploy/issues/379');
-        }
-        // Run commit safety checks
-        const commitSafetyCheckResults = commitSafetyChecks(github_context, {
-            commit: commitData.data.commit,
-            sha: commitData.data.sha,
-            inputs: inputs
-        });
-        // If the commitSafetyCheckResults failed, run the actionStatus function and return
-        // note: if we don't pass in the 'success' bool, actionStatus will default to failure mode
-        if (!commitSafetyCheckResults.status && !stableBranchUsed) {
-            await actionStatus({
-                context: actionContext,
-                octokit,
-                reactionId,
-                message: commitSafetyCheckResults.message
-            });
-            // Set the bypass state to true so that the post run logic will not run
-            saveActionState('bypass', 'true');
-            setFailed(commitSafetyCheckResults.message);
-            return finish('failure', 'failure', 'commit_safety_failed');
-        }
-        else if (!commitSafetyCheckResults.status && stableBranchUsed) {
-            warning('commit safety checks failed but the stable branch is being used so the workflow will continue - you should inspect recent commits on this branch as a precaution');
-        }
-        // check for enforced deployment order if the input was provided and we are NOT deploying to the stable branch
-        if (inputs.enforced_deployment_order.length > 0 && !stableBranchUsed) {
-            const deploymentOrderResults = await validDeploymentOrder(octokit, github_context, inputs.enforced_deployment_order, environment, precheckResults.sha);
-            if (!deploymentOrderResults.valid) {
-                // construct a colorized list of the previous environments that do not have active deployments
-                const combined_environments = deploymentOrderResults.results
-                    .map(result => {
-                    const color = result.active ? COLORS.success : COLORS.error;
-                    return `${color}${result.environment}${COLORS.reset}`;
-                })
-                    .join(',');
-                // construct a markdown message with checks or x's for each environment in an ordered list
-                const combined_environments_markdown = deploymentOrderResults.results
-                    .map(result => {
-                    const emoji = result.active ? '🟢' : '🔴';
-                    return `- ${emoji} **${result.environment}**`;
-                })
-                    .join('\n');
-                // format the error message
-                const enforced_deployment_order_failure_message = dedent(`
-            ### 🚦 Invalid Deployment Order
-
-            The deployment to \`${environment}\` cannot be proceed as the following environments need successful deployments first:
-
-            ${combined_environments_markdown}
-          `);
-                await actionStatus({
-                    context: actionContext,
-                    octokit,
-                    reactionId,
-                    message: enforced_deployment_order_failure_message
-                });
-                // Set the bypass state to true so that the post run logic will not run
-                saveActionState('bypass', 'true');
-                setFailed(`🚦 deployment order checks failed as not all previous environments have active deployments: ${combined_environments}`);
-                return finish('failure', 'failure', 'deployment_order_failed');
-            }
-        }
-        // conditionally handle how we want to apply locks on deployments
-        info(`🍯 sticky_locks: ${COLORS.highlight}${inputs.sticky_locks}${COLORS.reset}`);
-        info(`🍯 sticky_locks_for_noop: ${COLORS.highlight}${inputs.sticky_locks_for_noop}${COLORS.reset}`);
-        let stickyLocks;
-        // if sticky_locks is true, then we will use the sticky_locks logic
-        // if sticky_locks_for_noop is also true, then we will also use the sticky_locks logic for noop deployments
-        // if sticky_locks is false, then no sticky locks will be applied and only non-sticky locks will be used
-        // if sticky_locks is true but sticky_locks_for_noop is false, then we will only use sticky locks on non-noop deployments
-        if (precheckResults.noopMode) {
-            if (inputs.sticky_locks_for_noop) {
-                stickyLocks = true;
-            }
-            else {
-                stickyLocks = false;
-            }
-            debug(`🔒 noop mode detected and using stickyLocks: ${stickyLocks}`);
-        }
-        else {
-            stickyLocks = inputs.sticky_locks;
-        }
-        // if we are using sticky_locks in deployments, don't leave a comment as this is inferred by the user
-        const leaveComment = !stickyLocks ? true : false;
-        debug(`🔒 stickyLocks: ${stickyLocks}`);
-        debug(`💬 leaveComment: ${leaveComment}`);
-        // Aquire the branch-deploy lock
-        const lockResponse = await lock({
-            octokit,
-            context: actionContext,
-            ref: precheckResults.ref,
-            reactionId,
-            sticky: stickyLocks,
-            environment,
-            mode: { type: 'acquire', postDeployStep: false },
-            leaveComment
-        });
-        // If the lock request fails, exit the Action
-        if (lockResponse.status === false || lockResponse.status === 'ambiguous') {
-            return finish('safe-exit', 'stop', 'lock_conflict');
-        }
-        const github_run_id = parseInt(process.env['GITHUB_RUN_ID'] ?? '');
-        // Add a comment to the PR letting the user know that a deployment has been started
-        // Format the success message
-        const currentDeploymentType = precheckResults.noopMode
-            ? 'noop'
-            : environmentObj.environmentObj.sha !== null
-                ? 'sha'
-                : 'branch';
-        deploymentType = currentDeploymentType;
-        const log_url = `${String(process.env['GITHUB_SERVER_URL'])}/${github_context.repo.owner}/${github_context.repo.repo}/actions/runs/${github_run_id}`;
-        const cleanupRejectedConfirmation = async () => {
-            if (stickyLocks) {
-                return;
-            }
-            try {
-                const cleanupResult = await unlock({
-                    octokit,
-                    context: actionContext,
-                    reactionId: null,
-                    target: { type: 'environment', environment },
-                    mode: 'silent'
-                });
-                if (cleanupResult === 'failed to delete lock (bad status code) - silent') {
-                    warning('failed to release the non-sticky deployment lock after confirmation did not complete');
-                }
-            }
-            catch (error) {
-                warning(`failed to release the non-sticky deployment lock after confirmation did not complete: ${legacyApiError(error).message}`);
-            }
-        };
-        // if the deployment_confirmation is set to 'true', then we will prompt the user to confirm the deployment
-        if (inputs.deployment_confirmation) {
-            let confirmationResult;
-            try {
-                confirmationResult = await deploymentConfirmation(github_context, octokit, {
-                    sha: precheckResults.sha,
-                    ref: precheckResults.ref,
-                    deploymentType: currentDeploymentType,
-                    environment: environment,
-                    environmentUrl: environmentObj.environmentUrl,
-                    deployment_confirmation_timeout: inputs.deployment_confirmation_timeout,
-                    isVerified: commitSafetyCheckResults.isVerified,
-                    log_url: log_url,
-                    body: body,
-                    params: params,
-                    parsed_params: parsed_params,
-                    github_run_id: github_run_id,
-                    noopMode: precheckResults.noopMode,
-                    isFork: precheckResults.isFork,
-                    committer: committer,
-                    commit_html_url: commit_html_url
-                });
-            }
-            catch (error) {
-                await cleanupRejectedConfirmation();
-                throw error;
-            }
-            if (confirmationResult === 'confirmed') {
-                debug(`deploymentConfirmation() was successful - continuing with the deployment`);
-            }
-            else {
-                await cleanupRejectedConfirmation();
-                // Set the bypass state to true so that the post run logic will not run
-                saveActionState('bypass', 'true');
-                debug(`❌ deployment not confirmed - exiting`);
-                return finish('failure', 'failure', confirmationResult === 'rejected'
-                    ? 'confirmation_rejected'
-                    : 'confirmation_timed_out');
-            }
-        }
-        // this is the timestamp that we consider the deployment to have "started" at for logging and auditing purposes
-        // it is not the exact time the deployment started, but it is very close
-        const deployment_start_time = timestamp();
-        debug(`deployment_start_time: ${deployment_start_time}`);
-        saveActionState('deployment_start_time', deployment_start_time);
-        const preDeployMetadata = {
-            type: currentDeploymentType.toLowerCase(),
-            environment: {
-                name: environment,
-                url: environmentObj.environmentUrl !== null &&
-                    environmentObj.environmentUrl !== ''
-                    ? environmentObj.environmentUrl
-                    : null
-            },
-            deployment: {
-                timestamp: deployment_start_time,
-                logs: log_url
-            },
-            git: {
-                branch: precheckResults.ref,
-                commit: precheckResults.sha,
-                verified: commitSafetyCheckResults.isVerified,
-                committer: String(committer),
-                html_url: commit_html_url
-            },
-            context: {
-                actor: github_context.actor,
-                noop: precheckResults.noopMode,
-                fork: precheckResults.isFork,
-                comment: {
-                    created_at: issueComment.payload.comment.created_at,
-                    updated_at: issueComment.payload.comment.updated_at,
-                    body,
-                    html_url: issueComment.payload.comment.html_url
-                }
-            },
-            parameters: {
-                raw: params !== null && params !== '' ? params : null,
-                parsed: parsed_params
-            }
-        };
-        const preDeployMetadataBlock = jsonCodeBlock(preDeployMetadata);
-        const commentHeader = dedent(`
-      ### Deployment Triggered 🚀
-
-      __${github_context.actor}__, started a __${currentDeploymentType}__ deployment to __${environment}__ (${currentDeploymentType}: \`${precheckResults.ref}\`)
-
-      You can watch the progress [here](${log_url}) 🔗
-
-    `);
-        const commentBody = [
-            commentHeader,
-            '',
-            '<details><summary>Details</summary>',
-            '',
-            '<!--- pre-deploy-metadata-start -->',
-            '',
-            preDeployMetadataBlock,
-            '',
-            '<!--- pre-deploy-metadata-end -->',
-            '',
-            '</details>'
-        ].join('\n');
-        // Make a comment on the PR
-        const deploymentStartedComment = await octokit.rest.issues.createComment({
-            ...github_context.repo,
-            issue_number: github_context.issue.number,
-            body: commentBody,
-            headers: API_HEADERS
-        });
-        // Set output for initial comment id
-        setActionOutput('initial_comment_id', deploymentStartedComment.data.id);
-        saveActionState('initial_comment_id', deploymentStartedComment.data.id);
-        // Set outputs for noopMode
-        if (precheckResults.noopMode) {
-            setActionOutput('noop', precheckResults.noopMode);
-            setActionOutput('continue', 'true');
-            saveActionState('noop', precheckResults.noopMode);
-            info(`🧑‍🚀 commit sha to noop: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`);
-            info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`);
-            // If noop mode is enabled, return here
-            return finish('success - noop', 'continue', 'noop_ready');
-        }
-        else {
-            setActionOutput('noop', precheckResults.noopMode);
-            saveActionState('noop', precheckResults.noopMode);
-        }
-        // Get required_contexts for the deployment
-        let requiredContexts = [];
-        if (inputs.required_contexts !== '' &&
-            inputs.required_contexts !== 'false') {
-            requiredContexts = inputs.required_contexts
-                .split(',')
-                .map(function (item) {
-                return item.trim();
-            });
-        }
-        // Check if the environment is a production environment
-        const isProductionEnvironment = inputs.production_environments.includes(environment);
-        debug(`production_environment: ${isProductionEnvironment}`);
-        // if environmentObj.environmentObj.sha is not null, set auto_merge to false,
-        // otherwise if update_branch is set to 'disabled', then set auto_merge to false, otherwise set it to true
-        // this is important as we cannot reliably merge into the base branch if we are using a SHA
-        const auto_merge = environmentObj.environmentObj.sha !== null
-            ? false
-            : inputs.update_branch === 'disabled'
-                ? false
-                : true;
-        // Construct the deployment payload that will be sent to the GitHub API during the deployment creation
-        const payload = {
-            type: 'branch-deploy',
-            sha: precheckResults.sha,
-            params: params,
-            parsed_params: parsed_params,
-            github_run_id: github_run_id,
-            initial_comment_id: issueComment.payload.comment.id,
-            initial_reaction_id: reactionId,
-            deployment_started_comment_id: deploymentStartedComment.data.id,
-            timestamp: deployment_start_time,
-            commit_verified: commitSafetyCheckResults.isVerified,
-            actor: github_context.actor,
-            stable_branch_used: stableBranchUsed
-        };
-        // Create a new deployment
-        const createDeploymentResponse = await octokit.rest.repos.createDeployment({
-            owner: owner,
-            repo: repo,
-            ref: precheckResults.ref,
-            auto_merge: auto_merge,
-            required_contexts: requiredContexts,
-            environment: environment,
-            // description: "",
-            // :description note: Short description of the deployment.
-            production_environment: isProductionEnvironment,
-            // :production_environment note: specifies if the given environment is one that end-users directly interact with. Default: true when environment is production and false otherwise.
-            payload: payload,
-            headers: API_HEADERS
-        });
-        const createDeploy = createdDeployment(createDeploymentResponse.data);
-        setActionOutput('deployment_id', createDeploy.id);
-        saveActionState('deployment_id', createDeploy.id);
-        resultDeploymentId = createDeploy.id ?? null;
-        // If a merge to the base branch is required, let the user know and exit
-        if (typeof createDeploy.id === 'undefined' &&
-            createDeploy.message.includes('Auto-merged')) {
-            const mergeMessage = dedent(`
-        ### ⚠️ Deployment Warning
-
-        - Message: ${createDeploy.message}
-        - Note: If you have required CI checks, you may need to manually push a commit to re-run them
-
-        > Deployment will not continue. Please try again once this branch is up-to-date with the base branch
-        `);
-            await actionStatus({
-                context: actionContext,
-                octokit,
-                reactionId,
-                message: mergeMessage
-            });
-            warning(mergeMessage);
-            // Enable bypass for the post deploy step since the deployment is not complete
-            saveActionState('bypass', 'true');
-            return finish('safe-exit', 'stop', 'base_branch_update_required');
-        }
-        // Debug log information about the deployment that was just created
-        info(`📓 deployment id: ${COLORS.highlight}${String(createDeploy.id)}${COLORS.reset}`);
-        debug(`deployment.url: ${String(createDeploy.url)}`);
-        debug(`deployment.created_at: ${String(createDeploy.created_at)}`);
-        debug(`deployment.updated_at: ${String(createDeploy.updated_at)}`);
-        debug(`deployment.statuses_url: ${String(createDeploy.statuses_url)}`);
-        // Set the deployment status to in_progress
-        await createDeploymentStatus(octokit, github_context, precheckResults.ref, 'in_progress', legacyDeploymentId(createDeploy.id), environment, environmentObj.environmentUrl // environment_url (can be null)
-        );
-        info(`🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${precheckResults.sha}${COLORS.reset}`);
-        info(`🚀 ${COLORS.success}deployment started!${COLORS.reset}`);
-        setActionOutput('continue', 'true');
-        return finish('success', 'continue', 'deployment_ready');
+            operation,
+            reactionId
+        }));
     }
     catch (error) {
         saveActionState('bypass', 'true');
-        const apiError = legacyApiError(error);
-        actions_core_error(apiError.stack);
-        setFailed(apiError.message);
-        return finish(undefined, 'failure', 'unexpected_error');
+        return main_terminal(operation, {
+            runResult: undefined,
+            decision: 'failure',
+            reasonCode: 'unexpected_error',
+            error
+        });
     }
 }
 /* node:coverage ignore next */

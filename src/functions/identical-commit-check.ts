@@ -2,7 +2,8 @@ import * as core from '../actions-core.ts'
 import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
 import {saveActionState, setActionOutput} from '../action-io.ts'
-import {legacyDeploymentPayload} from '../trust-boundaries.ts'
+import {latestBranchDeployDeployment} from './deployment.ts'
+import type {DeploymentGraphqlOctokit} from './deployment.ts'
 import type {BranchDeployContext, BranchDeployOctokit} from '../types.ts'
 
 type GetRepositoryMethod = BranchDeployOctokit['rest']['repos']['get']
@@ -11,16 +12,11 @@ type FullGetRepositoryResponse = Awaited<ReturnType<GetRepositoryMethod>>
 type GetBranchMethod = BranchDeployOctokit['rest']['repos']['getBranch']
 type GetBranchParameters = Parameters<GetBranchMethod>[0]
 type FullGetBranchResponse = Awaited<ReturnType<GetBranchMethod>>
-type ListDeploymentsMethod =
-  BranchDeployOctokit['rest']['repos']['listDeployments']
-type ListDeploymentsParameters = Parameters<ListDeploymentsMethod>[0]
-type FullListDeploymentsResponse = Awaited<ReturnType<ListDeploymentsMethod>>
-type Deployment = FullListDeploymentsResponse['data'][number]
 type GetCommitMethod = BranchDeployOctokit['rest']['repos']['getCommit']
 type GetCommitParameters = Parameters<GetCommitMethod>[0]
 type FullGetCommitResponse = Awaited<ReturnType<GetCommitMethod>>
 
-export interface IdenticalCommitOctokit {
+export interface IdenticalCommitOctokit extends DeploymentGraphqlOctokit {
   readonly rest: {
     readonly repos: {
       readonly get: (parameters?: GetRepositoryParameters) => Promise<{
@@ -50,14 +46,6 @@ export interface IdenticalCommitOctokit {
             >
           }
         }
-      }>
-      readonly listDeployments: (
-        parameters?: ListDeploymentsParameters
-      ) => Promise<{
-        readonly data: readonly Pick<
-          Deployment,
-          'created_at' | 'id' | 'payload' | 'sha'
-        >[]
       }>
     }
   }
@@ -100,41 +88,28 @@ export async function identicalCommitCheck(
     `📍 latest commit sha on ${COLORS.highlight}${defaultBranchName}${COLORS.reset}: ${COLORS.info}${latestDefaultBranchCommitSha}${COLORS.reset}`
   )
 
-  // find the latest deployment with the payload type of branch-deploy
-  const {data: deploymentsData} = await octokit.rest.repos.listDeployments({
-    owner,
-    repo,
-    environment,
-    sort: 'created_at',
-    direction: 'desc',
-    per_page: 100,
-    headers: API_HEADERS
-  })
-  // loop through all deployments and look for the latest deployment with the payload type of branch-deploy
+  const latestDeployment = await latestBranchDeployDeployment(
+    octokit,
+    context,
+    environment
+  )
   let latestDeploymentTreeSha: string | undefined
   let createdAt: string | undefined
-  let deploymentId: number | undefined
-  for (const deployment of deploymentsData) {
-    if (legacyDeploymentPayload(deployment.payload).type === 'branch-deploy') {
-      latestDeploymentTreeSha = deployment.sha
-      createdAt = deployment.created_at
-      deploymentId = deployment.id
-
-      // get the tree sha of the latest deployment
-      const commitData = await octokit.rest.repos.getCommit({
-        owner,
-        repo,
-        ref: latestDeploymentTreeSha,
-        headers: API_HEADERS
-      })
-      latestDeploymentTreeSha = commitData.data.commit.tree.sha
-      break
-    } else {
-      core.debug(
-        `deployment.payload.type is not of the branch-deploy type: ${String(legacyDeploymentPayload(deployment.payload).type)} - skipping...`
-      )
-      continue
-    }
+  let deploymentId: string | undefined
+  if (latestDeployment?.state === 'ACTIVE') {
+    createdAt = latestDeployment.createdAt
+    deploymentId = latestDeployment.id
+    const commitData = await octokit.rest.repos.getCommit({
+      owner,
+      repo,
+      ref: latestDeployment.commit.oid,
+      headers: API_HEADERS
+    })
+    latestDeploymentTreeSha = commitData.data.commit.tree.sha
+  } else if (latestDeployment !== null) {
+    core.debug(
+      `latest branch-deploy deployment is ${latestDeployment.state} - skipping...`
+    )
   }
 
   core.info(

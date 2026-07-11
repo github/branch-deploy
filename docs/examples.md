@@ -191,8 +191,8 @@ helper code from the working pull request code selected by branch-deploy.
 
 - `.noop` runs `terraform plan` from the exact working commit SHA selected by branch-deploy
 - `.deploy` runs `terraform apply` from that same working commit SHA
-- deployment helper scripts and deployment message templates run from the trusted default-branch checkout
-- Terraform output is captured in `RUNNER_TEMP` and inserted into a trusted deployment message template
+- the deployment message template is fetched by Branch Deploy at the exact trusted workflow SHA
+- Terraform output is captured in `RUNNER_TEMP` and exported through `DEPLOY_MESSAGE`
 - merge deploy mode avoids redeploying a merge commit when the latest deployment already matches the default branch tree
 - unlock-on-merge mode cleans up sticky locks after the pull request merges
 
@@ -238,29 +238,6 @@ jobs:
       queue: max
 
     steps:
-      - name: derive trusted checkout path
-        id: trusted-path
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          set -euo pipefail
-          echo "DEFAULT_BRANCH=${DEFAULT_BRANCH}"
-
-          trusted_dir="$(printf '%s' "${DEFAULT_BRANCH}" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//')"
-
-          if [[ -z "${trusted_dir}" || "${trusted_dir}" == "." || "${trusted_dir}" == ".." ]]; then
-            echo "invalid trusted checkout directory derived from default branch: ${DEFAULT_BRANCH}" >&2
-            exit 1
-          fi
-
-          if [[ ! "${trusted_dir}" =~ ^[A-Za-z0-9._-]+$ ]]; then
-            echo "trusted checkout directory contains unsafe characters: ${trusted_dir}" >&2
-            exit 1
-          fi
-
-          echo "trusted_dir=${trusted_dir}" >> "${GITHUB_OUTPUT}"
-          echo "trusted checkout directory: ${trusted_dir}"
-
       - name: branch-deploy
         id: branch-deploy
         uses: github/branch-deploy@vX.X.X
@@ -268,7 +245,7 @@ jobs:
           trigger: ".deploy"
           sticky_locks: true
           deployment_confirmation: true
-          deploy_message_path: ${{ steps.trusted-path.outputs.trusted_dir }}/.github/deployment_message.md
+          deploy_message_path: .github/deployment_message.md
           allow_forks: false
 
       - name: derive working checkout path
@@ -276,10 +253,9 @@ jobs:
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
         env:
           DEPLOY_SHA: ${{ steps.branch-deploy.outputs.sha }}
-          TRUSTED_DIR: ${{ steps.trusted-path.outputs.trusted_dir }}
         run: |
           set -euo pipefail
-          echo "DEPLOY_SHA=${DEPLOY_SHA} - TRUSTED_DIR=${TRUSTED_DIR}"
+          echo "DEPLOY_SHA=${DEPLOY_SHA}"
 
           if [[ ! "${DEPLOY_SHA}" =~ ^[0-9a-fA-F]{40}([0-9a-fA-F]{24})?$ ]]; then
             echo "invalid branch-deploy sha output: ${DEPLOY_SHA}" >&2
@@ -288,22 +264,8 @@ jobs:
 
           working_dir="deployment-${DEPLOY_SHA}"
 
-          if [[ "${working_dir}" == "${TRUSTED_DIR}" ]]; then
-            echo "working checkout directory collides with trusted checkout directory: ${working_dir}" >&2
-            exit 1
-          fi
-
           echo "working_dir=${working_dir}" >> "${GITHUB_OUTPUT}"
           echo "working checkout directory: ${working_dir}"
-
-      - name: checkout trusted
-        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v7.0.0
-        with:
-          ref: ${{ github.sha }} # for issue_comment, github.sha is the last commit on the default branch
-          path: ${{ steps.trusted-path.outputs.trusted_dir }}
-          fetch-depth: 1
-          persist-credentials: false
 
       - name: checkout working deployment sha
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
@@ -317,27 +279,18 @@ jobs:
       - name: verify checkout provenance
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
         env:
-          TRUSTED_DIR: ${{ steps.trusted-path.outputs.trusted_dir }}
-          TRUSTED_SHA: ${{ github.sha }}
           WORKING_DIR: ${{ steps.working-path.outputs.working_dir }}
           WORKING_SHA: ${{ steps.branch-deploy.outputs.sha }}
         run: |
           set -euo pipefail
 
-          trusted_head="$(git -C "${TRUSTED_DIR}" rev-parse HEAD)"
           working_head="$(git -C "${WORKING_DIR}" rev-parse HEAD)"
-
-          if [[ "${trusted_head}" != "${TRUSTED_SHA}" ]]; then
-            echo "trusted checkout HEAD mismatch: expected ${TRUSTED_SHA}, got ${trusted_head}" >&2
-            exit 1
-          fi
 
           if [[ "${working_head}" != "${WORKING_SHA}" ]]; then
             echo "working checkout HEAD mismatch: expected ${WORKING_SHA}, got ${working_head}" >&2
             exit 1
           fi
 
-          echo "trusted checkout: ${TRUSTED_DIR}@${trusted_head}"
           echo "working checkout: ${WORKING_DIR}@${working_head}"
 
       - name: prepare terraform output path
@@ -411,12 +364,21 @@ jobs:
             exit 1
           fi
 
-      - name: update deploy comment
+      - name: export deploy message
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        working-directory: ${{ steps.trusted-path.outputs.trusted_dir }}
         env:
           RESULTS_PATH: ${{ steps.terraform-output.outputs.path }}
-        run: python3 script/ci/update_deploy_msg.py
+        run: |
+          set -euo pipefail
+          delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          while grep -Fxq "${delimiter}" "${RESULTS_PATH}"; do
+            delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          done
+          {
+            printf 'DEPLOY_MESSAGE<<%s\n' "${delimiter}"
+            cat "${RESULTS_PATH}"
+            printf '\n%s\n' "${delimiter}"
+          } >> "${GITHUB_ENV}"
 
       - name: check terraform plan
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' && steps.plan.outcome == 'failure' }}
@@ -535,56 +497,11 @@ jobs:
 <details><summary>Show Results</summary>
 
 ```terraform
-[[ results ]]
+{{ results }}
 ```
 
 </details>
 ````
-
-### `script/ci/update_deploy_msg.py`
-
-```python
-from pathlib import Path
-import os
-
-
-TEMPLATE_FILE = Path(".github/deployment_message.md")
-RESULTS_PLACEHOLDER = "[[ results ]]"
-DEFAULT_RESULTS = "No deployment results were captured."
-
-
-def read_results() -> str:
-    results_path = os.environ.get("RESULTS_PATH")
-    if results_path:
-        path = Path(results_path)
-        if path.exists():
-            return path.read_text()
-
-    return os.environ.get("MSG", DEFAULT_RESULTS)
-
-
-def escape_nunjucks_opening_delimiters(results: str) -> str:
-    escaped = []
-    for index, char in enumerate(results):
-        if char == "{" and index + 1 < len(results) and results[index + 1] in "{%#":
-            escaped.append("{ ")
-        else:
-            escaped.append(char)
-
-    return "".join(escaped)
-
-
-def main() -> None:
-    template = TEMPLATE_FILE.read_text()
-    results = escape_nunjucks_opening_delimiters(read_results().strip() or DEFAULT_RESULTS)
-    rendered = template.replace(RESULTS_PLACEHOLDER, results)
-    TEMPLATE_FILE.write_text(rendered)
-    print(rendered)
-
-
-if __name__ == "__main__":
-    main()
-```
 
 ## Heroku
 
