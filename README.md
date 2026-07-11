@@ -131,6 +131,10 @@ jobs:
 
 You can check out further examples by checking out our [examples](docs/examples.md) documentation
 
+## Upgrading to v12
+
+Branch Deploy v12 contains breaking changes. Review the [v11 to v12 upgrade guide](docs/v11-to-v12-upgrade-guide.md) before upgrading from v11.
+
 ## About 💡
 
 Before we get into details, let's first define a few key terms below:
