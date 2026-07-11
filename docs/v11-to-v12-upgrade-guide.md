@@ -2,6 +2,274 @@
 
 This guide explains user-visible behavior changes in the next major release.
 
+## Agent-assisted migration prompt
+
+The prompt below is designed for coding agents such as Codex or Claude. Replace the values in angle brackets where possible, then give the complete prompt to an agent that has access to the repository you want to migrate. The agent should still read this upgrade guide and the repository's own contribution instructions before making changes.
+
+<details>
+<summary>Copy the complete v11 to v12 migration prompt</summary>
+
+```text
+You are migrating an existing repository from Branch Deploy v11 to Branch Deploy v12. Work directly in the repository, inspect the current implementation before editing, and complete the migration with the smallest reviewable change set that preserves the repository's intended deployment behavior and security posture.
+
+Repository or working directory: <REPOSITORY_PATH_OR_URL>
+Target Branch Deploy reference: <EXACT_V12_COMMIT_SHA_OR_V12_TAG>
+GitHub hosting environment: <GITHUB_COM_GHES_OR_UNKNOWN>
+Runner environment: <GITHUB_HOSTED_SELF_HOSTED_OR_UNKNOWN>
+
+If any placeholder is still unknown, discover it from the repository where possible. Ask the user only when the answer materially changes safety or compatibility and cannot be established from repository files. Prefer an exact reviewed v12 commit SHA for pre-release or high-risk acceptance testing. For a normal released migration, follow the repository's established action-pinning policy: preserve a full-SHA pin and its version comment when that is the local convention, or use the stable `v12` major tag when that is the explicit policy. Do not silently replace exact pins with mutable tags.
+
+Primary objective
+
+Update every real Branch Deploy v11 consumer in this repository to v12, including IssueOps deployment workflows, merge-deploy workflows, unlock-on-merge workflows, reusable workflows, custom deployment-message templates, helper scripts, tests, examples, and repository-specific documentation. Preserve existing deployment semantics unless v12 intentionally changes a contract described below. Do not perform unrelated workflow modernization, dependency updates, formatting churn, or refactors.
+
+Authoritative sources
+
+1. Read the repository's root and nested `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, security policy, and maintainer documentation before editing.
+2. Read the v11-to-v12 upgrade guide from the target Branch Deploy revision in full.
+3. Read the target revision's `action.yml`, custom deployment-message documentation, trusted-checkout guidance, lock documentation, merge-deploy documentation, and unlock-on-merge documentation when those features are present in the consumer repository.
+4. Treat the consumer repository's existing workflows, scripts, tests, and pinning conventions as the source of truth for its intended behavior.
+5. Do not rely on remembered input names, defaults, output values, template syntax, permissions, or GitHub runner behavior when the checked-in files can answer the question.
+
+Non-negotiable constraints
+
+- Keep the migration narrowly scoped to Branch Deploy v12 compatibility and directly related security corrections.
+- Do not add runtime or test dependencies merely to perform the migration.
+- Do not loosen GitHub token permissions, branch protections, required checks, review gates, deployment confirmation, commit verification, trusted-checkout boundaries, environment protections, action pins, or workflow concurrency.
+- Do not remove existing scalar Branch Deploy outputs. V12 retains them as compatibility aliases even though `decision`, `reason_code`, and `result` are the recommended contract.
+- Do not rewrite the permissive IssueOps command grammar, replace branch-based deployment creation with SHA-based creation, disable API auto-merge, alter legacy lock handling, or change unrelated `null`, empty-string, or string sentinel behavior. Preserve supported `.noop` behavior. If repository tests or documentation intentionally cover `.deploy noop`, preserve its deprecated-command warning path rather than treating it as a supported noop alias; update stale operational instructions to `.noop` or the configured `noop_trigger`.
+- Do not assume Branch Deploy locks replace GitHub Actions `concurrency`. Locks coordinate IssueOps ownership; workflow concurrency may still be necessary to serialize shared infrastructure or remote state.
+- Do not execute helper scripts, templates, or deployment logic from an untrusted pull request checkout unless that is an explicit and reviewed part of the repository's threat model.
+- Do not merge, release, move tags, or modify repository settings unless the user explicitly authorizes those operations.
+- Preserve unrelated working-tree changes and keep generated files out of the diff unless the consumer repository requires them.
+
+Phase 1: inventory the current integration
+
+Before editing, produce an internal inventory of every relevant file and usage. Search the entire repository, including hidden GitHub configuration, for at least:
+
+- `branch-deploy` action references, including case differences, forked action owners, exact SHA pins, version comments, reusable workflows, and examples.
+- `issue_comment`, `pull_request`, and `push` workflows related to Branch Deploy.
+- `merge_deploy_mode` and `unlock_on_merge_mode`.
+- `deploy_message_path`, `.github/deployment_message.md`, `DEPLOY_MESSAGE`, `<%= results %>`, `{{ results }}`, `| safe`, and other Nunjucks constructs.
+- `allow_forks`, `commit_status`, `checks`, `ignored_checks`, `required_contexts`, `skip_ci`, `enforced_deployment_order`, `deployment_confirmation_timeout`, `reaction`, `initial_reaction_id`, `decision`, `reason_code`, and `result`.
+- Code that reads, validates, creates, copies, or deletes `lock.json` or `*-branch-deploy-lock` refs.
+- Code that parses Branch Deploy comments, logs, metadata blocks, output JSON, deployment history, or exact human-readable error text.
+- Checkout steps that use a pull request branch, `github.sha`, `github.event.pull_request.head.sha`, or `steps.<branch-deploy-step-id>.outputs.sha`.
+- Repository helper scripts executed after a pull request checkout.
+- Workflow permissions and concurrency groups used by deployment, noop, merge-deploy, and unlock jobs.
+
+Summarize the inventory before deciding what must change. Distinguish active production workflows from disabled files, fixtures, generated examples, vendored copies, and historical documentation. Update all active consumers and any maintained examples or tests that are expected to stay accurate, but do not rewrite archived history.
+
+Phase 2: select and update the action reference
+
+1. Identify the repository's pinning policy from nearby actions and dependency automation configuration.
+2. Update every active Branch Deploy v11 action reference that belongs to this migration.
+3. If the repository pins actions to full commit SHAs, resolve the user-approved v12 release or candidate to its full 40-character commit SHA and retain the repository's version-comment format, such as `# pin@v12.0.0` when appropriate. Verify the SHA from an authoritative GitHub source; never invent or truncate it.
+4. If the repository intentionally uses major tags, update the Branch Deploy reference to `@v12` only after confirming v12 has been released.
+5. Preserve the action owner already approved by the repository unless the user explicitly wants to switch between a fork and `github/branch-deploy`.
+6. Do not update unrelated actions as incidental churn.
+
+Phase 3: verify Node 24 compatibility
+
+Branch Deploy v12 runs as a Node 24 JavaScript action.
+
+1. Determine whether workflows use GitHub-hosted runners, self-hosted runners, GitHub Enterprise Server, or a mixture.
+2. GitHub-hosted users generally need no workflow change.
+3. For self-hosted runners, verify that the installed GitHub Actions runner version supports Node 24 actions. Do not assume that installing Node 24 in a setup step changes the runtime used internally by JavaScript actions.
+4. For GitHub Enterprise Server, verify that the deployed GHES version supports Node 24 JavaScript actions.
+5. If compatibility cannot be proven from repository or platform documentation, do not guess. Report it as a blocking operator check before production rollout.
+
+Phase 4: make the fork-deployment policy explicit
+
+V12 changes the `allow_forks` default from `true` to `false`.
+
+1. Determine whether this repository intentionally deploys pull requests from forks.
+2. If fork deployments are not intended, accept the safer v12 default. An existing explicit `allow_forks: false` may remain for clarity or be removed only if the repository normally avoids redundant defaults.
+3. If fork deployments are intentional, preserve that behavior by adding or retaining explicit `allow_forks: true` and clearly call out the security decision in the migration summary.
+4. When forks are enabled, verify that review requirements, CI checks, deployment confirmation where appropriate, trusted helper checkouts, environment protections, and exact deployment checkout SHAs remain in place.
+5. Never silently enable forks merely to preserve the old default.
+
+Phase 5: review CI-status handling
+
+V12 reads the complete paginated check rollup, collapses reruns by check identity, and fails closed when CI data is malformed or cannot be classified. `commit_status` can now be `UNAVAILABLE`.
+
+1. Find every workflow expression, script, test, or integration that reads `commit_status`.
+2. Add `UNAVAILABLE` as a deployment-blocking state where consumers enumerate possible values.
+3. Do not map `UNAVAILABLE` to “no checks,” success, null, or a bypass.
+4. Preserve intentional `skip_ci` policy, but do not add `skip_ci` as a workaround for transient GitHub API failures.
+5. Review explicit `checks`, `ignored_checks`, `required_contexts`, and status-context assumptions. Keep the intended policy; v12 now evaluates all pages and the newest rerun instead of allowing an older result to win.
+6. If tests mock GraphQL check data or legacy status contexts, update fixtures to include the identities, timestamps, database IDs, pagination, and commit identity required by the consumer's integration boundary.
+7. Document that operators should retry a command when GitHub temporarily returns indeterminate check data and investigate persistent `UNAVAILABLE` results.
+
+Phase 6: validate deployment history and order configuration
+
+V12 uses strict cursor pagination and the newest relevant deployment state.
+
+1. If `enforced_deployment_order` is configured, parse the configured environment list exactly as the action will receive it.
+2. Remove accidental duplicate environment entries.
+3. Ensure every environment that users can request while order enforcement is enabled appears in the configured order.
+4. Do not reorder environments unless the existing deployment policy clearly requires it.
+5. Understand that each preceding environment's newest deployment must be active at the selected SHA. An older active deployment no longer overrides a newer failed or inactive deployment.
+6. If `merge_deploy_mode` is used, preserve it. V12 skips only when the newest identifiable Branch Deploy deployment completed successfully and its tree matches the current default branch. Failed, pending, malformed, or missing history causes deployment to run again.
+7. Update tests or operational documentation that assumed an older successful deployment could override newer failed or pending history.
+
+Phase 7: update lock consumers without breaking legacy locks
+
+New v12 locks are created atomically and add `schema_version` and `claim_id`.
+
+1. Find strict JSON schemas, typed models, shell queries, policy checks, dashboards, cleanup scripts, or tests that inspect `lock.json`.
+2. Continue accepting legacy locks that omit both new fields.
+3. For new locks, accept optional `schema_version` with the current value `1`.
+4. Accept optional `claim_id` matching `sha256:` followed by 64 lowercase hexadecimal characters.
+5. Do not make either field mandatory when reading existing lock branches.
+6. Preserve all established fields and meanings, including ownership, branch, environment or global target, reason, sticky state, link, timestamps, and unlock command.
+7. Treat a lock branch without a readable `lock.json` as ambiguous and blocking. Do not automatically repair, overwrite, or claim it.
+8. Preserve sticky-lock behavior. Do not infer that idempotent lock acquisition makes later deployment scripts exactly once.
+9. Retain workflow concurrency for shared state or infrastructure even when Branch Deploy locks are enabled.
+
+Phase 8: adopt structured outputs carefully
+
+V12 recommends `decision`, `reason_code`, and `result`, while retaining existing scalar outputs.
+
+1. Ensure every Branch Deploy step that consumes outputs has a stable `id`.
+2. Existing scalar-output consumers may remain unchanged for the migration unless moving them to structured outputs clearly reduces brittle log or comment parsing.
+3. Prefer `decision == 'continue'` for the main deployment gate in new or intentionally updated logic.
+4. Prefer `reason_code` over matching human-readable comments, annotations, or logs.
+5. When parsing `result`, treat `schema_version` as the compatibility boundary and parse the JSON with a real JSON parser or GitHub's `fromJSON`, not string splitting or regular expressions.
+6. Preserve compatibility with nullable fields. Fields that are unknown or inapplicable are represented as `null` in the structured result.
+7. Remember that the main-phase result does not prove later consumer deployment steps or the post action succeeded.
+8. Update exhaustive reason-code handling to allow the v12 codes `ref_changed` and `deployment_sha_mismatch`. Both are failure outcomes and must not continue deployment.
+9. If the consumer has an allowlist of reason codes, compare it with the complete list in the v12 guide rather than adding only the two new codes.
+10. Do not remove old output checks solely because structured outputs exist; compatibility cleanup can be a separate deliberate change.
+
+Phase 9: review reactions and confirmation
+
+1. An empty `reaction` now intentionally disables decorative reactions.
+2. If custom code reads or deletes `initial_reaction_id`, guard that operation so an empty ID is a valid no-op.
+3. Initial and final decorative reaction API failures are best-effort warnings and no longer suppress the command or required status comment.
+4. Do not apply that tolerance to `deployment_confirmation`. Confirmation is an authorization decision and remains fail-closed.
+5. Preserve deployment-confirmation policy and timeout unless the user requests a policy change.
+6. Ensure `deployment_confirmation_timeout` is a plain positive integer such as `60`. Replace malformed values such as `10abc`, `0`, or negative numbers.
+
+Phase 10: migrate custom deployment templates
+
+This is the highest-risk compatibility area and must be inspected even if `deploy_message_path` is not explicitly set, because the default remains `.github/deployment_message.md`.
+
+1. Determine whether `.github/deployment_message.md` or another configured template exists.
+2. Treat `deploy_message_path` as a repository-relative path fetched through GitHub's Contents API at the exact trusted workflow SHA. It is no longer a runner filesystem path.
+3. Replace absolute paths, `${{ github.workspace }}` prefixes, checkout-directory prefixes, and expressions such as `${{ steps.trusted-path.outputs.trusted_dir }}/.github/deployment_message.md` with a repository-relative path such as `.github/deployment_message.md`.
+4. Reject or correct paths containing backslashes, empty segments, `.` segments, or `..` traversal.
+5. Do not add a checkout merely to make the template available. Branch Deploy fetches the template itself from the trusted SHA.
+6. Keep separate trusted checkouts for repository-owned helper scripts when those helpers are executed; the trusted template fetch does not make other checked-out files trustworthy.
+7. Replace legacy `<%= results %>` placeholders with `{{ results }}`.
+8. Replace `{{ results | safe }}` with `{{ results }}`.
+9. Remove Nunjucks-only filters, calls, property traversal, loops, includes, imports, macros, assignments, template comments, and arbitrary expressions.
+10. Use only the v12 safe grammar: allowlisted variable interpolation; nested `if`/`else`; boolean or negated-boolean conditions; `==`, `===`, `!=`, or `!==` comparisons against JSON primitive literals; and ternaries whose two result branches are literals.
+11. Remember that all comparisons are strict, including those written with `==` or `!=`.
+12. Supported condition literals are double-quoted JSON strings, booleans, null, and JSON numbers.
+13. Supported variables are documented by v12 and include `environment`, `environment_url`, `status`, `noop`, `ref`, `sha`, `actor`, `approved_reviews_count`, `review_decision`, `deployment_id`, `fork`, `params`, `parsed_params`, `deployment_end_time`, `logs`, `commit_verified`, `total_seconds`, and `results`. Do not invent variables.
+14. Ordinary runtime variables are HTML-escaped. Check whether the existing template intentionally depended on unescaped HTML or Markdown from one of those variables and redesign that output safely if necessary.
+15. `results` contains `DEPLOY_MESSAGE`, is inserted as raw Markdown, and is rendered once. Do not pre-escape template delimiters in deployment output. Text such as `{{ actor }}` inside `DEPLOY_MESSAGE` must remain literal and inert.
+16. A missing trusted template falls back to the standard message. Invalid paths, malformed responses, invalid trusted SHAs, and non-404 API failures stop the post action.
+17. Remove obsolete template-preprocessing helpers only when they exist solely to support the old Nunjucks or filesystem-path behavior and their removal does not affect other deployment output processing.
+18. Preserve safe output transport. For multiline `DEPLOY_MESSAGE`, use the repository's established environment-file mechanism and collision-safe delimiter handling rather than unsafe inline shell interpolation.
+
+Phase 11: preserve trusted checkout boundaries
+
+Issue-comment workflows load their workflow definition from the default branch, but pull request files checked out later are still pull request controlled.
+
+1. Continue using `steps.<branch-deploy-step-id>.outputs.sha` for the working checkout that contains the application or infrastructure being deployed.
+2. Validate that output as an exact commit SHA where the workflow derives paths or passes it to other tools.
+3. Use `github.sha` for a separate trusted checkout when repository-owned deployment helpers must run from the default-branch workflow commit.
+4. Prefer `fetch-depth: 1` and `persist-credentials: false` for checkouts unless the workflow has a documented reason to differ.
+5. Keep trusted helper code and deployable working content in separate directories.
+6. Put generated deployment output in a safe temporary location such as `RUNNER_TEMP` rather than allowing an untrusted checkout to redirect a trusted helper through a symlink or replaced file.
+7. Do not claim that `issue_comment` alone prevents secret theft. It protects the workflow definition, not arbitrary code checked out and executed later.
+
+Phase 12: account for mutable-ref and deployment-SHA failures
+
+V12 revalidates a pull request or stable-branch SHA immediately before noop continuation or deployment creation.
+
+1. Ensure consumer logic treats `ref_changed` as a failed operation and does not run deployment steps.
+2. Ensure `deployment_sha_mismatch` is also terminal and does not run deployment or post-processing steps as if creation succeeded.
+3. Continue checking out the immutable `sha` output for actual deployment content, not the mutable branch name.
+4. Do not add automatic retry loops that could deploy an unintended newer commit. Operators may rerun the IssueOps command after the branch stops moving and CI validates the new SHA.
+5. Preserve branch-based deployment creation and existing API auto-merge behavior; v12 intentionally retains both while bounding the race with revalidation.
+
+Phase 13: account for smaller strictness changes
+
+1. Interactive `.unlock` now fails when GitHub reports that the lock ref was not deleted. Do not interpret a failure comment with a successful process conclusion as the expected v12 behavior.
+2. The help output now reports the actual `allow_forks` boolean.
+3. Generated pre-deploy, confirmation, and post-deploy metadata use proper JSON serialization and may change whitespace or Markdown fence length while preserving marker comments, field order, names, and null semantics.
+4. If consumer tooling parses metadata, locate the relevant marker comments and parse the enclosed JSON with a real JSON parser. Do not depend on indentation, a fixed three-backtick fence, or ad hoc regular expressions.
+5. Preserve the repository's handling of labels, comments, outputs, and environment URLs unless a documented v12 change requires an adjustment.
+
+Phase 14: implement a minimal migration
+
+After completing the inventory and compatibility analysis:
+
+1. State the migration decisions you are making, especially the target action reference, fork policy, runner compatibility, template changes, and any consumer code that must understand new outputs or lock fields.
+2. Edit only files required for the migration.
+3. Preserve local YAML style, boolean style, quoting, key ordering, action-pin comments, step names, job names, permissions, and shell conventions unless a change is necessary.
+4. Keep existing environment names, triggers, commands, lock settings, merge-deploy behavior, unlock behavior, checkout targets, and deployment logic.
+5. Update repository documentation and examples that would otherwise instruct users to use v11 behavior.
+6. Add or update focused tests for changed consumer logic, templates, schemas, and workflow contracts. Do not introduce a new test framework.
+7. Do not generate or commit unrelated artifacts.
+
+Phase 15: verify the migration
+
+Run the repository's own documented formatting, lint, type-check, test, workflow-validation, and policy commands that apply to the changed files. Do not install dependencies without authorization, and follow the repository's package-manager and supply-chain policy.
+
+Perform targeted static checks:
+
+- Confirm no active Branch Deploy v11 references remain unless explicitly documented as intentional.
+- Confirm every replacement action reference matches the chosen v12 tag or exact SHA and the repository's pin-comment convention.
+- Confirm no active custom template contains `<%= results %>`, `| safe`, unsupported filters, calls, property access, loops, includes, imports, macros, assignments, or template comments.
+- Confirm every `deploy_message_path` is repository-relative and free of workspace or checkout-directory prefixes and traversal segments.
+- Confirm every strict lock consumer accepts legacy locks plus optional `schema_version: 1` and optional `claim_id`.
+- Confirm every exhaustive `commit_status` consumer blocks `UNAVAILABLE`.
+- Confirm every exhaustive reason-code consumer handles `ref_changed` and `deployment_sha_mismatch` as terminal failures.
+- Confirm every direct use of `initial_reaction_id` tolerates an empty value.
+- Confirm every `deployment_confirmation_timeout` is a positive integer.
+- Confirm enforced deployment-order configuration contains no duplicates and includes every requestable environment.
+- Confirm deployment content is checked out at the Branch Deploy `sha` output.
+- Confirm trusted repository helpers do not accidentally run from the pull request checkout.
+
+When practical, perform exact-SHA acceptance before switching a production workflow to the movable v12 tag. Use a harmless pull request and exercise the modes actually used by the repository. A representative matrix may include:
+
+- `.help` and command-dispatch behavior.
+- `.noop`, including selected SHA, outputs, comments, and post behavior.
+- Explicit `.lock`, `.wcid`, and `.unlock`, including the new lock fields and final cleanup.
+- `.deploy`, including deployment creation, selected SHA, in-progress and final status, comments, labels, and sticky or non-sticky lock behavior.
+- A trusted custom message with success, failure, noop, null, multiline, Markdown, and template-looking text inside `DEPLOY_MESSAGE` to prove one-pass inert insertion.
+- Merge-deploy mode for both deployment-required and already-deployed outcomes.
+- Unlock-on-merge mode, confirming it removes only locks associated with the merged pull request.
+- Fork behavior when the repository intentionally supports forks.
+- Deployment confirmation when enabled.
+- Cleanup that restores temporary workflow pins and fixtures and leaves no test lock or branch behind.
+
+Do not claim live acceptance was performed unless the workflows actually ran against the exact final candidate SHA. If the migration commit or target action SHA changes, previous exact-SHA acceptance is no longer evidence for the final state.
+
+Phase 16: final report
+
+At completion, provide a concise report with:
+
+1. The Branch Deploy references changed and the exact target version or SHA.
+2. The files changed.
+3. The fork-deployment policy selected.
+4. Node 24 runner or GHES compatibility status, including any operator verification still required.
+5. Custom-template migrations and any intentionally unsupported legacy syntax removed.
+6. Consumer updates for `UNAVAILABLE`, structured outputs, reason codes, locks, reactions, timeouts, metadata, deployment order, or mutable refs.
+7. Security properties preserved, especially trusted checkouts, exact deployment SHA checkout, permissions, environment protections, and concurrency.
+8. Tests and acceptance actually completed, without claiming commands or live runs that were not performed.
+9. Remaining risks, manual checks, or rollout steps.
+10. A clear statement that unrelated behavior was left unchanged.
+
+Stop and ask the user before proceeding if the migration would require intentionally enabling fork deployments, weakening CI or review requirements, changing deployment environments or order, removing concurrency around shared state, executing pull request helper code with secrets, changing repository permissions, using an unverified action reference, or making another breaking behavior change beyond the documented v12 migration.
+```
+
+</details>
+
 ## The action runs on Node 24
 
 ### What changed
