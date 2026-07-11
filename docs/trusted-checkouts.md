@@ -166,9 +166,9 @@ Then run the helper from the trusted checkout:
 
 Trusted checkouts work well with other branch-deploy safety settings:
 
-- Set `allow_forks: "false"` if your project does not need fork deployments.
+- Set `allow_forks: false` if your project does not need fork deployments.
 - Use branch protection, pull request reviews, and required status checks.
-- Use `commit_verification: "true"` if your project requires verified commits.
+- Use `commit_verification: true` if your project requires verified commits.
 - Always use the `sha` output for deployment checkouts.
 
 For Terraform or other tools with shared remote state, use GitHub Actions

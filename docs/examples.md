@@ -266,10 +266,10 @@ jobs:
         uses: github/branch-deploy@vX.X.X
         with:
           trigger: ".deploy"
-          sticky_locks: "true"
-          deployment_confirmation: "true"
+          sticky_locks: true
+          deployment_confirmation: true
           deploy_message_path: ${{ steps.trusted-path.outputs.trusted_dir }}/.github/deployment_message.md
-          allow_forks: "false"
+          allow_forks: false
 
       - name: derive working checkout path
         id: working-path
@@ -452,7 +452,7 @@ jobs:
         id: deployment-check
         uses: github/branch-deploy@vX.X.X
         with:
-          merge_deploy_mode: "true"
+          merge_deploy_mode: true
           environment: production
 
   deploy:
@@ -521,7 +521,7 @@ jobs:
         id: unlock-on-merge
         uses: github/branch-deploy@vX.X.X
         with:
-          unlock_on_merge_mode: "true"
+          unlock_on_merge_mode: true
           environment_targets: production
 ```
 
@@ -947,7 +947,7 @@ jobs:
         id: branch-deploy
         with:
           trigger: ".deploy"
-          skip_completing: 'true' # we will complete the deployment manually
+          skip_completing: true # we will complete the deployment manually
 
   deploy:
     needs: trigger
@@ -1133,7 +1133,7 @@ jobs:
           trigger: '.deploy'
           environment: 'github-pages'
           production_environments: 'github-pages'
-          skip_completing: 'true' # we will complete the deployment manually in the 'result' job
+          skip_completing: true # we will complete the deployment manually in the 'result' job
           admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
 
   # build the github-pages site with hugo
@@ -1375,7 +1375,7 @@ jobs:
           environment: 'github-pages'
           production_environments: 'github-pages'
           environment_targets: 'github-pages'
-          skip_completing: 'true' # we will complete the deployment manually in the 'result' job
+          skip_completing: true # we will complete the deployment manually in the 'result' job
           admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
 
   # build the github-pages site with Astro

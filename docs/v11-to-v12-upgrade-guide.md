@@ -22,7 +22,7 @@ Most users on GitHub-hosted runners do not need to change anything. Self-hosted 
 
 ### What changed
 
-The `allow_forks` input now defaults to `"false"`. Branch Deploy rejects deployment commands from forked pull requests unless the workflow explicitly opts back in with `allow_forks: "true"`.
+The `allow_forks` input now defaults to `false`. Branch Deploy rejects deployment commands from forked pull requests unless the workflow explicitly opts back in with `allow_forks: true`.
 
 Previously, fork deployments were allowed by default. v12 makes the safer behavior the default because forked pull requests are a stronger trust-boundary risk for deployment workflows.
 
@@ -32,8 +32,8 @@ Repositories that intentionally deploy forked pull requests must update their Br
 
 ### What should I do?
 
-- If you do not deploy forked pull requests, remove any redundant `allow_forks: "false"` setting or leave it in place for clarity.
-- If you intentionally deploy forked pull requests, set `allow_forks: "true"` explicitly.
+- If you do not deploy forked pull requests, remove any redundant `allow_forks: false` setting or leave it in place for clarity.
+- If you intentionally deploy forked pull requests, set `allow_forks: true` explicitly.
 - Combine fork support with required reviews, passing CI, trusted checkouts for helper code and templates, and deployment confirmation where appropriate.
 
 ## CI check verification fails closed

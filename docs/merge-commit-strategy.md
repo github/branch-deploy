@@ -55,7 +55,7 @@ jobs:
         uses: github/branch-deploy@vX.X.X # replace with the latest version of this Action
         id: deployment-check # ensure you have an 'id' set so you can reference the output of the Action later on
         with:
-          merge_deploy_mode: "true" # required, tells the Action to use the merge commit workflow strategy
+          merge_deploy_mode: true # required, tells the Action to use the merge commit workflow strategy
           environment: production # optional, defaults to 'production'
 
       # Now we can conditionally 'gate' our deployment logic based on the output of the Action

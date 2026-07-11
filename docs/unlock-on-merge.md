@@ -34,7 +34,7 @@ jobs:
         uses: github/branch-deploy@vX.X.X
         id: unlock-on-merge
         with:
-          unlock_on_merge_mode: "true" # <-- indicates that this is the "Unlock on Merge Mode" workflow
+          unlock_on_merge_mode: true # <-- indicates that this is the "Unlock on Merge Mode" workflow
 ```
 
 **Note**: It should be noted that if you use custom `environment_targets` on your main `branch-deploy` workflow, then you must also bring those settings over to this new workflow as well. See the example below:
@@ -54,5 +54,5 @@ jobs:
   uses: github/branch-deploy@vX.X.X
   id: unlock-on-merge
   with:
-    unlock_on_merge_mode: "true" # <-- indicates that this is the "Unlock on Merge Mode" workflow
+    unlock_on_merge_mode: true # <-- indicates that this is the "Unlock on Merge Mode" workflow
     environment_targets: "prod,stage,dev"

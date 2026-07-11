@@ -8,7 +8,7 @@ By using _Hubot Style Deployment Locks_, AKA _Sticky Deployment Locks_, you can 
 
 You read that last bit correctly 😉, the largest difference you will notice when using this setting is that all deployments (`.noop` and `.deploy`) will claim persistent (sticky) locks when they are invoked. This is helpful as you have to run one less command if your usual workflow is `.lock` then `.deploy`.
 
-This behavior is not enabled out of the box and you need to enable it in your Actions configuration with `sticky_locks: "true"`. The reasoning for this is that you should also configure the ["unlock on merge" mode workflow](./unlock-on-merge.md) to take full advantage of automatically releasing locks on PR merge. This extra workflow is really quite beneficial as you no longer need to worry about cleaning up locks after a PR is merged. As soon as you merge your PR where you were running deployments from, that PR is considered "done" and the lock is released.
+This behavior is not enabled out of the box and you need to enable it in your Actions configuration with `sticky_locks: true`. The reasoning for this is that you should also configure the ["unlock on merge" mode workflow](./unlock-on-merge.md) to take full advantage of automatically releasing locks on PR merge. This extra workflow is really quite beneficial as you no longer need to worry about cleaning up locks after a PR is merged. As soon as you merge your PR where you were running deployments from, that PR is considered "done" and the lock is released.
 
 You can still release locks manually with `.unlock` at any time and so can other users. This is helpful if you need to release a lock that is blocking a deployment from another PR or if you were just testing changes and want to release the lock.
 
@@ -23,7 +23,7 @@ Enabling sticky deployment locks for `.deploy` commands:
   id: branch-deploy
   uses: github/branch-deploy@vX.X.X
     with:
-      sticky_locks: "true" # <--- enables sticky deployment lock / hubot style deployment locks
+      sticky_locks: true # <--- enables sticky deployment lock / hubot style deployment locks
       # ... other configuration
 ```
 
@@ -34,7 +34,7 @@ Enabling sticky deployment locks for `.deploy` and `.noop` commands:
   id: branch-deploy
   uses: github/branch-deploy@vX.X.X
     with:
-      sticky_locks: "true" # <--- enables sticky deployment lock / hubot style deployment locks
-      sticky_locks_for_noop: "true" # <--- enables sticky deployment lock / hubot style deployment locks for noop deployments
+      sticky_locks: true # <--- enables sticky deployment lock / hubot style deployment locks
+      sticky_locks_for_noop: true # <--- enables sticky deployment lock / hubot style deployment locks for noop deployments
       # ... other configuration
 ```
