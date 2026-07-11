@@ -42339,7 +42339,7 @@ async function postDeploy(context, octokit, data) {
     // if the deployment mode is noop, return here
     if (data.noop) {
         debug('deployment mode: noop');
-        if (!(await completeLockLifecycle(context, octokit, data, false, true)))
+        if (!(await completeLockLifecycle(context, octokit, data, true, true)))
             return undefined;
         // check to see if the pull request labels should be applied or not
         if (success &&
