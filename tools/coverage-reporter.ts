@@ -19,14 +19,23 @@ interface ProjectCoveragePath {
   readonly synthetic: boolean
 }
 
+type CoverageScope = 'acceptance' | 'unit'
+
 const MOCK_QUERY = /(?:\?|&)node-test-mock(?:=|&|$)/u
 const SOURCE_DIRECTORIES = ['src', 'tools'] as const
+const UNIT_COVERAGE_EXCLUDED_PREFIXES = ['tools/acceptance/'] as const
+const ACCEPTANCE_SOURCE_DIRECTORY = 'tools/acceptance'
+const ACCEPTANCE_TYPE_ONLY_SOURCES = ['tools/acceptance/types.ts'] as const
 
 function toPosixPath(path: string): string {
   return path.split(sep).join('/')
 }
 
-function walkTypescriptFiles(directory: string, root: string): string[] {
+function walkTypescriptFiles(
+  directory: string,
+  root: string,
+  scope: CoverageScope
+): string[] {
   const files: string[] = []
 
   for (const entry of readdirSync(directory, {withFileTypes: true}).sort(
@@ -35,10 +44,10 @@ function walkTypescriptFiles(directory: string, root: string): string[] {
     const absolutePath = resolve(directory, entry.name)
 
     if (entry.isDirectory()) {
-      files.push(...walkTypescriptFiles(absolutePath, root))
+      files.push(...walkTypescriptFiles(absolutePath, root, scope))
     } else if (entry.isFile() && entry.name.endsWith('.ts')) {
       const projectPath = toPosixPath(relative(root, absolutePath))
-      if (!projectPath.endsWith('.d.ts') && projectPath !== 'src/types.ts') {
+      if (isCoverageSource(projectPath, scope)) {
         files.push(projectPath)
       }
     }
@@ -47,10 +56,17 @@ function walkTypescriptFiles(directory: string, root: string): string[] {
   return files
 }
 
-export function inventoryExecutableSources(root: string): string[] {
-  return SOURCE_DIRECTORIES.flatMap(directory =>
-    walkTypescriptFiles(resolve(root, directory), root)
-  ).sort()
+export function inventoryExecutableSources(
+  root: string,
+  scope: CoverageScope = 'unit'
+): string[] {
+  const directories =
+    scope === 'acceptance' ? [ACCEPTANCE_SOURCE_DIRECTORY] : SOURCE_DIRECTORIES
+  return directories
+    .flatMap(directory =>
+      walkTypescriptFiles(resolve(root, directory), root, scope)
+    )
+    .sort()
 }
 
 function normalizeCoveragePath(
@@ -86,8 +102,38 @@ function normalizeCoveragePath(
   return {path: projectPath, synthetic}
 }
 
-function isProjectSource(path: string): boolean {
-  return SOURCE_DIRECTORIES.some(directory => path.startsWith(`${directory}/`))
+function isProjectSource(path: string, scope: CoverageScope): boolean {
+  if (scope === 'acceptance') {
+    return (
+      path.startsWith(`${ACCEPTANCE_SOURCE_DIRECTORY}/`) &&
+      isAcceptanceCoverageSource(path)
+    )
+  }
+  return (
+    SOURCE_DIRECTORIES.some(directory => path.startsWith(`${directory}/`)) &&
+    isUnitCoverageSource(path)
+  )
+}
+
+function isCoverageSource(path: string, scope: CoverageScope): boolean {
+  return scope === 'acceptance'
+    ? isAcceptanceCoverageSource(path)
+    : isUnitCoverageSource(path)
+}
+
+function isUnitCoverageSource(path: string): boolean {
+  return (
+    !path.endsWith('.d.ts') &&
+    path !== 'src/types.ts' &&
+    !UNIT_COVERAGE_EXCLUDED_PREFIXES.some(prefix => path.startsWith(prefix))
+  )
+}
+
+function isAcceptanceCoverageSource(path: string): boolean {
+  return (
+    !path.endsWith('.d.ts') &&
+    !ACCEPTANCE_TYPE_ONLY_SOURCES.some(source => path === source)
+  )
 }
 
 function formatMetric(
@@ -106,7 +152,8 @@ function formatMetric(
 export function validateCoverage(
   records: readonly CoverageRecord[],
   root: string,
-  expectedSources: readonly string[] = inventoryExecutableSources(root)
+  expectedSources: readonly string[] = inventoryExecutableSources(root),
+  scope: CoverageScope = 'unit'
 ): string[] {
   const expected = new Set(expectedSources)
   const normalRecords = new Map<string, CoverageRecord[]>()
@@ -115,7 +162,7 @@ export function validateCoverage(
 
   for (const record of records) {
     const normalized = normalizeCoveragePath(record.path, root)
-    if (normalized === undefined || !isProjectSource(normalized.path)) {
+    if (normalized === undefined || !isProjectSource(normalized.path, scope)) {
       continue
     }
 
@@ -199,9 +246,16 @@ export function validateTestSummary(
   return `test policy failed: passed=${passed}/${tests}, skipped=${skipped}, todo=${todo}, cancelled=${cancelled}`
 }
 
+function coverageScopeFromEnv(): CoverageScope {
+  return process.env['BRANCH_DEPLOY_COVERAGE_SCOPE'] === 'acceptance'
+    ? 'acceptance'
+    : 'unit'
+}
+
 export async function* reportCoverage(
   source: AsyncIterable<TestEvent>,
-  root = process.cwd()
+  root = process.cwd(),
+  scope: CoverageScope = coverageScopeFromEnv()
 ): AsyncGenerator<string, void> {
   let coverageEvent: CoverageEvent | undefined
   let summaryEvent: SummaryEvent | undefined
@@ -229,18 +283,21 @@ export async function* reportCoverage(
   const testDiagnostic = validateTestSummary(summaryEvent.data)
   if (testDiagnostic !== undefined) throw new Error(testDiagnostic)
 
-  const expectedSources = inventoryExecutableSources(root)
+  const expectedSources = inventoryExecutableSources(root, scope)
   const diagnostics = validateCoverage(
     coverageEvent.data.summary.files,
     root,
-    expectedSources
+    expectedSources,
+    scope
   )
 
   if (diagnostics.length > 0) {
     throw new Error(`coverage policy failed:\n${diagnostics.join('\n')}`)
   }
 
-  yield `coverage policy: ${expectedSources.length} executable source files have 100% line, branch, and function coverage\n`
+  if (scope === 'unit') {
+    yield `coverage policy: ${expectedSources.length} executable source files have 100% line, branch, and function coverage\n`
+  }
 }
 
 async function* replayEvents(

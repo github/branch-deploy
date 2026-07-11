@@ -110,6 +110,7 @@ test('inventories only executable TypeScript source', context => {
     'src/types.ts',
     'src/vendor.d.ts',
     'src/readme.txt',
+    'tools/acceptance/index.ts',
     'tools/check.ts'
   ]) {
     const absolutePath = resolve(root, path)
@@ -124,6 +125,28 @@ test('inventories only executable TypeScript source', context => {
   ])
 })
 
+test('inventories acceptance harness source for acceptance coverage', context => {
+  const root = mkdtempSync(join(tmpdir(), 'branch-deploy-coverage-'))
+  context.after(() => rmSync(root, {recursive: true, force: true}))
+
+  for (const path of [
+    'src/main.ts',
+    'tools/acceptance/index.ts',
+    'tools/acceptance/mock-github.ts',
+    'tools/acceptance/types.ts',
+    'tools/check.ts'
+  ]) {
+    const absolutePath = resolve(root, path)
+    mkdirSync(dirname(absolutePath), {recursive: true})
+    writeFileSync(absolutePath, '')
+  }
+
+  assert.deepStrictEqual(inventoryExecutableSources(root, 'acceptance'), [
+    'tools/acceptance/index.ts',
+    'tools/acceptance/mock-github.ts'
+  ])
+})
+
 test('accepts full coverage and ignores non-project records', () => {
   const root = '/repo'
   const toolsUrl = pathToFileURL('/repo/tools/check.ts')
@@ -135,11 +158,66 @@ test('accepts full coverage and ignores non-project records', () => {
         coverageRecord('src/main.ts'),
         coverageRecord(toolsUrl.href),
         coverageRecord('/repo/dist/index.ts'),
+        coverageRecord('/repo/tools/acceptance/index.ts'),
         coverageRecord('/outside/vendor.ts'),
         coverageRecord('/')
       ],
       root,
       ['src/main.ts', 'tools/check.ts']
+    ),
+    []
+  )
+})
+
+test('validates acceptance coverage independently from unit coverage', () => {
+  assert.deepStrictEqual(
+    validateCoverage(
+      [
+        coverageRecord('/repo/src/main.ts'),
+        coverageRecord('/repo/tools/acceptance/index.ts'),
+        coverageRecord('/repo/tools/check.ts')
+      ],
+      '/repo',
+      ['tools/acceptance/index.ts', 'tools/acceptance/mock-github.ts'],
+      'acceptance'
+    ),
+    ['tools/acceptance/mock-github.ts: missing coverage record']
+  )
+})
+
+test('uses the acceptance coverage scope from the environment', async context => {
+  const root = mkdtempSync(join(tmpdir(), 'branch-deploy-coverage-'))
+  context.after(() => rmSync(root, {recursive: true, force: true}))
+
+  for (const path of [
+    'tools/acceptance/index.ts',
+    'tools/acceptance/types.ts',
+    'tools/check.ts'
+  ]) {
+    const absolutePath = resolve(root, path)
+    mkdirSync(dirname(absolutePath), {recursive: true})
+    writeFileSync(absolutePath, '')
+  }
+
+  const previousScope = process.env['BRANCH_DEPLOY_COVERAGE_SCOPE']
+  process.env['BRANCH_DEPLOY_COVERAGE_SCOPE'] = 'acceptance'
+  context.after(() => {
+    if (previousScope === undefined) {
+      delete process.env['BRANCH_DEPLOY_COVERAGE_SCOPE']
+    } else {
+      process.env['BRANCH_DEPLOY_COVERAGE_SCOPE'] = previousScope
+    }
+  })
+
+  assert.deepStrictEqual(
+    await collectReporterOutput(
+      events(
+        coverageEvent([
+          coverageRecord(resolve(root, 'tools/acceptance/index.ts'))
+        ]),
+        summaryEvent()
+      ),
+      root
     ),
     []
   )

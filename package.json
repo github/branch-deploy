@@ -10,6 +10,7 @@
     "typecheck:runtime": "tsc --project tsconfig.runtime.json",
     "lint": "node --input-type=module --eval \"const {runPolicy} = await import('./tools/typescript-policy.ts'); process.exitCode = runPolicy()\"",
     "package": "ncc build src/main.ts -o dist --source-map --license licenses.txt --target es2022",
+    "acceptance": "script/acceptance",
     "test": "script/test",
     "ci-test": "npm run test",
     "check": "npm run format-check && npm run typecheck && npm run typecheck:runtime && npm run lint && npm run test",
