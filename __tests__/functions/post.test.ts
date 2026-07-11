@@ -94,7 +94,8 @@ const validStates: Record<ActionStateKey, string> = {
     config: {db: {host: 'localhost', port: 5432}},
     _: ['LOG_LEVEL=debug']
   }),
-  deployment_start_time: '2024-01-01T00:00:00Z'
+  deployment_start_time: '2024-01-01T00:00:00Z',
+  disable_lock: 'false'
 }
 
 beforeEach(() => {
@@ -129,6 +130,22 @@ test('successfully runs post() Action logic', async () => {
   assertCalledWith(
     infoMock,
     `🧑‍🚀 commit SHA: ${COLORS.highlight}${validStates.sha}${COLORS.reset}`
+  )
+  assert.strictEqual(
+    postDeployMock.mock.calls.at(-1)?.arguments[2].disable_lock,
+    false
+  )
+})
+
+test('passes the saved disable_lock state to post deployment', async () => {
+  getActionStateMock.mock.mockImplementation(name =>
+    name === 'disable_lock' ? 'true' : validStates[name]
+  )
+
+  assert.strictEqual(await post(), undefined)
+  assert.strictEqual(
+    postDeployMock.mock.calls.at(-1)?.arguments[2].disable_lock,
+    true
   )
 })
 

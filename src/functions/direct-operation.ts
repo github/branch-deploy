@@ -35,6 +35,30 @@ export interface DirectOperationRequest {
   readonly reactionId: number | null
 }
 
+const lockingDisabledMessage =
+  '🔓 Deployment locking is disabled for this Action — lock/unlock commands have no effect.'
+
+async function reportLockingDisabled(
+  request: DirectOperationRequest,
+  environment: string
+): Promise<OperationOutcome> {
+  await actionStatus({
+    context: request.context,
+    octokit: request.octokit,
+    reactionId: request.reactionId,
+    message: lockingDisabledMessage,
+    result: 'alternate-success'
+  })
+  saveActionState('bypass', 'true')
+  return {
+    runResult: 'safe-exit',
+    decision: 'complete',
+    reasonCode: 'locking_disabled',
+    operation: request.operation,
+    environment
+  }
+}
+
 async function showLockDetails(
   request: DirectOperationRequest,
   environment: string
@@ -260,6 +284,10 @@ export async function runDirectOperation(
       }
     }
     progress.environment = target.environment
+
+    if (inputs.disable_lock) {
+      return await reportLockingDisabled(request, target.environment)
+    }
 
     if (command.dispatch === 'lock_info') {
       return await showLockDetails(request, target.environment)

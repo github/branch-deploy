@@ -87,6 +87,32 @@ Removing the global deploy lock:
 
 ![remove-global-deploy-lock](https://user-images.githubusercontent.com/23362539/224514485-e60605fd-0918-466e-9aab-7597fa32e7d9.png)
 
+## Disabling Locks
+
+Some workflows do not need deployment locking. Mobile pipelines that upload independently versioned artifacts to TestFlight or the Google Play Store are one example: concurrent uploads can be safe because one upload does not replace or mutate the other.
+
+Set `disable_lock: true` only after confirming that concurrent deployments cannot conflict and that any shared infrastructure or remote state has its own serialization policy:
+
+```yaml
+- uses: github/branch-deploy@v12
+  with:
+    disable_lock: true
+```
+
+When `disable_lock` is enabled for the normal IssueOps deployment workflow:
+
+- `.deploy` and `.noop` skip environment and global lock inspection and acquisition.
+- Post processing skips lock inspection and release while continuing to update deployment statuses, comments, reactions, and labels.
+- `.lock`, `.unlock`, `.wcid`, and lock-detail commands return an informational result with the `locking_disabled` reason code and do not read or modify lock state.
+- Existing environment and global lock branches are ignored and left unchanged.
+
+Because existing locks are ignored, enabling this input in a workflow where concurrent deployments can mutate the same service, environment, or state can cause overlapping deployments. Branch Deploy locks and GitHub Actions concurrency solve different coordination problems; disabling one does not automatically provide the other.
+
+If a lock branch already exists when you enable `disable_lock`, remove it before enabling the input or temporarily run an authorized workflow with `disable_lock: false` to use the normal unlock command. The disabled workflow intentionally cannot remove it.
+
+> [!NOTE]
+> If you want deployment locks to persist rather than be released automatically, use [hubot-style sticky locks](./hubot-style-deployment-locks.md) instead of disabling locks.
+
 ## Actions Concurrency
 
 > Note: Using the locking mechanism included in this Action (above) is highly recommended over Actions concurrency. The section below will be included anyways should you have a valid reason to use it instead of the deploy lock features this Action provides

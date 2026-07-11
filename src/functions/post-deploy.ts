@@ -39,6 +39,52 @@ export interface PostDeployRequest {
 const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`
 const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
 
+async function completeLockLifecycle(
+  context: BranchDeployContext,
+  octokit: PostDeployOctokit,
+  data: PostDeployData,
+  postDeployStep: boolean,
+  leaveComment: boolean
+): Promise<boolean> {
+  if (data.disable_lock) {
+    core.info('🔓 deployment locking is disabled; skipping lock completion')
+    return true
+  }
+
+  const lockResponse = await lock({
+    octokit,
+    context,
+    ref: null,
+    reactionId: null,
+    sticky: false,
+    environment: data.environment,
+    mode: {type: 'details', postDeployStep},
+    leaveComment
+  })
+  if (lockResponse.status === 'ambiguous') return false
+
+  const lockData = lockResponse.lockData
+  core.debug(JSON.stringify(lockData))
+  if (lockData?.sticky === true) {
+    core.info(stickyMsg)
+  } else if (lockData === null) {
+    core.warning(
+      '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
+    )
+  } else {
+    core.info(nonStickyMsg)
+    core.debug(`lockData.sticky: ${String(lockData.sticky)}`)
+    await unlock({
+      octokit,
+      context,
+      reactionId: null,
+      target: {type: 'environment', environment: data.environment},
+      mode: 'silent'
+    })
+  }
+  return true
+}
+
 // Helper function to help facilitate the process of completing a deployment
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
@@ -166,45 +212,8 @@ export async function postDeploy(
   // if the deployment mode is noop, return here
   if (data.noop) {
     core.debug('deployment mode: noop')
-    // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
-    const lockResponse = await lock({
-      octokit,
-      context,
-      ref: null,
-      reactionId: null,
-      sticky: false,
-      environment: data.environment,
-      mode: {type: 'details', postDeployStep: false},
-      leaveComment: true
-    })
-    if (lockResponse.status === 'ambiguous') {
+    if (!(await completeLockLifecycle(context, octokit, data, false, true)))
       return undefined
-    }
-
-    // obtain the lockData from the lock response
-    const lockData = lockResponse.lockData
-    core.debug(JSON.stringify(lockData))
-
-    // if the lock is sticky, we will NOT remove it
-    if (lockData?.sticky === true) {
-      core.info(stickyMsg)
-    } else if (lockData === null) {
-      core.warning(
-        '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
-      )
-    } else {
-      core.info(nonStickyMsg)
-      core.debug(`lockData.sticky: ${String(lockData.sticky)}`)
-
-      // remove the lock - use silent mode
-      await unlock({
-        octokit,
-        context,
-        reactionId: null,
-        target: {type: 'environment', environment: data.environment},
-        mode: 'silent'
-      })
-    }
 
     // check to see if the pull request labels should be applied or not
     if (
@@ -237,45 +246,8 @@ export async function postDeploy(
     data.environment_url // can be null
   )
 
-  // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
-  const lockResponse = await lock({
-    octokit,
-    context,
-    ref: null,
-    reactionId: null,
-    sticky: false,
-    environment: data.environment,
-    mode: {type: 'details', postDeployStep: true},
-    leaveComment: false
-  })
-  if (lockResponse.status === 'ambiguous') {
+  if (!(await completeLockLifecycle(context, octokit, data, true, false)))
     return undefined
-  }
-
-  // obtain the lockData from the lock response
-  const lockData = lockResponse.lockData
-  core.debug(JSON.stringify(lockData))
-
-  // if the lock is sticky, we will NOT remove it
-  if (lockData?.sticky === true) {
-    core.info(stickyMsg)
-  } else if (lockData === null) {
-    core.warning(
-      '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
-    )
-  } else {
-    core.info(nonStickyMsg)
-    core.debug(`lockData.sticky: ${String(lockData.sticky)}`)
-
-    // remove the lock - use silent mode
-    await unlock({
-      octokit,
-      context,
-      reactionId: null,
-      target: {type: 'environment', environment: data.environment},
-      mode: 'silent'
-    })
-  }
 
   // check to see if the pull request labels should be applied or not
   if (

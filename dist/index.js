@@ -35443,6 +35443,7 @@ const ACTION_INPUT_KEYS = (/* unused pure expression or super */ null && ([
     'deploy_message_path',
     'sticky_locks',
     'sticky_locks_for_noop',
+    'disable_lock',
     'allow_sha_deployments',
     'disable_naked_commands',
     'successful_deploy_labels',
@@ -35466,6 +35467,7 @@ const BOOLEAN_ACTION_INPUT_KEYS = (/* unused pure expression or super */ null &&
     'skip_completing',
     'sticky_locks',
     'sticky_locks_for_noop',
+    'disable_lock',
     'allow_sha_deployments',
     'disable_naked_commands',
     'skip_successful_noop_labels_if_approved',
@@ -35528,6 +35530,7 @@ const ACTION_STATE_KEYS = (/* unused pure expression or super */ null && ([
     'commit_verified',
     'deployment_id',
     'deployment_start_time',
+    'disable_lock',
     'environment',
     'environment_url',
     'fork',
@@ -40443,6 +40446,10 @@ async function acquireDeploymentLock(request, ready) {
     const { environment, precheck } = ready;
     info(`🍯 sticky_locks: ${COLORS.highlight}${inputs.sticky_locks}${COLORS.reset}`);
     info(`🍯 sticky_locks_for_noop: ${COLORS.highlight}${inputs.sticky_locks_for_noop}${COLORS.reset}`);
+    if (inputs.disable_lock) {
+        info('🔓 deployment locking is disabled; skipping lock acquisition');
+        return { cleanup: () => Promise.resolve() };
+    }
     const sticky = precheck.noopMode
         ? inputs.sticky_locks_for_noop
         : inputs.sticky_locks;
@@ -40820,6 +40827,7 @@ async function runDeploymentOperation(request) {
         const ready = await prepareDeployment(request, progress);
         if ('reasonCode' in ready)
             return ready;
+        saveActionState('disable_lock', request.inputs.disable_lock);
         const lockResult = await acquireDeploymentLock(request, ready);
         if ('reasonCode' in lockResult)
             return lockResult;
@@ -40861,6 +40869,24 @@ async function runDeploymentOperation(request) {
 
 
 
+const lockingDisabledMessage = '🔓 Deployment locking is disabled for this Action — lock/unlock commands have no effect.';
+async function reportLockingDisabled(request, environment) {
+    await actionStatus({
+        context: request.context,
+        octokit: request.octokit,
+        reactionId: request.reactionId,
+        message: lockingDisabledMessage,
+        result: 'alternate-success'
+    });
+    saveActionState('bypass', 'true');
+    return {
+        runResult: 'safe-exit',
+        decision: 'complete',
+        reasonCode: 'locking_disabled',
+        operation: request.operation,
+        environment
+    };
+}
 async function showLockDetails(request, environment) {
     const { context, inputs, octokit, operation, reactionId } = request;
     debug('detailsOnly lock request detected');
@@ -41058,6 +41084,9 @@ async function runDirectOperation(request) {
             };
         }
         progress.environment = target.environment;
+        if (inputs.disable_lock) {
+            return await reportLockingDisabled(request, target.environment);
+        }
         if (command.dispatch === 'lock_info') {
             return await showLockDetails(request, target.environment);
         }
@@ -41199,6 +41228,8 @@ async function help(octokit, context, reactionId, inputs) {
 
   This help message was automatically generated based on the inputs provided to this Action.
 
+  ${inputs.disable_lock ? '> Deployment locking is disabled. Lock-related commands only report that no lock state is changed.' : ''}
+
   ### 💻 Available Commands
 
   - \`${inputs.help_trigger}\` - Show this help message
@@ -41256,6 +41287,7 @@ async function help(octokit, context, reactionId, inputs) {
   - \`skipCi: ${skipCiDisplay}\` - ${skip_ci_message}
   - \`checks: ${checksDisplay}\` - ${checks_message}
   - \`use_security_warnings: ${inputs.use_security_warnings}\` - This Action will ${inputs.use_security_warnings ? 'use' : 'not use'} security warnings
+  - \`disable_lock: ${inputs.disable_lock}\` - This Action will ${inputs.disable_lock ? 'skip deployment lock acquisition and completion' : 'use deployment locks'}
   - \`ignored_checks: ${inputs.ignored_checks.join(',')}\` - ${ignored_checks_message}
   - \`skipReviews: ${skipReviewsDisplay}\` - ${skip_reviews_message}
   - \`draft_permitted_targets: ${draftPermittedTargetsDisplay}\` - ${draft_permitted_targets_message}
@@ -41442,6 +41474,7 @@ function getInputs() {
     const permissions = stringToArray(getActionInput('permissions'));
     const sticky_locks = getBooleanActionInput('sticky_locks');
     const sticky_locks_for_noop = getBooleanActionInput('sticky_locks_for_noop');
+    const disable_lock = getBooleanActionInput('disable_lock');
     const allow_sha_deployments = getBooleanActionInput('allow_sha_deployments');
     const disable_naked_commands = getBooleanActionInput('disable_naked_commands');
     const enforced_deployment_order = stringToArray(getActionInput('enforced_deployment_order'));
@@ -41493,6 +41526,7 @@ function getInputs() {
         param_separator: param_separator,
         sticky_locks: sticky_locks,
         sticky_locks_for_noop: sticky_locks_for_noop,
+        disable_lock: disable_lock,
         enforced_deployment_order: enforced_deployment_order,
         commit_verification: commit_verification,
         ignored_checks: ignored_checks,
@@ -42167,6 +42201,44 @@ async function loadTrustedDeploymentTemplate(octokit, context, path, trustedSha)
 
 const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`;
 const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`;
+async function completeLockLifecycle(context, octokit, data, postDeployStep, leaveComment) {
+    if (data.disable_lock) {
+        info('🔓 deployment locking is disabled; skipping lock completion');
+        return true;
+    }
+    const lockResponse = await lock({
+        octokit,
+        context,
+        ref: null,
+        reactionId: null,
+        sticky: false,
+        environment: data.environment,
+        mode: { type: 'details', postDeployStep },
+        leaveComment
+    });
+    if (lockResponse.status === 'ambiguous')
+        return false;
+    const lockData = lockResponse.lockData;
+    debug(JSON.stringify(lockData));
+    if (lockData?.sticky === true) {
+        info(stickyMsg);
+    }
+    else if (lockData === null) {
+        warning('💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running');
+    }
+    else {
+        info(nonStickyMsg);
+        debug(`lockData.sticky: ${String(lockData.sticky)}`);
+        await unlock({
+            octokit,
+            context,
+            reactionId: null,
+            target: { type: 'environment', environment: data.environment },
+            mode: 'silent'
+        });
+    }
+    return true;
+}
 // Helper function to help facilitate the process of completing a deployment
 // :param context: The GitHub Actions event context
 // :param octokit: The octokit client
@@ -42267,42 +42339,8 @@ async function postDeploy(context, octokit, data) {
     // if the deployment mode is noop, return here
     if (data.noop) {
         debug('deployment mode: noop');
-        // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
-        const lockResponse = await lock({
-            octokit,
-            context,
-            ref: null,
-            reactionId: null,
-            sticky: false,
-            environment: data.environment,
-            mode: { type: 'details', postDeployStep: false },
-            leaveComment: true
-        });
-        if (lockResponse.status === 'ambiguous') {
+        if (!(await completeLockLifecycle(context, octokit, data, false, true)))
             return undefined;
-        }
-        // obtain the lockData from the lock response
-        const lockData = lockResponse.lockData;
-        debug(JSON.stringify(lockData));
-        // if the lock is sticky, we will NOT remove it
-        if (lockData?.sticky === true) {
-            info(stickyMsg);
-        }
-        else if (lockData === null) {
-            warning('💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running');
-        }
-        else {
-            info(nonStickyMsg);
-            debug(`lockData.sticky: ${String(lockData.sticky)}`);
-            // remove the lock - use silent mode
-            await unlock({
-                octokit,
-                context,
-                reactionId: null,
-                target: { type: 'environment', environment: data.environment },
-                mode: 'silent'
-            });
-        }
         // check to see if the pull request labels should be applied or not
         if (success &&
             data.labels.skip_successful_noop_labels_if_approved &&
@@ -42319,42 +42357,8 @@ async function postDeploy(context, octokit, data) {
     // update the final deployment status with either success or failure
     await createDeploymentStatus(octokit, context, data.ref, deploymentStatus, data.deployment_id, data.environment, data.environment_url // can be null
     );
-    // obtain the lock data with detailsOnly set to true - ie we will not alter the lock
-    const lockResponse = await lock({
-        octokit,
-        context,
-        ref: null,
-        reactionId: null,
-        sticky: false,
-        environment: data.environment,
-        mode: { type: 'details', postDeployStep: true },
-        leaveComment: false
-    });
-    if (lockResponse.status === 'ambiguous') {
+    if (!(await completeLockLifecycle(context, octokit, data, true, false)))
         return undefined;
-    }
-    // obtain the lockData from the lock response
-    const lockData = lockResponse.lockData;
-    debug(JSON.stringify(lockData));
-    // if the lock is sticky, we will NOT remove it
-    if (lockData?.sticky === true) {
-        info(stickyMsg);
-    }
-    else if (lockData === null) {
-        warning('💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running');
-    }
-    else {
-        info(nonStickyMsg);
-        debug(`lockData.sticky: ${String(lockData.sticky)}`);
-        // remove the lock - use silent mode
-        await unlock({
-            octokit,
-            context,
-            reactionId: null,
-            target: { type: 'environment', environment: data.environment },
-            mode: 'silent'
-        });
-    }
     // check to see if the pull request labels should be applied or not
     if (success &&
         data.labels.skip_successful_deploy_labels_if_approved &&
@@ -42451,6 +42455,7 @@ async function post() {
             },
             commit_verified: getActionState('commit_verified') === 'true',
             deployment_start_time: getActionState('deployment_start_time'),
+            disable_lock: getActionState('disable_lock') === 'true',
             trusted_sha: getActionState('trusted_sha')
         };
         // If bypass is set, exit the workflow
@@ -42635,6 +42640,7 @@ const OPERATION_REASON_CODES = (/* unused pure expression or super */ null && ([
     'help_completed',
     'invalid_environment',
     'lock_info_completed',
+    'locking_disabled',
     'lock_acquired',
     'lock_already_owned',
     'lock_conflict',

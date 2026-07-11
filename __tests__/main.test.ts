@@ -244,6 +244,7 @@ const environmentDefaults = {
   INPUT_UNLOCK_ON_MERGE_MODE: 'false',
   INPUT_STICKY_LOCKS: 'false',
   INPUT_STICKY_LOCKS_FOR_NOOP: 'false',
+  INPUT_DISABLE_LOCK: 'false',
   INPUT_ALLOW_SHA_DEPLOYMENTS: 'false',
   INPUT_DISABLE_NAKED_COMMANDS: 'false',
   INPUT_OUTDATED_MODE: 'default_branch',
@@ -576,6 +577,48 @@ test('successfully runs the action', async () => {
     infoMock,
     `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
   )
+})
+
+test('successfully deploys without acquiring a lock when locking is disabled', async () => {
+  setEnv('INPUT_DISABLE_LOCK', 'true')
+
+  assert.strictEqual(await run(), 'success')
+  assertOperationResult({
+    decision: 'continue',
+    reason_code: 'deployment_ready',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: 'abc123',
+    deployment_id: 123
+  })
+  assertNotCalled(lockMock)
+  assertNotCalled(unlockMock)
+  assertCalledWith(saveStateMock, 'disable_lock', true)
+  assertCalledWith(
+    infoMock,
+    '🔓 deployment locking is disabled; skipping lock acquisition'
+  )
+})
+
+test('rejects a moved ref without lock cleanup when locking is disabled', async () => {
+  setEnv('INPUT_DISABLE_LOCK', 'true')
+  liveRefSha = 'new-commit'
+
+  assert.strictEqual(await run(), 'failure')
+  assertOperationResult({
+    decision: 'failure',
+    reason_code: 'ref_changed',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: mock_sha
+  })
+  assertNotCalled(lockMock)
+  assertNotCalled(unlockMock)
+  assertNotCalled(createDeploymentMock)
 })
 
 test('rejects a mutable PR ref that moves after prechecks', async () => {
@@ -1036,6 +1079,33 @@ test('successfully runs the action in noop mode', async () => {
   )
 })
 
+test('successfully runs a noop without acquiring a lock when locking is disabled', async () => {
+  setEnv('INPUT_DISABLE_LOCK', 'true')
+  setPrechecksResult({
+    ref: 'test-ref',
+    status: true,
+    message: 'approved',
+    noopMode: true,
+    sha: 'deadbeef',
+    isFork: false
+  })
+  setCommentBody('.noop')
+
+  assert.strictEqual(await run(), 'success - noop')
+  assertOperationResult({
+    decision: 'continue',
+    reason_code: 'noop_ready',
+    operation: 'noop',
+    deployment_type: 'noop',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: 'deadbeef'
+  })
+  assertNotCalled(lockMock)
+  assertNotCalled(unlockMock)
+  assertCalledWith(saveStateMock, 'disable_lock', true)
+})
+
 test('successfully runs the action in noop mode when using sticky_locks_for_noop set to true', async () => {
   setEnv('INPUT_STICKY_LOCKS_FOR_NOOP', 'true')
   prechecksMock.mock.mockImplementation(() =>
@@ -1214,6 +1284,7 @@ test('reports invalid deployment order configuration with a stable reason', asyn
 })
 
 test('runs the action in lock mode and fails due to bad permissions', async () => {
+  setEnv('INPUT_DISABLE_LOCK', 'true')
   setValidPermissionsResult(permissionsMsg)
 
   setCommentBody('.lock')
@@ -1233,6 +1304,36 @@ test('runs the action in lock mode and fails due to bad permissions', async () =
   assertCalledWith(saveStateMock, 'comment_id', 123)
   assertCalledWith(setFailedMock, permissionsMsg)
 })
+
+for (const [body, operation] of [
+  ['.lock', 'lock'],
+  ['.unlock', 'unlock'],
+  ['.wcid', 'lock_info']
+] as const) {
+  test(`${body} reports that deployment locking is disabled`, async () => {
+    setEnv('INPUT_DISABLE_LOCK', 'true')
+    setCommentBody(body)
+
+    assert.strictEqual(await run(), 'safe-exit')
+    assertOperationResult({
+      decision: 'complete',
+      reason_code: 'locking_disabled',
+      operation,
+      environment: 'production'
+    })
+    assertCalledWith(actionStatusMock, {
+      context: githubContext,
+      octokit,
+      reactionId: 123,
+      message:
+        '🔓 Deployment locking is disabled for this Action — lock/unlock commands have no effect.',
+      result: 'alternate-success'
+    })
+    assertCalledWith(saveStateMock, 'bypass', 'true')
+    assertNotCalled(lockMock)
+    assertNotCalled(unlockMock)
+  })
+}
 
 test('successfully runs the action in lock mode with a reason', async () => {
   setValidPermissionsResult(true)

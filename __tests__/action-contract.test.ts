@@ -67,6 +67,7 @@ const expectedInputContract = {
   },
   sticky_locks: {default: 'false', required: false},
   sticky_locks_for_noop: {default: 'false', required: false},
+  disable_lock: {default: 'false', required: false},
   allow_sha_deployments: {default: 'false', required: false},
   disable_naked_commands: {default: 'false', required: false},
   successful_deploy_labels: {default: '', required: false},
@@ -100,6 +101,7 @@ const expectedBooleanInputKeys = [
   'skip_completing',
   'sticky_locks',
   'sticky_locks_for_noop',
+  'disable_lock',
   'allow_sha_deployments',
   'disable_naked_commands',
   'skip_successful_noop_labels_if_approved',
@@ -167,7 +169,7 @@ test('action input and output registries exactly match action.yml', () => {
     [...ACTION_OUTPUT_KEYS].sort(),
     Object.keys(outputs).sort()
   )
-  assert.strictEqual(ACTION_INPUT_KEYS.length, 49)
+  assert.strictEqual(ACTION_INPUT_KEYS.length, 50)
   assert.strictEqual(ACTION_OUTPUT_KEYS.length, 41)
 })
 
@@ -195,7 +197,7 @@ test('action input defaults, required flags, and accepted literals stay fixed', 
 
 test('typed input registries stay complete and exact', () => {
   assert.deepStrictEqual(BOOLEAN_ACTION_INPUT_KEYS, expectedBooleanInputKeys)
-  assert.strictEqual(BOOLEAN_ACTION_INPUT_KEYS.length, 15)
+  assert.strictEqual(BOOLEAN_ACTION_INPUT_KEYS.length, 16)
   assert.deepStrictEqual(INTEGER_ACTION_INPUT_KEYS, expectedIntegerInputKeys)
   assert.deepStrictEqual(LITERAL_ACTION_INPUT_KEYS, expectedLiteralInputKeys)
   assert.deepStrictEqual(LITERAL_ACTION_INPUT_VALUES, {
