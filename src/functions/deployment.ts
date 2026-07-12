@@ -246,13 +246,14 @@ function deploymentPayloadKind(
   payload: unknown
 ): 'branch-deploy' | 'malformed' | 'other' {
   let parsed = payload
-  if (typeof payload === 'string') {
+  for (let layer = 0; layer < 2 && typeof parsed === 'string'; layer += 1) {
     try {
-      parsed = JSON.parse(payload) as unknown
+      parsed = JSON.parse(parsed) as unknown
     } catch {
       return 'malformed'
     }
   }
+  if (typeof parsed === 'string') return 'malformed'
   if (typeof parsed !== 'object' || parsed === null) {
     return parsed === null ? 'other' : 'malformed'
   }

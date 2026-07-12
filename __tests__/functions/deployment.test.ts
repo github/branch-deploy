@@ -313,6 +313,21 @@ test('accepts an object branch-deploy payload', async () => {
   )
 })
 
+test('accepts the double-encoded payload returned by GitHub GraphQL', async () => {
+  const deployment = {
+    ...activeDeploymentNode,
+    payload: JSON.stringify(JSON.stringify({type: 'branch-deploy'}))
+  }
+  graphqlMock.mock.mockImplementation(() =>
+    Promise.resolve(deploymentPage([deployment]))
+  )
+
+  assert.deepStrictEqual(
+    await latestBranchDeployDeployment(graphqlOctokit, context, environment),
+    deployment
+  )
+})
+
 test('returns null when deployment history has no branch-deploy deployment', async () => {
   graphqlMock.mock.mockImplementation(() =>
     Promise.resolve(
@@ -328,7 +343,13 @@ test('returns null when deployment history has no branch-deploy deployment', asy
   )
 })
 
-for (const payload of ['{', 1, {type: null}] as const) {
+for (const payload of [
+  '{',
+  JSON.stringify('{'),
+  JSON.stringify(JSON.stringify(JSON.stringify({type: 'branch-deploy'}))),
+  1,
+  {type: null}
+] as const) {
   test(`stops at malformed deployment payload ${JSON.stringify(payload)}`, async () => {
     graphqlMock.mock.mockImplementation(() =>
       Promise.resolve(
