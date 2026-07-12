@@ -36006,14 +36006,16 @@ async function deploymentPage(octokit, context, environment, first, cursor, expe
 }
 function deploymentPayloadKind(payload) {
     let parsed = payload;
-    if (typeof payload === 'string') {
+    for (let layer = 0; layer < 2 && typeof parsed === 'string'; layer += 1) {
         try {
-            parsed = JSON.parse(payload);
+            parsed = JSON.parse(parsed);
         }
         catch {
             return 'malformed';
         }
     }
+    if (typeof parsed === 'string')
+        return 'malformed';
     if (typeof parsed !== 'object' || parsed === null) {
         return parsed === null ? 'other' : 'malformed';
     }

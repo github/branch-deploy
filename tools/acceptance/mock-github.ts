@@ -441,7 +441,7 @@ function deploymentGraphql(
         environment: deployment.environment,
         updatedAt: deployment.updatedAt,
         id: `D_${deployment.id}`,
-        payload: JSON.stringify(deployment.payload),
+        payload: JSON.stringify(JSON.stringify(deployment.payload)),
         state: latestStatus?.state === 'success' ? 'ACTIVE' : 'INACTIVE',
         ref: {
           name: deployment.ref
