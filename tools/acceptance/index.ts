@@ -1057,16 +1057,11 @@ const scenarios = [
           runMain(context, {}, 'OtherUser', 1001)
         ])
         assert.deepEqual(
-          new Set([firstResult.code, secondResult.code]),
-          new Set([0, 1]),
-          diagnostics(context, firstResult)
-        )
-        assert.deepEqual(
           new Set([
-            requireOutput(context, firstResult, 'reason_code'),
-            requireOutput(context, secondResult, 'reason_code')
+            `${firstResult.code}:${requireOutput(context, firstResult, 'reason_code')}`,
+            `${secondResult.code}:${requireOutput(context, secondResult, 'reason_code')}`
           ]),
-          new Set(['lock_acquired', 'lock_conflict']),
+          new Set(['0:lock_acquired', '1:lock_conflict']),
           diagnostics(context, secondResult)
         )
         const lock = requireMockLock(context, lockBranch('production'))
