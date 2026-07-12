@@ -140,6 +140,7 @@ export interface MockGitHubState {
   pullRequestMoveAfterReads: number
   pullRequestMoveSha: string | null
   pullRequestReads: number
+  refCreationBarrierTarget: number
   reactionFailureConsumed: boolean
   reactions: MockReaction[]
   repo: string
