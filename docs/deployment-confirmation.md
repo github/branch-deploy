@@ -6,7 +6,7 @@ For projects that require the highest level of deployment safety/security, the b
 
 This can be considered a "final safety check" before a deployment can continue.
 
-By using this feature, it is also an extremely effective way to prevent accidental or malicious commits from being deployed without first having one last safety review. This is important for hardening against Actions related [TOCTOU](https://github.com/AdnaneKhan/ActionsTOCTOU) vulnerabilities. For example, since noop deployments do not require PR approvals (except on forks), a malicious actor could push a commit to a PR just after the `.noop` command is invoked and hope their code is executed. By requiring a deployment confirmation, this attack vector is effectively mitigated as the deployer would have the opportunity to reject the deployment when they notice the unexpected commit. This same attack vector is also mitigated by using the [branch rulesets](./branch-rulesets.md) feature (for regular `.deploy` operations), which is also a good security practice to use in conjunction with deployment confirmation.
+This feature adds a final authorization checkpoint before deployment and can reduce the risk of accidental or malicious changes being deployed without one last review. Branch Deploy v12 also revalidates the selected mutable ref after confirmation and immediately before continuing; if the ref moved after prechecks, the action rejects the request with `ref_changed`. Confirmation does not make helper code from a pull request checkout trustworthy, so use [trusted checkouts](./trusted-checkouts.md) for repository-owned deployment scripts and keep branch rulesets enabled.
 
 ## How it works
 
@@ -17,6 +17,8 @@ This comment will provide the user with a summary of the deployment that is **ab
 Depending on the user's response (or lack of response), the branch-deploy Action will update the comment with the outcome.
 
 The only reaction (👍 or 👎) that will be considered is the first reaction from the original actor that invoked the deployment (via `.deploy`). For example, if `@monalisa` comments `.deploy`, only `@monalisa` can give deployment confirmation via a reaction. All other reactions will be ignored on the deployment confirmation comment.
+
+`deployment_confirmation_timeout` defaults to `60` seconds and must be a plain positive integer. Values such as `10abc`, `0`, and `-1` are rejected during input parsing.
 
 ### Usage
 

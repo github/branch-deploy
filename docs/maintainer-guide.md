@@ -14,19 +14,20 @@ To prepare a release:
    ```bash
    npm ci --ignore-scripts --no-audit --no-fund
    npm run all
+   npm run acceptance
    ```
 
 3. Commit the version and `dist/` changes in a pull request.
 4. Merge the reviewed pull request to protected `main` after CI passes.
 
-The release workflow then rebuilds the project, verifies the committed bundle, and creates build-provenance attestations for `action.yml` and every file in `dist/`. After those attestations verify, it creates an assetless immutable GitHub Release, verifies the release, and moves the matching major tag such as `v11` to the new exact release tag. For `v12.x.x` releases, the workflow prepends a short migration note and upgrade-guide link before the generated release notes.
+The release workflow then rebuilds the project, verifies the committed bundle, and creates build-provenance attestations for `action.yml` and every file in `dist/`. After those attestations verify, it creates an assetless immutable GitHub Release, verifies the release, and moves the matching major tag such as `v12` to the new exact release tag. For `v12.x.x` releases, the workflow prepends a short migration note and upgrade-guide link before the generated release notes.
 
 Transient failures can be retried from the original workflow run. A matching exact tag or release is reused only when it targets the same source commit. If the workflow itself must change, merge the fix and release the next stable version.
 
 Verify an immutable release with:
 
 ```bash
-gh release verify v11.1.6 --repo GrantBirki/branch-deploy
+gh release verify v12.0.0 --repo GrantBirki/branch-deploy
 ```
 
 Verify a downloaded action file with:
