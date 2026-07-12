@@ -1058,8 +1058,14 @@ const scenarios = [
         ])
         assert.deepEqual(
           new Set([
-            `${firstResult.code}:${requireOutput(context, firstResult, 'reason_code')}`,
-            `${secondResult.code}:${requireOutput(context, secondResult, 'reason_code')}`
+            [
+              String(firstResult.code),
+              requireOutput(context, firstResult, 'reason_code')
+            ].join(':'),
+            [
+              String(secondResult.code),
+              requireOutput(context, secondResult, 'reason_code')
+            ].join(':')
           ]),
           new Set(['0:lock_acquired', '1:lock_conflict']),
           diagnostics(context, secondResult)
