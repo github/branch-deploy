@@ -225,6 +225,7 @@ export function createMockState(): MockGitHubState {
     pullRequestMoveAfterReads: 2,
     pullRequestMoveSha: null,
     pullRequestReads: 0,
+    refCreationBarrierTarget: 0,
     reactionFailureConsumed: false,
     reactions: [],
     repo,
@@ -1041,8 +1042,32 @@ export async function startMockGitHub(
   state: MockGitHubState
 ): Promise<MockServer> {
   const routeLog: MockRouteLog[] = []
+  let refCreationArrivals = 0
+  const refCreationReleases: Array<() => void> = []
+  const refCreationBarrier = new Promise<void>(resolve => {
+    refCreationReleases.push(resolve)
+  })
   const server = createServer((request, response) => {
-    void handleRequest(state, routeLog, request, response)
+    void handleRequest(
+      state,
+      routeLog,
+      request,
+      response,
+      async (method, path) => {
+        if (
+          state.refCreationBarrierTarget === 0 ||
+          method !== 'POST' ||
+          !path.endsWith('/git/refs')
+        ) {
+          return
+        }
+        refCreationArrivals += 1
+        if (refCreationArrivals >= state.refCreationBarrierTarget) {
+          refCreationReleases.forEach(release => release())
+        }
+        await refCreationBarrier
+      }
+    )
   })
   await new Promise<void>((resolve, reject) => {
     server.listen(0, '127.0.0.1', resolve)
@@ -1073,7 +1098,8 @@ async function handleRequest(
   state: MockGitHubState,
   routeLog: MockRouteLog[],
   request: IncomingMessage,
-  response: ServerResponse
+  response: ServerResponse,
+  waitForRefCreation: (method: string, path: string) => Promise<void>
 ): Promise<void> {
   const method = String(request.method)
   const url = new URL(String(request.url), 'http://127.0.0.1')
@@ -1090,6 +1116,7 @@ async function handleRequest(
       userAgent: mockHeaderValue(request.headers['user-agent'])
     })
     const body = parseJson(rawBody)
+    await waitForRefCreation(method, url.pathname)
     const fault = consumeFault(state, method, url.pathname)
     const result =
       fault ??

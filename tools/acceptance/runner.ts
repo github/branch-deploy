@@ -12,13 +12,14 @@ import type {
 
 export interface RunActionRequest {
   readonly actor: string
+  readonly commentId?: number
   readonly environment?: Readonly<Record<string, string>>
   readonly inputs: Readonly<Record<string, string>>
   readonly mode: 'main' | 'post'
   readonly port: number
   readonly previousState: AcceptanceOutputs
   readonly state: MockGitHubState
-  readonly status: 'failure' | 'success'
+  readonly status: 'cancelled' | 'failure' | 'success'
 }
 
 interface AcceptanceProcessResult {
@@ -73,9 +74,13 @@ function repositoryPayload(state: MockGitHubState): Record<string, unknown> {
 
 function issueCommentPayload(
   state: MockGitHubState,
-  actor: string
+  actor: string,
+  commentId: number | undefined
 ): Record<string, unknown> {
-  const triggerComment = state.comments[0]
+  const triggerComment =
+    commentId === undefined
+      ? state.comments[0]
+      : state.comments.find(comment => comment.id === commentId)
   if (triggerComment === undefined) {
     throw new Error('missing trigger comment')
   }
@@ -124,7 +129,7 @@ function eventPayloadForMode(
 ): Record<string, unknown> {
   return eventNameForMode(request) === 'pull_request'
     ? pullRequestPayload(request.state)
-    : issueCommentPayload(request.state, request.actor)
+    : issueCommentPayload(request.state, request.actor, request.commentId)
 }
 
 function parseCommandFile(path: string): AcceptanceOutputs {
