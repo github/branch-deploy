@@ -4,13 +4,13 @@ All contributions are welcome and greatly appreciated!
 
 ## Steps to Contribute 💡
 
-> Check the `.node-version` file in the root of this repo so see what version of Node.js is required for local development - note, this can be different from the version of Node.js which runs the Action on GitHub runners. It is suggested to download [nodenv](https://github.com/nodenv/nodenv) which uses this file and manages your Node.js versions for you
+> Check the `.node-version` file in the repository root to see which Node.js version is required for local development. The JavaScript action runtime is declared separately in `action.yml`. A version manager such as [nodenv](https://github.com/nodenv/nodenv) can use `.node-version` automatically.
 
 1. Fork this repository
 2. Commit your changes
 3. Test your changes (learn how to test below)
 4. Open a pull request back to this repository
-   > Make sure to run `npm run all` and commit the regenerated `dist/` artifacts as your final commit!
+   > For runtime source changes, run `npm run all` and commit the regenerated `dist/` artifacts. Do not regenerate `dist/` for documentation-only changes.
 5. Notify the maintainers of this repository for peer review and approval
 6. Merge!
 
@@ -44,25 +44,25 @@ npm run check
 
 The suite uses `node:test`, native V8 coverage, and the exact Node version in `.node-version`. ESM module mocking and coverage are experimental test-only features pinned to that development runtime. `npm run lint` runs the repository's TypeScript compiler-API safety policy; formatting remains the responsibility of Prettier.
 
-### Testing directly with IssueOps
+### Running the native acceptance suite
 
-> See the testing FAQs below for more information on this process
+Runtime changes must be tested against a freshly rebuilt `dist/index.js`:
 
-You can test your changes by doing the following steps:
+```bash
+npm run package
+npm run acceptance
+```
 
-1. Commit your changes to the `main` branch on your fork
-2. Open a new pull request
-3. Run IssueOps commands on the pull request you just opened (`.deploy`, `.noop`, `.deploy main`, etc)
-4. Ensure that all IssueOps commands work as expected on your testing PR
+The dependency-free acceptance harness runs the committed action bundle through its real main/post lifecycle against a strict local GitHub API mock. It is the normal acceptance gate and is also available directly as `script/acceptance` when `dist/index.js` is already current.
 
-### Testing FAQs 🤔
+### Live IssueOps acceptance
 
-Answers to questions you might have around testing
+High-risk runner-protocol, bundling, deployment-lifecycle, or GitHub API changes may also warrant live acceptance in a public-safe consumer repository such as [GrantBirki/actions-sandbox](https://github.com/GrantBirki/actions-sandbox):
 
-Q: Why do I have to commit my changes to `main`?
+1. Commit and push the final candidate, then record its exact full commit SHA.
+2. Update the consumer's default-branch workflow through normal review so `uses:` points to that exact candidate SHA. Do not use a mutable branch reference as acceptance evidence.
+3. Open a harmless pull request and exercise the IssueOps paths relevant to the change, such as `.help`, `.noop`, `.deploy`, `.wcid`, `.unlock`, merge-deploy mode, or unlock-on-merge mode.
+4. Record the resolved action SHA, selected deployment SHA, outputs, deployment state, lock state, comments, reactions, and final action conclusion.
+5. Restore the consumer workflow reference, remove temporary markers and branches, and verify that no test lock remains.
 
-A: The `on: issue_comment` workflow only uses workflow files from the `main` branch by design - [learn more](https://github.com/github/branch-deploy#security-)
-
-Q: How can I test my changes once my PR is merged and _before_ a new release is created?
-
-A: You should create a repo like [this one](https://github.com/GrantBirki/actions-sandbox) that uses `github/branch-deploy@main` as the Action version and test your changes there
+The `issue_comment` event loads the workflow definition from the consumer repository's default branch, so changing only a pull request branch in the consumer will not change which Branch Deploy revision the comment-triggered workflow executes. Any candidate commit change invalidates earlier exact-SHA acceptance evidence.

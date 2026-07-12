@@ -2,7 +2,7 @@
 
 > This is useful to display to the user the status of your deployment. For example, you could display the results of a `terraform apply` in the deployment comment
 
-Custom deployment messages use two building blocks that can be used separately or together: a trusted Markdown template and the `DEPLOY_MESSAGE` GitHub Actions environment variable. A template can render the environment value with `{{ results }}`.
+Custom deployment messages use two building blocks that can be used separately or together: a trusted Markdown template and the `DEPLOY_MESSAGE` GitHub Actions environment variable. A template can render the `DEPLOY_MESSAGE` value with `{{ results }}`.
 
 ## Custom Markdown File (suggested)
 
@@ -72,9 +72,9 @@ Here is an example of what the final product could look like:
 
 > To learn more about these changes you can view the pull request that implemented them [here](https://github.com/github/branch-deploy/pull/174)
 
-## GitHub Actions Environment (not suggested)
+## Environment-Only Message (not suggested)
 
-> This option is not suggested as it comes with inherent limitations. See the "Custom Markdown File" section above for more information. It is highly recommended to use the custom markdown file option instead. However, if you are unable to use the custom markdown file option, this is an alternative
+> `DEPLOY_MESSAGE` is how deployment steps provide dynamic results in both approaches. This section covers using that value without a custom Markdown template, which provides less control over the final comment. Prefer the trusted template above when you need custom structure or additional deployment metadata.
 
 You can use the GitHub Actions environment to export custom deployment messages from your workflow to be referenced in the post run workflow for the `branch-deploy` Action that comments results back to your PR
 
@@ -123,4 +123,4 @@ echo "DEPLOY_MESSAGE=\`\`\`yaml\nname: value\n\`\`\`" >> $GITHUB_ENV
 
 ## How does this work? 🤔
 
-To add custom messages to our final deployment message we need to use the GitHub Actions environment. This is so that we can dynamically pass data into the post action workflow that leaves a comment on our PR. The post action workflow will look to see if this environment variable is set (`DEPLOY_MESSAGE`). If the variable is set, it adds to to the PR comment. Otherwise, it will use a simple comment body that doesn't include the custom message.
+To add dynamic results to the final deployment message, write `DEPLOY_MESSAGE` through the GitHub Actions environment. The post action reads that value when it leaves the pull request comment. If a trusted template exists, the value is available as `{{ results }}`; otherwise, Branch Deploy includes it in the standard comment. When the variable is unset, the standard comment does not include custom results.

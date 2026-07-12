@@ -39,7 +39,7 @@ Non-negotiable constraints
 - Do not remove existing scalar Branch Deploy outputs. V12 retains them as compatibility aliases even though `decision`, `reason_code`, and `result` are the recommended contract.
 - Do not rewrite the permissive IssueOps command grammar, replace branch-based deployment creation with SHA-based creation, disable API auto-merge, alter legacy lock handling, or change unrelated `null`, empty-string, or string sentinel behavior. Preserve supported `.noop` behavior. If repository tests or documentation intentionally cover `.deploy noop`, preserve its deprecated-command warning path rather than treating it as a supported noop alias; update stale operational instructions to `.noop` or the configured `noop_trigger`.
 - Do not assume Branch Deploy locks replace GitHub Actions `concurrency`. Locks coordinate IssueOps ownership; workflow concurrency may still be necessary to serialize shared infrastructure or remote state.
-- Do not execute helper scripts, templates, or deployment logic from an untrusted pull request checkout unless that is an explicit and reviewed part of the repository's threat model.
+- Do not execute helper scripts or deployment logic from an untrusted pull request checkout unless that is an explicit and reviewed part of the repository's threat model. Keep Branch Deploy templates repository-relative so v12 fetches them at the trusted workflow SHA.
 - Do not merge, release, move tags, or modify repository settings unless the user explicitly authorizes those operations.
 - Preserve unrelated working-tree changes and keep generated files out of the diff unless the consumer repository requires them.
 
@@ -303,7 +303,7 @@ Repositories that intentionally deploy forked pull requests must update their Br
 
 - If you do not deploy forked pull requests, remove any redundant `allow_forks: false` setting or leave it in place for clarity.
 - If you intentionally deploy forked pull requests, set `allow_forks: true` explicitly.
-- Combine fork support with required reviews, passing CI, trusted checkouts for helper code and templates, and deployment confirmation where appropriate.
+- Combine fork support with required reviews, passing CI, trusted checkouts for helper code, trusted-SHA deployment templates, and deployment confirmation where appropriate.
 
 ## CI check verification fails closed
 

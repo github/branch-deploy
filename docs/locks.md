@@ -53,7 +53,11 @@ This Action uses GitHub branches to create a deployment lock. When you run `.loc
 4. The Action publishes a new branch called `<environment|global>-branch-deploy-lock` at that commit
 5. New v12 lock files include `schema_version: 1` and a deterministic `claim_id`; older lock files without those fields remain supported
 
+Publishing the completed lock commit as a new ref is the atomic claim. If another request wins that ref-creation race, Branch Deploy reads the winning lock and reports whether the retry owns the same claim or conflicts with another owner. Retrying the same claim is idempotent and does not rewrite the lock or duplicate the lock-acquired comment. A lock branch without a readable `lock.json` is treated as ambiguous and blocking rather than being overwritten.
+
 Now when new deployments are run, they will check if a lock exists. If it does and it doesn't belong to you, your deployment is rejected. If the lock does belong to you, then the deployment will continue.
+
+Normal post processing removes the non-sticky lock used by a completed deploy or noop on both success and failure, including when the applicable lock is global. If another authorized process already removed that non-sticky lock, completion continues without falsely reporting a cleanup failure. Sticky locks remain until an explicit unlock or an unlock-on-merge workflow removes them.
 
 ### Deployment Lock Examples 📸
 
@@ -115,19 +119,20 @@ If a lock branch already exists when you enable `disable_lock`, remove it before
 
 ## Actions Concurrency
 
-> Note: Using the locking mechanism included in this Action (above) is highly recommended over Actions concurrency. The section below will be included anyways should you have a valid reason to use it instead of the deploy lock features this Action provides
+> Branch Deploy locks and GitHub Actions concurrency solve different coordination problems. Locks control IssueOps deployment ownership, while concurrency serializes workflow jobs. Workflows that mutate the same service, environment, infrastructure, or remote state often need both.
 
-If your workflows need some level of concurrency or locking, you can leverage the native GitHub Actions concurrency feature ([documentation](https://docs.github.com/en/actions/using-jobs/using-concurrency)) to enable this.
+Use the native GitHub Actions concurrency feature ([documentation](https://docs.github.com/en/actions/using-jobs/using-concurrency)) when overlapping jobs could mutate the same shared target even if they are authorized by the same Branch Deploy lock.
 
-For example, if you have two users run `.deploy` on two separate PRs at the same time, it will trigger two deployments. In some cases, this will break things and you may not want this. By using Actions concurrency, you can prevent multiple workflows from running at once
-
-The default behavior for Actions is to run the first job that was triggered and to set the other one as `pending`. If you want to cancel the other job, that can be configured as well. Below you will see an example where we setup a concurrency group which only allows one deployment at a time and cancels all other workflows triggered while our deployment is running:
+For deployment work, preserve the running job and queue later jobs in the same shared group instead of canceling an in-progress mutation:
 
 ```yaml
-concurrency: 
+concurrency:
   group: production
-  cancel-in-progress: true
+  cancel-in-progress: false
+  queue: max
 ```
+
+Use the same group across every workflow that touches the shared target. Support-only commands such as `.help`, `.lock`, `.unlock`, and `.wcid` can use a unique per-run group or no concurrency group so they remain responsive.
 
 ## Need More Deployment Lock Control?
 

@@ -8,18 +8,17 @@ The branch-deploy Action contains a useful input option to help give developers 
 
 First, let's explain what a "required" CI check is in case you're not familiar. A required CI check is a check that must pass before a pull request can be merged. This is a setting that can be configured in the repository settings under the "Branches" section. This section is shown in the screenshot below:
 
-![required-ci-checks](assets/required-ci-checks.png)
-
-> This example came directly from this respository's settings
-
-So in this particular repository, the following CI checks are required:
+In this repository, the current ruleset requires the following CI checks:
 
 - `test`
+- `acceptance`
 - `package-check`
 - `lint`
 - `actions-config-validation`
 
 Any other CI checks that run on a pull request are not required and are considered non-required checks.
+
+Branch Deploy v12 evaluates the complete paginated check rollup for the selected commit. When the same GitHub App and check name, or the same legacy status context, appears more than once, the newest run is authoritative. A newer pending or failing rerun blocks deployment even if an older run passed. If GitHub returns incomplete, malformed, mismatched, or non-advancing check data, Branch Deploy fails closed and sets `commit_status` to `UNAVAILABLE`.
 
 ## Using the `checks` Input Option
 
