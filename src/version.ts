@@ -6,4 +6,4 @@
 // - etc
 
 export const VERSION =
-  'v11.1.6' as const satisfies `v${number}.${number}.${number}`
+  'v12.0.0' as const satisfies `v${number}.${number}.${number}`
