@@ -10,7 +10,7 @@ concurrency: {group: release, queue: max}
 
 jobs:
   release:
-    if: ${{ github.repository == 'GrantBirki/branch-deploy' && github.ref == 'refs/heads/main' }}
+    if: ${{ (github.repository == 'GrantBirki/branch-deploy' || github.repository == 'github/branch-deploy') && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       artifact-metadata: write
@@ -73,8 +73,6 @@ jobs:
 
           releases=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name')
           previous=$({ grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' <<< "$releases" | grep -vxF "$version" | sort -V | tail -n 1; } || true)
-          # The first automated release follows the fork's last manual stable tag.
-          previous=${previous:-v11.1.2}
 
           {
             echo "major=$major"
