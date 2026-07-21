@@ -10,7 +10,7 @@ concurrency: {group: release, queue: max}
 
 jobs:
   release:
-    if: ${{ (github.repository == 'GrantBirki/branch-deploy' || github.repository == 'github/branch-deploy') && github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.repository == 'github/branch-deploy' || vars.ENABLE_RELEASES == 'true') }}
     runs-on: ubuntu-latest
     permissions:
       artifact-metadata: write
