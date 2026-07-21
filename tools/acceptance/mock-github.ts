@@ -948,9 +948,13 @@ function routeIssues(
     part(parts, 5) === 'labels'
   ) {
     if (method === 'GET' && parts.length === 6) {
+      const page = Number(searchParams.get('page') ?? '1')
+      const perPage = Number(searchParams.get('per_page') ?? '30')
       return {
         status: 200,
-        value: [...state.labels].map(name => ({name}))
+        value: [...state.labels]
+          .slice((page - 1) * perPage, page * perPage)
+          .map(name => ({name}))
       }
     }
     if (method === 'POST' && parts.length === 6) {

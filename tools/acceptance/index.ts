@@ -1023,6 +1023,51 @@ const scenarios = [
       })
   },
   {
+    name: 'deployment label cleanup paginates stale labels',
+    run: () =>
+      withMockGitHub(
+        'deployment label cleanup paginates stale labels',
+        async context => {
+          for (let index = 0; index < 100; index += 1) {
+            context.state.labels.add(`unrelated-${String(index)}`)
+          }
+          context.state.labels.add('deploy-failed')
+          setTriggerComment(context.state, '.deploy')
+          const inputs = {
+            failed_deploy_labels: 'deploy-failed',
+            successful_deploy_labels: 'deploy-success'
+          }
+
+          const mainResult = await runMain(context, inputs)
+          assertExit(context, mainResult, 0)
+          const postResult = await runPost(context, mainResult, inputs)
+
+          assertExit(context, postResult, 0)
+          assert.equal(context.state.labels.has('deploy-failed'), false)
+          assert.equal(context.state.labels.has('deploy-success'), true)
+          assert.equal(context.state.labels.size, 101)
+          const labelRoutes = context.routeLog.filter(
+            route =>
+              route.method === 'GET' &&
+              route.path === apiPath('/issues/1/labels')
+          )
+          assert.equal(labelRoutes.length, 2, diagnostics(context, postResult))
+          assert.deepEqual(
+            labelRoutes.map(route =>
+              new URLSearchParams(route.query).get('page')
+            ),
+            ['1', '2']
+          )
+          assert.deepEqual(
+            labelRoutes.map(route =>
+              new URLSearchParams(route.query).get('per_page')
+            ),
+            ['100', '100']
+          )
+        }
+      )
+  },
+  {
     name: 'post missing state fails',
     run: () =>
       withMockGitHub('post missing state fails', async context => {

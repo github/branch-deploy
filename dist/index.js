@@ -41857,13 +41857,23 @@ async function label(context, octokit, labelsToAdd, labelsToRemove) {
     if (labelsToRemove.length > 0) {
         // Fetch current labels on the issue
         debug('fetching current labels on the issue');
-        const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
-            owner: owner,
-            repo: repo,
-            issue_number: issueNumber,
-            headers: API_HEADERS
-        });
-        const currentLabels = currentLabelsResult.data.map(label => label.name);
+        const currentLabels = [];
+        const labelsPerPage = 100;
+        let page = 1;
+        while (true) {
+            const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
+                owner: owner,
+                repo: repo,
+                issue_number: issueNumber,
+                per_page: labelsPerPage,
+                page,
+                headers: API_HEADERS
+            });
+            currentLabels.push(...currentLabelsResult.data.map(label => label.name));
+            if (currentLabelsResult.data.length < labelsPerPage)
+                break;
+            page += 1;
+        }
         debug(`current labels: ${currentLabels.join(',')}`);
         debug(`labels to remove: ${labelsToRemove.join(',')}`);
         // Remove unwanted labels
