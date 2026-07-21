@@ -208,7 +208,7 @@ async function reportLockAcquired(
     ### 🔒 Deployment Lock Claimed
 
     ${globalMsg}
-    
+
     You are now the only user that can trigger deployments ${lockMsg} until the deployment lock is removed
 
     > This lock is _sticky_ and will persist until someone runs \`${lockData.unlock_command}\`
@@ -577,7 +577,7 @@ async function checkLockOwner(
   if (legacyStrictTrue(lockData.global)) {
     lockText = dedent(
       `the \`global\` deployment lock is currently claimed by __${lockData.created_by}__
-      
+
       A \`global\` deployment lock prevents all other users from deploying to any environment except for the owner of the lock
       `
     )

@@ -18,8 +18,8 @@ import type {
 } from './types.ts'
 
 export const ACCEPTANCE_REPOSITORY = {
-  owner: 'GrantBirki',
-  repo: 'actions-sandbox'
+  owner: 'github',
+  repo: 'branch-deploy'
 } as const
 
 export const ACCEPTANCE_SHAS = {
@@ -522,7 +522,7 @@ function createReaction(
     commentId,
     content,
     id: state.nextReactionId,
-    user: 'GrantBirki'
+    user: 'octocat'
   }
   state.nextReactionId += 1
   state.reactions.push(reaction)

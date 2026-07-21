@@ -355,7 +355,7 @@ async function withMockGitHub(
 function runMain(
   context: ScenarioContext,
   inputs: Readonly<Record<string, string>> = {},
-  actor = 'GrantBirki',
+  actor = 'octocat',
   commentId?: number
 ): Promise<AcceptanceRunResult> {
   return runAction({
@@ -375,7 +375,7 @@ function runPost(
   mainResult: AcceptanceRunResult,
   inputs: Readonly<Record<string, string>> = {},
   status: 'cancelled' | 'failure' | 'success' = 'success',
-  actor = 'GrantBirki',
+  actor = 'octocat',
   environment: Readonly<Record<string, string>> = {}
 ): Promise<AcceptanceRunResult> {
   return runAction({
@@ -958,7 +958,7 @@ const scenarios = [
         const lock = requireMockLock(context, branch)
         assert.equal(lock['schema_version'], 1)
         assert.match(String(lock['claim_id']), /^sha256:[a-f0-9]{64}$/u)
-        assert.equal(lock['created_by'], 'GrantBirki')
+        assert.equal(lock['created_by'], 'octocat')
         assert.equal(lock['branch'], 'feature-branch')
         assert.equal(lock['environment'], 'production')
         assert.equal(lock['global'], false)
@@ -978,7 +978,7 @@ const scenarios = [
         assertExit(context, conflict, 1)
         assertDecision(context, conflict, 'stop')
         assertReason(context, conflict, 'lock_conflict')
-        assertCommentIncludes(context, 'currently claimed by __GrantBirki__')
+        assertCommentIncludes(context, 'currently claimed by __octocat__')
       })
   },
   {
@@ -1053,7 +1053,7 @@ const scenarios = [
         context.state.refCreationBarrierTarget = 2
 
         const [firstResult, secondResult] = await Promise.all([
-          runMain(context, {}, 'GrantBirki', 1000),
+          runMain(context, {}, 'octocat', 1000),
           runMain(context, {}, 'OtherUser', 1001)
         ])
         assert.deepEqual(
@@ -1072,7 +1072,7 @@ const scenarios = [
         )
         const lock = requireMockLock(context, lockBranch('production'))
         assert.equal(
-          ['GrantBirki', 'OtherUser'].includes(String(lock['created_by'])),
+          ['octocat', 'OtherUser'].includes(String(lock['created_by'])),
           true,
           diagnostics(context, firstResult)
         )
@@ -1118,7 +1118,7 @@ const scenarios = [
     run: () =>
       withMockGitHub('legacy lock compatibility', async context => {
         const branch = lockBranch('production')
-        seedLock(context.state, 'production', 'feature-branch', 'GrantBirki', 1)
+        seedLock(context.state, 'production', 'feature-branch', 'octocat', 1)
         const legacyLock = requireMockLock(context, branch)
         delete legacyLock['schema_version']
         delete legacyLock['claim_id']
@@ -1133,14 +1133,14 @@ const scenarios = [
         assertExit(context, result, 0)
         assertDecision(context, result, 'complete')
         assertReason(context, result, 'lock_info_completed')
-        assertCommentIncludes(context, '- __Created By__: `GrantBirki`')
+        assertCommentIncludes(context, '- __Created By__: `octocat`')
       })
   },
   {
     name: '.wcid',
     run: () =>
       withMockGitHub('.wcid', async context => {
-        seedLock(context.state, 'production', 'feature-branch', 'GrantBirki', 1)
+        seedLock(context.state, 'production', 'feature-branch', 'octocat', 1)
         setTriggerComment(context.state, '.wcid')
 
         const result = await runMain(context)
@@ -1155,7 +1155,7 @@ const scenarios = [
     name: '.unlock',
     run: () =>
       withMockGitHub('.unlock', async context => {
-        seedLock(context.state, 'production', 'feature-branch', 'GrantBirki', 1)
+        seedLock(context.state, 'production', 'feature-branch', 'octocat', 1)
         setTriggerComment(context.state, '.unlock production')
 
         const result = await runMain(context)
@@ -1270,15 +1270,15 @@ const scenarios = [
     name: 'unlock on merge',
     run: () =>
       withMockGitHub('unlock on merge', async context => {
-        seedLock(context.state, 'production', 'feature-branch', 'GrantBirki', 1)
-        seedLock(context.state, 'staging', 'other-branch', 'GrantBirki', 99)
+        seedLock(context.state, 'production', 'feature-branch', 'octocat', 1)
+        seedLock(context.state, 'staging', 'other-branch', 'octocat', 99)
         const unrelatedLock = mockLockContents(
           context.state,
           lockBranch('staging')
         )
 
         const result = await runMain(context, {
-          environment_targets: 'production,staging',
+          environment_targets: ' production , staging ',
           unlock_on_merge_mode: 'true'
         })
 
@@ -1308,13 +1308,7 @@ const scenarios = [
       withMockGitHub(
         'closed unmerged pull request retains locks',
         async context => {
-          seedLock(
-            context.state,
-            'production',
-            'feature-branch',
-            'GrantBirki',
-            1
-          )
+          seedLock(context.state, 'production', 'feature-branch', 'octocat', 1)
           const originalLock = mockLockContents(
             context.state,
             lockBranch('production')
@@ -1358,7 +1352,7 @@ const scenarios = [
 
         assertExit(context, result, 0)
         assertReason(context, result, 'deployment_ready')
-        assertCommentIncludes(context, 'Deployment confirmed by __GrantBirki__')
+        assertCommentIncludes(context, 'Deployment confirmed by __octocat__')
         assert.equal(context.state.deployments.length, 1)
       })
   },
@@ -1377,7 +1371,7 @@ const scenarios = [
         assertExit(context, result, 1)
         assertDecision(context, result, 'failure')
         assertReason(context, result, 'confirmation_rejected')
-        assertCommentIncludes(context, 'Deployment rejected by __GrantBirki__')
+        assertCommentIncludes(context, 'Deployment rejected by __octocat__')
         assert.equal(
           context.state.branches.has(lockBranch('production')),
           false,
@@ -1424,10 +1418,7 @@ const scenarios = [
 
           assertExit(context, result, 1)
           assertReason(context, result, 'ref_changed')
-          assertCommentIncludes(
-            context,
-            'Deployment confirmed by __GrantBirki__'
-          )
+          assertCommentIncludes(context, 'Deployment confirmed by __octocat__')
           assertNoDeployment(context, result)
           assert.equal(
             context.state.branches.has(lockBranch('production')),
@@ -1471,7 +1462,7 @@ const scenarios = [
           context,
           result,
           'fork_full_name',
-          'fork-owner/actions-sandbox'
+          'fork-owner/branch-deploy'
         )
         assertOutput(context, result, 'ref', ACCEPTANCE_SHAS.fork)
         assertOutput(context, result, 'sha', ACCEPTANCE_SHAS.fork)
@@ -1510,7 +1501,7 @@ const scenarios = [
             mainResult,
             inputs,
             'success',
-            'GrantBirki',
+            'octocat',
             {DEPLOY_MESSAGE: 'fork deployment completed'}
           )
           assertExit(context, postResult, 0)
@@ -1918,7 +1909,7 @@ const scenarios = [
           mainResult,
           {deploy_message_path: templatePath},
           'success',
-          'GrantBirki',
+          'octocat',
           {DEPLOY_MESSAGE: 'deployed {{ actor }} unchanged'}
         )
 
@@ -2237,7 +2228,7 @@ const scenarios = [
         setTriggerComment(context.state, '.deploy')
         context.state.reviewDecision = 'REVIEW_REQUIRED'
 
-        const result = await runMain(context, {admins: 'GrantBirki'})
+        const result = await runMain(context, {admins: 'octocat'})
 
         assertExit(context, result, 0)
         assertReason(context, result, 'deployment_ready')
@@ -2997,7 +2988,7 @@ const scenarios = [
 
         const wrongRepository = await getMockRoute(
           context.port,
-          '/repos/Other/actions-sandbox'
+          '/repos/Other/branch-deploy'
         )
         assert.equal(wrongRepository.status, 500, diagnostics(context))
         assert.equal(

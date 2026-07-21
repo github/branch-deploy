@@ -38159,7 +38159,7 @@ async function reportLockAcquired(octokit, context, lockData, sticky, environmen
     ### 🔒 Deployment Lock Claimed
 
     ${globalMsg}
-    
+
     You are now the only user that can trigger deployments ${lockMsg} until the deployment lock is removed
 
     > This lock is _sticky_ and will persist until someone runs \`${lockData.unlock_command}\`
@@ -38447,7 +38447,7 @@ async function checkLockOwner(octokit, context, lockData, sticky, reactionId, le
     let lockBranchForLink;
     if (legacyStrictTrue(lockData.global)) {
         lockText = dedent(`the \`global\` deployment lock is currently claimed by __${lockData.created_by}__
-      
+
       A \`global\` deployment lock prevents all other users from deploying to any environment except for the owner of the lock
       `);
         lockBranchForLink = GLOBAL_LOCK_BRANCH;
@@ -42576,7 +42576,8 @@ async function unlockOnMerge(octokit, context, environment_targets) {
     }
     // loop through all the environment targets and check each one for a lock associated with this merged pull request
     const releasedEnvironments = [];
-    for (const environment of environment_targets.split(',')) {
+    for (const rawEnvironment of environment_targets.split(',')) {
+        const environment = rawEnvironment.trim();
         // construct the lock branch name for this environment
         const lockBranch = `${constructValidBranchName(environment)}-${LOCK_METADATA.lockBranchSuffix}`;
         // Check if the lock branch exists

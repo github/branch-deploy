@@ -138,6 +138,39 @@ test('successfully unlocks all environments on a pull request merge', async () =
   )
 })
 
+test('trims whitespace around environment targets before unlocking', async () => {
+  assert.strictEqual(
+    await unlockOnMerge(
+      octokit,
+      context,
+      ' production ,\tdevelopment, staging '
+    ),
+    true
+  )
+
+  for (const environment of ['production', 'development', 'staging']) {
+    assertCalledWith(
+      checkBranchMock,
+      octokit,
+      context,
+      `${environment}-branch-deploy-lock`
+    )
+    assertCalledWith(unlockMock, {
+      octokit,
+      context,
+      reactionId: null,
+      target: {type: 'environment', environment},
+      mode: 'silent'
+    })
+  }
+
+  assertCalledWith(
+    setOutputMock,
+    'unlocked_environments',
+    'production,development,staging'
+  )
+})
+
 test('finds that no deployment lock is set so none are removed', async () => {
   silentUnlockResult = 'no deployment lock currently set - silent'
 

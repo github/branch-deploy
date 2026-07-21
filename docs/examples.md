@@ -160,20 +160,34 @@ jobs:
         env:
           TF_STDOUT: ${{ steps.plan.outputs.stdout }}
         run: |
-          TF_OUTPUT="\`\`\`terraform\n${TF_STDOUT}\n\`\`\`"
-          echo 'DEPLOY_MESSAGE<<EOF' >> $GITHUB_ENV
-          echo "$TF_OUTPUT" >> $GITHUB_ENV
-          echo 'EOF' >> $GITHUB_ENV
+          delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          while printf '%s\n' "$TF_STDOUT" | grep -Fxq "$delimiter"; do
+            delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          done
+          {
+            printf 'DEPLOY_MESSAGE<<%s\n' "$delimiter"
+            printf '%s\n' '```terraform'
+            printf '%s\n' "$TF_STDOUT"
+            printf '%s\n' '```'
+            printf '%s\n' "$delimiter"
+          } >> "$GITHUB_ENV"
 
       - name: Terraform apply output
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
         env:
           TF_STDOUT: ${{ steps.apply.outputs.stdout }}
         run: |
-          TF_OUTPUT="\`\`\`terraform\n${TF_STDOUT}\n\`\`\`"
-          echo 'DEPLOY_MESSAGE<<EOF' >> $GITHUB_ENV
-          echo "$TF_OUTPUT" >> $GITHUB_ENV
-          echo 'EOF' >> $GITHUB_ENV
+          delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          while printf '%s\n' "$TF_STDOUT" | grep -Fxq "$delimiter"; do
+            delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          done
+          {
+            printf 'DEPLOY_MESSAGE<<%s\n' "$delimiter"
+            printf '%s\n' '```terraform'
+            printf '%s\n' "$TF_STDOUT"
+            printf '%s\n' '```'
+            printf '%s\n' "$delimiter"
+          } >> "$GITHUB_ENV"
 
         # Here we handle any errors that might have occurred during the Terraform plan/apply and exit accordingly
       - name: Check Terraform plan output
@@ -337,9 +351,10 @@ jobs:
         working-directory: ${{ steps.working-path.outputs.working_dir }}/terraform
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TERRAFORM_OUTPUT_PATH: ${{ steps.terraform-output.outputs.path }}
         run: |
           set -o pipefail
-          terraform plan -no-color -compact-warnings | tee "${{ steps.terraform-output.outputs.path }}"
+          terraform plan -no-color -compact-warnings | tee "$TERRAFORM_OUTPUT_PATH"
 
       - name: terraform apply
         id: apply
@@ -348,9 +363,10 @@ jobs:
         working-directory: ${{ steps.working-path.outputs.working_dir }}/terraform
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TERRAFORM_OUTPUT_PATH: ${{ steps.terraform-output.outputs.path }}
         run: |
           set -o pipefail
-          terraform apply -auto-approve -no-color -compact-warnings | tee "${{ steps.terraform-output.outputs.path }}"
+          terraform apply -auto-approve -no-color -compact-warnings | tee "$TERRAFORM_OUTPUT_PATH"
 
       - name: verify terraform output capture
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
@@ -901,9 +917,11 @@ jobs:
       # use the GitHub CLI to update the deployment status that was initiated by the branch-deploy action
       - name: Create a deployment status
         env:
+          DEPLOYMENT_ID: ${{ needs.trigger.outputs.deployment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           DEPLOY_STATUS: ${{ steps.deploy-status.outputs.DEPLOY_STATUS }}
+          ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
         run: |
           if [ -z "${DEPLOY_STATUS}" ]; then
             DEPLOY_STATUS="success"
@@ -911,9 +929,9 @@ jobs:
 
           gh api \
             --method POST \
-            repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
-            -f environment='${{ needs.trigger.outputs.environment }}' \
-            -f state=${DEPLOY_STATUS}
+            "repos/{owner}/{repo}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f environment="${ENVIRONMENT}" \
+            -f state="${DEPLOY_STATUS}"
 
       # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
       - name: Remove a non-sticky lock
@@ -946,13 +964,15 @@ jobs:
       # this reaction is added by the branch-deploy action by default
       - name: remove eyes reaction
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          INITIAL_REACTION_ID: ${{ needs.trigger.outputs.initial_reaction_id }}
         run: |
-          if [ -n "${{ needs.trigger.outputs.initial_reaction_id }}" ]; then
+          if [ -n "${INITIAL_REACTION_ID}" ]; then
             gh api \
               --method DELETE \
-              repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+              "repos/{owner}/{repo}/issues/comments/${COMMENT_ID}/reactions/${INITIAL_REACTION_ID}"
           fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
@@ -1089,9 +1109,11 @@ jobs:
 
       # build the site with hugo
       - name: build with hugo
+        env:
+          BASE_URL: ${{ steps.pages.outputs.base_url }}
         run: |
           hugo --gc --verbose \
-            --baseURL ${{ steps.pages.outputs.base_url }}
+            --baseURL "$BASE_URL"
 
       # this step is custom to my blog and adds a 'commit' version to the site
       - name: write build version
@@ -1138,9 +1160,11 @@ jobs:
       # use the GitHub CLI to update the deployment status that was initiated by the branch-deploy action
       - name: Create a deployment status
         env:
+          DEPLOYMENT_ID: ${{ needs.trigger.outputs.deployment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           DEPLOY_STATUS: ${{ steps.deploy-status.outputs.DEPLOY_STATUS }}
+          ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
         run: |
           if [ -z "${DEPLOY_STATUS}" ]; then
             DEPLOY_STATUS="success"
@@ -1148,9 +1172,9 @@ jobs:
 
           gh api \
             --method POST \
-            repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
-            -f environment='${{ needs.trigger.outputs.environment }}' \
-            -f state=${DEPLOY_STATUS}
+            "repos/{owner}/{repo}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f environment="${ENVIRONMENT}" \
+            -f state="${DEPLOY_STATUS}"
 
       # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
       - name: Remove a non-sticky lock
@@ -1183,13 +1207,15 @@ jobs:
       # this reaction is added by the branch-deploy action by default
       - name: remove eyes reaction
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          INITIAL_REACTION_ID: ${{ needs.trigger.outputs.initial_reaction_id }}
         run: |
-          if [ -n "${{ needs.trigger.outputs.initial_reaction_id }}" ]; then
+          if [ -n "${INITIAL_REACTION_ID}" ]; then
             gh api \
               --method DELETE \
-              repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+              "repos/{owner}/{repo}/issues/comments/${COMMENT_ID}/reactions/${INITIAL_REACTION_ID}"
           fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
@@ -1346,9 +1372,11 @@ jobs:
       # use the GitHub CLI to update the deployment status that was initiated by the branch-deploy action
       - name: Create a deployment status
         env:
+          DEPLOYMENT_ID: ${{ needs.trigger.outputs.deployment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           DEPLOY_STATUS: ${{ steps.deploy-status.outputs.DEPLOY_STATUS }}
+          ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
         run: |
           if [ -z "${DEPLOY_STATUS}" ]; then
             DEPLOY_STATUS="success"
@@ -1356,9 +1384,9 @@ jobs:
 
           gh api \
             --method POST \
-            repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
-            -f environment='${{ needs.trigger.outputs.environment }}' \
-            -f state=${DEPLOY_STATUS}
+            "repos/{owner}/{repo}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f environment="${ENVIRONMENT}" \
+            -f state="${DEPLOY_STATUS}"
 
       # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
       - name: Remove a non-sticky lock
@@ -1391,13 +1419,15 @@ jobs:
       # this reaction is added by the branch-deploy action by default
       - name: remove eyes reaction
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          INITIAL_REACTION_ID: ${{ needs.trigger.outputs.initial_reaction_id }}
         run: |
-          if [ -n "${{ needs.trigger.outputs.initial_reaction_id }}" ]; then
+          if [ -n "${INITIAL_REACTION_ID}" ]; then
             gh api \
               --method DELETE \
-              repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+              "repos/{owner}/{repo}/issues/comments/${COMMENT_ID}/reactions/${INITIAL_REACTION_ID}"
           fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
@@ -1555,9 +1585,11 @@ jobs:
       # This example uses separate Terraform workspaces for each environment.
       - name: Terraform Init
         id: terraform-init
+        env:
+          ENVIRONMENT: ${{ needs.start.outputs.environment }}
         run: |
           terraform init -no-color
-          terraform workspace select -or-create=true ${{ needs.start.outputs.environment }}
+          terraform workspace select -or-create=true "$ENVIRONMENT"
 
       # If this is a `.noop`, run `terraform plan` to see what would change.
       - name: Terraform Plan
@@ -1632,9 +1664,9 @@ jobs:
         id: set-status
         run: |
           gh api --method POST \
-            "repos/${{ env.REPOSITORY }}/deployments/${{ env.DEPLOYMENT_ID }}/statuses" \
-            -f environment="${{ env.ENVIRONMENT }}" \
-            -f state="${{ env.DEPLOYMENT_STATUS }}"
+            "repos/${REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f environment="${ENVIRONMENT}" \
+            -f state="${DEPLOYMENT_STATUS}"
 
       # Remove the non-sticky lock for either a `.noop` or `.deploy`.
       - name: Remove Non-Sticky Lock
@@ -1664,7 +1696,7 @@ jobs:
         run: |
           if [ -n "${INITIAL_REACTION_ID}" ]; then
             gh api --method DELETE \
-              "repos/${{ env.REPOSITORY }}/issues/comments/${{ env.COMMENT_ID }}/reactions/${INITIAL_REACTION_ID}"
+              "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${INITIAL_REACTION_ID}"
           fi
 
       # Add a new reaction based on if the deployment succeeded or failed.
@@ -1705,7 +1737,7 @@ jobs:
               repo: context.repo.repo,
               body: `### Deployment Results :white_check_mark:
 
-            **${{ env.ACTOR }}** successfully ${ process.env.NOOP === 'true' ? '**noop** deployed' : 'deployed' } sha \`${{ env.SHA }}\` to **${{ env.ENVIRONMENT }}**
+            **${process.env.ACTOR}** successfully ${ process.env.NOOP === 'true' ? '**noop** deployed' : 'deployed' } sha \`${process.env.SHA}\` to **${process.env.ENVIRONMENT}**
 
             <details><summary>Show Results</summary>
 
@@ -1733,7 +1765,7 @@ jobs:
               repo: context.repo.repo,
               body: `### Deployment Results :x:
 
-            **${{ env.ACTOR }}** had a failure when ${ process.env.NOOP === 'true' ? '**noop** deploying' : 'deploying' } sha \`${{ env.SHA }}\` to **${{ env.ENVIRONMENT }}**
+            **${process.env.ACTOR}** had a failure when ${ process.env.NOOP === 'true' ? '**noop** deploying' : 'deploying' } sha \`${process.env.SHA}\` to **${process.env.ENVIRONMENT}**
 
             <details><summary>Show Results</summary>
 

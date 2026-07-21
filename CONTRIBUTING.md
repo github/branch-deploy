@@ -53,16 +53,4 @@ npm run package
 npm run acceptance
 ```
 
-The dependency-free acceptance harness runs the committed action bundle through its real main/post lifecycle against a strict local GitHub API mock. It is the normal acceptance gate and is also available directly as `script/acceptance` when `dist/index.js` is already current.
-
-### Live IssueOps acceptance
-
-High-risk runner-protocol, bundling, deployment-lifecycle, or GitHub API changes may also warrant live acceptance in a public-safe consumer repository such as [GrantBirki/actions-sandbox](https://github.com/GrantBirki/actions-sandbox):
-
-1. Commit and push the final candidate, then record its exact full commit SHA.
-2. Update the consumer's default-branch workflow through normal review so `uses:` points to that exact candidate SHA. Do not use a mutable branch reference as acceptance evidence.
-3. Open a harmless pull request and exercise the IssueOps paths relevant to the change, such as `.help`, `.noop`, `.deploy`, `.wcid`, `.unlock`, merge-deploy mode, or unlock-on-merge mode.
-4. Record the resolved action SHA, selected deployment SHA, outputs, deployment state, lock state, comments, reactions, and final action conclusion.
-5. Restore the consumer workflow reference, remove temporary markers and branches, and verify that no test lock remains.
-
-The `issue_comment` event loads the workflow definition from the consumer repository's default branch, so changing only a pull request branch in the consumer will not change which Branch Deploy revision the comment-triggered workflow executes. Any candidate commit change invalidates earlier exact-SHA acceptance evidence.
+The native Node acceptance harness runs the committed action bundle through its real main/post lifecycle against a strict local GitHub API mock. It is the normal acceptance gate and is also available directly as `script/acceptance` when `dist/index.js` is already current.

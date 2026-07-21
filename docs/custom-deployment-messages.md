@@ -6,7 +6,7 @@ Custom deployment messages use two building blocks that can be used separately o
 
 ## Custom Markdown File (suggested)
 
-> This option is highly recommended over the latter "GitHub Actions Environment" option. This is because GitHub Actions has some limitations on the size of data that can be passed around in environment variables. This becomes an issue if your deployment message is large (contains many changes, think Terraform plan/apply) as your deployment will crash with an `Argument list too long` error.
+> This option is recommended when you need trusted structure or additional deployment metadata. Dynamic results still pass through `DEPLOY_MESSAGE`, so large Terraform plan or apply output may need to be truncated, uploaded as an artifact, or replaced with a link to avoid environment-size limits.
 
 Set [`deploy_message_path`](https://github.com/github/branch-deploy/blob/main/action.yml) to a repository-relative path such as `.github/deployment_message.md`. That path is also the default, so no input is needed when the template is stored there.
 
@@ -70,8 +70,6 @@ Here is an example of what the final product could look like:
 
 ![Example of custom deployment message](assets/custom-comment.png)
 
-> To learn more about these changes you can view the pull request that implemented them [here](https://github.com/github/branch-deploy/pull/174)
-
 ## Environment-Only Message (not suggested)
 
 > `DEPLOY_MESSAGE` is how deployment steps provide dynamic results in both approaches. This section covers using that value without a custom Markdown template, which provides less control over the final comment. Prefer the trusted template above when you need custom structure or additional deployment metadata.
@@ -83,7 +81,7 @@ Simply set the environment variable `DEPLOY_MESSAGE` to the message you want to 
 Bash Example:
 
 ```bash
-echo "DEPLOY_MESSAGE=<message>" >> $GITHUB_ENV
+printf '%s\n' 'DEPLOY_MESSAGE=<message>' >> "$GITHUB_ENV"
 ```
 
 Actions Workflow Example:
@@ -93,7 +91,7 @@ Actions Workflow Example:
 - name: fake noop deploy
   if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
   run: |
-    echo "DEPLOY_MESSAGE=I would have **updated** 1 server" >> $GITHUB_ENV
+    printf '%s\n' 'DEPLOY_MESSAGE=I would have **updated** 1 server' >> "$GITHUB_ENV"
     echo "I am doing a fake noop deploy"
 ```
 
@@ -102,15 +100,21 @@ Actions Workflow Example:
 ### Adding newlines to your message
 
 ```bash
-echo "DEPLOY_MESSAGE=NOOP Result:\nI would have **updated** 1 server" >> $GITHUB_ENV
+printf '%s\n' 'DEPLOY_MESSAGE=NOOP Result:\nI would have **updated** 1 server' >> "$GITHUB_ENV"
 ```
 
 ### Multi-line strings ([reference](https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#example-2))
 
 ```bash
-echo 'DEPLOY_MESSAGE<<EOF' >> $GITHUB_ENV
-echo "$SOME_MULTI_LINE_STRING_HERE" >> $GITHUB_ENV
-echo 'EOF' >> $GITHUB_ENV
+delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+while printf '%s\n' "$SOME_MULTI_LINE_STRING_HERE" | grep -Fxq "$delimiter"; do
+  delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+done
+{
+  printf 'DEPLOY_MESSAGE<<%s\n' "$delimiter"
+  printf '%s\n' "$SOME_MULTI_LINE_STRING_HERE"
+  printf '%s\n' "$delimiter"
+} >> "$GITHUB_ENV"
 ```
 
 > Where `$SOME_MULTI_LINE_STRING_HERE` is a bash variable containing a multi-line string
@@ -118,7 +122,7 @@ echo 'EOF' >> $GITHUB_ENV
 ### Adding a code block to your message
 
 ```bash
-echo "DEPLOY_MESSAGE=\`\`\`yaml\nname: value\n\`\`\`" >> $GITHUB_ENV
+printf '%s\n' 'DEPLOY_MESSAGE=```yaml\nname: value\n```' >> "$GITHUB_ENV"
 ```
 
 ## How does this work? 🤔
