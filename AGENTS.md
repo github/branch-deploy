@@ -196,7 +196,7 @@ The committed distribution contract consists of exactly:
 
 Any source change that affects packaging must regenerate the bundle with `npm run package` or `npm run all`. Do not manually edit generated `dist/` files.
 
-Package reproduction is exact. The `package-check` workflow installs from the lockfile, rebuilds `dist/`, fails on tracked or untracked `dist/` changes, and smoke-imports the committed ESM bundle with action dispatch disabled.
+Package reproduction is exact. The `package-check` workflow installs from the lockfile, rebuilds `dist/`, and fails on tracked or untracked `dist/` changes.
 
 Review generated changes semantically, not only by size or hash. Compare filenames, hashes, sizes, licenses, source-map loaders, package boundary, module inventory, runtime dependencies, action strings, defaults, state/output keys, API routes, API arguments, control flow, errors, serialization, templates, and private/local path exposure.
 
@@ -207,7 +207,8 @@ Preserve existing workflow and required-check identities:
 - `actions-config-validation` validates action metadata.
 - `lint` runs formatting verification, both TypeScript projects, and the TypeScript policy.
 - `test` runs the complete native Node suite and coverage contract.
-- `package-check` proves exact bundle reproduction and ESM loading.
+- `package-check` proves exact bundle reproduction.
+- `acceptance` rebuilds and executes the ESM bundle through its main and post entrypoints.
 
 CI uses `.node-version` and repository scripts. Do not duplicate long tool flags in workflow YAML when a script is the source of truth.
 

@@ -41,11 +41,6 @@ jobs:
           fi
         id: diff
 
-      - name: smoke test the ESM bundle
-        env:
-          BRANCH_DEPLOY_VITEST_TEST: 'true'
-        run: node --input-type=module --eval "const action = await import('./dist/index.js'); if (typeof action.run !== 'function') throw new Error('dist/index.js does not export run')"
-
       # If index.js was different than expected, upload the expected version as an artifact
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # pin@v7.0.0
         if: ${{ failure() && steps.diff.conclusion == 'failure' }}

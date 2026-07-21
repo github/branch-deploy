@@ -89,8 +89,6 @@ jobs:
           npm run package
 
       - name: verify the committed bundle
-        env:
-          BRANCH_DEPLOY_VITEST_TEST: 'true'
         run: |
           set -euo pipefail
           actual=$(find action.yml dist -type f -print | sort)
@@ -105,7 +103,6 @@ jobs:
             git diff
             exit 1
           fi
-          node --input-type=module --eval "const action = await import('./dist/index.js'); if (typeof action.run !== 'function') throw new Error('dist/index.js does not export run')"
 
       - name: attest the deployed action files
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # pin@v4.1.0
