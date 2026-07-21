@@ -57,6 +57,7 @@ export async function post(): Promise<void> {
       commit_verified: getActionState('commit_verified') === 'true',
       deployment_start_time: getActionState('deployment_start_time'),
       disable_lock: getActionState('disable_lock') === 'true',
+      lock_ref_sha: getActionState('lock_ref_sha'),
       trusted_sha: getActionState('trusted_sha')
     } satisfies RawPostDeployData
 

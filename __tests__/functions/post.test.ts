@@ -88,6 +88,7 @@ const validStates: Record<ActionStateKey, string> = {
   commit_verified: 'false',
   initial_comment_id: '123',
   isPost: 'true',
+  lock_ref_sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   trusted_sha: '0123456789abcdef0123456789abcdef01234567',
   params: 'LOG_LEVEL=debug --config.db.host=localhost --config.db.port=5432',
   parsed_params: JSON.stringify({
@@ -146,6 +147,14 @@ test('passes the saved disable_lock state to post deployment', async () => {
   assert.strictEqual(
     postDeployMock.mock.calls.at(-1)?.arguments[2].disable_lock,
     true
+  )
+})
+
+test('passes the saved lock ref SHA to post deployment', async () => {
+  assert.strictEqual(await post(), undefined)
+  assert.strictEqual(
+    postDeployMock.mock.calls.at(-1)?.arguments[2].lock_ref_sha,
+    validStates.lock_ref_sha
   )
 })
 

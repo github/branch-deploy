@@ -21,7 +21,7 @@ import {lock} from './lock.ts'
 import {prechecks} from './prechecks.ts'
 import {selectedRefMatches} from './selected-ref-check.ts'
 import {timestamp} from './timestamp.ts'
-import {unlock} from './unlock.ts'
+import {unlockIfUnchanged} from './unlock-if-unchanged.ts'
 import {validDeploymentOrder} from './valid-deployment-order.ts'
 import type {
   ActionInputs,
@@ -324,19 +324,25 @@ async function acquireDeploymentLock(
   }
 
   let cleanupAttempted = false
+  const lockRefSha = lockResponse.lockRefSha
   return {
     cleanup: async (reason: string): Promise<void> => {
       if (sticky || cleanupAttempted) return
       cleanupAttempted = true
+      if (lockRefSha === undefined) {
+        core.warning(
+          `failed to release the non-sticky deployment lock ${reason}: the original ref SHA was not returned`
+        )
+        return
+      }
       try {
-        const result = await unlock({
+        const removed = await unlockIfUnchanged(
           octokit,
           context,
-          reactionId: null,
-          target: {type: 'environment', environment},
-          mode: 'silent'
-        })
-        if (result === 'failed to delete lock (bad status code) - silent') {
+          environment,
+          lockRefSha
+        )
+        if (!removed) {
           core.warning(
             `failed to release the non-sticky deployment lock ${reason}`
           )

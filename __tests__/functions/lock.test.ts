@@ -339,7 +339,8 @@ beforeEach(() => {
     status: true,
     globalFlag,
     environment,
-    global: false
+    global: false,
+    lockRefSha: 'commit-sha'
   } satisfies LockResponse
   monalisaOwner = {
     lockData: {
@@ -356,7 +357,8 @@ beforeEach(() => {
     status: 'owner',
     globalFlag,
     environment,
-    global: false
+    global: false,
+    lockRefSha: 'abc123'
   } satisfies LockResponse
   noLockFound = {
     lockData: null,
@@ -576,6 +578,7 @@ test('atomically publishes a complete non-sticky deployment lock', async testCon
     sha: 'commit-sha',
     headers: API_HEADERS
   })
+  assertCalledWith(saveStateMock, 'lock_ref_sha', 'commit-sha')
   assertCalledWith(
     infoMock,
     `🔒 created lock branch: ${COLORS.highlight}production-branch-deploy-lock`
@@ -879,15 +882,16 @@ test('treats a rerun of the same claim as idempotently acquired', async () => {
   const createRef = createMock<LockOctokit['rest']['git']['createRef']>(() =>
     Promise.resolve({status: 201})
   )
+  const getContent = mockGetContent(new NotFoundError('file not found'), {
+    data: {
+      content: Buffer.from(JSON.stringify(lockData)).toString('base64')
+    }
+  })
   const octokit = createLockOctokit({
     git: {createRef},
     repos: {
       getBranch: mockGetBranch({data: {commit: {sha: 'lock-sha'}}}),
-      getContent: mockGetContent(new NotFoundError('file not found'), {
-        data: {
-          content: Buffer.from(JSON.stringify(lockData)).toString('base64')
-        }
-      })
+      getContent
     }
   })
 
@@ -896,7 +900,8 @@ test('treats a rerun of the same claim as idempotently acquired', async () => {
     status: 'owner',
     globalFlag,
     environment,
-    global: false
+    global: false,
+    lockRefSha: 'lock-sha'
   })
   assertNotCalled(createRef)
   assertNotCalled(actionStatusMock)
@@ -904,6 +909,14 @@ test('treats a rerun of the same claim as idempotently acquired', async () => {
     infoMock,
     '✅ this deployment lock claim was already acquired'
   )
+  assertCalledWith(saveStateMock, 'lock_ref_sha', 'lock-sha')
+  assertCalledWith(getContent, {
+    owner: 'corp',
+    repo: 'test',
+    path: 'lock.json',
+    ref: 'lock-sha',
+    headers: API_HEADERS
+  })
 })
 
 test('uses normal owner handling when the same owner makes a different claim', async () => {
@@ -935,12 +948,14 @@ test('uses normal owner handling when the same owner makes a different claim', a
     status: 'owner',
     globalFlag,
     environment,
-    global: false
+    global: false,
+    lockRefSha: 'lock-sha'
   })
   assertCalledWith(
     infoMock,
     `✅ ${COLORS.highlight}monalisa${COLORS.reset} initiated this request and is also the owner of the current lock`
   )
+  assertCalledWith(saveStateMock, 'lock_ref_sha', 'lock-sha')
 })
 
 for (const failurePoint of ['blob', 'tree', 'commit'] as const) {
@@ -1764,9 +1779,11 @@ test('Determines that the lock request is coming from current owner of the lock 
       getContent: mockGetContent({data: {content: lockBase64Monalisa}})
     }
   })
+  const {lockRefSha, ...stickyOwner} = monalisaOwner
+  assert.strictEqual(lockRefSha, 'abc123')
   assert.deepStrictEqual(
     await lock(lockRequest({octokit, sticky: true})),
-    monalisaOwner
+    stickyOwner
   )
   assertCalledWith(debugMock, `detected lock env: ${environment}`)
   assertCalledWith(debugMock, `detected lock global: false`)

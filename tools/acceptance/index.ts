@@ -310,7 +310,7 @@ function setForkPullRequest(state: MockGitHubState): void {
 function addBranch(
   state: MockGitHubState,
   name: string,
-  sha = ACCEPTANCE_SHAS.default
+  sha: string = ACCEPTANCE_SHAS.default
 ): void {
   state.branches.set(name, {
     name,
@@ -1083,6 +1083,151 @@ const scenarios = [
           diagnostics(context, postResult)
         )
       })
+  },
+  {
+    name: 'failed deployment startup preserves a replacement lock',
+    run: () =>
+      withMockGitHub(
+        'failed deployment startup preserves a replacement lock',
+        async context => {
+          setTriggerComment(context.state, '.deploy')
+          const branch = lockBranch('production')
+          const replacement = {
+            schema_version: 1,
+            reason: 'deployment',
+            branch: 'other-branch',
+            created_at: '2026-01-01T01:00:00.000Z',
+            created_by: 'OtherUser',
+            sticky: false,
+            environment: 'production',
+            global: false,
+            unlock_command: '.unlock production',
+            link: `https://github.com/${ACCEPTANCE_REPOSITORY.owner}/${ACCEPTANCE_REPOSITORY.repo}/pull/2#issuecomment-2001`,
+            claim_id: `sha256:${'b'.repeat(64)}`
+          }
+          queueFault(context.state, {
+            method: 'POST',
+            path: apiPath('/issues/1/comments'),
+            response: {message: 'comment rejected', status: 403},
+            seedLock: {branch, contents: JSON.stringify(replacement)}
+          })
+
+          const result = await runMain(context)
+
+          assertExit(context, result, 1)
+          assertReason(context, result, 'unexpected_error')
+          assert.equal(
+            context.state.branches.has(branch),
+            true,
+            diagnostics(context, result)
+          )
+          assert.deepEqual(requireMockLock(context, branch), replacement)
+          assert.equal(
+            result.stdout.includes(
+              'reference no longer points to the expected OID'
+            ),
+            true,
+            diagnostics(context, result)
+          )
+          assert.equal(
+            context.routeLog.filter(route => route.method === 'DELETE').length,
+            0,
+            diagnostics(context, result)
+          )
+        }
+      )
+  },
+  {
+    name: 'post completion preserves a replacement deployment lock',
+    run: () =>
+      withMockGitHub(
+        'post completion preserves a replacement deployment lock',
+        async context => {
+          setTriggerComment(context.state, '.deploy')
+          const mainResult = await runMain(context)
+          assertExit(context, mainResult, 0)
+          const branch = lockBranch('production')
+          const originalSha = mainResult.state['lock_ref_sha']
+          assert.equal(
+            originalSha,
+            context.state.branches.get(branch)?.sha,
+            diagnostics(context, mainResult)
+          )
+          const replacement = {
+            ...requireMockLock(context, branch),
+            claim_id: `sha256:${'b'.repeat(64)}`,
+            created_at: '2026-01-01T01:00:00.000Z',
+            created_by: 'OtherUser'
+          }
+          addBranch(context.state, branch, ACCEPTANCE_SHAS.fork)
+          context.state.lockFiles.set(
+            `${context.state.owner}/${context.state.repo}/${branch}/lock.json`,
+            JSON.stringify(replacement)
+          )
+
+          const postResult = await runPost(context, mainResult)
+
+          assertExit(context, postResult, 0)
+          assert.equal(
+            requireDeploymentStatus(context, requireDeployment(context), 1)
+              .state,
+            'success'
+          )
+          assert.equal(
+            context.state.branches.get(branch)?.sha,
+            ACCEPTANCE_SHAS.fork,
+            diagnostics(context, postResult)
+          )
+          assert.deepEqual(requireMockLock(context, branch), replacement)
+          assert.equal(
+            postResult.stdout.includes(
+              'reference no longer points to the expected OID'
+            ),
+            true,
+            diagnostics(context, postResult)
+          )
+        }
+      )
+  },
+  {
+    name: 'post completion preserves a same-claim replacement lock',
+    run: () =>
+      withMockGitHub(
+        'post completion preserves a same-claim replacement lock',
+        async context => {
+          setTriggerComment(context.state, '.noop')
+          const mainResult = await runMain(context)
+          assertExit(context, mainResult, 0)
+          const branch = lockBranch('production')
+          const replacement = {
+            ...requireMockLock(context, branch),
+            created_at: '2026-01-01T01:00:00.000Z'
+          }
+          addBranch(context.state, branch, ACCEPTANCE_SHAS.fork)
+          context.state.lockFiles.set(
+            `${context.state.owner}/${context.state.repo}/${branch}/lock.json`,
+            JSON.stringify(replacement)
+          )
+
+          const postResult = await runPost(context, mainResult)
+
+          assertExit(context, postResult, 0)
+          assertNoDeployment(context, postResult)
+          assert.equal(
+            context.state.branches.get(branch)?.sha,
+            ACCEPTANCE_SHAS.fork,
+            diagnostics(context, postResult)
+          )
+          assert.deepEqual(requireMockLock(context, branch), replacement)
+          assert.equal(
+            postResult.stdout.includes(
+              'reference no longer points to the expected OID'
+            ),
+            true,
+            diagnostics(context, postResult)
+          )
+        }
+      )
   },
   {
     name: 'post comment failure preserves in-progress deployment',
@@ -3428,6 +3573,46 @@ const scenarios = [
           true,
           diagnostics(context)
         )
+
+        const updateRefsQuery =
+          'mutation($input:UpdateRefsInput!){updateRefs(input: $input){clientMutationId}}'
+        const repositoryId = `R_${ACCEPTANCE_REPOSITORY.owner}_${ACCEPTANCE_REPOSITORY.repo}`
+        addBranch(context.state, 'validation-lock')
+        for (const [input, expectedError] of [
+          [null, 'expected ref update input'],
+          [
+            {repositoryId: 'R_other', refUpdates: []},
+            'unexpected ref update repository ID'
+          ],
+          [{repositoryId, refUpdates: []}, 'expected ref update'],
+          [{repositoryId, refUpdates: null}, 'expected ref update'],
+          [
+            {
+              repositoryId,
+              refUpdates: [
+                {
+                  name: 'refs/heads/validation-lock',
+                  beforeOid: ACCEPTANCE_SHAS.default,
+                  afterOid: ACCEPTANCE_SHAS.feature
+                }
+              ]
+            },
+            'expected ref deletion'
+          ]
+        ] as const) {
+          const invalidRefUpdate = await requestMockRoute(
+            context.port,
+            '/graphql',
+            'POST',
+            {query: updateRefsQuery, variables: {input}}
+          )
+          assert.equal(invalidRefUpdate.status, 500, diagnostics(context))
+          assert.equal(
+            invalidRefUpdate.body.includes(expectedError),
+            true,
+            diagnostics(context)
+          )
+        }
 
         const listedDeployments = await getMockRoute(
           context.port,

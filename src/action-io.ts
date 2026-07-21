@@ -142,6 +142,7 @@ export const ACTION_STATE_KEYS = [
   'fork',
   'initial_comment_id',
   'isPost',
+  'lock_ref_sha',
   'noop',
   'params',
   'parsed_params',

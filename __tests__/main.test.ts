@@ -34,6 +34,8 @@ type PrechecksModule = typeof import('../src/functions/prechecks.ts')
 type ReactEmoteModule = typeof import('../src/functions/react-emote.ts')
 type TimestampModule = typeof import('../src/functions/timestamp.ts')
 type UnlockModule = typeof import('../src/functions/unlock.ts')
+type UnlockIfUnchangedModule =
+  typeof import('../src/functions/unlock-if-unchanged.ts')
 type InteractiveUnlockRequest =
   import('../src/functions/unlock.ts').InteractiveUnlockRequest
 type SilentUnlockRequest =
@@ -76,6 +78,8 @@ const prechecksMock = createMock<PrechecksModule['prechecks']>()
 const reactEmoteMock = createMock<ReactEmoteModule['reactEmote']>()
 const timestampMock = createMock<TimestampModule['timestamp']>()
 const unlockMock = createMock<UnlockModule['unlock']>()
+const unlockIfUnchangedMock =
+  createMock<UnlockIfUnchangedModule['unlockIfUnchanged']>()
 const unlockOnMergeMock = createMock<UnlockOnMergeModule['unlockOnMerge']>()
 const validDeploymentOrderMock =
   createMock<ValidDeploymentOrderModule['validDeploymentOrder']>()
@@ -164,6 +168,11 @@ installModuleMock(
   mock,
   new URL('../src/functions/unlock.ts', import.meta.url),
   {unlock: unlockMock}
+)
+installModuleMock(
+  mock,
+  new URL('../src/functions/unlock-if-unchanged.ts', import.meta.url),
+  {unlockIfUnchanged: unlockIfUnchangedMock}
 )
 installModuleMock(
   mock,
@@ -329,16 +338,6 @@ function failedUnlock(
   )
 }
 
-function throwingUnlock(
-  request: SilentUnlockRequest
-): Promise<SilentUnlockResult>
-function throwingUnlock(request: InteractiveUnlockRequest): Promise<boolean>
-function throwingUnlock(
-  _request: InteractiveUnlockRequest | SilentUnlockRequest
-): Promise<boolean | SilentUnlockResult> {
-  return Promise.reject(new Error('cleanup unavailable'))
-}
-
 type ExpectedOperationResult = Pick<
   OperationResultV1,
   'decision' | 'operation' | 'reason_code'
@@ -411,6 +410,7 @@ beforeEach(() => {
     reactEmoteMock,
     timestampMock,
     unlockMock,
+    unlockIfUnchangedMock,
     unlockOnMergeMock,
     validDeploymentOrderMock,
     validPermissionsMock,
@@ -498,7 +498,8 @@ beforeEach(() => {
       global: false,
       globalFlag: '',
       lockData: null,
-      status: true
+      status: true,
+      lockRefSha: 'lock-commit-sha'
     })
   )
   contextCheckMock.mock.mockImplementation(() => true)
@@ -528,6 +529,7 @@ beforeEach(() => {
   nakedCommandCheckMock.mock.mockImplementation(() => Promise.resolve(false))
   unlockOnMergeMock.mock.mockImplementation(() => Promise.resolve(true))
   unlockMock.mock.mockImplementation(successfulUnlock)
+  unlockIfUnchangedMock.mock.mockImplementation(() => Promise.resolve(true))
   validDeploymentOrderMock.mock.mockImplementation(() =>
     Promise.resolve({valid: true, results: []})
   )
@@ -594,7 +596,7 @@ test('successfully deploys without acquiring a lock when locking is disabled', a
     deployment_id: 123
   })
   assertNotCalled(lockMock)
-  assertNotCalled(unlockMock)
+  assertNotCalled(unlockIfUnchangedMock)
   assertCalledWith(saveStateMock, 'disable_lock', true)
   assertCalledWith(
     infoMock,
@@ -617,7 +619,7 @@ test('rejects a moved ref without lock cleanup when locking is disabled', async 
     sha: mock_sha
   })
   assertNotCalled(lockMock)
-  assertNotCalled(unlockMock)
+  assertNotCalled(unlockIfUnchangedMock)
   assertNotCalled(createDeploymentMock)
 })
 
@@ -634,18 +636,13 @@ test('rejects a mutable PR ref that moves after prechecks', async () => {
     ref: 'test-ref',
     sha: mock_sha
   })
-  const cleanupCall = unlockMock.mock.calls[0]
-  assert.ok(cleanupCall)
-  const cleanupRequest = unsafeInvalidValue<SilentUnlockRequest>(
-    cleanupCall.arguments[0]
-  )
-  assert.deepStrictEqual(cleanupRequest, {
+  assertCalledWith(
+    unlockIfUnchangedMock,
     octokit,
-    context: githubContext,
-    reactionId: null,
-    target: {type: 'environment', environment: 'production'},
-    mode: 'silent'
-  })
+    githubContext,
+    'production',
+    'lock-commit-sha'
+  )
   assertNotCalled(createDeploymentMock)
   assertCalledWith(
     setFailedMock,
@@ -658,7 +655,7 @@ test('retains a sticky lock when a mutable ref moves', async () => {
   liveRefSha = 'new-commit'
 
   assert.strictEqual(await run(), 'failure')
-  assertNotCalled(unlockMock)
+  assertNotCalled(unlockIfUnchangedMock)
 })
 
 test('rejects a mutable PR ref that moves after the started comment', async () => {
@@ -675,7 +672,7 @@ test('rejects a mutable PR ref that moves after the started comment', async () =
     sha: mock_sha
   })
   assertNotCalled(createDeploymentMock)
-  assertCalledTimes(unlockMock, 1)
+  assertCalledTimes(unlockIfUnchangedMock, 1)
 })
 
 test('keeps ref_changed stable when reporting the failure is unavailable', async () => {
@@ -694,7 +691,7 @@ test('keeps ref_changed stable when reporting the failure is unavailable', async
     ref: 'test-ref',
     sha: mock_sha
   })
-  assertCalledTimes(unlockMock, 1)
+  assertCalledTimes(unlockIfUnchangedMock, 1)
   assertCalledWith(
     warningMock,
     'failed to report the changed deployment ref: comment unavailable'
@@ -743,7 +740,7 @@ test('keeps deployment_sha_mismatch stable when failure reporting is unavailable
     sha: mock_sha,
     deployment_id: 123
   })
-  assertCalledTimes(unlockMock, 1)
+  assertCalledTimes(unlockIfUnchangedMock, 1)
   assertCalledWith(
     warningMock,
     'failed to mark the mismatched deployment as an error: status unavailable'
@@ -767,7 +764,7 @@ test('cleans a non-sticky lock when deployment orchestration throws', async () =
     ref: 'test-ref',
     sha: mock_sha
   })
-  assertCalledTimes(unlockMock, 1)
+  assertCalledTimes(unlockIfUnchangedMock, 1)
 })
 
 test('preserves the missing run id fallback in the deployment payload', async () => {
@@ -940,7 +937,9 @@ test('reports a timed-out confirmation and warns if non-sticky lock cleanup thro
   deploymentConfirmationMock.mock.mockImplementation(() =>
     Promise.resolve('timed_out')
   )
-  unlockMock.mock.mockImplementation(throwingUnlock)
+  unlockIfUnchangedMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('cleanup unavailable'))
+  )
 
   assert.strictEqual(await run(), 'failure')
   assertOperationResult({
@@ -963,12 +962,33 @@ test('warns when non-sticky confirmation cleanup returns a bad status', async ()
   deploymentConfirmationMock.mock.mockImplementation(() =>
     Promise.resolve('rejected')
   )
-  unlockMock.mock.mockImplementation(failedUnlock)
+  unlockIfUnchangedMock.mock.mockImplementation(() => Promise.resolve(false))
 
   assert.strictEqual(await run(), 'failure')
   assertCalledWith(
     warningMock,
     'failed to release the non-sticky deployment lock after confirmation did not complete'
+  )
+})
+
+test('leaves a non-sticky lock in place when acquisition returns no ref SHA', async () => {
+  setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
+  deploymentConfirmationMock.mock.mockImplementation(() =>
+    Promise.resolve('rejected')
+  )
+  setLockResult({
+    environment: 'production',
+    global: false,
+    globalFlag: '',
+    lockData: null,
+    status: true
+  })
+
+  assert.strictEqual(await run(), 'failure')
+  assertNotCalled(unlockIfUnchangedMock)
+  assertCalledWith(
+    warningMock,
+    'failed to release the non-sticky deployment lock after confirmation did not complete: the original ref SHA was not returned'
   )
 })
 
@@ -980,7 +1000,7 @@ test('retains a sticky lock when deployment confirmation is rejected', async () 
   )
 
   assert.strictEqual(await run(), 'failure')
-  assertNotCalled(unlockMock)
+  assertNotCalled(unlockIfUnchangedMock)
 })
 
 test('cleans a non-sticky lock before propagating a confirmation error', async () => {
@@ -999,16 +1019,13 @@ test('cleans a non-sticky lock before propagating a confirmation error', async (
     ref: 'test-ref',
     sha: 'abc123'
   })
-  const cleanupRequest = unsafeInvalidValue<SilentUnlockRequest>(
-    unlockMock.mock.calls.at(-1)?.arguments[0]
-  )
-  assert.deepStrictEqual(cleanupRequest, {
+  assertCalledWith(
+    unlockIfUnchangedMock,
     octokit,
-    context: githubContext,
-    reactionId: null,
-    target: {type: 'environment', environment: 'production'},
-    mode: 'silent'
-  })
+    githubContext,
+    'production',
+    'lock-commit-sha'
+  )
 })
 
 test('successfully runs the action on a deployment to development and with branch updates disabled', async () => {
@@ -1102,7 +1119,7 @@ test('successfully runs a noop without acquiring a lock when locking is disabled
     sha: 'deadbeef'
   })
   assertNotCalled(lockMock)
-  assertNotCalled(unlockMock)
+  assertNotCalled(unlockIfUnchangedMock)
   assertCalledWith(saveStateMock, 'disable_lock', true)
 })
 

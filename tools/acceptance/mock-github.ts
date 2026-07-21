@@ -489,6 +489,43 @@ function routeGraphql(
   const query = requireString(body, 'query')
   const variables = isRecord(body['variables']) ? body['variables'] : {}
   const normalizedQuery = query.replace(/\s+/gu, ' ')
+  if (normalizedQuery.includes('updateRefs(input: $input)')) {
+    const input = variables['input']
+    if (!isRecord(input)) throw new Error('expected ref update input')
+    if (
+      requireString(input, 'repositoryId') !== `R_${state.owner}_${state.repo}`
+    ) {
+      throw new Error('unexpected ref update repository ID')
+    }
+    const refUpdates = input['refUpdates']
+    if (!Array.isArray(refUpdates) || !isRecord(refUpdates[0])) {
+      throw new Error('expected ref update')
+    }
+    const update = refUpdates[0]
+    const name = requireString(update, 'name')
+    const beforeOid = requireString(update, 'beforeOid')
+    const afterOid = requireString(update, 'afterOid')
+    const branchName = name.replace('refs/heads/', '')
+    const branch = state.branches.get(branchName)
+    if (branch?.sha !== beforeOid) {
+      return {
+        status: 200,
+        value: {
+          data: {updateRefs: null},
+          errors: [{message: 'reference no longer points to the expected OID'}]
+        }
+      }
+    }
+    if (afterOid !== '0000000000000000000000000000000000000000') {
+      throw new Error('expected ref deletion')
+    }
+    state.branches.delete(branchName)
+    state.lockFiles.delete(lockFileKey(state, branchName))
+    return {
+      status: 200,
+      value: {data: {updateRefs: {clientMutationId: null}}}
+    }
+  }
   if (
     normalizedQuery.includes('pullRequest(number:$number)') &&
     normalizedQuery.includes('statusCheckRollup')
@@ -698,7 +735,13 @@ function routeRest(
   }
 
   if (method === 'GET' && parts.length === 3) {
-    return {status: 200, value: {default_branch: state.repositoryDefaultBranch}}
+    return {
+      status: 200,
+      value: {
+        default_branch: state.repositoryDefaultBranch,
+        node_id: `R_${state.owner}_${state.repo}`
+      }
+    }
   }
 
   const area = part(parts, 3)
@@ -777,7 +820,15 @@ function routeRest(
     const ref = searchParams.get('ref') ?? state.repositoryDefaultBranch
     const path = parts.slice(4).map(decodeURIComponent).join('/')
     const key = `${state.owner}/${state.repo}/${ref}/${path}`
-    const content = state.repositoryFiles.get(key) ?? state.lockFiles.get(key)
+    const lockBranch = [...state.branches.values()].find(
+      branch => branch.sha === ref
+    )
+    const lockKey =
+      lockBranch === undefined ? key : lockFileKey(state, lockBranch.name)
+    const content =
+      state.repositoryFiles.get(key) ??
+      state.lockFiles.get(key) ??
+      state.lockFiles.get(lockKey)
     return content === undefined
       ? notFound('Not Found')
       : {

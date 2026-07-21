@@ -125,8 +125,16 @@ function constructBranchName(
 
 type CreateLockResult =
   | {readonly kind: 'ambiguous'}
-  | {readonly kind: 'created'; readonly lockData: LockData}
-  | {readonly kind: 'existing'; readonly lockData: LockData}
+  | {
+      readonly kind: 'created'
+      readonly lockData: LockData
+      readonly lockRefSha: string
+    }
+  | {
+      readonly kind: 'existing'
+      readonly lockData: LockData
+      readonly lockRefSha: string
+    }
 
 function constructClaimId(
   context: BranchDeployContext,
@@ -305,10 +313,16 @@ async function createLock(
       throw error
     }
     try {
-      const existingLock = await checkLockFile(octokit, context, branchName)
+      const branch = await octokit.rest.repos.getBranch({
+        ...context.repo,
+        branch: branchName,
+        headers: API_HEADERS
+      })
+      const lockRefSha = branch.data.commit.sha
+      const existingLock = await checkLockFile(octokit, context, lockRefSha)
       return existingLock === false
         ? {kind: 'ambiguous'}
-        : {kind: 'existing', lockData: existingLock}
+        : {kind: 'existing', lockData: existingLock, lockRefSha}
     } catch (readError) {
       if (readError instanceof InvalidLockFileError) {
         return {kind: 'ambiguous'}
@@ -318,6 +332,9 @@ async function createLock(
   }
 
   core.info(`🔒 created lock branch: ${COLORS.highlight}${branchName}`)
+  if (sticky === false) {
+    saveActionState('lock_ref_sha', commit.data.sha)
+  }
   await reportLockAcquired(
     octokit,
     context,
@@ -328,7 +345,7 @@ async function createLock(
     reactionId,
     leaveComment
   )
-  return {kind: 'created', lockData}
+  return {kind: 'created', lockData, lockRefSha: commit.data.sha}
 }
 
 // Helper function to construct the unlock command
@@ -692,6 +709,17 @@ interface AmbiguousLockRequest {
   readonly reactionId: number | null
 }
 
+function saveOwnedLockRef(
+  lockRefSha: string,
+  sticky: boolean | null,
+  response: LockResponse
+): LockResponse {
+  if (sticky !== false || response.status !== 'owner') return response
+
+  saveActionState('lock_ref_sha', lockRefSha)
+  return {...response, lockRefSha}
+}
+
 async function ambiguousLockResponse({
   branchName,
   context,
@@ -888,10 +916,20 @@ export async function lock(request: LockRequest): Promise<LockResponse> {
   }
 
   if (branchExists) {
+    const lockRef =
+      !detailsOnly && sticky === false
+        ? (
+            await octokit.rest.repos.getBranch({
+              ...context.repo,
+              branch: branchName,
+              headers: API_HEADERS
+            })
+          ).data.commit.sha
+        : branchName
     // Check if the lock file exists
     let lockData: false | LockData
     try {
-      lockData = await checkLockFile(octokit, context, branchName)
+      lockData = await checkLockFile(octokit, context, lockRef)
     } catch (error) {
       if (error instanceof InvalidLockFileError) {
         return ambiguousLockResponse({
@@ -930,18 +968,22 @@ export async function lock(request: LockRequest): Promise<LockResponse> {
       }
     }
 
-    return existingLockResponse({
-      claimId,
-      context,
-      environment,
-      global,
-      globalFlag,
-      leaveComment,
-      lockData,
-      octokit,
-      reactionId,
-      sticky
-    })
+    return saveOwnedLockRef(
+      lockRef,
+      sticky,
+      await existingLockResponse({
+        claimId,
+        context,
+        environment,
+        global,
+        globalFlag,
+        leaveComment,
+        lockData,
+        octokit,
+        reactionId,
+        sticky
+      })
+    )
   }
 
   // Build the complete lock commit and publish the branch as one visible step.
@@ -958,7 +1000,14 @@ export async function lock(request: LockRequest): Promise<LockResponse> {
     branchName
   )
   if (creation.kind === 'created') {
-    return {status: true, lockData: null, globalFlag, environment, global}
+    return {
+      status: true,
+      lockData: null,
+      globalFlag,
+      environment,
+      global,
+      lockRefSha: creation.lockRefSha
+    }
   }
   if (creation.kind === 'ambiguous') {
     return ambiguousLockResponse({
@@ -971,16 +1020,20 @@ export async function lock(request: LockRequest): Promise<LockResponse> {
       reactionId
     })
   }
-  return existingLockResponse({
-    claimId,
-    context,
-    environment,
-    global,
-    globalFlag,
-    leaveComment,
-    lockData: creation.lockData,
-    octokit,
-    reactionId,
-    sticky
-  })
+  return saveOwnedLockRef(
+    creation.lockRefSha,
+    sticky,
+    await existingLockResponse({
+      claimId,
+      context,
+      environment,
+      global,
+      globalFlag,
+      leaveComment,
+      lockData: creation.lockData,
+      octokit,
+      reactionId,
+      sticky
+    })
+  )
 }
