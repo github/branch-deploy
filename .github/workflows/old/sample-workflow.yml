@@ -19,18 +19,21 @@
 #     steps:
 #       # Need to checkout for testing the Action in this repo
 #       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # pin@v7.0.0
+#         with:
+#           persist-credentials: false
 
 #       # Start the branch deployment
 #       - uses: ./
 #         id: branch-deploy
 #         with:
-#           admins: grantbirki
+#           admins: octocat
 
 #       # Check out the ref from the output of the IssueOps command
 #       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # pin@v7.0.0
 #         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
 #         with:
 #           ref: ${{ steps.branch-deploy.outputs.sha }}
+#           persist-credentials: false
 
 #       # Do some fake "noop" deployment logic here
 #       - name: fake noop deploy

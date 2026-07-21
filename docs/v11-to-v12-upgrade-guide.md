@@ -271,19 +271,19 @@ Stop and ask the user before proceeding if the migration would require intention
 
 </details>
 
-## The action runs on Node 24
+## The action continues to run on Node 24
 
-### What changed
+### Runtime compatibility
 
-Branch Deploy v12 declares the GitHub Actions Node 24 runtime in `action.yml`. The development and CI runtime are also pinned to the exact Node 24 version in `.node-version`.
+Branch Deploy v12 continues to use the GitHub Actions Node 24 runtime already declared by current v11 releases. The development and CI runtime remain pinned to an exact Node 24 version in `.node-version`.
 
 ### Who is affected
 
-Most users on GitHub-hosted runners do not need to change anything. Self-hosted runner and GitHub Enterprise Server users should confirm that their runner fleet and server version support Node 24 JavaScript actions before moving production workflows to `github/branch-deploy@v12`.
+Most users on GitHub-hosted runners and current v11 releases do not need to change anything. Users moving from older releases, self-hosted runner users, and GitHub Enterprise Server users should confirm that their runner fleet and server version support Node 24 JavaScript actions before moving production workflows to `github/branch-deploy@v12`.
 
 ### What should I do?
 
-- Confirm your self-hosted runners can execute Node 24 actions.
+- Confirm your self-hosted runners can execute Node 24 actions. Node 24 requires a compatible runner and does not support ARM32 or macOS 13.4 and older.
 - Confirm your GitHub Enterprise Server version supports the Node 24 action runtime.
 - Test the exact v12 candidate SHA before moving important workflows to the movable `v12` tag.
 
@@ -469,10 +469,11 @@ Give the Branch Deploy step an `id`, then consume either the scalar aliases or t
 - name: Run deployment
   if: steps.branch-deploy.outputs.decision == 'continue'
   env:
-    BRANCH_DEPLOY_RESULT: ${{ steps.branch-deploy.outputs.result }}
+    REASON_CODE: ${{ steps.branch-deploy.outputs.reason_code }}
+    ENVIRONMENT: ${{ fromJSON(steps.branch-deploy.outputs.result).environment }}
   run: |
-    echo "reason: ${{ steps.branch-deploy.outputs.reason_code }}"
-    echo "environment: ${{ fromJSON(steps.branch-deploy.outputs.result).environment }}"
+    printf 'reason: %s\n' "$REASON_CODE"
+    printf 'environment: %s\n' "$ENVIRONMENT"
 ```
 
 Treat `schema_version` as the compatibility boundary when parsing `result`. Prefer `reason_code` over matching human-readable comments or logs.

@@ -50,7 +50,8 @@ export async function unlockOnMerge(
 
   // loop through all the environment targets and check each one for a lock associated with this merged pull request
   const releasedEnvironments: string[] = []
-  for (const environment of environment_targets.split(',')) {
+  for (const rawEnvironment of environment_targets.split(',')) {
+    const environment = rawEnvironment.trim()
     // construct the lock branch name for this environment
     const lockBranch = `${constructValidBranchName(environment)}-${LOCK_METADATA.lockBranchSuffix}`
 

@@ -71,9 +71,12 @@ The `params` and `parsed_params` outputs can be accessed just like any other out
 
 - name: example
   if: steps.branch-deploy.outputs.continue == 'true'
+  env:
+    PARAMS: ${{ steps.branch-deploy.outputs.params }}
+    PARSED_PARAMS: ${{ steps.branch-deploy.outputs.parsed_params }}
   run: |
-    echo "params: ${{ steps.branch-deploy.outputs.params }}"
-    echo "parsed_params: ${{ steps.branch-deploy.outputs.parsed_params }}"
+    printf 'params: %s\n' "$PARAMS"
+    printf 'parsed_params: %s\n' "$PARSED_PARAMS"
 ```
 
 ## Parameters and Deployment Payloads
