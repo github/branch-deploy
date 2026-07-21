@@ -27,6 +27,26 @@ test('keeps every attacker-controlled line inside the nested code block', () => 
   assert.strictEqual(formatted.includes('\n<details open>'), false)
 })
 
+test('keeps empty and whitespace-only reason lines indented', () => {
+  assert.strictEqual(
+    formatLockReason('\n  \t\nlast line\n'),
+    '- __Reason__:\n\n      \n        \t\n      last line\n      '
+  )
+})
+
+for (const [description, value, expected] of [
+  ['null', null, 'null'],
+  ['number', 42, '42'],
+  ['boolean', false, 'false']
+] as const) {
+  test(`formats a ${description} boundary value as text`, () => {
+    assert.strictEqual(
+      formatLockReason(value),
+      `- __Reason__:\n\n      ${expected}`
+    )
+  })
+}
+
 test('keeps attacker-controlled lines indented when the comment is truncated', () => {
   const link = '[continue](https://example.com)'
   const formatted = formatLockReason(`${link}\n${'a'.repeat(70000)}`)

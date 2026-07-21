@@ -140,6 +140,7 @@ describe('file commands', () => {
     ['boolean', false, 'false'],
     ['object', {environment: 'production'}, '{"environment":"production"}'],
     ['array', ['production', 2], '["production",2]'],
+    ['multiline unicode', 'first\r\nsecond\n🚀', 'first\r\nsecond\n🚀'],
     ['null', null, ''],
     ['undefined', undefined, '']
   ] as const) {
@@ -161,6 +162,46 @@ describe('file commands', () => {
       readFileCommandValue(filePath),
       '{"id":123,"active":true}'
     )
+  })
+
+  test('appends multiline output and state records with unique delimiters', context => {
+    const outputPath = createFileCommand(context, 'GITHUB_OUTPUT')
+    const statePath = createFileCommand(context, 'GITHUB_STATE')
+    writeFileSync(outputPath, `existing-output${EOL}`)
+    writeFileSync(statePath, `existing-state${EOL}`)
+    const uuids = [
+      '00000000-0000-4000-8000-000000000001',
+      '00000000-0000-4000-8000-000000000002',
+      '00000000-0000-4000-8000-000000000003',
+      '00000000-0000-4000-8000-000000000004'
+    ] as const
+    let uuidIndex = 0
+    mock.method(crypto, 'randomUUID', () => {
+      const uuid = uuids[uuidIndex]
+      uuidIndex += 1
+      assert.ok(uuid !== undefined)
+      return uuid
+    })
+    syncBuiltinESMExports()
+
+    core.setOutput('first', 'one\r\ntwo\n🚀')
+    core.setOutput('second', 'tail')
+    core.saveState('first-state', 'one\ntwo')
+    core.saveState('second-state', false)
+
+    assert.strictEqual(
+      readFileSync(outputPath, 'utf8'),
+      `existing-output${EOL}` +
+        `first<<ghadelimiter_${uuids[0]}${EOL}one\r\ntwo\n🚀${EOL}ghadelimiter_${uuids[0]}${EOL}` +
+        `second<<ghadelimiter_${uuids[1]}${EOL}tail${EOL}ghadelimiter_${uuids[1]}${EOL}`
+    )
+    assert.strictEqual(
+      readFileSync(statePath, 'utf8'),
+      `existing-state${EOL}` +
+        `first-state<<ghadelimiter_${uuids[2]}${EOL}one\ntwo${EOL}ghadelimiter_${uuids[2]}${EOL}` +
+        `second-state<<ghadelimiter_${uuids[3]}${EOL}false${EOL}ghadelimiter_${uuids[3]}${EOL}`
+    )
+    assert.strictEqual(uuidIndex, uuids.length)
   })
 
   test('rejects missing file-command paths', context => {
@@ -217,6 +258,36 @@ describe('stdout commands and logging', () => {
         `${EOL}::set-output name=name%3Apart%2Crest::line%25%0D%0Aend${EOL}` +
         `::save-state name=name%3Apart%2Crest::line%25%0D%0Aend${EOL}`
     )
+  })
+
+  test('serializes every supported value through the stdout fallback', context => {
+    const output = captureStdout()
+    stubEnv(context, 'GITHUB_OUTPUT', undefined)
+    stubEnv(context, 'GITHUB_STATE', undefined)
+
+    for (const [name, value, expected] of [
+      ['boxed', new String('boxed'), 'boxed'],
+      ['number', 42, '42'],
+      ['not-a-number', Number.NaN, 'null'],
+      ['infinity', Number.POSITIVE_INFINITY, 'null'],
+      ['boolean', false, 'false'],
+      ['object', {value: 'line%\r\nend'}, '{"value":"line%25\\r\\nend"}'],
+      ['array', ['production', 2], '["production",2]'],
+      ['null', null, ''],
+      ['undefined', undefined, '']
+    ] as const) {
+      core.setOutput(name, value)
+      core.saveState(name, value)
+
+      assert.ok(
+        output
+          .read()
+          .endsWith(
+            `${EOL}::set-output name=${name}::${expected}${EOL}` +
+              `::save-state name=${name}::${expected}${EOL}`
+          )
+      )
+    }
   })
 
   test('emits exact debug, warning, error, and informational bytes', () => {

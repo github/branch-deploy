@@ -139,6 +139,47 @@ test('creates an in_progress deployment status', async () => {
   )
 })
 
+for (const state of [
+  'error',
+  'failure',
+  'inactive',
+  'in_progress',
+  'pending',
+  'queued',
+  'success'
+] as const) {
+  test(`preserves the ${state} deployment status request contract`, async () => {
+    const environmentUrl = 'https://example.com/staging?mode=preview#ready'
+
+    assert.deepStrictEqual(
+      await createDeploymentStatus(
+        statusOctokit,
+        context,
+        ref,
+        state,
+        '123',
+        environment,
+        environmentUrl
+      ),
+      {id: 456, url: 'https://api.github.com/deployments/456'}
+    )
+    assert.deepStrictEqual(
+      createDeploymentStatusMock.mock.calls[0]?.arguments[0],
+      {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        ref,
+        deployment_id: '123',
+        state,
+        environment,
+        environment_url: environmentUrl,
+        log_url: logUrl,
+        headers: API_HEADERS
+      }
+    )
+  })
+}
+
 test('successfully fetches the latest deployment', async () => {
   graphqlMock.mock.mockImplementation(() =>
     Promise.resolve(deploymentPage([activeDeploymentNode]))

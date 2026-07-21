@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import {readFileSync, readdirSync} from 'node:fs'
-import {resolve} from 'node:path'
+import {relative, resolve} from 'node:path'
 import {test} from 'node:test'
 import {load} from 'js-yaml'
 import {
@@ -228,9 +228,52 @@ test('runner entrypoints remain the Node 24 committed ESM bundle', () => {
   )
 })
 
+test('the committed distribution stays an exact ESM package', () => {
+  const distribution = readdirSync('dist', {withFileTypes: true})
+  assert.deepStrictEqual(distribution.map(entry => entry.name).sort(), [
+    'index.js',
+    'index.js.map',
+    'licenses.txt',
+    'package.json',
+    'sourcemap-register.cjs',
+    'sourcemap-register.js'
+  ])
+  assert.strictEqual(
+    distribution.every(entry => entry.isFile()),
+    true
+  )
+
+  const packageMetadata: unknown = JSON.parse(
+    readFileSync('dist/package.json', 'utf8')
+  )
+  assert.deepStrictEqual(packageMetadata, {type: 'module'})
+  assert.match(
+    readFileSync('dist/index.js', 'utf8'),
+    /^import ['"]\.\/sourcemap-register\.cjs['"];?/u
+  )
+})
+
+test('raw action input, output, and state calls stay inside action-io', () => {
+  const rawCalls = sourceFiles(resolve('src'))
+    .filter(path => relative(resolve('src'), path) !== 'action-io.ts')
+    .flatMap(path => {
+      const source = readFileSync(path, 'utf8')
+      const matches = [
+        ...source.matchAll(
+          /\bcore\.(?:getInput|getBooleanInput|setOutput|saveState|getState)\s*\(/gu
+        )
+      ]
+      return matches.map(
+        match => `${relative(process.cwd(), path)}:${String(match.index)}`
+      )
+    })
+
+  assert.deepStrictEqual(rawCalls, [])
+})
+
 test('declared outputs and written outputs are exactly equal', () => {
   const writtenOutputs = calledKeys(
-    /\b(?:setActionOutput|core\.setOutput)\(\s*['"](?<key>[^'"]+)['"]/g
+    /\bsetActionOutput\(\s*['"](?<key>[^'"]+)['"]/g
   )
   assert.deepStrictEqual(
     [...writtenOutputs].sort(),
@@ -240,10 +283,10 @@ test('declared outputs and written outputs are exactly equal', () => {
 
 test('all post state has a producer and only initial_comment_id is write-only', () => {
   const producedState = calledKeys(
-    /\b(?:saveActionState|core\.saveState)\(\s*['"](?<key>[^'"]+)['"]/g
+    /\bsaveActionState\(\s*['"](?<key>[^'"]+)['"]/g
   )
   const consumedState = calledKeys(
-    /\b(?:getActionState|core\.getState)\(\s*['"](?<key>[^'"]+)['"]/g
+    /\bgetActionState\(\s*['"](?<key>[^'"]+)['"]/g
   )
   const registeredState: ReadonlySet<string> = new Set(ACTION_STATE_KEYS)
 

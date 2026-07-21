@@ -58,6 +58,20 @@ test('replaces multiple spaces with hyphens', () => {
   )
 })
 
+test('replaces tabs, line breaks, and Unicode whitespace with hyphens', () => {
+  assert.strictEqual(
+    constructValidBranchName('production\twest\r\nblue\u00a0green'),
+    'production-west--blue-green'
+  )
+  assert.deepStrictEqual(
+    debugMock.mock.calls.map(call => call.arguments),
+    [
+      ['constructing valid branch name: production\twest\r\nblue\u00a0green'],
+      ['constructed valid branch name: production-west--blue-green']
+    ]
+  )
+})
+
 test('returns null if the branch is null', () => {
   assert.strictEqual(constructValidBranchName(null), null)
 })

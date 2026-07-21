@@ -360,5 +360,109 @@
     "expected": [
       "__tests__/fixtures/typescript-policy/unsafe-any-callee.ts:1:1: no-unsafe-any: unsafe any flow"
     ]
+  },
+  {
+    "name": "suppression-block-expect-error",
+    "source": "/* @ts-expect-error */\nconst value = 1\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/suppression-block-expect-error.ts:1:4: no-suppressions: TypeScript suppression directive"
+    ]
+  },
+  {
+    "name": "suppression-line-nocheck",
+    "source": "// @ts-nocheck\nconst value = 1\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/suppression-line-nocheck.ts:1:4: no-suppressions: TypeScript suppression directive"
+    ]
+  },
+  {
+    "name": "suppression-text-in-template",
+    "source": "const value = `@ts-ignore`\n",
+    "expected": []
+  },
+  {
+    "name": "global-optional-eval",
+    "source": "eval?.('value')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-optional-eval.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "global-asserted-eval",
+    "source": "(eval as typeof eval)('value')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-asserted-eval.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "global-new-function",
+    "source": "new Function('return 1')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-new-function.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "global-this-function",
+    "source": "globalThis.Function('return 1')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-this-function.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "promise-async-foreach",
+    "source": "[1].forEach(async value => { await Promise.resolve(value) })\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/promise-async-foreach.ts:1:13: promise-safety: Promise used as void callback"
+    ]
+  },
+  {
+    "name": "promise-nested-await",
+    "source": "async function value(): Promise<void> { const nested = async (): Promise<void> => { await Promise.resolve() }; void nested }\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/promise-nested-await.ts:1:1: promise-safety: async function requires await"
+    ]
+  },
+  {
+    "name": "promise-void-expression",
+    "source": "void Promise.resolve()\n",
+    "expected": []
+  },
+  {
+    "name": "promise-for-await",
+    "source": "async function value(): Promise<void> { for await (const item of []) { void item } }\n",
+    "expected": []
+  },
+  {
+    "name": "nullable-string-condition",
+    "source": "declare const value: '' | 'production' | undefined\nif (value) {}\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/nullable-string-condition.ts:2:5: strict-boolean: condition must have a boolean type"
+    ]
+  },
+  {
+    "name": "nullable-object-condition",
+    "source": "declare const value: {active: true} | undefined\nif (value) {}\n",
+    "expected": []
+  },
+  {
+    "name": "unsafe-any-element-access",
+    "source": "JSON.parse('{}')['value']\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/unsafe-any-element-access.ts:1:1: no-unsafe-any: unsafe any flow"
+    ]
+  },
+  {
+    "name": "global-nan-reversed-comparison",
+    "source": "1 < NaN\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-nan-reversed-comparison.ts:1:1: control-flow: use Number.isNaN"
+    ]
+  },
+  {
+    "name": "unsafe-prototype-enumerable",
+    "source": "({}).propertyIsEnumerable('value')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/unsafe-prototype-enumerable.ts:1:1: control-flow: unsafe prototype method call"
+    ]
   }
 ]

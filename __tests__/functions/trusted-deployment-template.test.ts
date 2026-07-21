@@ -73,6 +73,33 @@ test('accepts a 64-character immutable trusted SHA', async () => {
   assert.strictEqual(getContentMock.mock.calls[0]?.arguments[0]?.ref, sha)
 })
 
+test('accepts an uppercase immutable SHA and preserves a UTF-8 path and template', async () => {
+  const sha = 'ABCDEF0123456789'.repeat(4)
+  const path = 'docs/déploiement 🚀.md'
+  const template = '# Déploiement 🚀\n\nRésultat: {{ results }}\n'
+  getContentMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      data: {
+        type: 'file',
+        encoding: 'base64',
+        content: Buffer.from(template, 'utf8').toString('base64')
+      }
+    })
+  )
+
+  assert.strictEqual(
+    await loadTrustedDeploymentTemplate(octokit, context, path, sha),
+    template
+  )
+  assert.deepStrictEqual(getContentMock.mock.calls[0]?.arguments[0], {
+    owner: 'corp',
+    repo: 'test',
+    path,
+    ref: sha,
+    headers: API_HEADERS
+  })
+})
+
 test('returns null when the trusted SHA does not contain the template', async () => {
   getContentMock.mock.mockImplementation(() =>
     Promise.reject(Object.assign(new Error('Not Found'), {status: 404}))

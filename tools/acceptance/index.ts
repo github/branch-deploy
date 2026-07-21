@@ -76,6 +76,18 @@ function routeBody(
   return requireRecordValue(JSON.parse(route.body), diagnostics(context))
 }
 
+function routeVariables(
+  context: ScenarioContext,
+  method: string,
+  path: string,
+  occurrence = 0
+): Record<string, unknown> {
+  return requireRecordValue(
+    routeBody(context, method, path, occurrence)['variables'],
+    diagnostics(context)
+  )
+}
+
 function requireMockLock(
   context: ScenarioContext,
   branch: string
@@ -425,6 +437,13 @@ const scenarios = [
         assertExit(context, result, 0)
         assertDecision(context, result, 'complete')
         assertReason(context, result, 'help_completed')
+        assertOutput(context, result, 'triggered', 'true')
+        assertOutput(context, result, 'comment_body', '.help')
+        assertOutput(context, result, 'issue_number', '1')
+        assertOutput(context, result, 'actor', 'octocat')
+        assertOutput(context, result, 'comment_id', '1000')
+        assertOutput(context, result, 'initial_reaction_id', '5000')
+        assertOutput(context, result, 'actor_handle', 'octocat')
         assertOutput(context, result, 'type', 'help')
         assertCommentIncludes(context, '## 📚 Branch Deployment Help')
         assertReaction(context, '+1')
@@ -445,6 +464,61 @@ const scenarios = [
       })
   },
   {
+    name: 'safe-exit commands',
+    run: async () => {
+      for (const [name, command, inputs, reason, fragment] of [
+        ['no trigger', 'looks good', {}, 'no_trigger', null],
+        [
+          'deprecated noop',
+          '.deploy noop',
+          {},
+          'deprecated_command',
+          'Deprecated Input Detected'
+        ],
+        [
+          'naked deploy disabled',
+          '.deploy',
+          {disable_naked_commands: 'true'},
+          'naked_command_disabled',
+          'Missing Explicit Environment'
+        ],
+        [
+          'invalid environment',
+          '.deploy to qa',
+          {},
+          'invalid_environment',
+          'No matching environment target found'
+        ]
+      ] as const) {
+        await withMockGitHub(name, async context => {
+          setTriggerComment(context.state, command)
+
+          const result = await runMain(context, inputs)
+
+          assertExit(context, result, 0)
+          assertDecision(context, result, 'stop')
+          assertReason(context, result, reason)
+          assertNoDeployment(context, result)
+          assert.equal(context.state.lockFiles.size, 0)
+          if (fragment === null) {
+            assertOutput(context, result, 'triggered', 'false')
+            assert.equal(context.routeLog.length, 0)
+          } else {
+            assertCommentIncludes(context, fragment)
+            assertReaction(context, '-1')
+          }
+        })
+      }
+
+      await withMockGitHub('explicit deploy permitted', async context => {
+        setTriggerComment(context.state, '.deploy to production')
+        const result = await runMain(context, {disable_naked_commands: 'true'})
+        assertExit(context, result, 0)
+        assertReason(context, result, 'deployment_ready')
+      })
+    }
+  },
+  {
     name: '.noop',
     run: () =>
       withMockGitHub('.noop', async context => {
@@ -462,6 +536,16 @@ const scenarios = [
         assertReason(context, mainResult, 'noop_ready')
         assertOutput(context, mainResult, 'continue', 'true')
         assertOutput(context, mainResult, 'noop', 'true')
+        assertOutput(context, mainResult, 'base_ref', 'main')
+        assertOutput(
+          context,
+          mainResult,
+          'default_branch_tree_sha',
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        )
+        assertOutput(context, mainResult, 'approved_reviews_count', '0')
+        assertOutput(context, mainResult, 'commit_verified', 'true')
+        assertOutput(context, mainResult, 'initial_comment_id', '2000')
         assert.equal(
           context.state.branches.has(lockBranch('production')),
           true,
@@ -472,6 +556,10 @@ const scenarios = [
         const postResult = await runPost(context, mainResult, inputs)
 
         assertExit(context, postResult, 0)
+        assert.match(
+          requireOutput(context, postResult, 'total_seconds'),
+          /^\d+$/u
+        )
         assert.equal(
           context.state.branches.has(lockBranch('production')),
           false,
@@ -521,6 +609,60 @@ const scenarios = [
           diagnostics(context, postResult)
         )
       })
+  },
+  {
+    name: 'sticky noop lifecycle',
+    run: () =>
+      withMockGitHub('sticky noop lifecycle', async context => {
+        setTriggerComment(context.state, '.noop')
+        const inputs = {sticky_locks_for_noop: 'true'}
+
+        const mainResult = await runMain(context, inputs)
+        assertExit(context, mainResult, 0)
+        assertReason(context, mainResult, 'noop_ready')
+        assert.equal(
+          requireMockLock(context, lockBranch('production'))['sticky'],
+          true
+        )
+
+        const postResult = await runPost(context, mainResult, inputs)
+        assertExit(context, postResult, 0)
+        assert.equal(context.state.deployments.length, 0)
+        assert.equal(
+          context.state.branches.has(lockBranch('production')),
+          true,
+          diagnostics(context, postResult)
+        )
+      })
+  },
+  {
+    name: 'disabled decorative reactions',
+    run: async () => {
+      for (const [command, reason] of [
+        ['.help', 'help_completed'],
+        ['.deploy', 'deployment_ready']
+      ] as const) {
+        await withMockGitHub(`reaction disabled ${command}`, async context => {
+          setTriggerComment(context.state, command)
+          const inputs = {reaction: ''}
+
+          const mainResult = await runMain(context, inputs)
+          assertExit(context, mainResult, 0)
+          assertReason(context, mainResult, reason)
+          assertOutput(context, mainResult, 'initial_reaction_id', '')
+          assert.equal(mainResult.state['reaction_id'], '')
+
+          const postResult = await runPost(context, mainResult, inputs)
+          assertExit(context, postResult, 0)
+          assert.deepEqual(context.state.reactions, [])
+          assert.equal(
+            context.routeLog.some(route => route.path.includes('/reactions')),
+            false,
+            diagnostics(context, postResult)
+          )
+        })
+      }
+    }
   },
   {
     name: 'disabled lock commands',
@@ -657,6 +799,7 @@ const scenarios = [
         assertReason(context, mainResult, 'deployment_ready')
         assertOutput(context, mainResult, 'continue', 'true')
         assertOutput(context, mainResult, 'noop', 'false')
+        assertOutput(context, mainResult, 'deployment_id', '3000')
         const deployment = requireDeployment(context)
         assert.equal(deployment.environment, 'production')
         assert.equal(deployment.ref, 'feature-branch')
@@ -942,6 +1085,80 @@ const scenarios = [
       })
   },
   {
+    name: 'post comment failure preserves in-progress deployment',
+    run: () =>
+      withMockGitHub(
+        'post comment failure preserves in-progress deployment',
+        async context => {
+          setTriggerComment(context.state, '.deploy')
+          const mainResult = await runMain(context)
+          assertExit(context, mainResult, 0)
+          const deployment = requireDeployment(context)
+          queueFault(context.state, {
+            method: 'POST',
+            path: apiPath('/issues/1/comments'),
+            response: {message: 'comment rejected', status: 403}
+          })
+
+          const postResult = await runPost(context, mainResult)
+
+          assertExit(context, postResult, 1)
+          assert.equal(context.state.faults.length, 0)
+          assert.equal(deployment.statuses.length, 1)
+          assert.equal(context.state.labels.size, 0)
+          assert.equal(
+            context.state.branches.has(lockBranch('production')),
+            true,
+            diagnostics(context, postResult)
+          )
+          assert.equal(
+            postResult.stdout.includes('comment rejected'),
+            true,
+            diagnostics(context, postResult)
+          )
+        }
+      )
+  },
+  {
+    name: 'post label failure occurs after deployment cleanup',
+    run: () =>
+      withMockGitHub(
+        'post label failure occurs after deployment cleanup',
+        async context => {
+          setTriggerComment(context.state, '.deploy')
+          const inputs = {successful_deploy_labels: 'deployed'}
+          const mainResult = await runMain(context, inputs)
+          assertExit(context, mainResult, 0)
+          const deployment = requireDeployment(context)
+          queueFault(context.state, {
+            method: 'POST',
+            path: apiPath('/issues/1/labels'),
+            response: {message: 'label rejected', status: 403}
+          })
+
+          const postResult = await runPost(context, mainResult, inputs)
+
+          assertExit(context, postResult, 1)
+          assert.equal(context.state.faults.length, 0)
+          assert.equal(
+            requireDeploymentStatus(context, deployment, 1).state,
+            'success'
+          )
+          assert.equal(context.state.labels.has('deployed'), false)
+          assert.equal(
+            context.state.branches.has(lockBranch('production')),
+            false,
+            diagnostics(context, postResult)
+          )
+          assert.equal(
+            postResult.stdout.includes('label rejected'),
+            true,
+            diagnostics(context, postResult)
+          )
+        }
+      )
+  },
+  {
     name: 'explicit lock lifecycle',
     run: () =>
       withMockGitHub('explicit lock lifecycle', async context => {
@@ -1002,6 +1219,17 @@ const scenarios = [
         assert.equal(lock['reason'], 'release freeze')
         assert.equal(lock['unlock_command'], '.unlock --global')
         assertCommentIncludes(context, 'This is a **global** deploy lock')
+
+        setTriggerComment(context.state, '.unlock --global')
+        const unlockResult = await runMain(context)
+        assertExit(context, unlockResult, 0)
+        assertReason(context, unlockResult, 'unlock_completed')
+        assertOutput(context, unlockResult, 'global_lock_released', 'true')
+        assert.equal(
+          context.state.branches.has('global-branch-deploy-lock'),
+          false,
+          diagnostics(context, unlockResult)
+        )
       })
   },
   {
@@ -1244,6 +1472,44 @@ const scenarios = [
       })
   },
   {
+    name: 'merge deploy finds active history on page two',
+    run: () =>
+      withMockGitHub(
+        'merge deploy finds active history on page two',
+        async context => {
+          seedDeployment(context.state, ACCEPTANCE_SHAS.default)
+          const activeDeployment = requireDeployment(context)
+          for (let index = 0; index < 100; index += 1) {
+            context.state.deployments.unshift({
+              ...activeDeployment,
+              id: context.state.nextDeploymentId,
+              payload: {type: 'other-deploy'}
+            })
+            context.state.nextDeploymentId += 1
+          }
+
+          const result = await runMain(context, {merge_deploy_mode: 'true'})
+
+          assertExit(context, result, 0)
+          assertDecision(context, result, 'stop')
+          assertReason(context, result, 'merge_deploy_not_required')
+          assert.equal(
+            context.routeLog.filter(route => route.path === '/graphql').length,
+            2,
+            diagnostics(context, result)
+          )
+          assert.equal(
+            routeVariables(context, 'POST', '/graphql', 0)['cursor'],
+            null
+          )
+          assert.equal(
+            routeVariables(context, 'POST', '/graphql', 1)['cursor'],
+            '100'
+          )
+        }
+      )
+  },
+  {
     name: 'merge deploy retries malformed latest history',
     run: () =>
       withMockGitHub(
@@ -1357,6 +1623,54 @@ const scenarios = [
       })
   },
   {
+    name: 'confirmation finds actor reaction on page two',
+    run: () =>
+      withMockGitHub(
+        'confirmation finds actor reaction on page two',
+        async context => {
+          setTriggerComment(context.state, '.deploy')
+          const confirmationCommentId = context.state.nextCommentId
+          for (let index = 0; index < 100; index += 1) {
+            context.state.reactions.push({
+              commentId: confirmationCommentId,
+              content: '+1',
+              id: context.state.nextReactionId,
+              user: `other-user-${String(index)}`
+            })
+            context.state.nextReactionId += 1
+          }
+          context.state.reactions.push({
+            commentId: confirmationCommentId,
+            content: '+1',
+            id: context.state.nextReactionId,
+            user: 'octocat'
+          })
+          context.state.nextReactionId += 1
+
+          const result = await runMain(context, {
+            deployment_confirmation: 'true',
+            deployment_confirmation_timeout: '1'
+          })
+
+          assertExit(context, result, 0)
+          assertReason(context, result, 'deployment_ready')
+          assertCommentIncludes(context, 'Deployment confirmed by __octocat__')
+          const reactionPath = apiPath(
+            `/issues/comments/${String(confirmationCommentId)}/reactions`
+          )
+          assert.equal(
+            requireRoute(context, 'GET', reactionPath, 0).query,
+            '?per_page=100&page=1'
+          )
+          assert.equal(
+            requireRoute(context, 'GET', reactionPath, 1).query,
+            '?per_page=100&page=2'
+          )
+          assert.equal(context.state.deployments.length, 1)
+        }
+      )
+  },
+  {
     name: 'confirmation rejected',
     run: () =>
       withMockGitHub('confirmation rejected', async context => {
@@ -1461,11 +1775,18 @@ const scenarios = [
         assertOutput(
           context,
           result,
+          'fork_checkout',
+          'fork-owner-fork-branch fork-branch'
+        )
+        assertOutput(
+          context,
+          result,
           'fork_full_name',
           'fork-owner/branch-deploy'
         )
         assertOutput(context, result, 'ref', ACCEPTANCE_SHAS.fork)
         assertOutput(context, result, 'sha', ACCEPTANCE_SHAS.fork)
+        assertOutput(context, result, 'commit_verified', 'false')
       })
   },
   {
@@ -1571,6 +1892,86 @@ const scenarios = [
           'https://dev.example.test'
         )
       })
+  },
+  {
+    name: 'custom parameter separator and deployment inputs',
+    run: () =>
+      withMockGitHub(
+        'custom parameter separator and deployment inputs',
+        async context => {
+          setTriggerComment(
+            context.state,
+            '.deploy to development :: --flag=true --count=2'
+          )
+          const inputs = {
+            param_separator: '::',
+            production_environments: 'development',
+            required_contexts: 'lint, test',
+            update_branch: 'disabled'
+          }
+
+          const result = await runMain(context, inputs)
+
+          assertExit(context, result, 0)
+          assertReason(context, result, 'deployment_ready')
+          assertOutput(context, result, 'params', '--flag=true --count=2')
+          assertOutput(
+            context,
+            result,
+            'parsed_params',
+            '{"_":[],"flag":"true","count":2}'
+          )
+          const deploymentBody = routeBody(
+            context,
+            'POST',
+            apiPath('/deployments')
+          )
+          assert.equal(deploymentBody['production_environment'], true)
+          assert.deepEqual(deploymentBody['required_contexts'], [
+            'lint',
+            'test'
+          ])
+          assert.equal(deploymentBody['auto_merge'], false)
+          const payload = requireRecordValue(
+            deploymentBody['payload'],
+            diagnostics(context, result)
+          )
+          assert.equal(payload['params'], '--flag=true --count=2')
+          assert.deepEqual(payload['parsed_params'], {
+            _: [],
+            count: 2,
+            flag: 'true'
+          })
+        }
+      )
+  },
+  {
+    name: 'commit verification blocks unsigned feature commit',
+    run: () =>
+      withMockGitHub(
+        'commit verification blocks unsigned feature commit',
+        async context => {
+          setTriggerComment(context.state, '.deploy')
+          const commit = context.state.commits.get(ACCEPTANCE_SHAS.feature)
+          assert.ok(commit !== undefined)
+          context.state.commits.set(ACCEPTANCE_SHAS.feature, {
+            ...commit,
+            verified: false,
+            verifiedAt: null,
+            verificationReason: 'unsigned'
+          })
+
+          const result = await runMain(context, {commit_verification: 'true'})
+
+          assertExit(context, result, 1)
+          assertDecision(context, result, 'failure')
+          assertReason(context, result, 'commit_safety_failed')
+          assertOutput(context, result, 'commit_verified', 'false')
+          assertCommentIncludes(context, 'commit signature is not valid')
+          assertNoDeployment(context, result)
+          assert.equal(context.state.lockFiles.size, 0)
+        }
+      )
   },
   {
     name: 'complex environment names use valid lock refs',
@@ -2154,6 +2555,54 @@ const scenarios = [
         assertNoDeployment(context, result)
         assertCommentIncludes(context, 'CI checks are failing')
       })
+  },
+  {
+    name: 'CI failure on page two blocks deployment',
+    run: () =>
+      withMockGitHub(
+        'CI failure on page two blocks deployment',
+        async context => {
+          setTriggerComment(context.state, '.deploy')
+          context.state.rollupState = 'FAILURE'
+          context.state.rollupContexts = [
+            ...Array.from({length: 100}, (_, index) => ({
+              conclusion: 'SUCCESS',
+              databaseId: index + 1,
+              isRequired: true,
+              name: `healthy-${String(index)}`,
+              type: 'check-run' as const
+            })),
+            {
+              conclusion: 'FAILURE',
+              databaseId: 101,
+              isRequired: true,
+              name: 'required-page-two',
+              type: 'check-run'
+            }
+          ]
+
+          const result = await runMain(context)
+
+          assertExit(context, result, 1)
+          assertReason(context, result, 'prechecks_failed')
+          assertOutput(context, result, 'commit_status', 'FAILURE')
+          assertNoDeployment(context, result)
+          assert.equal(context.state.lockFiles.size, 0)
+          assert.equal(
+            context.routeLog.filter(route => route.path === '/graphql').length,
+            2,
+            diagnostics(context, result)
+          )
+          assert.equal(
+            routeVariables(context, 'POST', '/graphql', 1)['commitId'],
+            'C_acceptance'
+          )
+          assert.equal(
+            routeVariables(context, 'POST', '/graphql', 1)['cursor'],
+            '100'
+          )
+        }
+      )
   },
   {
     name: 'CI pending rejection',
@@ -2909,6 +3358,25 @@ const scenarios = [
           diagnostics(context)
         )
 
+        const wrongPaginatedCommit = await requestMockRoute(
+          context.port,
+          '/graphql',
+          'POST',
+          {
+            query:
+              'query($commitId:ID!,$cursor:String!,$number:Int!){node(id:$commitId){... on Commit{statusCheckRollup{contexts(first:100,after:$cursor){nodes{id}}}}}}',
+            variables: {commitId: 'C_other', cursor: '100', number: 1}
+          }
+        )
+        assert.equal(wrongPaginatedCommit.status, 500, diagnostics(context))
+        assert.equal(
+          wrongPaginatedCommit.body.includes(
+            'unexpected paginated prechecks GraphQL variables'
+          ),
+          true,
+          diagnostics(context)
+        )
+
         const deploymentQuery =
           'query($repo_owner:String!,$repo_name:String!,$environment:String!){repository(owner:$repo_owner,name:$repo_name){deployments(environments:[$environment],first:100,after:null,orderBy: { field: CREATED_AT, direction: DESC }){nodes{id}}}}'
         const wrongDeploymentRepository = await requestMockRoute(
@@ -3032,6 +3500,13 @@ const scenarios = [
           true,
           diagnostics(context)
         )
+
+        const unpagedReactions = await getMockRoute(
+          context.port,
+          route('/issues/comments/1000/reactions')
+        )
+        assert.equal(unpagedReactions.status, 200, diagnostics(context))
+        assert.equal(unpagedReactions.body, '[]', diagnostics(context))
 
         const invalidLabelPayload = await requestMockRoute(
           context.port,

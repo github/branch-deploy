@@ -279,6 +279,33 @@ test('successfully constructs a post deploy message with a custom env var', test
   )
 })
 
+test('expands escaped newlines and tabs in the custom deployment message', testContext => {
+  stubEnv(
+    testContext,
+    'DEPLOY_MESSAGE',
+    'First line\\nSecond line\\tindented\\nThird line'
+  )
+
+  assert.strictEqual(
+    postDeployMessage(context, data),
+    [
+      '### Deployment Results ✅',
+      '',
+      `**${context.actor}** successfully deployed branch \`${ref}\` to **${environment}**`,
+      '',
+      '<details><summary>Show Results</summary>',
+      '',
+      'First line\nSecond line\tindented\nThird line',
+      '',
+      '</details>',
+      '',
+      deployment_metadata,
+      '',
+      `> **Environment URL:** [${environment_url_simple}](${environment_url})`
+    ].join('\n')
+  )
+})
+
 test('successfully constructs a post deploy message with a custom env var when certain values are undefined', testContext => {
   stubEnv(testContext, 'DEPLOY_MESSAGE', 'Deployed 1 shiny new server')
 

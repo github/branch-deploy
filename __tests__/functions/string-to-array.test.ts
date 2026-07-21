@@ -51,6 +51,25 @@ test('successfully converts garbage to an empty array', () => {
   assert.deepStrictEqual(stringToArray(',,,'), [])
 })
 
+test('trims surrounding whitespace and filters empty comma-separated items', () => {
+  assert.deepStrictEqual(
+    stringToArray(' \tproduction , , staging,\n development,\t '),
+    ['production', 'staging', 'development']
+  )
+})
+
+test('treats whitespace-only input as an empty array', () => {
+  assert.deepStrictEqual(stringToArray(' \t\r\n '), [])
+  assert.deepStrictEqual(
+    debugMock.mock.calls.map(call => call.arguments),
+    [
+      [
+        'in stringToArray(), an empty String was found so an empty Array was returned'
+      ]
+    ]
+  )
+})
+
 test('throws an error when string processing fails', () => {
   // Pass a non-string value to trigger the error
   assert.throws(

@@ -52,6 +52,48 @@ function checkoutSteps(path: string) {
   return steps
 }
 
+function documentedLines(path: string): readonly string[] {
+  return readFileSync(path, 'utf8')
+    .split('\n')
+    .map(line => (path.endsWith('.yml') ? line.replace(/^# ?/, '') : line))
+}
+
+function unsafeInlineScriptLines(lines: readonly string[]): number[] {
+  const unsafe: number[] = []
+
+  for (const [index, line] of lines.entries()) {
+    const script = /^(\s*)(?:run|script):\s*(.*)$/.exec(line)
+    if (script === null) continue
+
+    const indentation = script[1]?.length ?? 0
+    let end = index + 1
+    if (/^[|>][+-]?(?:\s+#.*)?$/u.test(script[2] ?? '')) {
+      while (end < lines.length) {
+        const nextLine = lines[end]
+        if (nextLine === undefined) break
+        const nextIndentation = /^\s*/.exec(nextLine)?.[0].length ?? 0
+        if (nextLine.trim() !== '' && nextIndentation <= indentation) break
+        end += 1
+      }
+    }
+
+    const body = lines.slice(index, end).join('\n')
+    if (
+      /\$\{\{[^}]*\b(?:(?:steps|needs)\.[^}]*\.outputs\.|env\.|github\.event\.|inputs\.|matrix\.|secrets\.)[^}]*\}\}/u.test(
+        body
+      )
+    ) {
+      unsafe.push(index + 1)
+    }
+  }
+
+  return unsafe
+}
+
+function fixedDeploymentDelimiters(source: string): string[] {
+  return source.match(/DEPLOY_MESSAGE<<[A-Za-z_][A-Za-z0-9_.-]*/gu) ?? []
+}
+
 test('documented checkout steps do not persist credentials', () => {
   const checkouts = documentedWorkflowFiles.flatMap(checkoutSteps)
   const unsafeCheckouts = checkouts
@@ -64,46 +106,74 @@ test('documented checkout steps do not persist credentials', () => {
   assert.deepStrictEqual(unsafeCheckouts, [])
 })
 
-test('documented inline scripts do not interpolate step or job outputs', () => {
+test('documented inline scripts do not interpolate untrusted expressions', () => {
   const unsafeScripts: string[] = []
 
-  for (const path of markdownFiles) {
-    const lines = readFileSync(path, 'utf8').split('\n')
-
-    for (const [index, line] of lines.entries()) {
-      const script = /^(\s*)(?:run|script):\s*(.*)$/.exec(line)
-      if (script === null) continue
-
-      const indentation = script[1]?.length ?? 0
-      let end = index + 1
-      if (script[2] === '|' || script[2] === '|-' || script[2] === '|+') {
-        while (end < lines.length) {
-          const nextLine = lines[end]
-          if (nextLine === undefined) break
-          const nextIndentation = /^\s*/.exec(nextLine)?.[0].length ?? 0
-          if (nextLine.trim() !== '' && nextIndentation <= indentation) break
-          end += 1
-        }
-      }
-
-      const body = lines.slice(index, end).join('\n')
-      if (
-        /\$\{\{[^}]*\b(?:(?:steps|needs)\.[^}]*\.outputs\.|env\.)[^}]*\}\}/u.test(
-          body
-        )
-      ) {
-        unsafeScripts.push(`${path}:${index + 1}`)
-      }
+  for (const path of documentedWorkflowFiles) {
+    for (const line of unsafeInlineScriptLines(documentedLines(path))) {
+      unsafeScripts.push(`${path}:${line}`)
     }
   }
 
   assert.deepStrictEqual(unsafeScripts, [])
 })
 
-test('documented deployment messages do not use a fixed EOF delimiter', () => {
-  const unsafeDelimiters = markdownFiles.filter(path =>
-    readFileSync(path, 'utf8').includes('DEPLOY_MESSAGE<<EOF')
+test('the inline-script scanner rejects literal, folded, and inline expressions', () => {
+  for (const source of [
+    'run: echo "${{ github.event.comment.body }}"',
+    'run: |\n  echo "${{ steps.branch-deploy.outputs.params }}"',
+    'run: |-\n  echo "${{ env.VALUE }}"',
+    'run: >\n  echo "${{ needs.deploy.outputs.result }}"',
+    'run: >-\n  echo "${{ matrix.value }}"',
+    'script: >+\n  console.log("${{ inputs.value }}")',
+    'script: |\n  console.log("${{ secrets.VALUE }}")'
+  ]) {
+    assert.deepStrictEqual(unsafeInlineScriptLines(source.split('\n')), [1])
+  }
+
+  assert.deepStrictEqual(
+    unsafeInlineScriptLines([
+      'env:',
+      '  PARAMS: ${{ steps.branch-deploy.outputs.params }}',
+      'run: |',
+      '  printf \'%s\\n\' "$PARAMS"'
+    ]),
+    []
+  )
+})
+
+test('documented deployment messages do not use fixed delimiters', () => {
+  const unsafeDelimiters = documentedWorkflowFiles.flatMap(path =>
+    fixedDeploymentDelimiters(readFileSync(path, 'utf8')).map(
+      delimiter => `${path}:${delimiter}`
+    )
   )
 
   assert.deepStrictEqual(unsafeDelimiters, [])
+})
+
+test('the deployment-message scanner rejects every fixed delimiter', () => {
+  assert.deepStrictEqual(
+    fixedDeploymentDelimiters(
+      [
+        'echo \'DEPLOY_MESSAGE<<EOF\' >> "$GITHUB_ENV"',
+        'echo \'DEPLOY_MESSAGE<<END_MARKER\' >> "$GITHUB_ENV"',
+        'printf \'%s\\n\' "DEPLOY_MESSAGE<<fixed-delimiter"'
+      ].join('\n')
+    ),
+    [
+      'DEPLOY_MESSAGE<<EOF',
+      'DEPLOY_MESSAGE<<END_MARKER',
+      'DEPLOY_MESSAGE<<fixed-delimiter'
+    ]
+  )
+  assert.deepStrictEqual(
+    fixedDeploymentDelimiters(
+      [
+        'printf \'%s\\n\' "DEPLOY_MESSAGE<<$delimiter"',
+        'printf \'%s\\n\' "DEPLOY_MESSAGE<<${delimiter}"'
+      ].join('\n')
+    ),
+    []
+  )
 })
