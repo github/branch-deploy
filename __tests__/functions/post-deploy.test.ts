@@ -582,6 +582,88 @@ test('updates with an unknown for a production branch deployment', async () => {
   assert.strictEqual(await postDeploy(context, octokit, data), 'success')
 })
 
+for (const noop of [false, true]) {
+  for (const status of ['success', 'failure'] as const) {
+    for (const failurePoint of ['template', 'render', 'comment'] as const) {
+      test(`completes ${status} ${noop ? 'noop' : 'deployment'} cleanup when post ${failurePoint} fails`, async () => {
+        const error = new Error(`${failurePoint} unavailable`)
+        data.noop = noop
+        data.status = status
+        data.labels.successful_deploy = ['deploy-success']
+        data.labels.failed_deploy = ['deploy-failed']
+        data.labels.successful_noop = ['noop-success']
+        data.labels.failed_noop = ['noop-failed']
+        lockMock.mock.mockImplementation(() =>
+          Promise.resolve(createLockResponse(false))
+        )
+
+        if (failurePoint === 'template') {
+          process.env['INPUT_DEPLOY_MESSAGE_PATH'] =
+            '.github/deployment_message.md'
+          loadTrustedDeploymentTemplateMock.mock.mockImplementation(() =>
+            Promise.reject(error)
+          )
+        } else if (failurePoint === 'render') {
+          postDeployMessageMock.mock.mockImplementation(() => {
+            throw error
+          })
+        } else {
+          actionStatusMock.mock.mockImplementation(() => Promise.reject(error))
+        }
+
+        await assert.rejects(
+          postDeploy(context, octokit, data),
+          candidate => candidate === error
+        )
+        assertCalledWith(
+          unlockIfUnchangedMock,
+          octokit,
+          context,
+          'production',
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        )
+        assertCalledWith(
+          labelMock,
+          context,
+          octokit,
+          [
+            noop
+              ? status === 'success'
+                ? 'noop-success'
+                : 'noop-failed'
+              : status === 'success'
+                ? 'deploy-success'
+                : 'deploy-failed'
+          ],
+          [
+            noop
+              ? status === 'success'
+                ? 'noop-failed'
+                : 'noop-success'
+              : status === 'success'
+                ? 'deploy-failed'
+                : 'deploy-success'
+          ]
+        )
+        if (noop) {
+          assertNotCalled(createDeploymentStatusMock)
+        } else {
+          assertCalledWith(
+            createDeploymentStatusMock,
+            octokit,
+            context,
+            'test-ref',
+            status,
+            '456',
+            'production',
+            null
+          )
+        }
+      })
+    }
+  }
+}
+
 test('fails due to no comment_id', async () => {
   data.comment_id = ''
 

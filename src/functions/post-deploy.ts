@@ -124,9 +124,6 @@ export async function postDeploy(
   // check the inputs to ensure they are valid
   validateInputs(data)
 
-  // check the deployment status
-  const success = data.status === 'success'
-
   // this is the timestamp that we consider the deployment to have ended at for logging and auditing purposes
   // it is not the exact time the deployment ended, but it is very close
   const now = new Date()
@@ -143,52 +140,67 @@ export async function postDeploy(
   )
   setActionOutput('total_seconds', total_seconds)
 
-  const deployMessagePath = checkInput(getActionInput('deploy_message_path'))
-  const template =
-    deployMessagePath === null
-      ? null
-      : await loadTrustedDeploymentTemplate(
-          octokit,
-          context,
-          deployMessagePath,
-          data.trusted_sha
-        )
-  const message = postDeployMessage(
-    context,
-    {
-      environment: data.environment,
-      environment_url: data.environment_url,
-      status: data.status,
-      noop: data.noop,
-      ref: data.ref,
-      sha: data.sha,
-      approved_reviews_count: data.approved_reviews_count,
-      deployment_id: data.deployment_id,
-      review_decision: data.review_decision,
-      fork: data.fork,
-      params: data.params,
-      parsed_params: data.parsed_params,
-      deployment_end_time: deployment_end_time,
-      commit_verified: data.commit_verified,
-      total_seconds: total_seconds
-    },
-    template
-  )
-  const reactionId =
-    data.reaction_id === null ||
-    data.reaction_id === undefined ||
-    data.reaction_id === ''
-      ? null
-      : parseInt(data.reaction_id)
+  let result: PostResult = undefined
+  try {
+    const deployMessagePath = checkInput(getActionInput('deploy_message_path'))
+    const template =
+      deployMessagePath === null
+        ? null
+        : await loadTrustedDeploymentTemplate(
+            octokit,
+            context,
+            deployMessagePath,
+            data.trusted_sha
+          )
+    const message = postDeployMessage(
+      context,
+      {
+        environment: data.environment,
+        environment_url: data.environment_url,
+        status: data.status,
+        noop: data.noop,
+        ref: data.ref,
+        sha: data.sha,
+        approved_reviews_count: data.approved_reviews_count,
+        deployment_id: data.deployment_id,
+        review_decision: data.review_decision,
+        fork: data.fork,
+        params: data.params,
+        parsed_params: data.parsed_params,
+        deployment_end_time: deployment_end_time,
+        commit_verified: data.commit_verified,
+        total_seconds: total_seconds
+      },
+      template
+    )
+    const reactionId =
+      data.reaction_id === null ||
+      data.reaction_id === undefined ||
+      data.reaction_id === ''
+        ? null
+        : parseInt(data.reaction_id)
 
-  // update the action status to indicate the result of the deployment as a comment
-  await actionStatus({
-    context,
-    octokit,
-    reactionId,
-    message,
-    result: success ? 'success' : 'failure'
-  })
+    // update the action status to indicate the result of the deployment as a comment
+    await actionStatus({
+      context,
+      octokit,
+      reactionId,
+      message,
+      result: data.status === 'success' ? 'success' : 'failure'
+    })
+  } finally {
+    result = await completePostDeploy(context, octokit, data)
+  }
+
+  return result
+}
+
+async function completePostDeploy(
+  context: BranchDeployContext,
+  octokit: PostDeployOctokit,
+  data: PostDeployData
+): Promise<PostResult> {
+  const success = data.status === 'success'
 
   // Update the deployment status of the branch-deploy
   let deploymentStatus: 'failure' | 'success'

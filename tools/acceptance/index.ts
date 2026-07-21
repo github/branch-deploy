@@ -1230,13 +1230,14 @@ const scenarios = [
       )
   },
   {
-    name: 'post comment failure preserves in-progress deployment',
+    name: 'post comment failure completes deployment cleanup',
     run: () =>
       withMockGitHub(
-        'post comment failure preserves in-progress deployment',
+        'post comment failure completes deployment cleanup',
         async context => {
           setTriggerComment(context.state, '.deploy')
-          const mainResult = await runMain(context)
+          const inputs = {successful_deploy_labels: 'deployed'}
+          const mainResult = await runMain(context, inputs)
           assertExit(context, mainResult, 0)
           const deployment = requireDeployment(context)
           queueFault(context.state, {
@@ -1245,15 +1246,52 @@ const scenarios = [
             response: {message: 'comment rejected', status: 403}
           })
 
-          const postResult = await runPost(context, mainResult)
+          const postResult = await runPost(context, mainResult, inputs)
 
           assertExit(context, postResult, 1)
           assert.equal(context.state.faults.length, 0)
-          assert.equal(deployment.statuses.length, 1)
-          assert.equal(context.state.labels.size, 0)
+          assert.equal(
+            requireDeploymentStatus(context, deployment, 1).state,
+            'success'
+          )
+          assert.equal(context.state.labels.has('deployed'), true)
           assert.equal(
             context.state.branches.has(lockBranch('production')),
+            false,
+            diagnostics(context, postResult)
+          )
+          assert.equal(
+            postResult.stdout.includes('comment rejected'),
             true,
+            diagnostics(context, postResult)
+          )
+        }
+      )
+  },
+  {
+    name: 'post comment failure completes noop cleanup',
+    run: () =>
+      withMockGitHub(
+        'post comment failure completes noop cleanup',
+        async context => {
+          setTriggerComment(context.state, '.noop')
+          const inputs = {successful_noop_labels: 'noop-complete'}
+          const mainResult = await runMain(context, inputs)
+          assertExit(context, mainResult, 0)
+          queueFault(context.state, {
+            method: 'POST',
+            path: apiPath('/issues/1/comments'),
+            response: {message: 'comment rejected', status: 403}
+          })
+
+          const postResult = await runPost(context, mainResult, inputs)
+
+          assertExit(context, postResult, 1)
+          assertNoDeployment(context, postResult)
+          assert.equal(context.state.labels.has('noop-complete'), true)
+          assert.equal(
+            context.state.branches.has(lockBranch('production')),
+            false,
             diagnostics(context, postResult)
           )
           assert.equal(
@@ -2509,10 +2547,10 @@ const scenarios = [
       )
   },
   {
-    name: 'invalid trusted template fails post completion',
+    name: 'invalid trusted template completes deployment cleanup',
     run: () =>
       withMockGitHub(
-        'invalid trusted template fails post completion',
+        'invalid trusted template completes deployment cleanup',
         async context => {
           const templatePath = '.github/deployment_message.md'
           context.state.repositoryFiles.set(
@@ -2520,7 +2558,10 @@ const scenarios = [
             '{% for item in items %}invalid{% endfor %}'
           )
           setTriggerComment(context.state, '.deploy')
-          const inputs = {deploy_message_path: templatePath}
+          const inputs = {
+            deploy_message_path: templatePath,
+            successful_deploy_labels: 'deployed'
+          }
 
           const mainResult = await runMain(context, inputs)
           assertExit(context, mainResult, 0)
@@ -2535,15 +2576,110 @@ const scenarios = [
             true,
             diagnostics(context, postResult)
           )
-          assert.equal(deployment.statuses.length, 1)
+          assert.equal(
+            requireDeploymentStatus(context, deployment, 1).state,
+            'success'
+          )
           assert.equal(
             context.state.branches.has(lockBranch('production')),
+            false,
+            diagnostics(context, postResult)
+          )
+          assert.equal(context.state.labels.has('deployed'), true)
+        }
+      )
+  },
+  {
+    name: 'invalid trusted template completes noop cleanup',
+    run: () =>
+      withMockGitHub(
+        'invalid trusted template completes noop cleanup',
+        async context => {
+          const templatePath = '.github/deployment_message.md'
+          context.state.repositoryFiles.set(
+            `${context.state.owner}/${context.state.repo}/${ACCEPTANCE_SHAS.default}/${templatePath}`,
+            '{% for item in items %}invalid{% endfor %}'
+          )
+          setTriggerComment(context.state, '.noop')
+          const inputs = {
+            deploy_message_path: templatePath,
+            successful_noop_labels: 'noop-complete'
+          }
+          const mainResult = await runMain(context, inputs)
+          assertExit(context, mainResult, 0)
+
+          const postResult = await runPost(context, mainResult, inputs)
+
+          assertExit(context, postResult, 1)
+          assertNoDeployment(context, postResult)
+          assert.equal(context.state.labels.has('noop-complete'), true)
+          assert.equal(
+            context.state.branches.has(lockBranch('production')),
+            false,
+            diagnostics(context, postResult)
+          )
+          assert.equal(
+            postResult.stdout.includes(
+              'Unsupported deployment template statement: for item in items'
+            ),
             true,
             diagnostics(context, postResult)
           )
-          assert.equal(context.state.labels.size, 0)
         }
       )
+  },
+  {
+    name: 'trusted template API failure completes post cleanup',
+    run: async () => {
+      for (const [command, label] of [
+        ['.deploy', 'deployed'],
+        ['.noop', 'noop-complete']
+      ] as const) {
+        await withMockGitHub(
+          `trusted template API failure completes ${command} cleanup`,
+          async context => {
+            const templatePath = '.github/deployment_message.md'
+            setTriggerComment(context.state, command)
+            const inputs = {
+              deploy_message_path: templatePath,
+              successful_deploy_labels: command === '.deploy' ? label : '',
+              successful_noop_labels: command === '.noop' ? label : ''
+            }
+            const mainResult = await runMain(context, inputs)
+            assertExit(context, mainResult, 0)
+            queueFault(context.state, {
+              method: 'GET',
+              path: apiPath(`/contents/${encodeURIComponent(templatePath)}`),
+              response: {message: 'template rejected', status: 403}
+            })
+
+            const postResult = await runPost(context, mainResult, inputs)
+
+            assertExit(context, postResult, 1)
+            assert.equal(context.state.labels.has(label), true)
+            assert.equal(
+              context.state.branches.has(lockBranch('production')),
+              false,
+              diagnostics(context, postResult)
+            )
+            assert.equal(
+              postResult.stdout.includes('template rejected'),
+              true,
+              diagnostics(context, postResult)
+            )
+            if (command === '.noop') {
+              assertNoDeployment(context, postResult)
+            } else {
+              assert.equal(
+                requireDeploymentStatus(context, requireDeployment(context), 1)
+                  .state,
+                'success'
+              )
+            }
+          }
+        )
+      }
+    }
   },
   {
     name: 'mutable ref movement rejection',
