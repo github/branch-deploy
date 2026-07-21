@@ -3,7 +3,7 @@ import * as core from '../actions-core.ts'
 import {actionStatus} from './action-status.ts'
 import {label} from './label.ts'
 import {createDeploymentStatus} from './deployment.ts'
-import {unlock} from './unlock.ts'
+import {unlockIfUnchanged} from './unlock-if-unchanged.ts'
 import {lock} from './lock.ts'
 import {postDeployMessage} from './post-deploy-message.ts'
 import {COLORS} from './colors.ts'
@@ -15,7 +15,7 @@ import type {ActionStatusOctokit} from './action-status.ts'
 import type {DeploymentStatusOctokit} from './deployment.ts'
 import type {LabelOctokit} from './label.ts'
 import type {LockOctokit} from './lock.ts'
-import type {UnlockOctokit} from './unlock.ts'
+import type {ConditionalUnlockOctokit} from './unlock-if-unchanged.ts'
 import type {
   BranchDeployContext,
   PostDeployData,
@@ -27,7 +27,7 @@ export type PostDeployOctokit = ActionStatusOctokit &
   DeploymentStatusOctokit &
   LabelOctokit &
   LockOctokit &
-  UnlockOctokit &
+  ConditionalUnlockOctokit &
   Parameters<typeof loadTrustedDeploymentTemplate>[0]
 
 export interface PostDeployRequest {
@@ -74,13 +74,22 @@ async function completeLockLifecycle(
   } else {
     core.info(nonStickyMsg)
     core.debug(`lockData.sticky: ${String(lockData.sticky)}`)
-    await unlock({
+    if (
+      data.lock_ref_sha === undefined ||
+      data.lock_ref_sha === null ||
+      data.lock_ref_sha === ''
+    ) {
+      core.warning(
+        'could not remove the deployment lock because its original ref SHA was not saved; leaving the current lock in place'
+      )
+      return true
+    }
+    await unlockIfUnchanged(
       octokit,
       context,
-      reactionId: null,
-      target: {type: 'environment', environment: data.environment},
-      mode: 'silent'
-    })
+      data.environment,
+      data.lock_ref_sha
+    )
   }
   return true
 }

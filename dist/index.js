@@ -35536,6 +35536,7 @@ const ACTION_STATE_KEYS = (/* unused pure expression or super */ null && ([
     'fork',
     'initial_comment_id',
     'isPost',
+    'lock_ref_sha',
     'noop',
     'params',
     'parsed_params',
@@ -38236,10 +38237,16 @@ async function createLock(octokit, context, ref, reason, sticky, environment, gl
             throw error;
         }
         try {
-            const existingLock = await checkLockFile(octokit, context, branchName);
+            const branch = await octokit.rest.repos.getBranch({
+                ...context.repo,
+                branch: branchName,
+                headers: API_HEADERS
+            });
+            const lockRefSha = branch.data.commit.sha;
+            const existingLock = await checkLockFile(octokit, context, lockRefSha);
             return existingLock === false
                 ? { kind: 'ambiguous' }
-                : { kind: 'existing', lockData: existingLock };
+                : { kind: 'existing', lockData: existingLock, lockRefSha };
         }
         catch (readError) {
             if (readError instanceof InvalidLockFileError) {
@@ -38249,8 +38256,11 @@ async function createLock(octokit, context, ref, reason, sticky, environment, gl
         }
     }
     info(`🔒 created lock branch: ${COLORS.highlight}${branchName}`);
+    if (sticky === false) {
+        saveActionState('lock_ref_sha', commit.data.sha);
+    }
     await reportLockAcquired(octokit, context, lockData, sticky, environment, global, reactionId, leaveComment);
-    return { kind: 'created', lockData };
+    return { kind: 'created', lockData, lockRefSha: commit.data.sha };
 }
 // Helper function to construct the unlock command
 // :param environment: The name of the environment
@@ -38511,6 +38521,12 @@ async function existingLockResponse({ claimId, context, environment, global, glo
         global
     };
 }
+function saveOwnedLockRef(lockRefSha, sticky, response) {
+    if (sticky !== false || response.status !== 'owner')
+        return response;
+    saveActionState('lock_ref_sha', lockRefSha);
+    return { ...response, lockRefSha };
+}
 async function ambiguousLockResponse({ branchName, context, environment, global, globalFlag, octokit, reactionId }) {
     const unlockCommand = constructUnlockCommand(environment, global);
     const message = dedent(`
@@ -38672,10 +38688,17 @@ async function lock(request) {
         return { status: null, lockData: null, globalFlag, environment, global };
     }
     if (branchExists) {
+        const lockRef = !detailsOnly && sticky === false
+            ? (await octokit.rest.repos.getBranch({
+                ...context.repo,
+                branch: branchName,
+                headers: API_HEADERS
+            })).data.commit.sha
+            : branchName;
         // Check if the lock file exists
         let lockData;
         try {
-            lockData = await checkLockFile(octokit, context, branchName);
+            lockData = await checkLockFile(octokit, context, lockRef);
         }
         catch (error) {
             if (error instanceof InvalidLockFileError) {
@@ -38712,7 +38735,7 @@ async function lock(request) {
                 global
             };
         }
-        return existingLockResponse({
+        return saveOwnedLockRef(lockRef, sticky, await existingLockResponse({
             claimId,
             context,
             environment,
@@ -38723,12 +38746,19 @@ async function lock(request) {
             octokit,
             reactionId,
             sticky
-        });
+        }));
     }
     // Build the complete lock commit and publish the branch as one visible step.
     const creation = await createLock(octokit, context, ref, reason, sticky, environment, global, reactionId, leaveComment, branchName);
     if (creation.kind === 'created') {
-        return { status: true, lockData: null, globalFlag, environment, global };
+        return {
+            status: true,
+            lockData: null,
+            globalFlag,
+            environment,
+            global,
+            lockRefSha: creation.lockRefSha
+        };
     }
     if (creation.kind === 'ambiguous') {
         return ambiguousLockResponse({
@@ -38741,7 +38771,7 @@ async function lock(request) {
             reactionId
         });
     }
-    return existingLockResponse({
+    return saveOwnedLockRef(creation.lockRefSha, sticky, await existingLockResponse({
         claimId,
         context,
         environment,
@@ -38752,7 +38782,7 @@ async function lock(request) {
         octokit,
         reactionId,
         sticky
-    });
+    }));
 }
 
 ;// CONCATENATED MODULE: ./src/functions/valid-permissions.ts
@@ -40014,181 +40044,45 @@ async function selectedRefMatches(octokit, context, request) {
     return pull.data.head.sha === request.expectedSha;
 }
 
-;// CONCATENATED MODULE: ./src/functions/unlock.ts
+;// CONCATENATED MODULE: ./src/functions/unlock-if-unchanged.ts
 
 
 
 
 
-
-
-
-
-// Constants for the lock file
-const unlock_LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix;
-const unlock_GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch;
-// Helper function to find the environment to be unlocked (if any - otherwise, the default)
-// This function will also check if the global lock flag was provided
-// If the global lock flag was provided, the environment will be set to null
-// :param context: The GitHub Actions event context
-// :returns: An object - EX: {environment: 'staging', global: false}
-function unlock_findEnvironment(context) {
-    // Get the body of the comment
-    let body = issueCommentContext(context).payload.comment.body.trim();
-    // remove the --reason <text> from the body if it exists
-    if (body.includes('--reason')) {
-        debug(`'--reason' found in unlock comment body: ${body} - attempting to remove for environment checks`);
-        body = legacyArrayElement(body.split('--reason')[0]);
-        debug(`comment body after '--reason' removal: ${body}`);
+const deleteLockRef = `
+  mutation($input: UpdateRefsInput!) {
+    updateRefs(input: $input) {
+      clientMutationId
     }
-    // Get the global lock flag from the Action input
-    const globalFlag = getActionInput('global_lock_flag').trim();
-    // Check if the global lock flag was provided
-    if (body.includes(globalFlag)) {
-        return {
-            environment: null,
-            global: true
-        };
-    }
-    // remove the unlock command from the body
-    const unlockTrigger = getActionInput('unlock_trigger').trim();
-    body = body.replace(unlockTrigger, '').trim();
-    // If the body is empty, return the default environment
-    if (body === '') {
-        return {
-            environment: getActionInput('environment').trim(),
-            global: false
-        };
-    }
-    else {
-        // If there is anything left in the body, return that as the environment
-        return {
-            environment: body,
-            global: false
-        };
-    }
-}
-async function unlock(request) {
-    const { context, octokit, reactionId } = request;
-    const silent = request.mode === 'silent';
-    let environment = request.target.type === 'environment' ? request.target.environment : null;
-    let global;
+  }
+`;
+async function unlockIfUnchanged(octokit, context, environment, expectedSha) {
+    const branchName = `${constructValidBranchName(environment)}-${LOCK_METADATA.lockBranchSuffix}`;
     try {
-        let branchName;
-        // Find the environment from the context if it was not passed in
-        // If the environment is not being passed in, we can safely assuming that this function is not being called from a post-deploy Action and instead, it is being directly called from an IssueOps command
-        if (environment === null) {
-            const envObject = unlock_findEnvironment(context);
-            environment = envObject.environment;
-            global = envObject.global;
-        }
-        else {
-            // if the environment was passed in, we can assume it is not a global lock
-            global = false;
-        }
-        // construct the branch name and success message text
-        let successText = '';
-        if (global) {
-            branchName = unlock_GLOBAL_LOCK_BRANCH;
-            successText = '`global`';
-        }
-        else {
-            branchName = `${String(constructValidBranchName(environment))}-${unlock_LOCK_BRANCH_SUFFIX}`;
-            successText = `\`${String(environment)}\``;
-        }
-        // Delete the lock branch
-        const result = await octokit.rest.git.deleteRef({
+        const repository = await octokit.rest.repos.get({
             ...context.repo,
-            ref: `heads/${branchName}`,
             headers: API_HEADERS
         });
-        // If the lock was successfully released, return true
-        if (result.status === 204) {
-            info(`🔓 successfully ${COLORS.highlight}removed${COLORS.reset} lock`);
-            // If silent, exit here
-            if (silent) {
-                debug('removing lock silently');
-                return 'removed lock - silent';
+        await octokit.graphql(deleteLockRef, {
+            input: {
+                repositoryId: repository.data.node_id,
+                refUpdates: [
+                    {
+                        name: `refs/heads/${branchName}`,
+                        beforeOid: expectedSha,
+                        afterOid: '0000000000000000000000000000000000000000'
+                    }
+                ]
             }
-            // If a global lock was successfully released, set the output
-            if (global) {
-                setActionOutput('global_lock_released', 'true');
-            }
-            // Construct the message to add to the issue comment
-            const comment = dedent(`
-      ### 🔓 Deployment Lock Removed
-
-      The ${successText} deployment lock has been successfully removed
-      `);
-            // Set the action status with the comment
-            await actionStatus({
-                context,
-                octokit,
-                reactionId,
-                message: comment,
-                result: 'alternate-success'
-            });
-            // Return true
-            return true;
-        }
-        else {
-            // If the lock was not successfully released, return false and log the HTTP code
-            const comment = `failed to delete lock branch: ${branchName} - HTTP: ${result.status}`;
-            info(comment);
-            // If silent, exit here
-            if (silent) {
-                warning('failed to delete lock (bad status code) - silent');
-                return 'failed to delete lock (bad status code) - silent';
-            }
-            await actionStatus({ context, octokit, reactionId, message: comment });
-            return false;
-        }
+        });
     }
     catch (error) {
-        // debug the error msg
-        const apiError = legacyApiError(error);
-        debug(`unlock() error.status: ${String(apiError.status)}`);
-        debug(`unlock() error.message: ${apiError.message}`);
-        // The the error caught was a 422 - Reference does not exist, this is OK - It means the lock branch does not exist
-        if (apiError.status === 422 &&
-            apiError.message.startsWith('Reference does not exist')) {
-            // If silent, exit here
-            if (silent) {
-                debug('no deployment lock currently set - silent');
-                return 'no deployment lock currently set - silent';
-            }
-            // Format the comment
-            let noLockMsg;
-            if (global === true) {
-                noLockMsg = '🔓 There is currently no `global` deployment lock set';
-            }
-            else {
-                noLockMsg = `🔓 There is currently no \`${String(environment)}\` deployment lock set`;
-            }
-            // Leave a comment letting the user know there is no lock to release
-            await actionStatus({
-                context,
-                octokit,
-                reactionId,
-                message: noLockMsg,
-                result: 'alternate-success'
-            });
-            // Return true since there is no lock to release
-            return true;
-        }
-        // If silent, exit here
-        if (silent) {
-            throw new Error(String(error));
-        }
-        // Update the PR with the error
-        await actionStatus({
-            context,
-            octokit,
-            reactionId,
-            message: apiError.message
-        });
-        throw new Error(String(error));
+        warning(`could not remove the original deployment lock; leaving the current lock in place: ${legacyApiError(error).message}`);
+        return false;
     }
+    info('🔓 successfully removed the original deployment lock');
+    return true;
 }
 
 ;// CONCATENATED MODULE: ./src/functions/valid-deployment-order.ts
@@ -40482,20 +40376,19 @@ async function acquireDeploymentLock(request, ready) {
         });
     }
     let cleanupAttempted = false;
+    const lockRefSha = lockResponse.lockRefSha;
     return {
         cleanup: async (reason) => {
             if (sticky || cleanupAttempted)
                 return;
             cleanupAttempted = true;
+            if (lockRefSha === undefined) {
+                warning(`failed to release the non-sticky deployment lock ${reason}: the original ref SHA was not returned`);
+                return;
+            }
             try {
-                const result = await unlock({
-                    octokit,
-                    context,
-                    reactionId: null,
-                    target: { type: 'environment', environment },
-                    mode: 'silent'
-                });
-                if (result === 'failed to delete lock (bad status code) - silent') {
+                const removed = await unlockIfUnchanged(octokit, context, environment, lockRefSha);
+                if (!removed) {
                     warning(`failed to release the non-sticky deployment lock ${reason}`);
                 }
             }
@@ -40852,6 +40745,183 @@ async function runDeploymentOperation(request) {
             sha: progress.sha,
             error
         });
+    }
+}
+
+;// CONCATENATED MODULE: ./src/functions/unlock.ts
+
+
+
+
+
+
+
+
+
+// Constants for the lock file
+const unlock_LOCK_BRANCH_SUFFIX = LOCK_METADATA.lockBranchSuffix;
+const unlock_GLOBAL_LOCK_BRANCH = LOCK_METADATA.globalLockBranch;
+// Helper function to find the environment to be unlocked (if any - otherwise, the default)
+// This function will also check if the global lock flag was provided
+// If the global lock flag was provided, the environment will be set to null
+// :param context: The GitHub Actions event context
+// :returns: An object - EX: {environment: 'staging', global: false}
+function unlock_findEnvironment(context) {
+    // Get the body of the comment
+    let body = issueCommentContext(context).payload.comment.body.trim();
+    // remove the --reason <text> from the body if it exists
+    if (body.includes('--reason')) {
+        debug(`'--reason' found in unlock comment body: ${body} - attempting to remove for environment checks`);
+        body = legacyArrayElement(body.split('--reason')[0]);
+        debug(`comment body after '--reason' removal: ${body}`);
+    }
+    // Get the global lock flag from the Action input
+    const globalFlag = getActionInput('global_lock_flag').trim();
+    // Check if the global lock flag was provided
+    if (body.includes(globalFlag)) {
+        return {
+            environment: null,
+            global: true
+        };
+    }
+    // remove the unlock command from the body
+    const unlockTrigger = getActionInput('unlock_trigger').trim();
+    body = body.replace(unlockTrigger, '').trim();
+    // If the body is empty, return the default environment
+    if (body === '') {
+        return {
+            environment: getActionInput('environment').trim(),
+            global: false
+        };
+    }
+    else {
+        // If there is anything left in the body, return that as the environment
+        return {
+            environment: body,
+            global: false
+        };
+    }
+}
+async function unlock(request) {
+    const { context, octokit, reactionId } = request;
+    const silent = request.mode === 'silent';
+    let environment = request.target.type === 'environment' ? request.target.environment : null;
+    let global;
+    try {
+        let branchName;
+        // Find the environment from the context if it was not passed in
+        // If the environment is not being passed in, we can safely assuming that this function is not being called from a post-deploy Action and instead, it is being directly called from an IssueOps command
+        if (environment === null) {
+            const envObject = unlock_findEnvironment(context);
+            environment = envObject.environment;
+            global = envObject.global;
+        }
+        else {
+            // if the environment was passed in, we can assume it is not a global lock
+            global = false;
+        }
+        // construct the branch name and success message text
+        let successText = '';
+        if (global) {
+            branchName = unlock_GLOBAL_LOCK_BRANCH;
+            successText = '`global`';
+        }
+        else {
+            branchName = `${String(constructValidBranchName(environment))}-${unlock_LOCK_BRANCH_SUFFIX}`;
+            successText = `\`${String(environment)}\``;
+        }
+        // Delete the lock branch
+        const result = await octokit.rest.git.deleteRef({
+            ...context.repo,
+            ref: `heads/${branchName}`,
+            headers: API_HEADERS
+        });
+        // If the lock was successfully released, return true
+        if (result.status === 204) {
+            info(`🔓 successfully ${COLORS.highlight}removed${COLORS.reset} lock`);
+            // If silent, exit here
+            if (silent) {
+                debug('removing lock silently');
+                return 'removed lock - silent';
+            }
+            // If a global lock was successfully released, set the output
+            if (global) {
+                setActionOutput('global_lock_released', 'true');
+            }
+            // Construct the message to add to the issue comment
+            const comment = dedent(`
+      ### 🔓 Deployment Lock Removed
+
+      The ${successText} deployment lock has been successfully removed
+      `);
+            // Set the action status with the comment
+            await actionStatus({
+                context,
+                octokit,
+                reactionId,
+                message: comment,
+                result: 'alternate-success'
+            });
+            // Return true
+            return true;
+        }
+        else {
+            // If the lock was not successfully released, return false and log the HTTP code
+            const comment = `failed to delete lock branch: ${branchName} - HTTP: ${result.status}`;
+            info(comment);
+            // If silent, exit here
+            if (silent) {
+                warning('failed to delete lock (bad status code) - silent');
+                return 'failed to delete lock (bad status code) - silent';
+            }
+            await actionStatus({ context, octokit, reactionId, message: comment });
+            return false;
+        }
+    }
+    catch (error) {
+        // debug the error msg
+        const apiError = legacyApiError(error);
+        debug(`unlock() error.status: ${String(apiError.status)}`);
+        debug(`unlock() error.message: ${apiError.message}`);
+        // The the error caught was a 422 - Reference does not exist, this is OK - It means the lock branch does not exist
+        if (apiError.status === 422 &&
+            apiError.message.startsWith('Reference does not exist')) {
+            // If silent, exit here
+            if (silent) {
+                debug('no deployment lock currently set - silent');
+                return 'no deployment lock currently set - silent';
+            }
+            // Format the comment
+            let noLockMsg;
+            if (global === true) {
+                noLockMsg = '🔓 There is currently no `global` deployment lock set';
+            }
+            else {
+                noLockMsg = `🔓 There is currently no \`${String(environment)}\` deployment lock set`;
+            }
+            // Leave a comment letting the user know there is no lock to release
+            await actionStatus({
+                context,
+                octokit,
+                reactionId,
+                message: noLockMsg,
+                result: 'alternate-success'
+            });
+            // Return true since there is no lock to release
+            return true;
+        }
+        // If silent, exit here
+        if (silent) {
+            throw new Error(String(error));
+        }
+        // Update the PR with the error
+        await actionStatus({
+            context,
+            octokit,
+            reactionId,
+            message: apiError.message
+        });
+        throw new Error(String(error));
     }
 }
 
@@ -42231,13 +42301,13 @@ async function completeLockLifecycle(context, octokit, data, postDeployStep, lea
     else {
         info(nonStickyMsg);
         debug(`lockData.sticky: ${String(lockData.sticky)}`);
-        await unlock({
-            octokit,
-            context,
-            reactionId: null,
-            target: { type: 'environment', environment: data.environment },
-            mode: 'silent'
-        });
+        if (data.lock_ref_sha === undefined ||
+            data.lock_ref_sha === null ||
+            data.lock_ref_sha === '') {
+            warning('could not remove the deployment lock because its original ref SHA was not saved; leaving the current lock in place');
+            return true;
+        }
+        await unlockIfUnchanged(octokit, context, data.environment, data.lock_ref_sha);
     }
     return true;
 }
@@ -42458,6 +42528,7 @@ async function post() {
             commit_verified: getActionState('commit_verified') === 'true',
             deployment_start_time: getActionState('deployment_start_time'),
             disable_lock: getActionState('disable_lock') === 'true',
+            lock_ref_sha: getActionState('lock_ref_sha'),
             trusted_sha: getActionState('trusted_sha')
         };
         // If bypass is set, exit the workflow

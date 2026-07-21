@@ -177,6 +177,7 @@ interface LockResponseBase {
   readonly environment: string | null
   readonly global: boolean
   readonly globalFlag: string
+  readonly lockRefSha?: string
 }
 
 export type LockResponse =
@@ -426,6 +427,7 @@ export interface RawPostDeployData {
   readonly environment_url: string | null
   readonly fork: boolean
   readonly labels: PostDeployLabels
+  readonly lock_ref_sha?: string | null | undefined
   readonly noop: boolean | null | undefined
   readonly params: string | null | undefined
   readonly parsed_params: string | null | undefined
@@ -450,6 +452,7 @@ export interface PostDeployData {
   readonly environment_url: string | null
   readonly fork: boolean
   readonly labels: PostDeployLabels
+  readonly lock_ref_sha?: string | null | undefined
   readonly noop: boolean
   readonly params: string
   readonly parsed_params: string

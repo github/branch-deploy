@@ -3,10 +3,6 @@ import {beforeEach, mock, test} from 'node:test'
 import {COLORS} from '../../src/functions/colors.ts'
 import type {PostDeployOctokit} from '../../src/functions/post-deploy.ts'
 import type {
-  SilentUnlockRequest,
-  SilentUnlockResult
-} from '../../src/functions/unlock.ts'
-import type {
   IssueCommentContext,
   PostDeployLabels,
   RawPostDeployData
@@ -34,6 +30,8 @@ type PostDeployMessage =
   typeof import('../../src/functions/post-deploy-message.ts')
 type TrustedDeploymentTemplate =
   typeof import('../../src/functions/trusted-deployment-template.ts')
+type UnlockIfUnchanged =
+  typeof import('../../src/functions/unlock-if-unchanged.ts')
 
 const actualCore = await import('../../src/actions-core.ts')
 
@@ -50,8 +48,8 @@ const postDeployMessageMock =
   createMock<PostDeployMessage['postDeployMessage']>()
 const loadTrustedDeploymentTemplateMock =
   createMock<TrustedDeploymentTemplate['loadTrustedDeploymentTemplate']>()
-const unlockMock =
-  createMock<(request: SilentUnlockRequest) => Promise<SilentUnlockResult>>()
+const unlockIfUnchangedMock =
+  createMock<UnlockIfUnchanged['unlockIfUnchanged']>()
 
 installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
   ...actualCore,
@@ -95,8 +93,8 @@ installModuleMock(
 )
 installModuleMock(
   mock,
-  new URL('../../src/functions/unlock.ts', import.meta.url),
-  {unlock: unlockMock}
+  new URL('../../src/functions/unlock-if-unchanged.ts', import.meta.url),
+  {unlockIfUnchanged: unlockIfUnchangedMock}
 )
 
 const {postDeploy} = await import('../../src/functions/post-deploy.ts')
@@ -142,7 +140,7 @@ beforeEach(() => {
     lockMock,
     postDeployMessageMock,
     loadTrustedDeploymentTemplateMock,
-    unlockMock
+    unlockIfUnchangedMock
   ]) {
     mockFunction.mock.resetCalls()
   }
@@ -165,9 +163,7 @@ beforeEach(() => {
       id: 1
     })
   )
-  unlockMock.mock.mockImplementation(() =>
-    Promise.resolve('removed lock - silent')
-  )
+  unlockIfUnchangedMock.mock.mockImplementation(() => Promise.resolve(true))
 
   context = {
     ...createIssueCommentContext({
@@ -212,6 +208,7 @@ beforeEach(() => {
     commit_verified: false,
     deployment_start_time: '2024-01-01T00:00:00Z',
     disable_lock: false,
+    lock_ref_sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     trusted_sha: '0123456789abcdef0123456789abcdef01234567'
   }
 })
@@ -333,6 +330,13 @@ test('successfully completes a production branch deployment and removes a non-st
     infoMock,
     `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
   )
+  assertCalledWith(
+    unlockIfUnchangedMock,
+    octokit,
+    context,
+    'production',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+  )
 })
 
 test('successfully completes a noop branch deployment and removes a non-sticky lock', async () => {
@@ -365,7 +369,30 @@ test('successfully completes a noop branch deployment and removes a non-sticky l
     infoMock,
     `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
   )
+  assertCalledWith(
+    unlockIfUnchangedMock,
+    octokit,
+    context,
+    'production',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+  )
 })
+
+for (const lockRefSha of [undefined, null, '']) {
+  test(`leaves a non-sticky lock in place when the saved ref SHA is ${String(lockRefSha)}`, async () => {
+    lockMock.mock.mockImplementation(() =>
+      Promise.resolve(createLockResponse(false))
+    )
+    data.lock_ref_sha = lockRefSha
+
+    assert.strictEqual(await postDeploy(context, octokit, data), 'success')
+    assertNotCalled(unlockIfUnchangedMock)
+    assertCalledWith(
+      warningMock,
+      'could not remove the deployment lock because its original ref SHA was not saved; leaving the current lock in place'
+    )
+  })
+}
 
 test('successfully completes a noop branch deployment but does not get any lock data', async () => {
   lockMock.mock.mockImplementation(() =>
@@ -409,7 +436,7 @@ for (const noop of [false, true]) {
     data.noop = noop
 
     assert.strictEqual(await postDeploy(context, octokit, data), undefined)
-    assertNotCalled(unlockMock)
+    assertNotCalled(unlockIfUnchangedMock)
     assertNotCalled(labelMock)
     assert.ok(
       !infoMock.mock.calls.some(call =>
@@ -440,7 +467,7 @@ for (const noop of [false, true]) {
       noop ? 'success - noop' : 'success'
     )
     assertNotCalled(lockMock)
-    assertNotCalled(unlockMock)
+    assertNotCalled(unlockIfUnchangedMock)
     assertCalledWith(
       infoMock,
       '🔓 deployment locking is disabled; skipping lock completion'
@@ -525,7 +552,7 @@ test('tolerates an already-removed deployment lock', async () => {
   )
 
   assert.strictEqual(await postDeploy(context, octokit, data), 'success')
-  assertNotCalled(unlockMock)
+  assertNotCalled(unlockIfUnchangedMock)
   assertCalledWith(
     warningMock,
     '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
