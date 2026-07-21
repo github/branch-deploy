@@ -64,13 +64,22 @@ export async function label(
   if (labelsToRemove.length > 0) {
     // Fetch current labels on the issue
     core.debug('fetching current labels on the issue')
-    const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
-      owner: owner,
-      repo: repo,
-      issue_number: issueNumber,
-      headers: API_HEADERS
-    })
-    const currentLabels = currentLabelsResult.data.map(label => label.name)
+    const currentLabels: string[] = []
+    const labelsPerPage = 100
+    let page = 1
+    while (true) {
+      const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
+        owner: owner,
+        repo: repo,
+        issue_number: issueNumber,
+        per_page: labelsPerPage,
+        page,
+        headers: API_HEADERS
+      })
+      currentLabels.push(...currentLabelsResult.data.map(label => label.name))
+      if (currentLabelsResult.data.length < labelsPerPage) break
+      page += 1
+    }
 
     core.debug(`current labels: ${currentLabels.join(',')}`)
     core.debug(`labels to remove: ${labelsToRemove.join(',')}`)
