@@ -47,8 +47,19 @@ test('typed input wrappers preserve toolkit arguments and results', () => {
     'production'
   )
   assert.strictEqual(getBooleanActionInput('allow_forks'), true)
+  assert.strictEqual(
+    getBooleanActionInput('allow_forks', {
+      required: true,
+      trimWhitespace: false
+    }),
+    true
+  )
   assertCalledWith(getInputMock, 'environment', {required: true})
   assertCalledWith(getBooleanInputMock, 'allow_forks', undefined)
+  assertCalledWith(getBooleanInputMock, 'allow_forks', {
+    required: true,
+    trimWhitespace: false
+  })
 })
 
 test('typed output and state wrappers preserve toolkit value serialization', () => {

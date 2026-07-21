@@ -89,3 +89,65 @@ test('it parses a real world example correctly', () => {
   assert.strictEqual(parsed['q'], 'my-queue')
   assert.deepStrictEqual(parsed['_'], [])
 })
+
+test('it preserves quoted parameter values and quoted positional arguments', () => {
+  assert.deepStrictEqual(
+    parseParams(
+      `--message="hello world" --single='two words' 'standalone value'`
+    ),
+    {
+      _: [`'standalone value'`],
+      message: 'hello world',
+      single: 'two words'
+    }
+  )
+})
+
+test('it preserves repeated long and short options as arrays', () => {
+  assert.deepStrictEqual(parseParams('--tag=a --tag=b -q first -q second'), {
+    _: [],
+    tag: ['a', 'b'],
+    q: ['first', 'second']
+  })
+})
+
+test('it preserves numeric coercion, empty values, and no-prefix flags', () => {
+  assert.deepStrictEqual(
+    parseParams(
+      '--count=-2 --ratio=1e3 --hex=0x10 --leading=08 --zero=0 --empty= --no-cache --enabled'
+    ),
+    {
+      _: [],
+      count: -2,
+      ratio: 1000,
+      hex: 16,
+      leading: '08',
+      zero: 0,
+      empty: '',
+      cache: false,
+      enabled: true
+    }
+  )
+})
+
+test('it treats values following the end-of-options marker as positional', () => {
+  assert.deepStrictEqual(parseParams('-- foo --bar --no-cache'), {
+    _: ['foo', '--bar', '--no-cache']
+  })
+})
+
+test('it does not allow dotted parameter names to pollute Object.prototype', () => {
+  const parsed = parseParams(
+    '--__proto__.polluted=yes --constructor.prototype.bad=yes --prototype.value=x'
+  )
+
+  assert.deepStrictEqual(parsed, {
+    _: [],
+    ___proto___: {polluted: 'yes'},
+    constructor: {prototype: {bad: 'yes'}},
+    prototype: {value: 'x'}
+  })
+  assert.strictEqual(Object.hasOwn(Object.prototype, 'polluted'), false)
+  assert.strictEqual(Object.hasOwn(Object.prototype, 'bad'), false)
+  assert.strictEqual(Object.hasOwn(Object.prototype, 'value'), false)
+})

@@ -358,7 +358,7 @@ function pullResponse(state: MockGitHubState): unknown {
   }
 }
 
-function checkRollup(state: MockGitHubState): unknown {
+function checkRollup(state: MockGitHubState, start = 0): unknown {
   if (!state.rollupAvailable) {
     return undefined
   }
@@ -368,10 +368,15 @@ function checkRollup(state: MockGitHubState): unknown {
   return {
     state: state.rollupState,
     contexts: {
-      nodes: state.rollupContexts.map(rollupContextResponse),
+      nodes: state.rollupContexts
+        .slice(start, start + 100)
+        .map(rollupContextResponse),
       pageInfo: {
-        endCursor: null,
-        hasNextPage: false
+        endCursor:
+          start + 100 < state.rollupContexts.length
+            ? String(start + 100)
+            : null,
+        hasNextPage: start + 100 < state.rollupContexts.length
       }
     }
   }
@@ -431,30 +436,34 @@ function prechecksGraphql(state: MockGitHubState): unknown {
 
 function deploymentGraphql(
   state: MockGitHubState,
-  environment: string
+  environment: string,
+  first: number,
+  cursor: string | null
 ): unknown {
-  const nodes = state.deployments
-    .filter(deployment => deployment.environment === environment)
-    .map(deployment => {
-      const latestStatus = deployment.statuses.at(-1)
-      return {
-        createdAt: deployment.createdAt,
-        environment: deployment.environment,
-        updatedAt: deployment.updatedAt,
-        id: `D_${deployment.id}`,
-        payload: JSON.stringify(JSON.stringify(deployment.payload)),
-        state: latestStatus?.state === 'success' ? 'ACTIVE' : 'INACTIVE',
-        ref: {
-          name: deployment.ref
-        },
-        creator: {
-          login: 'github-actions'
-        },
-        commit: {
-          oid: deployment.sha
-        }
+  const deployments = state.deployments.filter(
+    deployment => deployment.environment === environment
+  )
+  const start = cursor === null ? 0 : Number(cursor)
+  const nodes = deployments.slice(start, start + first).map(deployment => {
+    const latestStatus = deployment.statuses.at(-1)
+    return {
+      createdAt: deployment.createdAt,
+      environment: deployment.environment,
+      updatedAt: deployment.updatedAt,
+      id: `D_${deployment.id}`,
+      payload: JSON.stringify(JSON.stringify(deployment.payload)),
+      state: latestStatus?.state === 'success' ? 'ACTIVE' : 'INACTIVE',
+      ref: {
+        name: deployment.ref
+      },
+      creator: {
+        login: 'github-actions'
+      },
+      commit: {
+        oid: deployment.sha
       }
-    })
+    }
+  })
   return {
     data: {
       repository: {
@@ -463,8 +472,9 @@ function deploymentGraphql(
         deployments: {
           nodes,
           pageInfo: {
-            endCursor: null,
-            hasNextPage: false
+            endCursor:
+              start + first < deployments.length ? String(start + first) : null,
+            hasNextPage: start + first < deployments.length
           }
         }
       }
@@ -493,6 +503,30 @@ function routeGraphql(
     return {status: 200, value: prechecksGraphql(state)}
   }
   if (
+    normalizedQuery.includes('node(id:$commitId)') &&
+    normalizedQuery.includes('statusCheckRollup')
+  ) {
+    if (
+      requireString(variables, 'commitId') !== 'C_acceptance' ||
+      requireNumber(variables, 'number') !== state.pullRequest.number
+    ) {
+      throw new Error('unexpected paginated prechecks GraphQL variables')
+    }
+    const cursor = requireString(variables, 'cursor')
+    return {
+      status: 200,
+      value: {
+        data: {
+          node: {
+            id: 'C_acceptance',
+            oid: state.graphqlCommitOid ?? state.pullRequest.headSha,
+            statusCheckRollup: checkRollup(state, Number(cursor))
+          }
+        }
+      }
+    }
+  }
+  if (
     normalizedQuery.includes('deployments(environments:') &&
     normalizedQuery.includes('orderBy: { field: CREATED_AT')
   ) {
@@ -503,12 +537,15 @@ function routeGraphql(
       throw new Error('unexpected deployment GraphQL repository variables')
     }
     const environment = requireString(variables, 'environment')
-    requireNumber(variables, 'first')
+    const first = requireNumber(variables, 'first')
     const cursor = variables['cursor']
     if (cursor !== null && typeof cursor !== 'string') {
       throw new Error('unexpected deployment GraphQL cursor variable')
     }
-    return {status: 200, value: deploymentGraphql(state, environment)}
+    return {
+      status: 200,
+      value: deploymentGraphql(state, environment, first, cursor)
+    }
   }
   return unknownRoute('POST', '/graphql')
 }
@@ -755,7 +792,7 @@ function routeRest(
   }
 
   if (area === 'issues') {
-    return routeIssues(state, method, parts, body)
+    return routeIssues(state, method, parts, body, searchParams)
   }
 
   if (area === 'git') {
@@ -773,7 +810,8 @@ function routeIssues(
   state: MockGitHubState,
   method: string,
   parts: readonly string[],
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  searchParams: URLSearchParams
 ): JsonResponse {
   if (
     method === 'POST' &&
@@ -831,7 +869,14 @@ function routeIssues(
         }
         return {
           status: 200,
-          value: existing.map(issueCommentReactionResponse)
+          value: existing
+            .slice(
+              (Number(searchParams.get('page') ?? '1') - 1) *
+                Number(searchParams.get('per_page') ?? '100'),
+              Number(searchParams.get('page') ?? '1') *
+                Number(searchParams.get('per_page') ?? '100')
+            )
+            .map(issueCommentReactionResponse)
         }
       }
       if (method === 'DELETE' && parts.length === 8) {

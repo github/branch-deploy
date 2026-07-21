@@ -169,6 +169,46 @@ test('accepts full coverage and ignores non-project records', () => {
   )
 })
 
+test('ignores traversals, source-directory lookalikes, and type-only records', () => {
+  assert.deepStrictEqual(
+    validateCoverage(
+      [
+        coverageRecord('/repo/src/../../outside.ts'),
+        coverageRecord('/repo/src-extra/main.ts'),
+        coverageRecord('/repo/tools-extra/check.ts'),
+        coverageRecord('/repo/src/types.ts'),
+        coverageRecord('/repo/src/vendor.d.ts'),
+        coverageRecord('/repo/tools/vendor.d.ts')
+      ],
+      '/repo',
+      []
+    ),
+    []
+  )
+})
+
+test('normalizes encoded file URLs and detects equivalent duplicate records', () => {
+  assert.deepStrictEqual(
+    validateCoverage(
+      [coverageRecord('file:///repo/src/space%20name.ts?cache=1#source')],
+      '/repo',
+      ['src/space name.ts']
+    ),
+    []
+  )
+  assert.deepStrictEqual(
+    validateCoverage(
+      [
+        coverageRecord('src/main.ts'),
+        coverageRecord('file:///repo/src/main.ts')
+      ],
+      '/repo',
+      ['src/main.ts']
+    ),
+    ['src/main.ts: duplicate coverage records (2)']
+  )
+})
+
 test('validates acceptance coverage independently from unit coverage', () => {
   assert.deepStrictEqual(
     validateCoverage(
@@ -251,6 +291,23 @@ test('does not accept synthetic module-mock records as coverage proof', () => {
     [
       'src/main.ts: synthetic module-mock coverage cannot prove source coverage',
       'tools/check.ts: synthetic module-mock coverage cannot prove source coverage'
+    ]
+  )
+})
+
+test('recognizes synthetic module mocks in every query position', () => {
+  assert.deepStrictEqual(
+    validateCoverage(
+      [
+        coverageRecord('/repo/src/first.ts?cache=1&node-test-mock=0'),
+        coverageRecord('file:///repo/src/second.ts?node-test-mock&cache=1')
+      ],
+      '/repo',
+      ['src/first.ts', 'src/second.ts']
+    ),
+    [
+      'src/first.ts: synthetic module-mock coverage cannot prove source coverage',
+      'src/second.ts: synthetic module-mock coverage cannot prove source coverage'
     ]
   )
 })

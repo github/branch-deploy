@@ -117,6 +117,30 @@ test('supports literal-only ternaries with string, boolean, number, and null res
   )
 })
 
+test('supports negative and exponent numeric literals plus escaped string literals', () => {
+  assert.strictEqual(
+    renderDeploymentTemplate(
+      '{% if negative === -2.5e-1 %}negative{% else %}bad{% endif %}|{% if zero === -0 %}zero{% else %}bad{% endif %}|{% if text === "line\\nnext" %}text{% else %}bad{% endif %}|{{ "left\\tright" if enabled else "bad" }}',
+      {enabled: true, negative: -0.25, text: 'line\nnext', zero: 0}
+    ),
+    'negative|zero|text|left\tright'
+  )
+})
+
+test('rejects inherited template variables', () => {
+  const inheritedVariables = {visible: 'value'}
+  Reflect.setPrototypeOf(inheritedVariables, {secret: 'inherited'})
+
+  assert.strictEqual(
+    renderDeploymentTemplate('{{ visible }}', inheritedVariables),
+    'value'
+  )
+  assert.throws(
+    () => renderDeploymentTemplate('{{ secret }}', inheritedVariables),
+    new Error('Unknown deployment template variable: secret')
+  )
+})
+
 test('rejects unknown variables', () => {
   assert.throws(
     () => renderDeploymentTemplate('{{ constructor }}', variables),
@@ -186,6 +210,16 @@ const unsupportedTemplates = [
     'invalid negation',
     '{% if not actor.name %}x{% endif %}',
     'Unsupported deployment template condition: not actor.name'
+  ],
+  [
+    'leading-zero numeric literal',
+    '{% if approved_reviews_count === 02 %}x{% endif %}',
+    'Unsupported deployment template condition: approved_reviews_count === 02'
+  ],
+  [
+    'non-finite numeric literal',
+    '{% if approved_reviews_count === Infinity %}x{% endif %}',
+    'Unsupported deployment template condition: approved_reviews_count === Infinity'
   ],
   [
     'unsupported statement',

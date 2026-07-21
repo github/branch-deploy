@@ -16,6 +16,20 @@ test('uses a fence longer than every backtick run in the JSON', () => {
   )
 })
 
+test('keeps multiline and multiple backtick runs inside one JSON fence', () => {
+  const value = {
+    message: 'first line\n```json\n{"approved":true}\n```\n```````',
+    nested: {value: '````'}
+  }
+  const rendered = jsonCodeBlock(value)
+
+  assert.strictEqual(
+    rendered,
+    `\`\`\`\`\`\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\`\`\`\`\`\``
+  )
+  assert.strictEqual(rendered.includes('\n```json\n{"approved":true}'), false)
+})
+
 test('serializes an undefined boundary value as JSON null', () => {
   assert.strictEqual(jsonCodeBlock(undefined), '```json\nnull\n```')
 })

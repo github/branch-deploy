@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
-import {analyzeIssueCommand} from '../../src/functions/issue-command.ts'
+import {
+  analyzeIssueCommand,
+  analyzeNakedCommand
+} from '../../src/functions/issue-command.ts'
 
 const config = {
   globalFlag: '--global',
@@ -111,4 +114,72 @@ test('requires trigger boundaries while preserving prefix overlap', () => {
   assert.strictEqual(overlap.matches.deploy, true)
   assert.strictEqual(overlap.matches.noop, true)
   assert.strictEqual(overlap.operation, 'noop')
+})
+
+test('classifies custom commands and preserves repeated custom separators in parameters', () => {
+  const custom = {
+    ...config,
+    globalFlag: '--everywhere',
+    helpTrigger: '/assist',
+    lockInfoAlias: '/who',
+    lockTrigger: '/hold',
+    noopTrigger: '/plan',
+    paramSeparator: '::',
+    trigger: '/ship',
+    unlockTrigger: '/release'
+  }
+
+  const deployment = analyzeIssueCommand('/ship :: --tag=a::b', custom)
+  assert.strictEqual(deployment.dispatch, 'deployment')
+  assert.strictEqual(deployment.operation, 'deploy')
+  assert.deepStrictEqual(deployment.naked, {
+    body: '/ship',
+    globalBypass: false,
+    isNaked: true,
+    params: ' --tag=a::b'
+  })
+
+  const lockInfo = analyzeIssueCommand('/hold --details :: reason', custom)
+  assert.strictEqual(lockInfo.dispatch, 'lock_info')
+  assert.strictEqual(lockInfo.operation, 'lock_info')
+  assert.strictEqual(lockInfo.naked.body, '/hold')
+})
+
+test('accepts whitespace trigger boundaries and rejects punctuation or leading whitespace', () => {
+  const custom = {...config, trigger: '/ship'}
+
+  assert.strictEqual(
+    analyzeIssueCommand('/ship\tproduction', custom).dispatch,
+    'deployment'
+  )
+  assert.strictEqual(
+    analyzeIssueCommand('/ship\nproduction', custom).dispatch,
+    'deployment'
+  )
+  assert.strictEqual(analyzeIssueCommand('/ship-now', custom).dispatch, 'none')
+  assert.strictEqual(
+    analyzeIssueCommand(' /ship production', custom).dispatch,
+    'none'
+  )
+})
+
+test('fails closed when splitting a custom parameter suffix returns no command', context => {
+  const originalSplit: (
+    this: string,
+    separator: string | RegExp,
+    limit?: number
+  ) => string[] = String.prototype.split
+  context.mock.method(
+    String.prototype,
+    'split',
+    function (this: string, separator: string | RegExp, limit?: number) {
+      if (separator === ':: --flag=true') return []
+      return originalSplit.call(this, separator, limit)
+    }
+  )
+
+  assert.deepStrictEqual(
+    analyzeNakedCommand('/ship :: --flag=true', '::', ['/ship'], '--global'),
+    {body: '', globalBypass: false, isNaked: false, params: ' --flag=true'}
+  )
 })

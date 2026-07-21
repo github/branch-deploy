@@ -82,6 +82,16 @@ test('resolved packages preserve public integrity and install-script policy', ()
     const entry = requireRecord(value, path)
     const resolved = entry['resolved']
     const integrity = entry['integrity']
+    const version = entry['version']
+    const license = entry['license']
+
+    if (
+      !/^node_modules\/(?:@[^/]+\/)?[^/]+(?:\/node_modules\/(?:@[^/]+\/)?[^/]+)*$/u.test(
+        path
+      )
+    ) {
+      violations.push(`${path} has an invalid package path`)
+    }
 
     if (
       typeof resolved !== 'string' ||
@@ -89,8 +99,45 @@ test('resolved packages preserve public integrity and install-script policy', ()
     ) {
       violations.push(`${path} has a non-public resolution`)
     }
-    if (typeof integrity !== 'string' || integrity.length === 0) {
-      violations.push(`${path} has no integrity digest`)
+    if (
+      typeof integrity !== 'string' ||
+      !/^sha512-[A-Za-z0-9+/]+={0,2}$/u.test(integrity)
+    ) {
+      violations.push(`${path} has no valid sha512 integrity digest`)
+    }
+    if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/u.test(version)) {
+      violations.push(`${path} has no exact resolved version`)
+    }
+    if (typeof license !== 'string' || license.trim() === '') {
+      violations.push(`${path} has no license`)
+    }
+    for (const field of [
+      'link',
+      'devOptional',
+      'optionalDependencies',
+      'peerDependenciesMeta',
+      'bundleDependencies',
+      'bundledDependencies',
+      'inBundle'
+    ] as const) {
+      if (entry[field] !== undefined) {
+        violations.push(`${path} has an unexpected ${field} field`)
+      }
+    }
+    for (const field of ['dependencies', 'peerDependencies'] as const) {
+      const dependencies = entry[field]
+      if (dependencies === undefined) continue
+      const ranges = requireRecord(dependencies, `${path} ${field}`)
+      for (const [name, range] of Object.entries(ranges)) {
+        if (
+          typeof range !== 'string' ||
+          /^(?:(?:git(?:\+[^:]+)?|github|gitlab|bitbucket|gist|file|link|workspace|https?|ssh):|git@|[^@\s/]+\/[^@\s/]+(?:#|$))/iu.test(
+            range
+          )
+        ) {
+          violations.push(`${path} ${field}.${name} has a non-registry range`)
+        }
+      }
     }
     if (entry['hasInstallScript'] === true) {
       installScripts.push({

@@ -103,3 +103,20 @@ test('matches when followed by a newline (whitespace)', () => {
   const trigger = '.deploy'
   assert.strictEqual(triggerCheck(body, trigger), true)
 })
+
+for (const whitespace of ['\t', '\r\n', '\u00a0']) {
+  test(`matches when followed by ${JSON.stringify(whitespace)} whitespace`, () => {
+    assert.strictEqual(
+      triggerCheck(`.deploy${whitespace}production`, '.deploy'),
+      true
+    )
+  })
+}
+
+test('treats regex-significant characters in custom triggers literally', () => {
+  const trigger = '.deploy[prod]+?'
+
+  assert.strictEqual(triggerCheck(`${trigger} production`, trigger), true)
+  assert.strictEqual(triggerCheck('.deployprod production', trigger), false)
+  assert.strictEqual(triggerCheck(`${trigger}-canary`, trigger), false)
+})
