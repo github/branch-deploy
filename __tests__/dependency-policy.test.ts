@@ -11,7 +11,7 @@ const EXPECTED_RUNTIME_DEPENDENCIES = {
 const EXPECTED_DEVELOPMENT_DEPENDENCIES = {
   '@types/node': '24.13.2',
   '@vercel/ncc': '0.44.0',
-  'js-yaml': '4.2.0',
+  'js-yaml': '4.3.0',
   prettier: '3.8.1',
   typescript: '5.9.3'
 } as const satisfies Record<string, string>
