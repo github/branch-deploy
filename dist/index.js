@@ -40024,8 +40024,9 @@ function checkStatus(check) {
 ;// CONCATENATED MODULE: ./src/functions/selected-ref-check.ts
 
 async function selectedRefMatches(octokit, context, request) {
-    if (request.exactSha || request.isFork)
+    if (request.exactSha || (request.isFork && !request.stableBranchUsed)) {
         return true;
+    }
     if (request.stableBranchUsed) {
         const branch = await octokit.rest.repos.getBranch({
             ...context.repo,

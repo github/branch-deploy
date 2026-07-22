@@ -2015,7 +2015,59 @@ const scenarios = [
         assertOutput(context, result, 'ref', ACCEPTANCE_SHAS.fork)
         assertOutput(context, result, 'sha', ACCEPTANCE_SHAS.fork)
         assertOutput(context, result, 'commit_verified', 'false')
+        assert.equal(
+          context.routeLog.filter(
+            route =>
+              `${route.method} ${route.path}` === `GET ${apiPath('/pulls/1')}`
+          ).length,
+          1,
+          diagnostics(context, result)
+        )
       })
+  },
+  {
+    name: 'fork stable deployments reject moved branch refs',
+    run: async () => {
+      for (const command of ['.deploy main', '.noop main'] as const) {
+        await withMockGitHub(
+          `fork ${command} rejects moved main`,
+          async context => {
+            setTriggerComment(context.state, command)
+            setForkPullRequest(context.state)
+            context.state.stableBranchMoveSha = ACCEPTANCE_SHAS.feature
+
+            const result = await runMain(context, {allow_forks: 'true'})
+
+            assertExit(context, result, 1)
+            assertDecision(context, result, 'failure')
+            assertReason(context, result, 'ref_changed')
+            assertOutput(context, result, 'ref', 'main')
+            assertOutput(context, result, 'sha', ACCEPTANCE_SHAS.default)
+            assertNoDeployment(context, result)
+            assert.equal(
+              context.state.branches.get('main')?.sha,
+              ACCEPTANCE_SHAS.feature,
+              diagnostics(context, result)
+            )
+            assert.equal(
+              context.state.branches.has(lockBranch('production')),
+              false,
+              diagnostics(context, result)
+            )
+            assert.equal(
+              context.routeLog.filter(
+                route =>
+                  `${route.method} ${route.path}` ===
+                  `GET ${apiPath('/branches/main')}`
+              ).length,
+              3,
+              diagnostics(context, result)
+            )
+            assertCommentIncludes(context, 'Deployment Ref Changed')
+          }
+        )
+      }
+    }
   },
   {
     name: 'fork opt-in preserves trusted template boundary',

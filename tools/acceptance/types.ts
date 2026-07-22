@@ -150,6 +150,7 @@ export interface MockGitHubState {
   rollupAvailable: boolean
   rollupContexts: readonly MockRollupContext[]
   rollupState: string | null
+  stableBranchMoveSha: string | null
   trees: Map<string, string>
 }
 
