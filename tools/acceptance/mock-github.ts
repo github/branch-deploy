@@ -390,7 +390,12 @@ function rollupContextResponse(context: MockRollupContext): unknown {
       databaseId: context.databaseId ?? 1,
       startedAt: context.startedAt ?? '2026-01-01T00:00:00Z',
       completedAt: context.completedAt ?? '2026-01-01T00:01:00Z',
-      checkSuite: {app: {databaseId: context.integrationId ?? 1}},
+      checkSuite: {
+        app:
+          context.integrationId === null
+            ? null
+            : {databaseId: context.integrationId ?? 1}
+      },
       conclusion: context.conclusion,
       isRequired: context.isRequired,
       name: context.name
