@@ -815,7 +815,15 @@ export function filterChecks(
   required: boolean
 ): {message: string; status: 'FAILURE' | 'MISSING' | 'PENDING' | 'SUCCESS'} {
   const healthyCheckStatuses = ['SUCCESS', 'SKIPPED', 'NEUTRAL']
-  checkResults = latestCheckResults(checkResults)
+  checkResults = latestCheckResults(checkResults, check => {
+    const name = checkName(check)
+    const included =
+      typeof checks === 'string' ||
+      checks.length === 0 ||
+      checks.some(checkName => checkName === name)
+    const ignored = ignoredChecks.some(ignoredCheck => ignoredCheck === name)
+    return included && !ignored && (!required || check.isRequired)
+  })
 
   const checksDisplay = typeof checks === 'string' ? checks : checks.join(',')
   core.debug(`filterChecks() - checks: ${checksDisplay}`)
@@ -974,7 +982,8 @@ function checkNodeId(check: RawCheckResult): string | undefined {
 }
 
 export function latestCheckResults(
-  checkResults: readonly RawCheckResult[]
+  checkResults: readonly RawCheckResult[],
+  participatesInPolicy: (check: RawCheckResult) => boolean
 ): readonly RawCheckResult[] {
   const latest = new Map<
     string,
@@ -1001,7 +1010,9 @@ export function latestCheckResults(
 
     if (
       currentEntry.checkRun &&
-      (currentEntry.integrationId === null || candidate.integrationId === null)
+      (currentEntry.integrationId === null ||
+        candidate.integrationId === null) &&
+      (participatesInPolicy(current) || participatesInPolicy(check))
     ) {
       throw new Error(
         `A duplicate check result is missing its integration identity: ${identity}`

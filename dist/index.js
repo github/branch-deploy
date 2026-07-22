@@ -39823,7 +39823,14 @@ async function loadAllCheckResults(octokit, pullRequestNumber, commit, statusChe
 // The status will be one of the following: 'SUCCESS', 'FAILURE', 'MISSING'
 function filterChecks(checks, checkResults, ignoredChecks, required) {
     const healthyCheckStatuses = ['SUCCESS', 'SKIPPED', 'NEUTRAL'];
-    checkResults = latestCheckResults(checkResults);
+    checkResults = latestCheckResults(checkResults, check => {
+        const name = checkName(check);
+        const included = typeof checks === 'string' ||
+            checks.length === 0 ||
+            checks.some(checkName => checkName === name);
+        const ignored = ignoredChecks.some(ignoredCheck => ignoredCheck === name);
+        return included && !ignored && (!required || check.isRequired);
+    });
     const checksDisplay = typeof checks === 'string' ? checks : checks.join(',');
     debug(`filterChecks() - checks: ${checksDisplay}`);
     debug(`filterChecks() - ignoredChecks: ${ignoredChecks.join(',')}`);
@@ -39944,7 +39951,7 @@ function checkDatabaseId(check) {
 function checkNodeId(check) {
     return 'id' in check ? check.id : undefined;
 }
-function latestCheckResults(checkResults) {
+function latestCheckResults(checkResults, participatesInPolicy) {
     const latest = new Map();
     for (const check of checkResults) {
         validateCheckResult(check);
@@ -39961,7 +39968,9 @@ function latestCheckResults(checkResults) {
         }
         const current = currentEntry.check;
         if (currentEntry.checkRun &&
-            (currentEntry.integrationId === null || candidate.integrationId === null)) {
+            (currentEntry.integrationId === null ||
+                candidate.integrationId === null) &&
+            (participatesInPolicy(current) || participatesInPolicy(check))) {
             throw new Error(`A duplicate check result is missing its integration identity: ${identity}`);
         }
         const currentId = checkDatabaseId(current);

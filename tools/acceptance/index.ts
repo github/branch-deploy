@@ -2875,9 +2875,72 @@ const scenarios = [
       })
   },
   {
+    name: 'policy-excluded ambiguous GitHub App identities allow deployment',
+    run: async () => {
+      for (const {description, inputs, isRequired} of [
+        {
+          description: 'ignored check',
+          inputs: {ignored_checks: 'excluded-check'},
+          isRequired: true
+        },
+        {
+          description: 'check outside an explicit list',
+          inputs: {checks: 'required-check'},
+          isRequired: true
+        },
+        {
+          description: 'optional check in required mode',
+          inputs: {checks: 'required'},
+          isRequired: false
+        }
+      ] as const) {
+        await withMockGitHub(
+          `ambiguous GitHub App identity is ignored for ${description}`,
+          async context => {
+            setTriggerComment(context.state, '.deploy')
+            context.state.rollupState = 'FAILURE'
+            context.state.rollupContexts = [
+              {
+                conclusion: 'SUCCESS',
+                databaseId: 12,
+                integrationId: 1,
+                isRequired: true,
+                name: 'required-check',
+                type: 'check-run'
+              },
+              {
+                conclusion: 'FAILURE',
+                databaseId: 10,
+                integrationId: null,
+                isRequired,
+                name: 'excluded-check',
+                type: 'check-run'
+              },
+              {
+                conclusion: 'SUCCESS',
+                databaseId: 11,
+                integrationId: null,
+                isRequired,
+                name: 'excluded-check',
+                type: 'check-run'
+              }
+            ]
+
+            const result = await runMain(context, inputs)
+
+            assertExit(context, result, 0)
+            assertReason(context, result, 'deployment_ready')
+            assertOutput(context, result, 'commit_status', 'SUCCESS')
+            requireDeployment(context)
+          }
+        )
+      }
+    }
+  },
+  {
     name: 'ambiguous GitHub App identity fails closed for all check modes',
     run: async () => {
-      for (const checks of ['all', 'required'] as const) {
+      for (const checks of ['all', 'required', 'required-check'] as const) {
         await withMockGitHub(
           `ambiguous GitHub App identity fails closed for ${checks} checks`,
           async context => {
