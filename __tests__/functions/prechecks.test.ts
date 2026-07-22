@@ -782,6 +782,134 @@ for (const checks of ['all', 'required'] as const) {
   }
 }
 
+for (const {description, checks, ignoredChecks, required, isRequired} of [
+  {
+    description: 'an ignored check',
+    checks: 'all',
+    ignoredChecks: ['excluded-check'],
+    required: false,
+    isRequired: true
+  },
+  {
+    description: 'a check outside an explicit list',
+    checks: ['required-check'],
+    ignoredChecks: [],
+    required: false,
+    isRequired: true
+  },
+  {
+    description: 'an optional check in required mode',
+    checks: 'required',
+    ignoredChecks: [],
+    required: true,
+    isRequired: false
+  }
+] as const) {
+  test(`ignores ambiguous GitHub App identities for ${description}`, () => {
+    const healthyCheck = {
+      checkSuite: {app: {databaseId: 1}},
+      conclusion: 'SUCCESS',
+      databaseId: 12,
+      id: 'healthy',
+      isRequired: true,
+      name: 'required-check'
+    }
+    const excludedCheck = {
+      checkSuite: {app: null},
+      conclusion: 'FAILURE',
+      databaseId: 10,
+      id: 'old',
+      isRequired,
+      name: 'excluded-check'
+    }
+    const rerun = {
+      ...excludedCheck,
+      conclusion: 'SUCCESS',
+      databaseId: 11,
+      id: 'new'
+    }
+
+    assert.deepStrictEqual(
+      filterChecks(
+        checks,
+        [healthyCheck, excludedCheck, rerun],
+        ignoredChecks,
+        required
+      ),
+      {message: 'all checks passed', status: 'SUCCESS'}
+    )
+  })
+}
+
+for (const [description, checks] of [
+  ['an explicit check list', ['required-check']],
+  ['an empty check list', []]
+] as const) {
+  test(`rejects ambiguous GitHub App identities selected by ${description}`, () => {
+    const check = {
+      checkSuite: {app: null},
+      conclusion: 'FAILURE',
+      databaseId: 10,
+      id: 'old',
+      isRequired: true,
+      name: 'required-check'
+    }
+
+    assert.throws(
+      () =>
+        filterChecks(
+          checks,
+          [check, {...check, conclusion: 'SUCCESS', databaseId: 11, id: 'new'}],
+          [],
+          false
+        ),
+      {
+        message:
+          'A duplicate check result is missing its integration identity: check:null:required-check'
+      }
+    )
+  })
+}
+
+for (const [olderRequired, newerRequired] of [
+  [false, true],
+  [true, false]
+] as const) {
+  test(`rejects ambiguous check identities when either duplicate is required (${String(olderRequired)}, ${String(newerRequired)})`, () => {
+    const check = {
+      checkSuite: {app: null},
+      conclusion: 'FAILURE',
+      databaseId: 10,
+      id: 'old',
+      isRequired: olderRequired,
+      name: 'required-check'
+    }
+
+    assert.throws(
+      () =>
+        filterChecks(
+          'required',
+          [
+            check,
+            {
+              ...check,
+              conclusion: 'SUCCESS',
+              databaseId: 11,
+              id: 'new',
+              isRequired: newerRequired
+            }
+          ],
+          [],
+          true
+        ),
+      {
+        message:
+          'A duplicate check result is missing its integration identity: check:null:required-check'
+      }
+    )
+  })
+}
+
 test('rejects malformed required-check metadata', () => {
   assert.throws(
     () =>
