@@ -242,6 +242,7 @@ export function createMockState(): MockGitHubState {
       }
     ],
     rollupState: 'SUCCESS',
+    stableBranchMoveSha: null,
     trees: new Map()
   }
 }
@@ -791,6 +792,17 @@ function routeRest(
 
   if (area === 'branches' && method === 'GET' && parts.length === 5) {
     const branch = state.branches.get(part(parts, 4))
+    if (
+      branch !== undefined &&
+      branch.name === state.repositoryDefaultBranch &&
+      state.stableBranchMoveSha !== null
+    ) {
+      state.branches.set(
+        branch.name,
+        createBranch(branch.name, state.stableBranchMoveSha)
+      )
+      state.stableBranchMoveSha = null
+    }
     return branch === undefined
       ? notFound('Branch not found')
       : {status: 200, value: branchResponse(branch)}

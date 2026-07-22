@@ -104,3 +104,30 @@ test('rejects a changed stable branch', async () => {
     false
   )
 })
+
+for (const [description, actualSha, matches] of [
+  ['unchanged', 'expected', true],
+  ['changed', 'changed', false]
+] as const) {
+  test(`re-fetches an ${description} stable branch selected from a fork`, async () => {
+    getBranchMock.mock.mockImplementation(() =>
+      Promise.resolve({data: {commit: {sha: actualSha}}})
+    )
+
+    assert.strictEqual(
+      await selectedRefMatches(octokit, context, {
+        ...request,
+        isFork: true,
+        stableBranchUsed: true
+      }),
+      matches
+    )
+    assertCalledWith(getBranchMock, {
+      owner: 'corp',
+      repo: 'test',
+      branch: 'main',
+      headers: API_HEADERS
+    })
+    assertNotCalled(getPullMock)
+  })
+}

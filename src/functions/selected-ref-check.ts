@@ -34,7 +34,9 @@ export async function selectedRefMatches(
   context: BranchDeployContext,
   request: SelectedRefRequest
 ): Promise<boolean> {
-  if (request.exactSha || request.isFork) return true
+  if (request.exactSha || (request.isFork && !request.stableBranchUsed)) {
+    return true
+  }
 
   if (request.stableBranchUsed) {
     const branch = await octokit.rest.repos.getBranch({
