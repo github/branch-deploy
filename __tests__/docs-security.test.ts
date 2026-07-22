@@ -142,6 +142,41 @@ test('the inline-script scanner rejects literal, folded, and inline expressions'
   )
 })
 
+test('manual deployment examples release only their original non-sticky locks', () => {
+  const examples = readFileSync('docs/examples.md', 'utf8')
+  const captureSteps =
+    examples.match(/^ {6}- name: Capture deployment lock$/gmu) ?? []
+  const capturedOutputs =
+    examples.match(
+      /^ {6}lock_ref_sha: \$\{\{ steps\.capture-lock\.outputs\.sha \}\}$/gmu
+    ) ?? []
+  const releaseSteps = Array.from(
+    examples.matchAll(
+      /^ {6}- name: Remove (?:a non-sticky lock|Non-Sticky Lock)\n([\s\S]*?)(?=^ {6}- (?:name:|if:)|^ {2}[a-z]|^```)/gmu
+    ),
+    match => match[0]
+  )
+
+  assert.strictEqual(captureSteps.length, 4)
+  assert.strictEqual(capturedOutputs.length, 4)
+  assert.strictEqual(releaseSteps.length, 4)
+
+  for (const step of releaseSteps) {
+    assert.match(step, /lock\.json\?ref=\$\{LOCK_REF_SHA\}/u)
+    assert.match(step, /\.created_by == \$actor/u)
+    assert.match(step, /\.environment == \$environment/u)
+    assert.match(step, /\.global == false/u)
+    assert.match(step, /\.sticky == false/u)
+    assert.match(step, /\.link == \$link/u)
+    assert.match(step, /updateRefs\(/u)
+    assert.match(step, /\$name: GitRefname!/u)
+    assert.match(step, /beforeOid: \$before/u)
+    assert.match(step, /afterOid: "0{40}"/u)
+    assert.match(step, /-f before="\$LOCK_REF_SHA"/u)
+    assert.doesNotMatch(step, /global-branch-deploy-lock|--method\s+DELETE/u)
+  }
+})
+
 test('documented deployment messages do not use fixed delimiters', () => {
   const unsafeDelimiters = documentedWorkflowFiles.flatMap(path =>
     fixedDeploymentDelimiters(readFileSync(path, 'utf8')).map(
