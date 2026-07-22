@@ -870,6 +870,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
+      lock_ref_sha: ${{ steps.capture-lock.outputs.sha }}
       sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
@@ -881,6 +882,21 @@ jobs:
         with:
           trigger: ".deploy"
           skip_completing: true # we will complete the deployment manually
+
+      - name: Capture deployment lock
+        id: capture-lock
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        env:
+          ENVIRONMENT: ${{ steps.branch-deploy.outputs.environment }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          if lock_ref_sha="$(gh api --method GET "repos/{owner}/{repo}/git/ref/heads/${lock_branch}" --jq '.object.sha' 2>/dev/null)"; then
+            printf 'sha=%s\n' "$lock_ref_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not capture the original deployment lock; manual lock cleanup will be skipped"
+          fi
 
   deploy:
     needs: trigger
@@ -936,28 +952,41 @@ jobs:
       # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
       - name: Remove a non-sticky lock
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
           ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          LOCK_ACTOR: ${{ github.actor }}
+          LOCK_REF_SHA: ${{ needs.trigger.outputs.lock_ref_sha }}
         run: |
-          lock_branch=""
-          encoded_lock=""
-          for candidate in global-branch-deploy-lock "${ENVIRONMENT}-branch-deploy-lock"; do
-            if encoded_lock="$(gh api --method GET "repos/{owner}/{repo}/contents/lock.json?ref=${candidate}" --jq '.content' 2>/dev/null)"; then
-              lock_branch="${candidate}"
-              break
-            fi
-          done
+          if [ -z "${LOCK_REF_SHA}" ]; then
+            echo "No captured deployment lock remains"
+            exit 0
+          fi
 
-          if [ -z "${lock_branch}" ]; then
-            echo "No deployment lock remains"
-          elif [ "$(printf '%s' "${encoded_lock}" | base64 --decode | jq -r '.sticky')" = "true" ]; then
-            echo "The lock is sticky, skipping the delete step"
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          lock_contents="$(gh api --method GET "repos/{owner}/{repo}/contents/lock.json?ref=${LOCK_REF_SHA}" --jq '.content' | base64 --decode)"
+          lock_link="${GITHUB_SERVER_URL}/${GH_REPO}/pull/${ISSUE_NUMBER}#issuecomment-${COMMENT_ID}"
+
+          if ! printf '%s' "$lock_contents" | jq -e \
+            --arg actor "$LOCK_ACTOR" \
+            --arg environment "$ENVIRONMENT" \
+            --arg link "$lock_link" \
+            '.created_by == $actor and .environment == $environment and .global == false and .sticky == false and .link == $link' >/dev/null; then
+            echo "The captured deployment lock is sticky or belongs to another deployment"
+            exit 0
+          fi
+
+          repository_id="$(gh api --method GET 'repos/{owner}/{repo}' --jq '.node_id')"
+          if gh api graphql \
+            -f query='mutation($repository: ID!, $name: GitRefname!, $before: GitObjectID!) { updateRefs(input: {repositoryId: $repository, refUpdates: [{name: $name, beforeOid: $before, afterOid: "0000000000000000000000000000000000000000"}]}) { clientMutationId } }' \
+            -f repository="$repository_id" \
+            -f name="refs/heads/${lock_branch}" \
+            -f before="$LOCK_REF_SHA" >/dev/null; then
+            echo "Removed the original deployment lock"
           else
-            echo "The lock is not sticky, deleting the lock"
-            gh api \
-              --method DELETE \
-              "repos/{owner}/{repo}/git/refs/heads/${lock_branch}"
+            echo "::warning::The original deployment lock changed; leaving the current lock in place"
           fi
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
@@ -1057,6 +1086,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
+      lock_ref_sha: ${{ steps.capture-lock.outputs.sha }}
       sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
@@ -1072,6 +1102,21 @@ jobs:
           production_environments: 'github-pages'
           skip_completing: true # we will complete the deployment manually in the 'result' job
           admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
+
+      - name: Capture deployment lock
+        id: capture-lock
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        env:
+          ENVIRONMENT: ${{ steps.branch-deploy.outputs.environment }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          if lock_ref_sha="$(gh api --method GET "repos/{owner}/{repo}/git/ref/heads/${lock_branch}" --jq '.object.sha' 2>/dev/null)"; then
+            printf 'sha=%s\n' "$lock_ref_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not capture the original deployment lock; manual lock cleanup will be skipped"
+          fi
 
   # build the github-pages site with hugo
   build:
@@ -1179,28 +1224,41 @@ jobs:
       # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
       - name: Remove a non-sticky lock
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
           ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          LOCK_ACTOR: ${{ github.actor }}
+          LOCK_REF_SHA: ${{ needs.trigger.outputs.lock_ref_sha }}
         run: |
-          lock_branch=""
-          encoded_lock=""
-          for candidate in global-branch-deploy-lock "${ENVIRONMENT}-branch-deploy-lock"; do
-            if encoded_lock="$(gh api --method GET "repos/{owner}/{repo}/contents/lock.json?ref=${candidate}" --jq '.content' 2>/dev/null)"; then
-              lock_branch="${candidate}"
-              break
-            fi
-          done
+          if [ -z "${LOCK_REF_SHA}" ]; then
+            echo "No captured deployment lock remains"
+            exit 0
+          fi
 
-          if [ -z "${lock_branch}" ]; then
-            echo "No deployment lock remains"
-          elif [ "$(printf '%s' "${encoded_lock}" | base64 --decode | jq -r '.sticky')" = "true" ]; then
-            echo "The lock is sticky, skipping the delete step"
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          lock_contents="$(gh api --method GET "repos/{owner}/{repo}/contents/lock.json?ref=${LOCK_REF_SHA}" --jq '.content' | base64 --decode)"
+          lock_link="${GITHUB_SERVER_URL}/${GH_REPO}/pull/${ISSUE_NUMBER}#issuecomment-${COMMENT_ID}"
+
+          if ! printf '%s' "$lock_contents" | jq -e \
+            --arg actor "$LOCK_ACTOR" \
+            --arg environment "$ENVIRONMENT" \
+            --arg link "$lock_link" \
+            '.created_by == $actor and .environment == $environment and .global == false and .sticky == false and .link == $link' >/dev/null; then
+            echo "The captured deployment lock is sticky or belongs to another deployment"
+            exit 0
+          fi
+
+          repository_id="$(gh api --method GET 'repos/{owner}/{repo}' --jq '.node_id')"
+          if gh api graphql \
+            -f query='mutation($repository: ID!, $name: GitRefname!, $before: GitObjectID!) { updateRefs(input: {repositoryId: $repository, refUpdates: [{name: $name, beforeOid: $before, afterOid: "0000000000000000000000000000000000000000"}]}) { clientMutationId } }' \
+            -f repository="$repository_id" \
+            -f name="refs/heads/${lock_branch}" \
+            -f before="$LOCK_REF_SHA" >/dev/null; then
+            echo "Removed the original deployment lock"
           else
-            echo "The lock is not sticky, deleting the lock"
-            gh api \
-              --method DELETE \
-              "repos/{owner}/{repo}/git/refs/heads/${lock_branch}"
+            echo "::warning::The original deployment lock changed; leaving the current lock in place"
           fi
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
@@ -1304,6 +1362,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
+      lock_ref_sha: ${{ steps.capture-lock.outputs.sha }}
       sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
@@ -1320,6 +1379,21 @@ jobs:
           environment_targets: 'github-pages'
           skip_completing: true # we will complete the deployment manually in the 'result' job
           admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
+
+      - name: Capture deployment lock
+        id: capture-lock
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        env:
+          ENVIRONMENT: ${{ steps.branch-deploy.outputs.environment }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          if lock_ref_sha="$(gh api --method GET "repos/{owner}/{repo}/git/ref/heads/${lock_branch}" --jq '.object.sha' 2>/dev/null)"; then
+            printf 'sha=%s\n' "$lock_ref_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not capture the original deployment lock; manual lock cleanup will be skipped"
+          fi
 
   # build the github-pages site with Astro
   build:
@@ -1391,28 +1465,41 @@ jobs:
       # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
       - name: Remove a non-sticky lock
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
           ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          LOCK_ACTOR: ${{ github.actor }}
+          LOCK_REF_SHA: ${{ needs.trigger.outputs.lock_ref_sha }}
         run: |
-          lock_branch=""
-          encoded_lock=""
-          for candidate in global-branch-deploy-lock "${ENVIRONMENT}-branch-deploy-lock"; do
-            if encoded_lock="$(gh api --method GET "repos/{owner}/{repo}/contents/lock.json?ref=${candidate}" --jq '.content' 2>/dev/null)"; then
-              lock_branch="${candidate}"
-              break
-            fi
-          done
+          if [ -z "${LOCK_REF_SHA}" ]; then
+            echo "No captured deployment lock remains"
+            exit 0
+          fi
 
-          if [ -z "${lock_branch}" ]; then
-            echo "No deployment lock remains"
-          elif [ "$(printf '%s' "${encoded_lock}" | base64 --decode | jq -r '.sticky')" = "true" ]; then
-            echo "The lock is sticky, skipping the delete step"
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          lock_contents="$(gh api --method GET "repos/{owner}/{repo}/contents/lock.json?ref=${LOCK_REF_SHA}" --jq '.content' | base64 --decode)"
+          lock_link="${GITHUB_SERVER_URL}/${GH_REPO}/pull/${ISSUE_NUMBER}#issuecomment-${COMMENT_ID}"
+
+          if ! printf '%s' "$lock_contents" | jq -e \
+            --arg actor "$LOCK_ACTOR" \
+            --arg environment "$ENVIRONMENT" \
+            --arg link "$lock_link" \
+            '.created_by == $actor and .environment == $environment and .global == false and .sticky == false and .link == $link' >/dev/null; then
+            echo "The captured deployment lock is sticky or belongs to another deployment"
+            exit 0
+          fi
+
+          repository_id="$(gh api --method GET 'repos/{owner}/{repo}' --jq '.node_id')"
+          if gh api graphql \
+            -f query='mutation($repository: ID!, $name: GitRefname!, $before: GitObjectID!) { updateRefs(input: {repositoryId: $repository, refUpdates: [{name: $name, beforeOid: $before, afterOid: "0000000000000000000000000000000000000000"}]}) { clientMutationId } }' \
+            -f repository="$repository_id" \
+            -f name="refs/heads/${lock_branch}" \
+            -f before="$LOCK_REF_SHA" >/dev/null; then
+            echo "Removed the original deployment lock"
           else
-            echo "The lock is not sticky, deleting the lock"
-            gh api \
-              --method DELETE \
-              "repos/{owner}/{repo}/git/refs/heads/${lock_branch}"
+            echo "::warning::The original deployment lock changed; leaving the current lock in place"
           fi
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
@@ -1512,6 +1599,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
+      lock_ref_sha: ${{ steps.capture-lock.outputs.sha }}
       sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
@@ -1525,6 +1613,21 @@ jobs:
           environment: development
           environment_targets: development,staging,production
           skip_completing: true
+
+      - name: Capture deployment lock
+        id: capture-lock
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        env:
+          ENVIRONMENT: ${{ steps.branch-deploy.outputs.environment }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          if lock_ref_sha="$(gh api --method GET "repos/{owner}/{repo}/git/ref/heads/${lock_branch}" --jq '.object.sha' 2>/dev/null)"; then
+            printf 'sha=%s\n' "$lock_ref_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not capture the original deployment lock; manual lock cleanup will be skipped"
+          fi
 
   # This is the "actual" deployment logic. It uses the environment specified in
   # the branch deployment comment (e.g. `.deploy to development`).
@@ -1651,8 +1754,13 @@ jobs:
       DEPLOYMENT_ID: ${{ needs.start.outputs.deployment_id }}
       DEPLOYMENT_STATUS: ${{ needs.deploy.outputs.outcome || 'failure' }}
       ENVIRONMENT: ${{ needs.start.outputs.environment }}
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       INITIAL_REACTION_ID: ${{ needs.start.outputs.initial_reaction_id }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      LOCK_ACTOR: ${{ github.actor }}
+      LOCK_REF_SHA: ${{ needs.start.outputs.lock_ref_sha }}
       NOOP: ${{ needs.start.outputs.noop }}
       SHA: ${{ needs.start.outputs.sha }}
       REPOSITORY: ${{ github.repository }}
@@ -1672,22 +1780,33 @@ jobs:
       - name: Remove Non-Sticky Lock
         id: remove-lock
         run: |
-          lock_branch=""
-          encoded_lock=""
-          for candidate in global-branch-deploy-lock "${ENVIRONMENT}-branch-deploy-lock"; do
-            if encoded_lock="$(gh api --method GET "repos/${REPOSITORY}/contents/lock.json?ref=${candidate}" --jq '.content' 2>/dev/null)"; then
-              lock_branch="${candidate}"
-              break
-            fi
-          done
+          if [ -z "${LOCK_REF_SHA}" ]; then
+            echo "No captured deployment lock remains"
+            exit 0
+          fi
 
-          if [ -z "${lock_branch}" ]; then
-            echo "No deployment lock remains"
-          elif [ "$(printf '%s' "${encoded_lock}" | base64 --decode | jq -r '.sticky')" = "true" ]; then
-            echo "The lock is sticky, skipping the delete step"
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          lock_contents="$(gh api --method GET "repos/{owner}/{repo}/contents/lock.json?ref=${LOCK_REF_SHA}" --jq '.content' | base64 --decode)"
+          lock_link="${GITHUB_SERVER_URL}/${GH_REPO}/pull/${ISSUE_NUMBER}#issuecomment-${COMMENT_ID}"
+
+          if ! printf '%s' "$lock_contents" | jq -e \
+            --arg actor "$LOCK_ACTOR" \
+            --arg environment "$ENVIRONMENT" \
+            --arg link "$lock_link" \
+            '.created_by == $actor and .environment == $environment and .global == false and .sticky == false and .link == $link' >/dev/null; then
+            echo "The captured deployment lock is sticky or belongs to another deployment"
+            exit 0
+          fi
+
+          repository_id="$(gh api --method GET 'repos/{owner}/{repo}' --jq '.node_id')"
+          if gh api graphql \
+            -f query='mutation($repository: ID!, $name: GitRefname!, $before: GitObjectID!) { updateRefs(input: {repositoryId: $repository, refUpdates: [{name: $name, beforeOid: $before, afterOid: "0000000000000000000000000000000000000000"}]}) { clientMutationId } }' \
+            -f repository="$repository_id" \
+            -f name="refs/heads/${lock_branch}" \
+            -f before="$LOCK_REF_SHA" >/dev/null; then
+            echo "Removed the original deployment lock"
           else
-            gh api --method DELETE \
-              "repos/${REPOSITORY}/git/refs/heads/${lock_branch}"
+            echo "::warning::The original deployment lock changed; leaving the current lock in place"
           fi
 
       # Remove the trigger reaction added to the user's comment.
