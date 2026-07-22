@@ -97,7 +97,7 @@ export type MockRollupContext =
       readonly completedAt?: string
       readonly conclusion: string | null
       readonly databaseId?: number
-      readonly integrationId?: number
+      readonly integrationId?: number | null
       readonly isRequired: boolean
       readonly name: string
       readonly startedAt?: string

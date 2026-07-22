@@ -2823,6 +2823,49 @@ const scenarios = [
       })
   },
   {
+    name: 'ambiguous GitHub App identity fails closed for all check modes',
+    run: async () => {
+      for (const checks of ['all', 'required'] as const) {
+        await withMockGitHub(
+          `ambiguous GitHub App identity fails closed for ${checks} checks`,
+          async context => {
+            setTriggerComment(context.state, '.deploy')
+            context.state.rollupState = 'FAILURE'
+            context.state.rollupContexts = [
+              {
+                completedAt: '2026-01-01T00:01:00Z',
+                conclusion: 'FAILURE',
+                databaseId: 10,
+                integrationId: null,
+                isRequired: true,
+                name: 'required-check',
+                type: 'check-run'
+              },
+              {
+                completedAt: '2026-01-01T00:02:00Z',
+                conclusion: 'SUCCESS',
+                databaseId: 11,
+                integrationId: null,
+                isRequired: true,
+                name: 'required-check',
+                type: 'check-run'
+              }
+            ]
+
+            const result = await runMain(context, {checks})
+
+            assertExit(context, result, 1)
+            assertReason(context, result, 'prechecks_failed')
+            assertOutput(context, result, 'commit_status', 'UNAVAILABLE')
+            assertNoDeployment(context, result)
+            assertNoLockRoutes(context)
+            assertCommentIncludes(context, 'could not verify all CI checks')
+          }
+        )
+      }
+    }
+  },
+  {
     name: 'pending CI rerun replaces success',
     run: () =>
       withMockGitHub('pending CI rerun replaces success', async context => {

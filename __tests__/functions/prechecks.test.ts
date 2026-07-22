@@ -743,6 +743,45 @@ test('rejects duplicate check runs without integration identities', () => {
   })
 })
 
+for (const checks of ['all', 'required'] as const) {
+  for (const [description, app] of [
+    ['a missing GitHub App', null],
+    ['a missing GitHub App database ID', {databaseId: null}]
+  ] as const) {
+    test(`rejects same-name ${checks} check runs from ${description} before comparing database IDs`, () => {
+      const olderCheck = {
+        checkSuite: {app},
+        conclusion: 'FAILURE',
+        databaseId: 10,
+        id: 'old',
+        isRequired: true,
+        name: 'test',
+        startedAt: '2026-01-01T00:00:00Z'
+      }
+      const newerCheck = {
+        ...olderCheck,
+        conclusion: 'SUCCESS',
+        databaseId: 11,
+        id: 'new'
+      }
+
+      assert.throws(
+        () =>
+          filterChecks(
+            checks,
+            [olderCheck, newerCheck],
+            [],
+            checks === 'required'
+          ),
+        {
+          message:
+            'A duplicate check result is missing its integration identity: check:null:test'
+        }
+      )
+    })
+  }
+}
+
 test('rejects malformed required-check metadata', () => {
   assert.throws(
     () =>

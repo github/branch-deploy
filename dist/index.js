@@ -39960,6 +39960,10 @@ function latestCheckResults(checkResults) {
             continue;
         }
         const current = currentEntry.check;
+        if (currentEntry.checkRun &&
+            (currentEntry.integrationId === null || candidate.integrationId === null)) {
+            throw new Error(`A duplicate check result is missing its integration identity: ${identity}`);
+        }
         const currentId = checkDatabaseId(current);
         const candidateId = checkDatabaseId(check);
         if (currentId !== null && candidateId !== null) {
@@ -39967,12 +39971,6 @@ function latestCheckResults(checkResults) {
                 latest.set(identity, candidate);
             if (candidateId !== currentId)
                 continue;
-        }
-        if (currentEntry.checkRun) {
-            if (currentEntry.integrationId === null ||
-                candidate.integrationId === null) {
-                throw new Error(`A duplicate check result is missing its integration identity: ${identity}`);
-            }
         }
         const currentTimestamp = checkTimestamp(current);
         const candidateTimestamp = checkTimestamp(check);
