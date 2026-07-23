@@ -1,0 +1,28 @@
+import * as core from '../actions-core.ts'
+
+// Helper function to create a valid branch name that will pass GitHub's API ref validation
+// :param branch: The branch name
+// :returns: A string of the branch name with proper formatting
+export function constructValidBranchName(branch: string): string
+export function constructValidBranchName(branch: null): null
+export function constructValidBranchName(branch: undefined): undefined
+export function constructValidBranchName(
+  branch: string | null | undefined
+): string | null | undefined
+export function constructValidBranchName(
+  branch: string | null | undefined
+): string | null | undefined {
+  core.debug(`constructing valid branch name: ${String(branch)}`)
+
+  if (branch === null) {
+    return null
+  } else if (branch === undefined) {
+    return undefined
+  }
+
+  // If environment contains any spaces, replace all of them with a hyphen
+  branch = branch.replace(/\s/g, '-')
+
+  core.debug(`constructed valid branch name: ${branch}`)
+  return branch
+}

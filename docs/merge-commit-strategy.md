@@ -2,7 +2,9 @@
 
 > Note: This section is rather advanced and entirely optional. This workflow also complements the other alternate workflow called "[Unlock on Merge Mode](unlock-on-merge.md)".
 
-At GitHub, we use custom logic to compare the latest deployment with the merge commit created when a pull request is merged to our default branch. This helps to save CI time, and prevent redundant deployments. If a user deploys a pull request, it succeeds, and then the pull request is merged, we will not deploy the merge commit. This is because the merge commit is the same as the latest deployment.
+At GitHub, we use custom logic to compare the newest identifiable Branch Deploy deployment with the latest commit on the default branch. This helps save CI time and prevent redundant deployments. The merge workflow skips deployment only when that Branch Deploy deployment is `ACTIVE` and its commit tree exactly matches the current default-branch tree.
+
+Deployments created by other systems are ignored while finding the newest deployment whose payload identifies it as `branch-deploy`. A missing, failed, pending, inactive, or malformed relevant deployment requires a new deployment. Branch Deploy also validates repository identity, environment identity, and pagination progress while reading deployment history so incomplete or inconsistent history does not produce a false skip.
 
 This Action comes bundled with an alternate workflow to help facilitate exactly this. Before explaining how this works, let's first review why this might be useful.
 
@@ -12,8 +14,8 @@ Example scenario 1:
 2. No one else except for you has created a deployment
 3. You click the merge button on the pull request you just deployed
 4. The "merge commit workflow strategy" is triggered on merge to your default branch
-5. The workflow compares the latest deployment with the merge commit and finds they are identical
-6. The workflow uses logic to exit as it does not need to deploy the merge commit since it is the same as the latest deployment
+5. The workflow compares the newest active Branch Deploy deployment with the default-branch commit tree and finds they are identical
+6. The workflow exits because the default-branch tree is already represented by the newest relevant deployment
 
 Example scenario 2:
 
@@ -22,10 +24,10 @@ Example scenario 2:
 3. You go to make a cup of coffee and while doing so, your teammate creates a deployment on their own (different) pull request
 4. You click the merge button on the pull request you just deployed (which is now silently out of date)
 5. The "merge commit workflow strategy" is triggered on merge to your default branch
-6. The workflow compares the latest deployment with the merge commit and finds they are different
-7. The workflow uses logic to deploy the merge commit since it is different than the latest deployment
+6. The workflow compares the newest relevant Branch Deploy deployment with the default-branch commit tree and finds they are different, inactive, or unavailable
+7. The workflow deploys the default-branch commit because the relevant deployment does not prove that tree is active
 
-This should help explain why this strategy is useful. It helps to save CI time and prevent redundant deployments. If you are not using this strategy, you will end up deploying the merge commit even if it is the same as the latest deployment if you do a deployment every time a pull request is merged (rather common).
+This strategy saves CI time without treating unrelated or unsuccessful deployment history as proof that the current default-branch tree is already deployed. Without it, a workflow that deploys on every default-branch push will redeploy that tree even when the newest active Branch Deploy deployment already represents it.
 
 ## Using the Merge Commit Workflow Strategy
 
@@ -55,7 +57,7 @@ jobs:
         uses: github/branch-deploy@vX.X.X # replace with the latest version of this Action
         id: deployment-check # ensure you have an 'id' set so you can reference the output of the Action later on
         with:
-          merge_deploy_mode: "true" # required, tells the Action to use the merge commit workflow strategy
+          merge_deploy_mode: true # required, tells the Action to use the merge commit workflow strategy
           environment: production # optional, defaults to 'production'
 
       # Now we can conditionally 'gate' our deployment logic based on the output of the Action
@@ -63,10 +65,11 @@ jobs:
       # Otherwise, all subsequent steps will be skipped
 
       # Check out the repository
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         if: ${{ steps.deployment-check.outputs.continue == 'true' }} # only run if the Action returned 'true' for the 'continue' output
         with:
           ref: ${{ steps.deployment-check.outputs.sha }} # checkout the EXACT sha of the default branch for deployment (latest commit on the default branch)
+          persist-credentials: false
 
       # Do your deployment here! (However you want to do it)
       # This could be deployment logic via SSH, Terraform, AWS, Heroku, etc.

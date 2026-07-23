@@ -47,7 +47,7 @@ In order to use this feature, you must set the following input option:
 - uses: github/branch-deploy@vX.X.X
   id: branch-deploy
   with:
-    allow_sha_deployments: "true" # <--- this option must be "true"
+    allow_sha_deployments: true # <--- this option must be true
 ```
 
 The reasoning for this is that SHA deployments can easily become dangerous. So users should be informed, and have to manually enable this feature for it to be used.

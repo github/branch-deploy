@@ -11,9 +11,10 @@ Instead of this:
 
 - name: checkout
   if: steps.branch-deploy.outputs.continue == 'true'
-  uses: actions/checkout@v6
+  uses: actions/checkout@v7.0.0
   with:
     ref: ${{ steps.branch-deploy.outputs.ref }} # <-- This is the branch name, can be risky
+    persist-credentials: false
 ```
 
 Do this:
@@ -25,9 +26,10 @@ Do this:
 
 - name: checkout
   if: steps.branch-deploy.outputs.continue == 'true'
-  uses: actions/checkout@v6
+  uses: actions/checkout@v7.0.0
   with:
     ref: ${{ steps.branch-deploy.outputs.sha }} # <-- uses an exact commit SHA - safe!
+    persist-credentials: false
 ```
 
 This ensures you are deploying the __exact__ commit SHA that branch-deploy has determined is safe to deploy. This is a best practice for security, reliability, and safety during deployments.

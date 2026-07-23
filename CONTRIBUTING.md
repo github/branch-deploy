@@ -4,13 +4,13 @@ All contributions are welcome and greatly appreciated!
 
 ## Steps to Contribute 💡
 
-> Check the `.node-version` file in the root of this repo so see what version of Node.js is required for local development - note, this can be different from the version of Node.js which runs the Action on GitHub runners. It is suggested to download [nodenv](https://github.com/nodenv/nodenv) which uses this file and manages your Node.js versions for you
+> Check the `.node-version` file in the repository root to see which Node.js version is required for local development. The JavaScript action runtime is declared separately in `action.yml`. A version manager such as [nodenv](https://github.com/nodenv/nodenv) can use `.node-version` automatically.
 
 1. Fork this repository
 2. Commit your changes
 3. Test your changes (learn how to test below)
 4. Open a pull request back to this repository
-    > Make sure to run `npm run all` as your final commit!
+   > For runtime source changes, run `npm run all` and commit the regenerated `dist/` artifacts. Do not regenerate `dist/` for documentation-only changes.
 5. Notify the maintainers of this repository for peer review and approval
 6. Merge!
 
@@ -20,7 +20,7 @@ The maintainers of this repository will create a new release with your changes s
 
 ## Testing 🧪
 
-This project requires **100%** test coverage
+This project requires every test to pass and **100%** line, branch, and function coverage
 
 > The branch-deploy Action is used by enterprises, governments, and open source organizations - it is critical that we have 100% test coverage to ensure that we are not introducing any regressions. All changes will be throughly tested by maintainers of this repository before a new release is created.
 
@@ -32,27 +32,25 @@ Simply run the following command to execute the entire test suite:
 npm run test
 ```
 
-> Note: this requires that you have already run `npm install`
+Run the complete non-mutating formatting, typecheck, safety-policy, and test suite with:
 
-### Testing directly with IssueOps
+```bash
+npm run check
+```
 
-> See the testing FAQs below for more information on this process
+> Note: these commands require that you have already run `npm ci --ignore-scripts --no-audit --no-fund`
 
-You can test your changes by doing the following steps:
+`npm run test` does not update the tracked coverage badge. The badge reflects the three enforced native Node coverage thresholds and the requirement that every test passes.
 
-1. Commit your changes to the `main` branch on your fork
-2. Open a new pull request
-3. Run IssueOps commands on the pull request you just opened (`.deploy`, `.noop`, `.deploy main`, etc)
-4. Ensure that all IssueOps commands work as expected on your testing PR
+The suite uses `node:test`, native V8 coverage, and the exact Node version in `.node-version`. ESM module mocking and coverage are experimental test-only features pinned to that development runtime. `npm run lint` runs the repository's TypeScript compiler-API safety policy; formatting remains the responsibility of Prettier.
 
-### Testing FAQs 🤔
+### Running the native acceptance suite
 
-Answers to questions you might have around testing
+Runtime changes must be tested against a freshly rebuilt `dist/index.js`:
 
-Q: Why do I have to commit my changes to `main`?
+```bash
+npm run package
+npm run acceptance
+```
 
-A: The `on: issue_comment` workflow only uses workflow files from the `main` branch by design - [learn more](https://github.com/github/branch-deploy#security-)
-
-Q: How can I test my changes once my PR is merged and *before* a new release is created?
-
-A: You should create a repo like [this one](https://github.com/GrantBirki/actions-sandbox) that uses `github/branch-deploy@main` as the Action version and test your changes there
+The native Node acceptance harness runs the committed action bundle through its real main/post lifecycle against a strict local GitHub API mock. It is the normal acceptance gate and is also available directly as `script/acceptance` when `dist/index.js` is already current.

@@ -30,7 +30,7 @@ By setting the following input option (`disable_naked_commands`), you can disabl
 - uses: github/branch-deploy@vX.X.X
   id: branch-deploy
   with:
-    disable_naked_commands: "true" # <--- this option must be "true" to disable naked commands
+    disable_naked_commands: true # <--- this option must be true to disable naked commands
 ```
 
 ---

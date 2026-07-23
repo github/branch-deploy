@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+IFS= read -r expected_version < .node-version
+actual_version="$(node --version)"
+if [[ "$actual_version" != "v$expected_version" ]]; then
+  echo "error: expected Node v$expected_version, found $actual_version" >&2
+  exit 1
+fi
+
+if [[ ! -f dist/index.js ]]; then
+  echo 'error: dist/index.js is missing; run npm run package first' >&2
+  exit 1
+fi
+
+export BRANCH_DEPLOY_COVERAGE_SCOPE=acceptance
+
+exec node \
+  --experimental-test-coverage \
+  --test \
+  --test-coverage-lines=100 \
+  --test-coverage-branches=100 \
+  --test-coverage-functions=100 \
+  '--test-coverage-include=tools/acceptance/**' \
+  --test-reporter=./tools/coverage-reporter.ts \
+  --test-reporter-destination=stdout \
+  tools/acceptance/index.ts

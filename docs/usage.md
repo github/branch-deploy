@@ -42,7 +42,7 @@ If you need to lock deployments so that only you can trigger them, you can use t
 - `.unlock --global` - Removes the current global deployment lock (if one exists)
 - `.lock --global --info` - Displays info about the current global deployment lock if one exists
 
-> Note: A deployment lock blocks deploys for all environments. **sticky** locks will also persist until someone removes them with `.unlock`
+> Note: An environment-specific lock blocks that environment, while a global lock blocks every environment. **Sticky** locks persist until someone removes them with `.unlock`.
 
 It should be noted that anytime you use a `.lock`, `.unlock`, or `.lock --details` command without an environment, it will use the default environment target. This is usually `production` and can be configured in your branch-deploy workflow definition.
 

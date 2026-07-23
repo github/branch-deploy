@@ -58,9 +58,10 @@ jobs:
         uses: github/branch-deploy@vX.X.X
 
         # If the branch-deploy Action was triggered, checkout our branch
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # If the branch-deploy Action was triggered, run the noop deployment (i.e. '.noop')
       - name: noop deploy
@@ -122,9 +123,10 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # Setup Terraform on our Actions runner
       - uses: hashicorp/setup-terraform@ed3a0531877aca392eb870f440d9ae7aba83a6bd # pin@v1
@@ -158,20 +160,34 @@ jobs:
         env:
           TF_STDOUT: ${{ steps.plan.outputs.stdout }}
         run: |
-          TF_OUTPUT="\`\`\`terraform\n${TF_STDOUT}\n\`\`\`"
-          echo 'DEPLOY_MESSAGE<<EOF' >> $GITHUB_ENV
-          echo "$TF_OUTPUT" >> $GITHUB_ENV
-          echo 'EOF' >> $GITHUB_ENV
+          delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          while printf '%s\n' "$TF_STDOUT" | grep -Fxq "$delimiter"; do
+            delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          done
+          {
+            printf 'DEPLOY_MESSAGE<<%s\n' "$delimiter"
+            printf '%s\n' '```terraform'
+            printf '%s\n' "$TF_STDOUT"
+            printf '%s\n' '```'
+            printf '%s\n' "$delimiter"
+          } >> "$GITHUB_ENV"
 
       - name: Terraform apply output
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop != 'true' }}
         env:
           TF_STDOUT: ${{ steps.apply.outputs.stdout }}
         run: |
-          TF_OUTPUT="\`\`\`terraform\n${TF_STDOUT}\n\`\`\`"
-          echo 'DEPLOY_MESSAGE<<EOF' >> $GITHUB_ENV
-          echo "$TF_OUTPUT" >> $GITHUB_ENV
-          echo 'EOF' >> $GITHUB_ENV
+          delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          while printf '%s\n' "$TF_STDOUT" | grep -Fxq "$delimiter"; do
+            delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          done
+          {
+            printf 'DEPLOY_MESSAGE<<%s\n' "$delimiter"
+            printf '%s\n' '```terraform'
+            printf '%s\n' "$TF_STDOUT"
+            printf '%s\n' '```'
+            printf '%s\n' "$delimiter"
+          } >> "$GITHUB_ENV"
 
         # Here we handle any errors that might have occurred during the Terraform plan/apply and exit accordingly
       - name: Check Terraform plan output
@@ -189,9 +205,9 @@ helper code from the working pull request code selected by branch-deploy.
 
 - `.noop` runs `terraform plan` from the exact working commit SHA selected by branch-deploy
 - `.deploy` runs `terraform apply` from that same working commit SHA
-- deployment helper scripts and deployment message templates run from the trusted default-branch checkout
-- Terraform output is captured in `RUNNER_TEMP` and inserted into a trusted deployment message template
-- merge deploy mode avoids redeploying a merge commit when the latest deployment already matches the default branch tree
+- the deployment message template is fetched by Branch Deploy at the exact trusted workflow SHA
+- Terraform output is captured in `RUNNER_TEMP` and exported through `DEPLOY_MESSAGE`
+- merge deploy mode avoids redeploying a default-branch commit only when the newest relevant Branch Deploy deployment is active and has the same commit tree
 - unlock-on-merge mode cleans up sticky locks after the pull request merges
 
 For the general security model behind this pattern, see the
@@ -236,48 +252,24 @@ jobs:
       queue: max
 
     steps:
-      - name: derive trusted checkout path
-        id: trusted-path
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          set -euo pipefail
-          echo "DEFAULT_BRANCH=${DEFAULT_BRANCH}"
-
-          trusted_dir="$(printf '%s' "${DEFAULT_BRANCH}" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//')"
-
-          if [[ -z "${trusted_dir}" || "${trusted_dir}" == "." || "${trusted_dir}" == ".." ]]; then
-            echo "invalid trusted checkout directory derived from default branch: ${DEFAULT_BRANCH}" >&2
-            exit 1
-          fi
-
-          if [[ ! "${trusted_dir}" =~ ^[A-Za-z0-9._-]+$ ]]; then
-            echo "trusted checkout directory contains unsafe characters: ${trusted_dir}" >&2
-            exit 1
-          fi
-
-          echo "trusted_dir=${trusted_dir}" >> "${GITHUB_OUTPUT}"
-          echo "trusted checkout directory: ${trusted_dir}"
-
       - name: branch-deploy
         id: branch-deploy
         uses: github/branch-deploy@vX.X.X
         with:
           trigger: ".deploy"
-          sticky_locks: "true"
-          deployment_confirmation: "true"
-          deploy_message_path: ${{ steps.trusted-path.outputs.trusted_dir }}/.github/deployment_message.md
-          allow_forks: "false"
+          sticky_locks: true
+          deployment_confirmation: true
+          deploy_message_path: .github/deployment_message.md
+          allow_forks: false
 
       - name: derive working checkout path
         id: working-path
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
         env:
           DEPLOY_SHA: ${{ steps.branch-deploy.outputs.sha }}
-          TRUSTED_DIR: ${{ steps.trusted-path.outputs.trusted_dir }}
         run: |
           set -euo pipefail
-          echo "DEPLOY_SHA=${DEPLOY_SHA} - TRUSTED_DIR=${TRUSTED_DIR}"
+          echo "DEPLOY_SHA=${DEPLOY_SHA}"
 
           if [[ ! "${DEPLOY_SHA}" =~ ^[0-9a-fA-F]{40}([0-9a-fA-F]{24})?$ ]]; then
             echo "invalid branch-deploy sha output: ${DEPLOY_SHA}" >&2
@@ -286,26 +278,12 @@ jobs:
 
           working_dir="deployment-${DEPLOY_SHA}"
 
-          if [[ "${working_dir}" == "${TRUSTED_DIR}" ]]; then
-            echo "working checkout directory collides with trusted checkout directory: ${working_dir}" >&2
-            exit 1
-          fi
-
           echo "working_dir=${working_dir}" >> "${GITHUB_OUTPUT}"
           echo "working checkout directory: ${working_dir}"
 
-      - name: checkout trusted
-        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.sha }} # for issue_comment, github.sha is the last commit on the default branch
-          path: ${{ steps.trusted-path.outputs.trusted_dir }}
-          fetch-depth: 1
-          persist-credentials: false
-
       - name: checkout working deployment sha
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
           path: ${{ steps.working-path.outputs.working_dir }}
@@ -315,27 +293,18 @@ jobs:
       - name: verify checkout provenance
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
         env:
-          TRUSTED_DIR: ${{ steps.trusted-path.outputs.trusted_dir }}
-          TRUSTED_SHA: ${{ github.sha }}
           WORKING_DIR: ${{ steps.working-path.outputs.working_dir }}
           WORKING_SHA: ${{ steps.branch-deploy.outputs.sha }}
         run: |
           set -euo pipefail
 
-          trusted_head="$(git -C "${TRUSTED_DIR}" rev-parse HEAD)"
           working_head="$(git -C "${WORKING_DIR}" rev-parse HEAD)"
-
-          if [[ "${trusted_head}" != "${TRUSTED_SHA}" ]]; then
-            echo "trusted checkout HEAD mismatch: expected ${TRUSTED_SHA}, got ${trusted_head}" >&2
-            exit 1
-          fi
 
           if [[ "${working_head}" != "${WORKING_SHA}" ]]; then
             echo "working checkout HEAD mismatch: expected ${WORKING_SHA}, got ${working_head}" >&2
             exit 1
           fi
 
-          echo "trusted checkout: ${TRUSTED_DIR}@${trusted_head}"
           echo "working checkout: ${WORKING_DIR}@${working_head}"
 
       - name: prepare terraform output path
@@ -382,9 +351,10 @@ jobs:
         working-directory: ${{ steps.working-path.outputs.working_dir }}/terraform
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TERRAFORM_OUTPUT_PATH: ${{ steps.terraform-output.outputs.path }}
         run: |
           set -o pipefail
-          terraform plan -no-color -compact-warnings | tee "${{ steps.terraform-output.outputs.path }}"
+          terraform plan -no-color -compact-warnings | tee "$TERRAFORM_OUTPUT_PATH"
 
       - name: terraform apply
         id: apply
@@ -393,9 +363,10 @@ jobs:
         working-directory: ${{ steps.working-path.outputs.working_dir }}/terraform
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TERRAFORM_OUTPUT_PATH: ${{ steps.terraform-output.outputs.path }}
         run: |
           set -o pipefail
-          terraform apply -auto-approve -no-color -compact-warnings | tee "${{ steps.terraform-output.outputs.path }}"
+          terraform apply -auto-approve -no-color -compact-warnings | tee "$TERRAFORM_OUTPUT_PATH"
 
       - name: verify terraform output capture
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
@@ -409,12 +380,21 @@ jobs:
             exit 1
           fi
 
-      - name: update deploy comment
+      - name: export deploy message
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        working-directory: ${{ steps.trusted-path.outputs.trusted_dir }}
         env:
           RESULTS_PATH: ${{ steps.terraform-output.outputs.path }}
-        run: python3 script/ci/update_deploy_msg.py
+        run: |
+          set -euo pipefail
+          delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          while grep -Fxq "${delimiter}" "${RESULTS_PATH}"; do
+            delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          done
+          {
+            printf 'DEPLOY_MESSAGE<<%s\n' "${delimiter}"
+            cat "${RESULTS_PATH}"
+            printf '\n%s\n' "${delimiter}"
+          } >> "${GITHUB_ENV}"
 
       - name: check terraform plan
         if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' && steps.plan.outcome == 'failure' }}
@@ -450,7 +430,7 @@ jobs:
         id: deployment-check
         uses: github/branch-deploy@vX.X.X
         with:
-          merge_deploy_mode: "true"
+          merge_deploy_mode: true
           environment: production
 
   deploy:
@@ -470,7 +450,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.deployment-check.outputs.sha }}
           fetch-depth: 1
@@ -519,7 +499,7 @@ jobs:
         id: unlock-on-merge
         uses: github/branch-deploy@vX.X.X
         with:
-          unlock_on_merge_mode: "true"
+          unlock_on_merge_mode: true
           environment_targets: production
 ```
 
@@ -533,56 +513,11 @@ jobs:
 <details><summary>Show Results</summary>
 
 ```terraform
-[[ results ]]
+{{ results }}
 ```
 
 </details>
 ````
-
-### `script/ci/update_deploy_msg.py`
-
-```python
-from pathlib import Path
-import os
-
-
-TEMPLATE_FILE = Path(".github/deployment_message.md")
-RESULTS_PLACEHOLDER = "[[ results ]]"
-DEFAULT_RESULTS = "No deployment results were captured."
-
-
-def read_results() -> str:
-    results_path = os.environ.get("RESULTS_PATH")
-    if results_path:
-        path = Path(results_path)
-        if path.exists():
-            return path.read_text()
-
-    return os.environ.get("MSG", DEFAULT_RESULTS)
-
-
-def escape_nunjucks_opening_delimiters(results: str) -> str:
-    escaped = []
-    for index, char in enumerate(results):
-        if char == "{" and index + 1 < len(results) and results[index + 1] in "{%#":
-            escaped.append("{ ")
-        else:
-            escaped.append(char)
-
-    return "".join(escaped)
-
-
-def main() -> None:
-    template = TEMPLATE_FILE.read_text()
-    results = escape_nunjucks_opening_delimiters(read_results().strip() or DEFAULT_RESULTS)
-    rendered = template.replace(RESULTS_PLACEHOLDER, results)
-    TEMPLATE_FILE.write_text(rendered)
-    print(rendered)
-
-
-if __name__ == "__main__":
-    main()
-```
 
 ## Heroku
 
@@ -623,9 +558,10 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # Deploy our branch to Heroku
       - name: Deploy to Heroku
@@ -676,9 +612,10 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: steps.branch-deploy.outputs.continue == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # Install the Railway CLI through npm
       - name: Install Railway
@@ -732,9 +669,10 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # Deploy our branch via SSH remote commands
       - name: SSH Remote Deploy
@@ -787,9 +725,10 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # setup node
       - uses: actions/setup-node@v4
@@ -869,9 +808,10 @@ jobs:
         # If the branch-deploy Action was triggered, checkout our branch
       - name: Checkout
         if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
         # Install the npm dependencies for your cloudflare workers project
         # Most importantly, we need to install @cloudflare/wrangler
@@ -903,7 +843,7 @@ jobs:
 
 ## Multiple Jobs
 
-If you need a complex deployment workflow, you can create a deployment status manually in a separate step. This gives you full control over when and how comments, deployment statuses, and reactions are added to your pull request. See [here](https://github.com/github/branch-deploy/blob/eb9366890f2ba137867043eae5842ce9c0806bfd/README.md#manual-deployment-control) for more details.
+If you need a complex deployment workflow, you can complete the deployment manually in a separate job. With `skip_completing: true`, your workflow owns final deployment statuses, comments, reactions, labels, and non-sticky lock cleanup. See [here](https://github.com/github/branch-deploy/blob/main/README.md#manual-deployment-control) for more details.
 
 > This is a more advanced example
 
@@ -930,6 +870,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
+      lock_ref_sha: ${{ steps.capture-lock.outputs.sha }}
       sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
@@ -940,7 +881,22 @@ jobs:
         id: branch-deploy
         with:
           trigger: ".deploy"
-          skip_completing: 'true' # we will complete the deployment manually
+          skip_completing: true # we will complete the deployment manually
+
+      - name: Capture deployment lock
+        id: capture-lock
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        env:
+          ENVIRONMENT: ${{ steps.branch-deploy.outputs.environment }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          if lock_ref_sha="$(gh api --method GET "repos/{owner}/{repo}/git/ref/heads/${lock_branch}" --jq '.object.sha' 2>/dev/null)"; then
+            printf 'sha=%s\n' "$lock_ref_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not capture the original deployment lock; manual lock cleanup will be skipped"
+          fi
 
   deploy:
     needs: trigger
@@ -950,9 +906,10 @@ jobs:
     steps:
       # checkout the project's repository based on the commit SHA provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.trigger.outputs.sha }}
+          persist-credentials: false
 
       # You will do your own deployment here
       - name: fake regular deploy
@@ -976,9 +933,11 @@ jobs:
       # use the GitHub CLI to update the deployment status that was initiated by the branch-deploy action
       - name: Create a deployment status
         env:
+          DEPLOYMENT_ID: ${{ needs.trigger.outputs.deployment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           DEPLOY_STATUS: ${{ steps.deploy-status.outputs.DEPLOY_STATUS }}
+          ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
         run: |
           if [ -z "${DEPLOY_STATUS}" ]; then
             DEPLOY_STATUS="success"
@@ -986,47 +945,64 @@ jobs:
 
           gh api \
             --method POST \
-            repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
-            -f environment='${{ needs.trigger.outputs.environment }}' \
-            -f state=${DEPLOY_STATUS}
+            "repos/{owner}/{repo}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f environment="${ENVIRONMENT}" \
+            -f state="${DEPLOY_STATUS}"
 
       # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
       - name: Remove a non-sticky lock
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
+          ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          LOCK_ACTOR: ${{ github.actor }}
+          LOCK_REF_SHA: ${{ needs.trigger.outputs.lock_ref_sha }}
         run: |
-          # Fetch the lock.json file from the branch
-          gh api \
-            --method GET \
-            repos/{owner}/{repo}/contents/lock.json?ref=${{ needs.trigger.outputs.environment }}-branch-deploy-lock \
-            --jq '.content' \
-            | base64 --decode \
-            > lock.json
-
-          # Check if the sticky value is true
-          if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
-            echo "The lock is sticky, skipping the delete step"
-          else
-            # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
-            echo "The lock is not sticky, deleting the lock"
-            gh api \
-              --method DELETE \
-              repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+          if [ -z "${LOCK_REF_SHA}" ]; then
+            echo "No captured deployment lock remains"
+            exit 0
           fi
 
-          rm lock.json
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          lock_contents="$(gh api --method GET "repos/{owner}/{repo}/contents/lock.json?ref=${LOCK_REF_SHA}" --jq '.content' | base64 --decode)"
+          lock_link="${GITHUB_SERVER_URL}/${GH_REPO}/pull/${ISSUE_NUMBER}#issuecomment-${COMMENT_ID}"
+
+          if ! printf '%s' "$lock_contents" | jq -e \
+            --arg actor "$LOCK_ACTOR" \
+            --arg environment "$ENVIRONMENT" \
+            --arg link "$lock_link" \
+            '.created_by == $actor and .environment == $environment and .global == false and .sticky == false and .link == $link' >/dev/null; then
+            echo "The captured deployment lock is sticky or belongs to another deployment"
+            exit 0
+          fi
+
+          repository_id="$(gh api --method GET 'repos/{owner}/{repo}' --jq '.node_id')"
+          if gh api graphql \
+            -f query='mutation($repository: ID!, $name: GitRefname!, $before: GitObjectID!) { updateRefs(input: {repositoryId: $repository, refUpdates: [{name: $name, beforeOid: $before, afterOid: "0000000000000000000000000000000000000000"}]}) { clientMutationId } }' \
+            -f repository="$repository_id" \
+            -f name="refs/heads/${lock_branch}" \
+            -f before="$LOCK_REF_SHA" >/dev/null; then
+            echo "Removed the original deployment lock"
+          else
+            echo "::warning::The original deployment lock changed; leaving the current lock in place"
+          fi
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
       # this reaction is added by the branch-deploy action by default
       - name: remove eyes reaction
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          INITIAL_REACTION_ID: ${{ needs.trigger.outputs.initial_reaction_id }}
         run: |
-          gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          if [ -n "${INITIAL_REACTION_ID}" ]; then
+            gh api \
+              --method DELETE \
+              "repos/{owner}/{repo}/issues/comments/${COMMENT_ID}/reactions/${INITIAL_REACTION_ID}"
+          fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
@@ -1110,6 +1086,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
+      lock_ref_sha: ${{ steps.capture-lock.outputs.sha }}
       sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
@@ -1123,8 +1100,23 @@ jobs:
           trigger: '.deploy'
           environment: 'github-pages'
           production_environments: 'github-pages'
-          skip_completing: 'true' # we will complete the deployment manually in the 'result' job
+          skip_completing: true # we will complete the deployment manually in the 'result' job
           admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
+
+      - name: Capture deployment lock
+        id: capture-lock
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        env:
+          ENVIRONMENT: ${{ steps.branch-deploy.outputs.environment }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          if lock_ref_sha="$(gh api --method GET "repos/{owner}/{repo}/git/ref/heads/${lock_branch}" --jq '.object.sha' 2>/dev/null)"; then
+            printf 'sha=%s\n' "$lock_ref_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not capture the original deployment lock; manual lock cleanup will be skipped"
+          fi
 
   # build the github-pages site with hugo
   build:
@@ -1135,9 +1127,10 @@ jobs:
     steps:
       # checkout the project's repository based on the commit SHA provided by the branch-deploy step
       - name: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.trigger.outputs.sha }}
+          persist-credentials: false
 
       # read the hugo version from the .hugo-version file in this repository
       - name: set hugo version
@@ -1161,9 +1154,11 @@ jobs:
 
       # build the site with hugo
       - name: build with hugo
+        env:
+          BASE_URL: ${{ steps.pages.outputs.base_url }}
         run: |
           hugo --gc --verbose \
-            --baseURL ${{ steps.pages.outputs.base_url }}
+            --baseURL "$BASE_URL"
 
       # this step is custom to my blog and adds a 'commit' version to the site
       - name: write build version
@@ -1210,9 +1205,11 @@ jobs:
       # use the GitHub CLI to update the deployment status that was initiated by the branch-deploy action
       - name: Create a deployment status
         env:
+          DEPLOYMENT_ID: ${{ needs.trigger.outputs.deployment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           DEPLOY_STATUS: ${{ steps.deploy-status.outputs.DEPLOY_STATUS }}
+          ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
         run: |
           if [ -z "${DEPLOY_STATUS}" ]; then
             DEPLOY_STATUS="success"
@@ -1220,47 +1217,64 @@ jobs:
 
           gh api \
             --method POST \
-            repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
-            -f environment='${{ needs.trigger.outputs.environment }}' \
-            -f state=${DEPLOY_STATUS}
+            "repos/{owner}/{repo}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f environment="${ENVIRONMENT}" \
+            -f state="${DEPLOY_STATUS}"
 
       # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
       - name: Remove a non-sticky lock
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
+          ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          LOCK_ACTOR: ${{ github.actor }}
+          LOCK_REF_SHA: ${{ needs.trigger.outputs.lock_ref_sha }}
         run: |
-          # Fetch the lock.json file from the branch
-          gh api \
-            --method GET \
-            repos/{owner}/{repo}/contents/lock.json?ref=${{ needs.trigger.outputs.environment }}-branch-deploy-lock \
-            --jq '.content' \
-            | base64 --decode \
-            > lock.json
-
-          # Check if the sticky value is true
-          if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
-            echo "The lock is sticky, skipping the delete step"
-          else
-            # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
-            echo "The lock is not sticky, deleting the lock"
-            gh api \
-              --method DELETE \
-              repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+          if [ -z "${LOCK_REF_SHA}" ]; then
+            echo "No captured deployment lock remains"
+            exit 0
           fi
 
-          rm lock.json
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          lock_contents="$(gh api --method GET "repos/{owner}/{repo}/contents/lock.json?ref=${LOCK_REF_SHA}" --jq '.content' | base64 --decode)"
+          lock_link="${GITHUB_SERVER_URL}/${GH_REPO}/pull/${ISSUE_NUMBER}#issuecomment-${COMMENT_ID}"
+
+          if ! printf '%s' "$lock_contents" | jq -e \
+            --arg actor "$LOCK_ACTOR" \
+            --arg environment "$ENVIRONMENT" \
+            --arg link "$lock_link" \
+            '.created_by == $actor and .environment == $environment and .global == false and .sticky == false and .link == $link' >/dev/null; then
+            echo "The captured deployment lock is sticky or belongs to another deployment"
+            exit 0
+          fi
+
+          repository_id="$(gh api --method GET 'repos/{owner}/{repo}' --jq '.node_id')"
+          if gh api graphql \
+            -f query='mutation($repository: ID!, $name: GitRefname!, $before: GitObjectID!) { updateRefs(input: {repositoryId: $repository, refUpdates: [{name: $name, beforeOid: $before, afterOid: "0000000000000000000000000000000000000000"}]}) { clientMutationId } }' \
+            -f repository="$repository_id" \
+            -f name="refs/heads/${lock_branch}" \
+            -f before="$LOCK_REF_SHA" >/dev/null; then
+            echo "Removed the original deployment lock"
+          else
+            echo "::warning::The original deployment lock changed; leaving the current lock in place"
+          fi
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
       # this reaction is added by the branch-deploy action by default
       - name: remove eyes reaction
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          INITIAL_REACTION_ID: ${{ needs.trigger.outputs.initial_reaction_id }}
         run: |
-          gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          if [ -n "${INITIAL_REACTION_ID}" ]; then
+            gh api \
+              --method DELETE \
+              "repos/{owner}/{repo}/issues/comments/${COMMENT_ID}/reactions/${INITIAL_REACTION_ID}"
+          fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
@@ -1348,6 +1362,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
+      lock_ref_sha: ${{ steps.capture-lock.outputs.sha }}
       sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
@@ -1362,8 +1377,23 @@ jobs:
           environment: 'github-pages'
           production_environments: 'github-pages'
           environment_targets: 'github-pages'
-          skip_completing: 'true' # we will complete the deployment manually in the 'result' job
+          skip_completing: true # we will complete the deployment manually in the 'result' job
           admins: 'false' # <--- add your GitHub username here (if you want to use the admins feature)
+
+      - name: Capture deployment lock
+        id: capture-lock
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        env:
+          ENVIRONMENT: ${{ steps.branch-deploy.outputs.environment }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          if lock_ref_sha="$(gh api --method GET "repos/{owner}/{repo}/git/ref/heads/${lock_branch}" --jq '.object.sha' 2>/dev/null)"; then
+            printf 'sha=%s\n' "$lock_ref_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not capture the original deployment lock; manual lock cleanup will be skipped"
+          fi
 
   # build the github-pages site with Astro
   build:
@@ -1373,9 +1403,10 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.trigger.outputs.sha }}
+          persist-credentials: false
 
       - name: build with astro
         uses: withastro/action@e3193ac80e18917ceaeb9f2d47019ad3b2c0416a # pin@v0.3.0
@@ -1415,9 +1446,11 @@ jobs:
       # use the GitHub CLI to update the deployment status that was initiated by the branch-deploy action
       - name: Create a deployment status
         env:
+          DEPLOYMENT_ID: ${{ needs.trigger.outputs.deployment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           DEPLOY_STATUS: ${{ steps.deploy-status.outputs.DEPLOY_STATUS }}
+          ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
         run: |
           if [ -z "${DEPLOY_STATUS}" ]; then
             DEPLOY_STATUS="success"
@@ -1425,47 +1458,64 @@ jobs:
 
           gh api \
             --method POST \
-            repos/{owner}/{repo}/deployments/${{ needs.trigger.outputs.deployment_id }}/statuses \
-            -f environment='${{ needs.trigger.outputs.environment }}' \
-            -f state=${DEPLOY_STATUS}
+            "repos/{owner}/{repo}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f environment="${ENVIRONMENT}" \
+            -f state="${DEPLOY_STATUS}"
 
       # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
       - name: Remove a non-sticky lock
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
+          ENVIRONMENT: ${{ needs.trigger.outputs.environment }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          LOCK_ACTOR: ${{ github.actor }}
+          LOCK_REF_SHA: ${{ needs.trigger.outputs.lock_ref_sha }}
         run: |
-          # Fetch the lock.json file from the branch
-          gh api \
-            --method GET \
-            repos/{owner}/{repo}/contents/lock.json?ref=${{ needs.trigger.outputs.environment }}-branch-deploy-lock \
-            --jq '.content' \
-            | base64 --decode \
-            > lock.json
-
-          # Check if the sticky value is true
-          if [ "$(jq -r '.sticky' lock.json)" = "true" ]; then
-            echo "The lock is sticky, skipping the delete step"
-          else
-            # use the GitHub CLI to remove the non-sticky lock that was created by the branch-deploy action
-            echo "The lock is not sticky, deleting the lock"
-            gh api \
-              --method DELETE \
-              repos/{owner}/{repo}/git/refs/heads/${{ needs.trigger.outputs.environment }}-branch-deploy-lock
+          if [ -z "${LOCK_REF_SHA}" ]; then
+            echo "No captured deployment lock remains"
+            exit 0
           fi
 
-          rm lock.json
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          lock_contents="$(gh api --method GET "repos/{owner}/{repo}/contents/lock.json?ref=${LOCK_REF_SHA}" --jq '.content' | base64 --decode)"
+          lock_link="${GITHUB_SERVER_URL}/${GH_REPO}/pull/${ISSUE_NUMBER}#issuecomment-${COMMENT_ID}"
+
+          if ! printf '%s' "$lock_contents" | jq -e \
+            --arg actor "$LOCK_ACTOR" \
+            --arg environment "$ENVIRONMENT" \
+            --arg link "$lock_link" \
+            '.created_by == $actor and .environment == $environment and .global == false and .sticky == false and .link == $link' >/dev/null; then
+            echo "The captured deployment lock is sticky or belongs to another deployment"
+            exit 0
+          fi
+
+          repository_id="$(gh api --method GET 'repos/{owner}/{repo}' --jq '.node_id')"
+          if gh api graphql \
+            -f query='mutation($repository: ID!, $name: GitRefname!, $before: GitObjectID!) { updateRefs(input: {repositoryId: $repository, refUpdates: [{name: $name, beforeOid: $before, afterOid: "0000000000000000000000000000000000000000"}]}) { clientMutationId } }' \
+            -f repository="$repository_id" \
+            -f name="refs/heads/${lock_branch}" \
+            -f before="$LOCK_REF_SHA" >/dev/null; then
+            echo "Removed the original deployment lock"
+          else
+            echo "::warning::The original deployment lock changed; leaving the current lock in place"
+          fi
 
       # remove the default 'eyes' reaction from the comment that triggered the deployment
       # this reaction is added by the branch-deploy action by default
       - name: remove eyes reaction
         env:
+          COMMENT_ID: ${{ needs.trigger.outputs.comment_id }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          INITIAL_REACTION_ID: ${{ needs.trigger.outputs.initial_reaction_id }}
         run: |
-          gh api \
-            --method DELETE \
-            repos/{owner}/{repo}/issues/comments/${{ needs.trigger.outputs.comment_id }}/reactions/${{ needs.trigger.outputs.initial_reaction_id }}
+          if [ -n "${INITIAL_REACTION_ID}" ]; then
+            gh api \
+              --method DELETE \
+              "repos/{owner}/{repo}/issues/comments/${COMMENT_ID}/reactions/${INITIAL_REACTION_ID}"
+          fi
 
       # if the deployment was successful, add a 'rocket' reaction to the comment that triggered the deployment
       - name: rocket reaction
@@ -1549,6 +1599,7 @@ jobs:
       noop: ${{ steps.branch-deploy.outputs.noop }}
       deployment_id: ${{ steps.branch-deploy.outputs.deployment_id }}
       environment: ${{ steps.branch-deploy.outputs.environment }}
+      lock_ref_sha: ${{ steps.capture-lock.outputs.sha }}
       sha: ${{ steps.branch-deploy.outputs.sha }}
       comment_id: ${{ steps.branch-deploy.outputs.comment_id }}
       initial_reaction_id: ${{ steps.branch-deploy.outputs.initial_reaction_id }}
@@ -1562,6 +1613,21 @@ jobs:
           environment: development
           environment_targets: development,staging,production
           skip_completing: true
+
+      - name: Capture deployment lock
+        id: capture-lock
+        if: ${{ steps.branch-deploy.outputs.continue == 'true' }}
+        env:
+          ENVIRONMENT: ${{ steps.branch-deploy.outputs.environment }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          if lock_ref_sha="$(gh api --method GET "repos/{owner}/{repo}/git/ref/heads/${lock_branch}" --jq '.object.sha' 2>/dev/null)"; then
+            printf 'sha=%s\n' "$lock_ref_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not capture the original deployment lock; manual lock cleanup will be skipped"
+          fi
 
   # This is the "actual" deployment logic. It uses the environment specified in
   # the branch deployment comment (e.g. `.deploy to development`).
@@ -1598,9 +1664,10 @@ jobs:
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.start.outputs.sha }}
+          persist-credentials: false
 
       # Authenticate to Azure using OpenID Connect.
       - name: Authenticate to Azure (OIDC)
@@ -1621,9 +1688,11 @@ jobs:
       # This example uses separate Terraform workspaces for each environment.
       - name: Terraform Init
         id: terraform-init
+        env:
+          ENVIRONMENT: ${{ needs.start.outputs.environment }}
         run: |
           terraform init -no-color
-          terraform workspace select -or-create=true ${{ needs.start.outputs.environment }}
+          terraform workspace select -or-create=true "$ENVIRONMENT"
 
       # If this is a `.noop`, run `terraform plan` to see what would change.
       - name: Terraform Plan
@@ -1685,8 +1754,13 @@ jobs:
       DEPLOYMENT_ID: ${{ needs.start.outputs.deployment_id }}
       DEPLOYMENT_STATUS: ${{ needs.deploy.outputs.outcome || 'failure' }}
       ENVIRONMENT: ${{ needs.start.outputs.environment }}
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       INITIAL_REACTION_ID: ${{ needs.start.outputs.initial_reaction_id }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      LOCK_ACTOR: ${{ github.actor }}
+      LOCK_REF_SHA: ${{ needs.start.outputs.lock_ref_sha }}
       NOOP: ${{ needs.start.outputs.noop }}
       SHA: ${{ needs.start.outputs.sha }}
       REPOSITORY: ${{ github.repository }}
@@ -1698,24 +1772,51 @@ jobs:
         id: set-status
         run: |
           gh api --method POST \
-            "repos/${{ env.REPOSITORY }}/deployments/${{ env.DEPLOYMENT_ID }}/statuses" \
-            -f environment="${{ env.ENVIRONMENT }}" \
-            -f state="${{ env.DEPLOYMENT_STATUS }}"
+            "repos/${REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f environment="${ENVIRONMENT}" \
+            -f state="${DEPLOYMENT_STATUS}"
 
-      # If this was not a `.noop` deployment, remove the lock.
-      - if: ${{ env.NOOP != 'true' }}
-        name: Remove Non-Sticky Lock
+      # Remove the non-sticky lock for either a `.noop` or `.deploy`.
+      - name: Remove Non-Sticky Lock
         id: remove-lock
         run: |
-          gh api --method DELETE \
-            "repos/${{ env.REPOSITORY }}/git/refs/heads/${{ env.ENVIRONMENT }}-branch-deploy-lock"
+          if [ -z "${LOCK_REF_SHA}" ]; then
+            echo "No captured deployment lock remains"
+            exit 0
+          fi
+
+          lock_branch="$(printf '%s' "$ENVIRONMENT" | jq -Rsr 'gsub("\\s"; "-")')-branch-deploy-lock"
+          lock_contents="$(gh api --method GET "repos/{owner}/{repo}/contents/lock.json?ref=${LOCK_REF_SHA}" --jq '.content' | base64 --decode)"
+          lock_link="${GITHUB_SERVER_URL}/${GH_REPO}/pull/${ISSUE_NUMBER}#issuecomment-${COMMENT_ID}"
+
+          if ! printf '%s' "$lock_contents" | jq -e \
+            --arg actor "$LOCK_ACTOR" \
+            --arg environment "$ENVIRONMENT" \
+            --arg link "$lock_link" \
+            '.created_by == $actor and .environment == $environment and .global == false and .sticky == false and .link == $link' >/dev/null; then
+            echo "The captured deployment lock is sticky or belongs to another deployment"
+            exit 0
+          fi
+
+          repository_id="$(gh api --method GET 'repos/{owner}/{repo}' --jq '.node_id')"
+          if gh api graphql \
+            -f query='mutation($repository: ID!, $name: GitRefname!, $before: GitObjectID!) { updateRefs(input: {repositoryId: $repository, refUpdates: [{name: $name, beforeOid: $before, afterOid: "0000000000000000000000000000000000000000"}]}) { clientMutationId } }' \
+            -f repository="$repository_id" \
+            -f name="refs/heads/${lock_branch}" \
+            -f before="$LOCK_REF_SHA" >/dev/null; then
+            echo "Removed the original deployment lock"
+          else
+            echo "::warning::The original deployment lock changed; leaving the current lock in place"
+          fi
 
       # Remove the trigger reaction added to the user's comment.
       - name: Remove Trigger Reaction
         id: remove-reaction
         run: |
-          gh api --method DELETE \
-            "repos/${{ env.REPOSITORY }}/issues/comments/${{ env.COMMENT_ID }}/reactions/${{ env.INITIAL_REACTION_ID }}"
+          if [ -n "${INITIAL_REACTION_ID}" ]; then
+            gh api --method DELETE \
+              "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${INITIAL_REACTION_ID}"
+          fi
 
       # Add a new reaction based on if the deployment succeeded or failed.
       - name: Add Reaction
@@ -1755,7 +1856,7 @@ jobs:
               repo: context.repo.repo,
               body: `### Deployment Results :white_check_mark:
 
-            **${{ env.ACTOR }}** successfully ${ process.env.NOOP === 'true' ? '**noop** deployed' : 'deployed' } sha \`${{ env.SHA }}\` to **${{ env.ENVIRONMENT }}**
+            **${process.env.ACTOR}** successfully ${ process.env.NOOP === 'true' ? '**noop** deployed' : 'deployed' } sha \`${process.env.SHA}\` to **${process.env.ENVIRONMENT}**
 
             <details><summary>Show Results</summary>
 
@@ -1783,7 +1884,7 @@ jobs:
               repo: context.repo.repo,
               body: `### Deployment Results :x:
 
-            **${{ env.ACTOR }}** had a failure when ${ process.env.NOOP === 'true' ? '**noop** deploying' : 'deploying' } sha \`${{ env.SHA }}\` to **${{ env.ENVIRONMENT }}**
+            **${process.env.ACTOR}** had a failure when ${ process.env.NOOP === 'true' ? '**noop** deploying' : 'deploying' } sha \`${process.env.SHA}\` to **${process.env.ENVIRONMENT}**
 
             <details><summary>Show Results</summary>
 

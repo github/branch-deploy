@@ -1,17 +1,22 @@
 {
+  "name": "branch-deploy",
+  "private": true,
   "description": "Enabling Branch Deployments through IssueOps with GitHub Actions",
   "type": "module",
-  "main": "lib/main.js",
   "scripts": {
-    "format": "prettier --write '**/*.js'",
-    "format-check": "prettier --check '**/*.js'",
-    "lint": "eslint src/**/*.js",
-    "package": "ncc build src/main.js -o dist --source-map --license licenses.txt",
-    "test": "mkdir -p badges && BRANCH_DEPLOY_VITEST_TEST=true vitest run --coverage && make-coverage-badge --output-path ./badges/coverage.svg",
-    "ci-test": "BRANCH_DEPLOY_VITEST_TEST=true vitest run --coverage",
-    "all": "npm run format && npm run lint && npm run package",
-    "bundle": "npm run format && npm run package",
-    "act": "npm run format && npm run package && act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test"
+    "format": "prettier --write '**/*.{js,ts}'",
+    "format-check": "prettier --check '**/*.{js,ts}'",
+    "typecheck": "tsc --noEmit",
+    "typecheck:runtime": "tsc --project tsconfig.runtime.json",
+    "lint": "node --input-type=module --eval \"const {runPolicy} = await import('./tools/typescript-policy.ts'); process.exitCode = runPolicy()\"",
+    "package": "ncc build src/main.ts -o dist --source-map --license licenses.txt --target es2022",
+    "acceptance": "script/acceptance",
+    "test": "script/test",
+    "ci-test": "npm run test",
+    "check": "npm run format-check && npm run typecheck && npm run typecheck:runtime && npm run lint && npm run test",
+    "all": "npm run check && npm run package",
+    "bundle": "npm run package",
+    "act": "npm run package && act issue_comment -e events/issue_comment_deploy.json -s GITHUB_TOKEN=faketoken -j test"
   },
   "repository": {
     "type": "git",
@@ -26,24 +31,15 @@
   "author": "Grant Birkinbine",
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^3.0.0",
-    "@actions/github": "^9.0.0",
-    "@octokit/plugin-retry": "^8.0.3",
-    "@octokit/request": "^10.0.8",
-    "@octokit/rest": "^22.0.1",
-    "dedent-js": "^1.0.1",
-    "github-username-regex-js": "^1.0.0",
-    "nunjucks": "^3.2.4",
-    "yargs-parser": "^22.0.0"
+    "@actions/github": "9.0.0",
+    "@octokit/plugin-retry": "8.0.3",
+    "yargs-parser": "22.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.5.0",
-    "@vercel/ncc": "^0.38.4",
-    "@vitest/coverage-v8": "^4.1.2",
-    "eslint": "^9.39.2",
-    "js-yaml": "^4.2.0",
-    "make-coverage-badge": "^1.2.0",
-    "prettier": "^3.8.1",
-    "vitest": "^4.0.16"
+    "@types/node": "24.13.2",
+    "@vercel/ncc": "0.44.0",
+    "js-yaml": "4.3.0",
+    "prettier": "3.8.1",
+    "typescript": "5.9.3"
   }
 }

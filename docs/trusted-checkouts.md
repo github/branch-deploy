@@ -8,14 +8,12 @@ file from the repository's default branch, not from the pull request branch.
 That protects the workflow definition itself, but it does not automatically
 protect code you later check out and execute. If your workflow checks out the
 pull request SHA and then runs helper scripts such as `script/deploy`,
-`script/ci/update_deploy_msg.py`, or a deployment message template from that
-checkout, those helpers are controlled by the pull request until the PR is
+`script/ci/update_deploy_msg.py` from that checkout, those helpers are controlled by the pull request until the PR is
 reviewed and merged.
 
 A trusted checkout separates those concerns:
 
-- **Trusted checkout**: the default-branch workflow commit. Use this for
-  deployment orchestration, helper scripts, and deployment message templates.
+- **Trusted checkout**: the default-branch workflow commit. Use this for deployment orchestration and helper scripts.
 - **Working checkout**: the exact commit SHA selected by branch-deploy. Use this
   for the application, infrastructure, or other content you intend to deploy.
 
@@ -27,12 +25,11 @@ from changing the deployment helper code that decides how deployment happens.
 Use trusted checkouts when your branch-deploy workflow does both of these:
 
 1. checks out pull request content with `steps.branch-deploy.outputs.sha`
-2. executes repository-owned helper code or reads templates after that checkout
+2. executes repository-owned helper code after that checkout
 
 Common examples include:
 
-- `script/deploy`, `script/release`, or `script/ci/*` helper scripts
-- custom deployment message templates with `deploy_message_path`
+- `script/deploy` or `script/ci/*` helper scripts
 - scripts that transform Terraform plan/apply output before branch-deploy posts
   the final deployment comment
 - deployment wrappers that set cloud CLI arguments, select targets, or prepare
@@ -51,11 +48,11 @@ A hardened workflow usually follows this sequence:
 2. Run `github/branch-deploy` from the default-branch workflow.
 3. Validate `steps.branch-deploy.outputs.sha` as an exact commit SHA.
 4. Derive a working checkout path from that SHA.
-5. Check out trusted helper/template code at `github.sha`.
+5. Check out trusted helper code at `github.sha`.
 6. Check out working deployment code at `steps.branch-deploy.outputs.sha`.
 7. Verify both checkout `HEAD` values before running deployment commands.
 8. Run deployment commands from the working checkout.
-9. Run helper scripts and deployment message rendering from the trusted checkout.
+9. Run helper scripts from the trusted checkout.
 
 The important rule is simple: deployment helper code should come from the
 trusted checkout, while deployable project content should come from the working
@@ -106,26 +103,7 @@ with:
 
 ## Custom Deployment Messages
 
-If you use `deploy_message_path`, point it at the trusted checkout:
-
-```yaml
-with:
-  deploy_message_path: ${{ steps.trusted-path.outputs.trusted_dir }}/.github/deployment_message.md
-```
-
-That prevents a pull request from changing the template that branch-deploy will
-render for its own deployment result.
-
-If deployment output is inserted into a Nunjucks-rendered template, escape any
-user-controlled or tool-generated content before inserting it. At minimum, escape
-Nunjucks opening delimiters:
-
-- `{{`
-- `{%`
-- `{#`
-
-See [Custom Deployment Messages](custom-deployment-messages.md) for details on
-deployment message rendering.
+`deploy_message_path` is a repository-relative path, not a checkout path. Branch Deploy fetches it through GitHub's Contents API at the exact trusted workflow SHA, so a separate trusted checkout is not needed for the template. Use `{{ results }}` for `DEPLOY_MESSAGE`; inserted output is rendered once and template-looking text inside it remains inert. See [Custom Deployment Messages](custom-deployment-messages.md) for the supported grammar.
 
 ## Deployment Output Files
 
@@ -166,9 +144,9 @@ Then run the helper from the trusted checkout:
 
 Trusted checkouts work well with other branch-deploy safety settings:
 
-- Set `allow_forks: "false"` if your project does not need fork deployments.
+- Set `allow_forks: false` if your project does not need fork deployments.
 - Use branch protection, pull request reviews, and required status checks.
-- Use `commit_verification: "true"` if your project requires verified commits.
+- Use `commit_verification: true` if your project requires verified commits.
 - Always use the `sha` output for deployment checkouts.
 
 For Terraform or other tools with shared remote state, use GitHub Actions

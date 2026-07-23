@@ -1,1 +1,2 @@
 dist/** -diff linguist-generated=true
+script/** -linguist-detectable

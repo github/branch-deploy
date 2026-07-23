@@ -533,6 +533,18 @@ inputs:
 
 # outputs section
 outputs:
+  decision:
+    description:
+      type: string
+      required: true
+  reason_code:
+    description:
+      type: string
+      required: true
+  result:
+    description:
+      type: string
+      required: true
   continue:
     description:
       type: string

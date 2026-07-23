@@ -1,0 +1,335 @@
+import * as core from '../actions-core.ts'
+
+import {actionStatus} from './action-status.ts'
+import {label} from './label.ts'
+import {createDeploymentStatus} from './deployment.ts'
+import {unlockIfUnchanged} from './unlock-if-unchanged.ts'
+import {lock} from './lock.ts'
+import {postDeployMessage} from './post-deploy-message.ts'
+import {COLORS} from './colors.ts'
+import {getActionInput, setActionOutput} from '../action-io.ts'
+import {checkInput} from './check-input.ts'
+import {loadTrustedDeploymentTemplate} from './trusted-deployment-template.ts'
+import {legacyLength} from '../trust-boundaries.ts'
+import type {ActionStatusOctokit} from './action-status.ts'
+import type {DeploymentStatusOctokit} from './deployment.ts'
+import type {LabelOctokit} from './label.ts'
+import type {LockOctokit} from './lock.ts'
+import type {ConditionalUnlockOctokit} from './unlock-if-unchanged.ts'
+import type {
+  BranchDeployContext,
+  PostDeployData,
+  PostResult,
+  RawPostDeployData
+} from '../types.ts'
+
+export type PostDeployOctokit = ActionStatusOctokit &
+  DeploymentStatusOctokit &
+  LabelOctokit &
+  LockOctokit &
+  ConditionalUnlockOctokit &
+  Parameters<typeof loadTrustedDeploymentTemplate>[0]
+
+export interface PostDeployRequest {
+  readonly context: BranchDeployContext
+  readonly data: RawPostDeployData
+  readonly octokit: PostDeployOctokit
+}
+
+const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`
+const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
+
+async function completeLockLifecycle(
+  context: BranchDeployContext,
+  octokit: PostDeployOctokit,
+  data: PostDeployData,
+  postDeployStep: boolean,
+  leaveComment: boolean
+): Promise<boolean> {
+  if (data.disable_lock) {
+    core.info('🔓 deployment locking is disabled; skipping lock completion')
+    return true
+  }
+
+  const lockResponse = await lock({
+    octokit,
+    context,
+    ref: null,
+    reactionId: null,
+    sticky: false,
+    environment: data.environment,
+    mode: {type: 'details', postDeployStep},
+    leaveComment
+  })
+  if (lockResponse.status === 'ambiguous') return false
+
+  const lockData = lockResponse.lockData
+  core.debug(JSON.stringify(lockData))
+  if (lockData?.sticky === true) {
+    core.info(stickyMsg)
+  } else if (lockData === null) {
+    core.warning(
+      '💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running'
+    )
+  } else {
+    core.info(nonStickyMsg)
+    core.debug(`lockData.sticky: ${String(lockData.sticky)}`)
+    if (
+      data.lock_ref_sha === undefined ||
+      data.lock_ref_sha === null ||
+      data.lock_ref_sha === ''
+    ) {
+      core.warning(
+        'could not remove the deployment lock because its original ref SHA was not saved; leaving the current lock in place'
+      )
+      return true
+    }
+    await unlockIfUnchanged(
+      octokit,
+      context,
+      data.environment,
+      data.lock_ref_sha
+    )
+  }
+  return true
+}
+
+// Helper function to help facilitate the process of completing a deployment
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :param data: The data object containing the deployment details:
+//   - attribute: sha: The exact commit SHA of the deployment (String)
+//   - attribute: comment_id: The comment_id which initially triggered the deployment Action
+//   - attribute: reaction_id: The reaction_id which was initially added to the comment that triggered the Action
+//   - attribute: status: The status of the deployment (String)
+//   - attribute: ref: The ref (branch) which is being used for deployment (String)
+//   - attribute: noop: Indicates whether the deployment is a noop or not (Boolean)
+//   - attribute: deployment_id: The id of the deployment (String)
+//   - attribute: environment: The environment of the deployment (String)
+//   - attribute: environment_url: The environment url of the deployment (String)
+//   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
+//   - attribute: labels: A dictionary of labels to apply to the issue (Object)
+//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
+//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
+//   - attribute: params: The raw string of deployment parameters (String)
+//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
+//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
+//   - attribute: deployment_start_time: The timestamp of when the deployment started (String)
+// :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
+export async function postDeploy(
+  context: BranchDeployContext,
+  octokit: PostDeployOctokit,
+  data: RawPostDeployData
+): Promise<PostResult> {
+  // check the inputs to ensure they are valid
+  validateInputs(data)
+
+  // this is the timestamp that we consider the deployment to have ended at for logging and auditing purposes
+  // it is not the exact time the deployment ended, but it is very close
+  const now = new Date()
+  const deployment_end_time = now.toISOString()
+  core.debug(`deployment_end_time: ${deployment_end_time}`)
+
+  // calculate the total amount of seconds that the deployment took
+  const total_seconds = calculateDeploymentTime(
+    data.deployment_start_time,
+    deployment_end_time
+  )
+  core.info(
+    `🕒 deployment completed in ${COLORS.highlight}${total_seconds}${COLORS.reset} seconds`
+  )
+  setActionOutput('total_seconds', total_seconds)
+
+  let result: PostResult = undefined
+  try {
+    const deployMessagePath = checkInput(getActionInput('deploy_message_path'))
+    const template =
+      deployMessagePath === null
+        ? null
+        : await loadTrustedDeploymentTemplate(
+            octokit,
+            context,
+            deployMessagePath,
+            data.trusted_sha
+          )
+    const message = postDeployMessage(
+      context,
+      {
+        environment: data.environment,
+        environment_url: data.environment_url,
+        status: data.status,
+        noop: data.noop,
+        ref: data.ref,
+        sha: data.sha,
+        approved_reviews_count: data.approved_reviews_count,
+        deployment_id: data.deployment_id,
+        review_decision: data.review_decision,
+        fork: data.fork,
+        params: data.params,
+        parsed_params: data.parsed_params,
+        deployment_end_time: deployment_end_time,
+        commit_verified: data.commit_verified,
+        total_seconds: total_seconds
+      },
+      template
+    )
+    const reactionId =
+      data.reaction_id === null ||
+      data.reaction_id === undefined ||
+      data.reaction_id === ''
+        ? null
+        : parseInt(data.reaction_id)
+
+    // update the action status to indicate the result of the deployment as a comment
+    await actionStatus({
+      context,
+      octokit,
+      reactionId,
+      message,
+      result: data.status === 'success' ? 'success' : 'failure'
+    })
+  } finally {
+    result = await completePostDeploy(context, octokit, data)
+  }
+
+  return result
+}
+
+async function completePostDeploy(
+  context: BranchDeployContext,
+  octokit: PostDeployOctokit,
+  data: PostDeployData
+): Promise<PostResult> {
+  const success = data.status === 'success'
+
+  // Update the deployment status of the branch-deploy
+  let deploymentStatus: 'failure' | 'success'
+  let labelsToAdd: readonly string[]
+  let labelsToRemove: readonly string[]
+  if (success) {
+    deploymentStatus = 'success'
+
+    if (data.noop) {
+      labelsToAdd = data.labels.successful_noop
+      labelsToRemove = data.labels.failed_noop
+    } else {
+      labelsToAdd = data.labels.successful_deploy
+      labelsToRemove = data.labels.failed_deploy
+    }
+  } else {
+    deploymentStatus = 'failure'
+
+    if (data.noop) {
+      labelsToAdd = data.labels.failed_noop
+      labelsToRemove = data.labels.successful_noop
+    } else {
+      labelsToAdd = data.labels.failed_deploy
+      labelsToRemove = data.labels.successful_deploy
+    }
+  }
+
+  core.debug(`deploymentStatus: ${deploymentStatus}`)
+
+  // if the deployment mode is noop, return here
+  if (data.noop) {
+    core.debug('deployment mode: noop')
+    if (!(await completeLockLifecycle(context, octokit, data, true, true)))
+      return undefined
+
+    // check to see if the pull request labels should be applied or not
+    if (
+      success &&
+      data.labels.skip_successful_noop_labels_if_approved &&
+      data.review_decision === 'APPROVED'
+    ) {
+      core.info(
+        `⏩ skipping noop labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
+      )
+    } else {
+      // attempt to add labels to the pull request (if any)
+      await label(context, octokit, labelsToAdd, labelsToRemove)
+    }
+
+    core.info(
+      `✅ ${COLORS.success}post deploy completed! (noop)${COLORS.reset}`
+    )
+    return 'success - noop'
+  }
+
+  // update the final deployment status with either success or failure
+  await createDeploymentStatus(
+    octokit,
+    context,
+    data.ref,
+    deploymentStatus,
+    data.deployment_id,
+    data.environment,
+    data.environment_url // can be null
+  )
+
+  if (!(await completeLockLifecycle(context, octokit, data, true, false)))
+    return undefined
+
+  // check to see if the pull request labels should be applied or not
+  if (
+    success &&
+    data.labels.skip_successful_deploy_labels_if_approved &&
+    data.review_decision === 'APPROVED'
+  ) {
+    core.info(
+      `⏩ skipping deploy labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`
+    )
+  } else {
+    // attempt to add labels to the pull request (if any)
+    await label(context, octokit, labelsToAdd, labelsToRemove)
+  }
+
+  // if the post deploy comment logic completes successfully, return
+  core.info(`✅ ${COLORS.success}post deploy completed!${COLORS.reset}`)
+  return 'success'
+}
+
+function validateInput(input: unknown, name: string) {
+  if (input === null || input === undefined || legacyLength(input) === 0) {
+    throw new Error(`no ${name} provided`)
+  }
+}
+
+function validateInputs(
+  data: RawPostDeployData
+): asserts data is PostDeployData {
+  const requiredInputs: (keyof RawPostDeployData)[] = [
+    'comment_id',
+    'status',
+    'ref',
+    'environment',
+    'sha',
+    'commit_verified',
+    'trusted_sha'
+  ]
+  requiredInputs.forEach(input => {
+    validateInput(data[input], input)
+  })
+
+  if (data.noop === null || data.noop === undefined) {
+    throw new Error('no noop value provided')
+  }
+
+  if (!data.noop) {
+    // if the deployment is not a noop (e.g. a `.deploy`) then we need to validate a few extra inputs
+    const additionalInputs: (keyof RawPostDeployData)[] = ['deployment_id']
+    additionalInputs.forEach(input => {
+      validateInput(data[input], input)
+    })
+  }
+}
+
+// Helper function to calculate the deployment time in seconds
+// :param start_time: The timestamp of when the deployment started (String)
+// :param end_time: The timestamp of when the deployment ended (String)
+// :returns: The total amount of seconds that the deployment took (Integer) - rounded to the nearest second
+function calculateDeploymentTime(start_time: string, end_time: string): number {
+  const start = new Date(start_time)
+  const end = new Date(end_time)
+  return Math.round((end.getTime() - start.getTime()) / 1000)
+}

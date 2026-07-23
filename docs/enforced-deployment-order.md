@@ -14,12 +14,14 @@ When you enable enforced deployment order, you define a specific sequence of env
 
 Let's assume you have three environments: `development`, `staging`, and `production`. If you set the `enforced_deployment_order` input to `development,staging,production`, then deployments must occur in the following order: `development` -> `staging` -> `production`. If you were to attempt a `.deploy to production` command without having first deployed to `development` and `staging`, the deployment would fail and tell you why.
 
-The branch-deploy Action determines which environments have been successfully deployed by using GitHub's GraphQL API to query each environment for its _latest_ deployment.
+The branch-deploy Action determines which environments have been successfully deployed by using GitHub's GraphQL API to query each environment for its newest deployment.
 
 Here is how that process takes place under the hood:
 
-1. A request to the GraphQL API is made to fetch the latest deployment for a given environment and sort it to the most recent one based on its `CREATED_AT` timestamp
-2. The `deployment.state` attribute is evaluated to determine if the deployment is currently `ACTIVE` or not. If it is not active, then the deployment has not yet been deployed to that environment. If the deployment is active then we do an extra check to see if the `deployment.commit.oid` matches the current commit SHA that is being requested for deployment. If it is an exact match, then the most recent deployment for that environment is indeed active for the commit we are trying to deploy and it satisfies the enforced deployment order. If it is not an exact match, then we know that the most recent deployment for that environment is not active for the commit we are trying to deploy and it does not satisfy the enforced deployment order.
+1. A request to the GraphQL API fetches the newest deployment for each preceding environment, ordered by its `CREATED_AT` timestamp.
+2. That newest deployment must be `ACTIVE` and its `deployment.commit.oid` must exactly match the commit SHA requested for deployment. A newer failed, pending, inactive, or different-SHA deployment is authoritative; an older active deployment cannot satisfy the order.
+
+The configured order must not contain duplicate environments, and every requested environment must appear in the order. Branch Deploy rejects invalid order configuration instead of silently skipping or repeating checks.
 
 It should be noted that if a "rollback" style deployment is used (ex: `.deploy main to <environment>`), then all "enforced deployment order" checks are skipped so that a rollback deployment can be performed to any environment at any time.
 

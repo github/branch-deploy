@@ -1,0 +1,187 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+    paths: [src/version.ts]
+
+permissions: {}
+concurrency: {group: release, queue: max}
+
+jobs:
+  release:
+    if: ${{ github.ref == 'refs/heads/main' && (github.repository == 'github/branch-deploy' || vars.ENABLE_RELEASES == 'true') }}
+    runs-on: ubuntu-latest
+    permissions:
+      artifact-metadata: write
+      attestations: write
+      contents: write
+      id-token: write
+    env:
+      ATTESTED_FILES: |-
+        action.yml
+        dist/index.js
+        dist/index.js.map
+        dist/licenses.txt
+        dist/package.json
+        dist/sourcemap-register.cjs
+        dist/sourcemap-register.js
+
+    steps:
+      - name: checkout the release source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # pin@v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: setup node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # pin@v6.4.0
+        with:
+          node-version-file: .node-version
+
+      - name: validate the release
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_PROTECTED: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+
+          [[ "$REF_PROTECTED" == 'true' ]] || fail 'The release workflow must run from a protected ref.'
+          [[ $(git rev-parse HEAD) == "$GITHUB_SHA" ]] || fail 'The checkout does not match the frozen source commit.'
+          version=$(node --input-type=module --eval "import {VERSION} from './src/version.ts'; process.stdout.write(VERSION)")
+          [[ "$version" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]] || fail "src/version.ts must export a stable vMAJOR.MINOR.PATCH version; received $version."
+          major="v${BASH_REMATCH[1]}"
+
+          if release=$(gh release view "$version" --json assets,isDraft,isPrerelease,targetCommitish 2>/dev/null); then
+            [[ $(jq -r .targetCommitish <<< "$release") == "$GITHUB_SHA" ]] || fail "Existing release $version targets another commit."
+            [[ $(jq -r '[.isDraft,.isPrerelease,(.assets | length)] | @tsv' <<< "$release") == $'false\tfalse\t0' ]] || fail "Existing release $version is not a published, stable, assetless release."
+          fi
+
+          if git show-ref --verify --quiet "refs/tags/$version"; then
+            tag_info=$(git for-each-ref --format='%(objecttype) %(*objecttype) %(*objectname)' "refs/tags/$version")
+            [[ "$tag_info" == "tag commit $GITHUB_SHA" ]] || fail "Existing exact tag $version is not an annotated tag for this commit."
+          fi
+
+          latest_tag=$({ git tag --list | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -vxF "$version" | sort -V | tail -n 1; } || true)
+          if [[ -n "$latest_tag" ]]; then
+            newest=$(printf '%s\n%s\n' "$latest_tag" "$version" | sort -V | tail -n 1)
+            [[ "$newest" == "$version" ]] || fail "$version must be newer than the latest stable tag $latest_tag."
+          fi
+
+          releases=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name')
+          previous=$({ grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' <<< "$releases" | grep -vxF "$version" | sort -V | tail -n 1; } || true)
+
+          {
+            echo "major=$major"
+            echo "previous=$previous"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: build and check the action
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run check
+          npm run package
+
+      - name: verify the committed bundle
+        run: |
+          set -euo pipefail
+          actual=$(find action.yml dist -type f -print | sort)
+          if [[ "$actual" != "$ATTESTED_FILES" ]]; then
+            echo '::error::The deployed file set does not match the seven attested subjects.'
+            printf 'Expected:\n%s\nActual:\n%s\n' "$ATTESTED_FILES" "$actual"
+            exit 1
+          fi
+          if [[ -n $(git status --porcelain --untracked-files=all) ]]; then
+            echo '::error::The release build did not reproduce the committed repository.'
+            git status --short --untracked-files=all
+            git diff
+            exit 1
+          fi
+
+      - name: attest the deployed action files
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # pin@v4.1.0
+        with:
+          subject-path: ${{ env.ATTESTED_FILES }}
+
+      - name: verify the deployed action attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r subject; do
+            for attempt in 1 2 3 4 5; do
+              if gh attestation verify "$subject" \
+                --repo "$GITHUB_REPOSITORY" \
+                --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+                --source-digest "$GITHUB_SHA" \
+                --source-ref "$GITHUB_REF" \
+                --deny-self-hosted-runners; then
+                break
+              fi
+              [[ "$attempt" != 5 ]] || { echo "::error::Attestation verification failed for $subject."; exit 1; }
+              sleep 3
+            done
+          done <<< "$ATTESTED_FILES"
+
+      - name: publish and verify the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAJOR: ${{ steps.version.outputs.major }}
+          PREVIOUS: ${{ steps.version.outputs.previous }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+
+          if git show-ref --verify --quiet "refs/tags/$VERSION"; then
+            tag_sha=$(git rev-parse "refs/tags/$VERSION")
+          else
+            tag_sha=$(gh api --method POST "repos/$GITHUB_REPOSITORY/git/tags" \
+              -f tag="$VERSION" -f message="$VERSION Release" -f object="$GITHUB_SHA" -f type=commit --jq .sha)
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$VERSION" -f sha="$tag_sha"
+          fi
+          exact_ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" --jq '[.object.type,.object.sha] | @tsv')
+          tag_info=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '[.tag,.object.type,.object.sha] | @tsv')
+          [[ "$exact_ref" == "tag"$'\t'"$tag_sha" && "$tag_info" == "$VERSION"$'\tcommit\t'"$GITHUB_SHA" ]] || fail 'The exact tag is not the expected annotated tag for the frozen source commit.'
+
+          if ! gh release view "$VERSION" >/dev/null 2>&1; then
+            notes=(--generate-notes)
+            [[ -z "$PREVIOUS" ]] || notes+=(--notes-start-tag "$PREVIOUS")
+            if [[ "$MAJOR" == "v12" ]]; then
+              migration_notes=$'## v12 migration\n\nBranch Deploy v12 includes breaking changes for security defaults and public action contracts. Review the v11 to v12 upgrade guide before moving production workflows: https://github.com/'"$GITHUB_REPOSITORY"$'/blob/main/docs/v11-to-v12-upgrade-guide.md'
+              notes+=(--notes "$migration_notes")
+            fi
+            gh release create "$VERSION" --verify-tag --target "$GITHUB_SHA" --title "$VERSION" --latest "${notes[@]}"
+          fi
+
+          verification=
+          for attempt in 1 2 3 4 5 6; do
+            if verification=$(gh release verify "$VERSION" --repo "$GITHUB_REPOSITORY" --format json); then break; fi
+            [[ "$attempt" != 6 ]] || fail "Immutable release verification failed for $VERSION."
+            sleep 5
+          done
+
+          [[ $(jq -r .verificationResult.statement.subject[0].digest.sha1 <<< "$verification") == "$tag_sha" ]] || fail 'The release attestation does not identify the exact annotated tag.'
+          [[ $(jq -r .verificationResult.statement.subject[0].uri <<< "$verification") == "pkg:github/$GITHUB_REPOSITORY@$VERSION" ]] || fail 'The release attestation identifies an unexpected release.'
+          [[ $(jq -r .verificationResult.statement.predicateType <<< "$verification") == 'https://in-toto.io/attestation/release/v0.2' ]] || fail 'The release attestation has an unexpected predicate.'
+          release=$(gh release view "$VERSION" --json assets,isDraft,isImmutable,isPrerelease,targetCommitish)
+          [[ $(jq -r .targetCommitish <<< "$release") == "$GITHUB_SHA" ]] || fail "Release $VERSION targets another commit."
+          [[ $(jq -r '[.isDraft,.isImmutable,.isPrerelease,(.assets | length)] | @tsv' <<< "$release") == $'false\ttrue\tfalse\t0' ]] || fail "Release $VERSION is not immutable, stable, and assetless."
+          [[ $(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name) == "$VERSION" ]] || fail "$VERSION is not the latest release."
+          ! gh release view "$MAJOR" >/dev/null 2>&1 || fail "A GitHub Release must not be attached to the movable $MAJOR tag."
+
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$MAJOR" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$MAJOR" -f sha="$tag_sha" -F force=true
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$MAJOR" -f sha="$tag_sha"
+          fi
+
+          exact_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" --jq .object.sha)
+          major_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$MAJOR" --jq .object.sha)
+          tag_info=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '[.tag,.object.type,.object.sha] | @tsv')
+          [[ "$exact_sha" == "$tag_sha" && "$major_sha" == "$tag_sha" ]] || fail 'The exact and major tags do not share the expected annotated tag object.'
+          [[ "$tag_info" == "$VERSION"$'\tcommit\t'"$GITHUB_SHA" ]] || fail 'The release tags do not target the frozen source commit.'

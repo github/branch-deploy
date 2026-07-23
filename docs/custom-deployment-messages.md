@@ -2,15 +2,50 @@
 
 > This is useful to display to the user the status of your deployment. For example, you could display the results of a `terraform apply` in the deployment comment
 
-There are two ways to add custom deployment messages to your PRs. You can either use a custom markdown file (suggested) or use the GitHub Actions environment to dynamically pass data to the post run workflow which will be rendered as markdown into a comment on your pull request.
+Custom deployment messages use two building blocks that can be used separately or together: a trusted Markdown template and the `DEPLOY_MESSAGE` GitHub Actions environment variable. A template can render the `DEPLOY_MESSAGE` value with `{{ results }}`.
 
 ## Custom Markdown File (suggested)
 
-> This option is highly recommended over the latter "GitHub Actions Environment" option. This is because GitHub Actions has some limitations on the size of data that can be passed around in environment variables. This becomes an issue if your deployment message is large (contains many changes, think Terraform plan/apply) as your deployment will crash with an `Argument list too long` error.
+> This option is recommended when you need trusted structure or additional deployment metadata. Dynamic results still pass through `DEPLOY_MESSAGE`, so large Terraform plan or apply output may need to be truncated, uploaded as an artifact, or replaced with a link to avoid environment-size limits.
 
-To use a custom markdown file as your post deployment message, simply use the [`deploy_message_path`](https://github.com/github/branch-deploy/blob/37b50ea86202af7b5505b62bf3eb326da0614b60/action.yml#L124-L127) input option to point to a markdown file in your repository that you wish to render into the comment on your pull request. You don't even need to set this value if you want to just use the [default file path](https://github.com/github/branch-deploy/blob/37b50ea86202af7b5505b62bf3eb326da0614b60/action.yml#L127) of `".github/deployment_message.md"` and place your markdown file there.
+Set [`deploy_message_path`](https://github.com/github/branch-deploy/blob/main/action.yml) to a repository-relative path such as `.github/deployment_message.md`. That path is also the default, so no input is needed when the template is stored there.
 
-If a markdown file exists at the designated path, it will be used and rendered with [nunjucks](http://mozilla.github.io/nunjucks/) which is a [Jinja](https://jinja.palletsprojects.com/en/3.1.x/) like template engine for NodeJS. Since we are using nunjucks and are leveraging template rendering, a few variables are available for you to use in your markdown file (should you choose to use them):
+Branch Deploy does not read this path from the runner filesystem. In post mode it fetches the file through GitHub's Contents API from the current repository at the exact trusted workflow SHA saved during the main action. The path must be repository-relative and cannot contain absolute paths, backslashes, empty segments, `.` segments, or `..` traversal segments. If the file does not exist at that trusted SHA, Branch Deploy falls back to the default deployment message. Other fetch or validation failures stop the post action.
+
+This keeps the template independent from any later checkout of pull request code. Scripts and other files executed by your workflow still need the protections described in the [trusted checkout hardening guide](trusted-checkouts.md).
+
+### Supported template grammar
+
+The v12 renderer intentionally supports a small, non-executable grammar instead of Nunjucks:
+
+- `{{ variable }}` inserts an allowlisted variable.
+- `{% if boolean_variable %}...{% endif %}` tests a boolean variable.
+- `{% if not boolean_variable %}...{% endif %}` negates that boolean test.
+- `{% if variable === literal %}...{% else %}...{% endif %}` compares a variable with a literal. The operators `==`, `===`, `!=`, and `!==` are supported and all comparisons are strict; `==` does not coerce types.
+- `{{ "value" if condition else "other" }}` selects between two literals. Variables are not allowed in the result branches.
+- Conditional blocks can be nested.
+
+Supported literals are double-quoted JSON strings, `true`, `false`, `null`, and JSON numbers. Filters, function calls, property access, loops, includes, macros, assignments, template comments, and arbitrary expressions are rejected.
+
+For example:
+
+```markdown
+### Deployment {{ "succeeded" if status === "success" else "failed" }}
+
+**{{ actor }}** deployed `{{ ref }}` to **{{ environment }}**.
+
+{% if environment_url !== null %}[Open the environment]({{ environment_url }}){% endif %}
+
+<details><summary>Results</summary>
+
+{{ results }}
+
+</details>
+```
+
+All runtime variables except `results` are HTML-escaped before insertion. `results` contains the `DEPLOY_MESSAGE` value and is inserted as raw Markdown so deployment output can contain formatting and code blocks. Rendering is single-pass: `{{ ... }}`, `{% ... %}`, or `{# ... #}` text inside `results` is emitted unchanged and is never evaluated as template syntax.
+
+The following variables are available:
 
 - `environment` - The name of the environment (String)
 - `environment_url` - The URL of the environment (String) {Optional}
@@ -19,7 +54,7 @@ If a markdown file exists at the designated path, it will be used and rendered w
 - `ref` - The ref of the deployment (String)
 - `sha` - The sha of the deployment (String)
 - `actor` - The GitHub username of the actor who triggered the deployment (String)
-- `approved_reviews_count` - The number of approved reviews on the pull request at the time of deployment (String of a number)
+- `approved_reviews_count` - The number of approved reviews on the pull request at the time of deployment (Number or null)
 - `review_decision` - The review status of the pull request (String or null) - Ex: `APPROVED`, `REVIEW_REQUIRED`, `CHANGES_REQUESTED`, `null` etc.
 - `deployment_id` - The ID of the deployment (Int or null in the case of `.noop` deployments)
 - `fork` - Whether or not the repository is a fork (Boolean)
@@ -28,19 +63,16 @@ If a markdown file exists at the designated path, it will be used and rendered w
 - `deployment_end_time` - The time the deployment ended - this value is not _exact_ but it is very close (String) [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) UTC format
 - `logs` - The URL to the logs of the deployment (String)
 - `commit_verified` - Whether or not the commit was verified (Boolean)
-- `total_seconds` - The total number of seconds the deployment took to complete (String of a number)
-
-If you wish to see a live example of how this works, and how to use the variables, you can check out this [example](https://github.com/github/branch-deploy/blob/691e5df06b952d1f22c2fee49f97e33a8a8c64db/__tests__/templates/test_deployment_message.md) which is used in this repo's unit tests and is self-documenting.
+- `total_seconds` - The total number of seconds the deployment took to complete (Number)
+- `results` - The raw deployment result from `DEPLOY_MESSAGE` (String)
 
 Here is an example of what the final product could look like:
 
 ![Example of custom deployment message](assets/custom-comment.png)
 
-> To learn more about these changes you can view the pull request that implemented them [here](https://github.com/github/branch-deploy/pull/174)
+## Environment-Only Message (not suggested)
 
-## GitHub Actions Environment (not suggested)
-
-> This option is not suggested as it comes with inherent limitations. See the "Custom Markdown File" section above for more information. It is highly recommended to use the custom markdown file option instead. However, if you are unable to use the custom markdown file option, this is an alternative
+> `DEPLOY_MESSAGE` is how deployment steps provide dynamic results in both approaches. This section covers using that value without a custom Markdown template, which provides less control over the final comment. Prefer the trusted template above when you need custom structure or additional deployment metadata.
 
 You can use the GitHub Actions environment to export custom deployment messages from your workflow to be referenced in the post run workflow for the `branch-deploy` Action that comments results back to your PR
 
@@ -49,7 +81,7 @@ Simply set the environment variable `DEPLOY_MESSAGE` to the message you want to 
 Bash Example:
 
 ```bash
-echo "DEPLOY_MESSAGE=<message>" >> $GITHUB_ENV
+printf '%s\n' 'DEPLOY_MESSAGE=<message>' >> "$GITHUB_ENV"
 ```
 
 Actions Workflow Example:
@@ -59,7 +91,7 @@ Actions Workflow Example:
 - name: fake noop deploy
   if: ${{ steps.branch-deploy.outputs.continue == 'true' && steps.branch-deploy.outputs.noop == 'true' }}
   run: |
-    echo "DEPLOY_MESSAGE=I would have **updated** 1 server" >> $GITHUB_ENV
+    printf '%s\n' 'DEPLOY_MESSAGE=I would have **updated** 1 server' >> "$GITHUB_ENV"
     echo "I am doing a fake noop deploy"
 ```
 
@@ -68,15 +100,21 @@ Actions Workflow Example:
 ### Adding newlines to your message
 
 ```bash
-echo "DEPLOY_MESSAGE=NOOP Result:\nI would have **updated** 1 server" >> $GITHUB_ENV
+printf '%s\n' 'DEPLOY_MESSAGE=NOOP Result:\nI would have **updated** 1 server' >> "$GITHUB_ENV"
 ```
 
 ### Multi-line strings ([reference](https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#example-2))
 
 ```bash
-echo 'DEPLOY_MESSAGE<<EOF' >> $GITHUB_ENV
-echo "$SOME_MULTI_LINE_STRING_HERE" >> $GITHUB_ENV
-echo 'EOF' >> $GITHUB_ENV
+delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+while printf '%s\n' "$SOME_MULTI_LINE_STRING_HERE" | grep -Fxq "$delimiter"; do
+  delimiter="branch_deploy_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+done
+{
+  printf 'DEPLOY_MESSAGE<<%s\n' "$delimiter"
+  printf '%s\n' "$SOME_MULTI_LINE_STRING_HERE"
+  printf '%s\n' "$delimiter"
+} >> "$GITHUB_ENV"
 ```
 
 > Where `$SOME_MULTI_LINE_STRING_HERE` is a bash variable containing a multi-line string
@@ -84,9 +122,9 @@ echo 'EOF' >> $GITHUB_ENV
 ### Adding a code block to your message
 
 ```bash
-echo "DEPLOY_MESSAGE=\`\`\`yaml\nname: value\n\`\`\`" >> $GITHUB_ENV
+printf '%s\n' 'DEPLOY_MESSAGE=```yaml\nname: value\n```' >> "$GITHUB_ENV"
 ```
 
 ## How does this work? 🤔
 
-To add custom messages to our final deployment message we need to use the GitHub Actions environment. This is so that we can dynamically pass data into the post action workflow that leaves a comment on our PR. The post action workflow will look to see if this environment variable is set (`DEPLOY_MESSAGE`). If the variable is set, it adds to to the PR comment. Otherwise, it will use a simple comment body that doesn't include the custom message.
+To add dynamic results to the final deployment message, write `DEPLOY_MESSAGE` through the GitHub Actions environment. The post action reads that value when it leaves the pull request comment. If a trusted template exists, the value is available as `{{ results }}`; otherwise, Branch Deploy includes it in the standard comment. When the variable is unset, the standard comment does not include custom results.

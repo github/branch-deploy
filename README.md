@@ -1,6 +1,6 @@
 # Branch Deploy Action 🚀
 
-[![test](https://github.com/github/branch-deploy/actions/workflows/test.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/test.yml) [![package-check](https://github.com/github/branch-deploy/actions/workflows/package-check.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/package-check.yml) [![lint](https://github.com/github/branch-deploy/actions/workflows/lint.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/lint.yml) [![actions-config-validation](https://github.com/github/branch-deploy/actions/workflows/actions-config-validation.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/actions-config-validation.yml) [![coverage](./badges/coverage.svg)](./badges/coverage.svg)
+[![test](https://github.com/github/branch-deploy/actions/workflows/test.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/test.yml) [![acceptance](https://github.com/github/branch-deploy/actions/workflows/acceptance.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/acceptance.yml) [![package-check](https://github.com/github/branch-deploy/actions/workflows/package-check.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/package-check.yml) [![lint](https://github.com/github/branch-deploy/actions/workflows/lint.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/lint.yml) [![actions-config-validation](https://github.com/github/branch-deploy/actions/workflows/actions-config-validation.yml/badge.svg)](https://github.com/github/branch-deploy/actions/workflows/actions-config-validation.yml) [![coverage](./badges/coverage.svg)](./badges/coverage.svg)
 
 A GitHub Action to enable branch deployments using IssueOps!
 
@@ -109,9 +109,10 @@ jobs:
 
       # Checkout your project's repository based on the commit SHA provided by the branch-deploy step
       # It is important to only ever operate on the commit SHA (where possible) as commit SHA's are immutable and you know exactly what you are deploying
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ steps.branch-deploy.outputs.sha }}
+          persist-credentials: false
 
       # Do some fake "noop" deployment logic here
       # conditionally run a noop deployment
@@ -129,6 +130,10 @@ jobs:
 > Keep reading to learn more about this Action! Even further details about how this Action works can be found below as well
 
 You can check out further examples by checking out our [examples](docs/examples.md) documentation
+
+## Upgrading to v12
+
+Branch Deploy v12 contains breaking changes. Review the [v11 to v12 upgrade guide](docs/v11-to-v12-upgrade-guide.md) before upgrading from v11.
 
 ## About 💡
 
@@ -205,7 +210,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checkout your projects repository
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
+        with:
+          persist-credentials: false
 ```
 
 Sets up your `demo` job, uses an ubuntu runner, and checks out your repo - Just some standard setup for a general Action. We also add an `if:` statement here to only run this workflow on pull request comments to make it a little cleaner
@@ -266,14 +273,14 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `help_trigger` | `false` | `.help` | The string to look for in comments as an IssueOps help trigger. Example: ".help" |
 | `lock_info_alias` | `false` | `.wcid` | An alias or shortcut to get details about the current lock (if it exists) Example: ".info" - Hubbers will find the ".wcid" default helpful ("where can I deploy") |
 | `permissions` | `true` | `write,admin` | The allowed GitHub permissions an actor can have to invoke IssueOps commands - Example: "write,admin" |
-| `commit_verification` | `false` | `"false"` | Whether or not to enforce commit verification before a deployment can continue. Default is `"false"`. This input option is excellent to enforce tighter security controls on your deployments. |
+| `commit_verification` | `false` | `false` | Whether or not to enforce commit verification before a deployment can continue. Default is `false`. This input option is excellent to enforce tighter security controls on your deployments. |
 | `param_separator` | `false` | `\|` | The separator to use for parsing parameters in comments in deployment requests. Parameters will are saved as outputs and can be used in subsequent steps - See [Parameters](docs/parameters.md) for additional details |
 | `global_lock_flag` | `false` | `--global` | The flag to pass into the lock command to lock all environments. Example: "--global" |
 | `environment` | `false` | `production` | The name of the default environment to deploy to. Example: by default, if you type `.deploy`, it will assume "production" as the default environment |
 | `environment_targets` | `false` | `production,development,staging` | Optional (or additional) target environments to select for use with deployments. Example, "production,development,staging". Example  usage: `.deploy to development`, `.deploy to production`, `.deploy to staging` |
 | `environment_urls` | `false` | `""` | Optional target environment URLs to use with deployments. This input option is a mapping of environment names to URLs and the environment names **must** match the `environment_targets` input option. This option is a comma separated list with pipes (`\|`) separating the environment from the URL. Note: `disabled` is a special keyword to disable an environment url if you enable this option. Format: `"<environment1>\|<url1>,<environment2>\|<url2>,etc"` Example: `"production\|https://myapp.com,development\|https://dev.myapp.com,staging\|disabled"` - See the [environment urls](#environment-urls) section for more details |
 | `draft_permitted_targets` | `false` | `""` | Optional environments which can allow "draft" pull requests to be deployed. By default, this input option is empty and no environments allow deployments sourced from a pull request in a "draft" state. Examples: `"development,staging"` |
-| `environment_url_in_comment` | `false` | `"true"` | If the `environment_url` detected in the deployment should be appended to the successful deployment comment or not. Examples: `"true"` or `"false"` - See the [environment urls](#environment-urls) section for more details |
+| `environment_url_in_comment` | `false` | `true` | If the `environment_url` detected in the deployment should be appended to the successful deployment comment or not. Use `true` or `false` - See the [environment urls](#environment-urls) section for more details |
 | `production_environments` | `false` | `production` | A comma separated list of environments that should be treated as "production". GitHub defines "production" as an environment that end users or systems interact with. Example: "production,production-eu". By default, GitHub will set the "production_environment" to "true" if the environment name is "production". This option allows you to override that behavior so you can use "prod", "prd", "main", "production-eu", etc. as your production environment name. ref: [#208](https://github.com/github/branch-deploy/issues/208) |
 | `stable_branch` | `false` | `main` | The name of a stable branch to deploy to (rollbacks). Example: "main" |
 | `update_branch` | `false` | `warn` | Determine how you want this Action to handle "out-of-date" branches. Available options: "disabled", "warn", "force". "disabled" means that the Action will not care if a branch is out-of-date. "warn" means that the Action will warn the user that a branch is out-of-date and exit without deploying. "force" means that the Action will force update the branch. Note: The "force" option is not recommended due to Actions not being able to re-run CI on commits originating from Actions itself |
@@ -283,35 +290,38 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `checks` | `false` | `"all"` | This input defines how the branch-deploy Action will handle the status of CI checks on your PR/branch before deployments can continue. `"all"` requires that all CI checks must pass in order for a deployment to be triggered. `"required"` only waits for required CI checks to be passing. You can also pass in the names of your CI jobs in a comma separated list. View the [documentation](docs/checks.md) for more details. |
 | `ignored_checks` | `false` | `""` | A comma separated list of checks that will be ignored when determining if a deployment can continue. This setting allows you to skip failing, pending, or incomplete checks regardless of the `checks` setting above. Example: `"lint,markdown-formatting,update-pr-label"`. View the [documentation](docs/checks.md) for more details. |
 | `skip_reviews` | `false` | `""` | A comma separated list of environment that will not use reviews/approvals as a requirement for deployment. Use this options to explicitly bypass branch protection settings for a certain environment in your repository. Default is an empty string `""` - Example: `"development,staging"` |
-| `allow_forks` | `false` | `"true"` | Allow branch deployments to run on repository forks. If you want to harden your workflows, this option can be set to false. Default is "true" |
+| `allow_forks` | `false` | `false` | Allow branch deployments to run on repository forks. Default is `false`. Set this to `true` only when your workflow intentionally supports deployments from forked pull requests. |
 | `admins` | `false` | `"false"` | A comma separated list of GitHub usernames or teams that should be considered admins by this Action. Admins can deploy pull requests without the need for branch protection approvals. Example: "monalisa,octocat,my-org/my-team" |
 | `admins_pat` | `false` | `"false"` | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
-| `merge_deploy_mode` | `false` | `"false"` | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
-| `unlock_on_merge_mode` | `false` | `"false"` | Advanced configuration option for automatically releasing locks associated with a pull request when that pull request is merged. See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
-| `skip_completing` | `false` | `"false"` | If set to "true", skip the process of completing a deployment. You must manually create a deployment status after the deployment is complete. Default is "false" |
-| `deploy_message_path` | `false` | `".github/deployment_message.md"` | The path to a markdown file which is used as a template for custom deployment messages. Example: `".github/deployment_message.md"` |
-| `sticky_locks` | `false` | `"false"` | If set to `"true"`, locks will not be released after a deployment run completes. This applies to both successful, and failed deployments.Sticky locks are also known as ["hubot style deployment locks"](./docs/hubot-style-deployment-locks.md). They will persist until they are manually released by a user, or if you configure [another workflow with the "unlock on merge" mode](./docs/unlock-on-merge.md) to remove them automatically on PR merge. |
-| `sticky_locks_for_noop` | `false` | `"false"` | If set to `"true"`, then sticky_locks will also be used for noop deployments. This can be useful in some cases but it often leads to locks being left behind when users test noop deployments. |
-| `disable_lock` | `false` | `"false"` | If set to `"true"`, all deployment locking is disabled. Useful for workflows where concurrent deployments are safe (e.g. iOS/Android builds uploaded to TestFlight or the Play Store). When disabled, `.lock` and `.unlock` commands will return an informational message instead of modifying lock state. See the [disable lock](docs/locks.md#disabling-locks) documentation for more details. |
-| `allow_sha_deployments` | `false` | `"false"` | If set to `"true"`, then you can deploy a specific sha instead of a branch. Example: `".deploy 1234567890abcdef1234567890abcdef12345678 to production"` - This is dangerous and potentially unsafe, [view the docs](docs/sha-deployments.md) to learn more |
-| `disable_naked_commands` | `false` | `"false"` | If set to `"true"`, then naked commands will be disabled. Example: `.deploy` will not trigger a deployment. Instead, you must use `.deploy to production` to trigger a deployment. This is useful if you want to prevent accidental deployments from happening. View the [docs](docs/naked-commands.md) to learn more |
+| `merge_deploy_mode` | `false` | `false` | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
+| `unlock_on_merge_mode` | `false` | `false` | Advanced configuration option for automatically releasing locks associated with a pull request when that pull request is merged. See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
+| `skip_completing` | `false` | `false` | If set to `true`, bypass the entire post-action completion path. Your workflow must manage final deployment status, comments, reactions, labels, and non-sticky lock cleanup. Default is `false`. |
+| `deploy_message_path` | `false` | `".github/deployment_message.md"` | The repository-relative path to a trusted Markdown template for custom deployment messages. Branch Deploy fetches the file from the repository at the exact trusted workflow SHA; absolute paths, traversal segments, and runner filesystem paths are rejected. See the [custom deployment messages documentation](docs/custom-deployment-messages.md). |
+| `sticky_locks` | `false` | `false` | If set to `true`, locks will not be released after a deployment run completes. This applies to both successful, and failed deployments. Sticky locks are also known as ["hubot style deployment locks"](./docs/hubot-style-deployment-locks.md). They will persist until they are manually released by a user, or if you configure [another workflow with the "unlock on merge" mode](./docs/unlock-on-merge.md) to remove them automatically on PR merge. |
+| `sticky_locks_for_noop` | `false` | `false` | If set to `true`, then sticky_locks will also be used for noop deployments. This can be useful in some cases but it often leads to locks being left behind when users test noop deployments. |
+| `disable_lock` | `false` | `false` | If set to `true`, deployments and noops do not inspect or acquire locks, post processing does not release locks, and interactive lock-related commands return an informational result without modifying lock state. Existing environment and global locks are ignored and left unchanged. Enable this only when concurrent deployments are safe. See the [disable lock documentation](docs/locks.md#disabling-locks). |
+| `allow_sha_deployments` | `false` | `false` | If set to `true`, then you can deploy a specific sha instead of a branch. Example: `".deploy 1234567890abcdef1234567890abcdef12345678 to production"` - This is dangerous and potentially unsafe, [view the docs](docs/sha-deployments.md) to learn more |
+| `disable_naked_commands` | `false` | `false` | If set to `true`, then naked commands will be disabled. Example: `.deploy` will not trigger a deployment. Instead, you must use `.deploy to production` to trigger a deployment. This is useful if you want to prevent accidental deployments from happening. View the [docs](docs/naked-commands.md) to learn more |
 | `successful_deploy_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a deployment is successful. Example: `"deployed,success"` |
 | `successful_noop_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a noop deployment is successful. Example: `"noop,success"` |
 | `failed_deploy_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a deployment fails. Example: `"failed,deploy-failed"` |
 | `failed_noop_labels` | `false` | `""` | A comma separated list of labels to add to the pull request when a noop deployment fails. Example: `"failed,noop-failed"` |
-| `skip_successful_noop_labels_if_approved` | `false` | `"false"` | Whether or not the post run logic should skip adding successful noop labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a `.noop` completes but want to skip adding that label in situations where the pull request is already approved. |
-| `skip_successful_deploy_labels_if_approved` | `false` | `"false"` | Whether or not the post run logic should skip adding successful deploy labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a `.deploy` completes but want to skip adding that label in situations where the pull request is already approved. |
+| `skip_successful_noop_labels_if_approved` | `false` | `false` | Whether or not the post run logic should skip adding successful noop labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a `.noop` completes but want to skip adding that label in situations where the pull request is already approved. |
+| `skip_successful_deploy_labels_if_approved` | `false` | `false` | Whether or not the post run logic should skip adding successful deploy labels if the pull request is approved. This can be useful if you add a label such as "ready-for-review" after a `.deploy` completes but want to skip adding that label in situations where the pull request is already approved. |
 | `enforced_deployment_order` | `false` | `""` | A comma separated list of environments that must be deployed in a specific order. Example: `"development,staging,production"`. If this is set then you cannot deploy to latter environments unless the former ones have a successful and active deployment on the latest commit first - See the [enforced deployment order docs](./docs/enforced-deployment-order.md) for more details |
-| `use_security_warnings` | `false` | `"true"` | Whether or not to leave security related warnings in log messages during deployments. Default is `"true"` |
-| `allow_non_default_target_branch_deployments` | `false` | `"false"` | Whether or not to allow deployments of pull requests that target a branch other than the default branch (aka stable branch) as their merge target. By default, this Action would reject the deployment of a branch named `feature-branch` if it was targeting `foo` instead of `main` (or whatever your default branch is). This option allows you to override that behavior and be able to deploy any branch in your repository regardless of the target branch. This option is potentially unsafe and should be used with caution as most default branches contain branch protection rules. Often times non-default branches do not contain these same branch protection rules. Follow along in this [issue thread](https://github.com/github/branch-deploy/issues/340) to learn more. |
-| `deployment_confirmation` | `false` | `"false"` | Whether or not to require an additional confirmation before a deployment can continue. Default is `"false"`. If your project requires elevated security, it is highly recommended to enable this option - especially in open source projects where you might be deploying forks - [Deployment confirmation docs](./docs/deployment-confirmation.md) |
-| `deployment_confirmation_timeout` | `false` | `60` | The number of seconds to wait for a deployment confirmation before timing out. Default is `60` seconds (1 minute). |
+| `use_security_warnings` | `false` | `true` | Whether or not to leave security related warnings in log messages during deployments. Default is `true` |
+| `allow_non_default_target_branch_deployments` | `false` | `false` | Whether or not to allow deployments of pull requests that target a branch other than the default branch (aka stable branch) as their merge target. By default, this Action would reject the deployment of a branch named `feature-branch` if it was targeting `foo` instead of `main` (or whatever your default branch is). This option allows you to override that behavior and be able to deploy any branch in your repository regardless of the target branch. This option is potentially unsafe and should be used with caution as most default branches contain branch protection rules. Often times non-default branches do not contain these same branch protection rules. Follow along in this [issue thread](https://github.com/github/branch-deploy/issues/340) to learn more. |
+| `deployment_confirmation` | `false` | `false` | Whether or not to require an additional confirmation before a deployment can continue. Default is `false`. If your project requires elevated security, it is highly recommended to enable this option - especially in open source projects where you might be deploying forks - [Deployment confirmation docs](./docs/deployment-confirmation.md) |
+| `deployment_confirmation_timeout` | `false` | `60` | The number of seconds to wait for a deployment confirmation before timing out. Must be a positive integer. Default is `60` seconds (1 minute). |
 
 ## Outputs 📤
 
 | Output | Description |
 | ------ | ----------- |
-| `continue` | The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not - ⭐ The main output you should watch for when determining if a deployment shall carry on |
+| `decision` | The preferred main action decision output. Values are `continue`, `complete`, `stop`, or `failure`. |
+| `reason_code` | The preferred stable machine-readable reason code for the main action decision. |
+| `result` | The preferred deterministic JSON string describing the versioned main action result. Parse it with `fromJSON(...)` in workflow expressions. |
+| `continue` | Compatibility alias. The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not |
 | `fork` | The string "true" if the pull request is a fork, otherwise "false" |
 | `triggered` | The string "true" if the trigger was found, otherwise the string "false" |
 | `comment_body` | The comment body |
@@ -333,7 +343,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `fork_label` | The API label field returned for the fork |
 | `fork_checkout` | The console command presented in the GitHub UI to checkout a given fork locally |
 | `fork_full_name` | The full name of the fork in "org/repo" format |
-| `initial_reaction_id` | The reaction id for the initial reaction on the trigger comment |
+| `initial_reaction_id` | The reaction id for the initial reaction on the trigger comment. This is empty when decorative reactions are disabled. |
 | `initial_comment_id` | The comment id for the "Deployment Triggered 🚀" comment created by the action |
 | `actor_handle` | The handle of the user who triggered the action |
 | `global_lock_claimed` | The string "true" if the global lock was claimed |
@@ -343,7 +353,7 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `review_decision` | The pull request review status. Can be one of a few values - examples: `APPROVED`, `REVIEW_REQUIRED`, `CHANGES_REQUESTED`, `skip_reviews`, `null` |
 | `is_outdated` | The string `"true"` if the branch is out-of-date, otherwise `"false"` |
 | `merge_state_status` | The status of the merge state. Can be one of a few values - examples: `"DIRTY"`, `"DRAFT"`, `"CLEAN"`, etc |
-| `commit_status` | The status of the commit. Can be one of a few values - examples: `"SUCCESS"`, `null`, `"skip_ci"`, `"PENDING"`, `"FAILURE"` etc |
+| `commit_status` | The status of the commit. Can be one of a few values - examples: `"SUCCESS"`, `null`, `"skip_ci"`, `"PENDING"`, `"FAILURE"`, or `"UNAVAILABLE"`. `UNAVAILABLE` blocks deployment because the complete CI status could not be verified. See the [v11 to v12 upgrade guide](docs/v11-to-v12-upgrade-guide.md). |
 | `approved_reviews_count` | The number of approved reviews on the pull request |
 | `needs_to_be_deployed` | A comma separated list of environments that need successful and active deployments before the current environment (that was requested) can be deployed. This output is tied to the `enforced_deployment_order` input option - See the [enforced deployment order docs](./docs/enforced-deployment-order.md) for more details |
 | `commit_verified` | The string `"true"` if the commit is verified, otherwise `"false"` |
@@ -352,7 +362,9 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 
 ## Custom Deployment Messages ✏️
 
-For documentation on how to customize the deployment messages, see the [custom deployment messages docs](./docs/custom-deployment-messages.md).
+Set `deploy_message_path` to a repository-relative Markdown file such as `.github/deployment_message.md`. Branch Deploy fetches the template through GitHub's Contents API at the exact trusted workflow SHA rather than reading from the runner checkout, then renders it with a deliberately limited template grammar. Deployment output from `DEPLOY_MESSAGE` is available as `{{ results }}` and is inserted raw in one pass so output that resembles template syntax remains inert.
+
+For the supported variables, conditionals, escaping rules, and v12 migration examples, see the [custom deployment messages documentation](./docs/custom-deployment-messages.md).
 
 ## About Environments 🌎
 
@@ -454,7 +466,7 @@ Example: `"production|https://myapp.com,development|https://dev.myapp.com,stagin
 
 By enabling this option, you will get a "clickable" link on success (non-noop) deployment messages on pull requests. You will also be able to click the "View deployment" button in your repository's deployments page and be taken to the URL of the environment you deployed to.
 
-If you wish to disable the "clickable" link on the successful deployment message, you can set the `environment_url_in_comment` input to `"false"`.
+If you wish to disable the "clickable" link on the successful deployment message, you can set the `environment_url_in_comment` input to `false`.
 
 ## Rollbacks 🔄
 
@@ -468,7 +480,7 @@ The `<stable_branch>` can be any branch you like but it is highly recommended th
 
 ## Security 🔒
 
-The IssueOps + branch-deploy model is significantly more secure than a traditional "deploy on merge" or "run on commit" model. Let's reference the workflow trigger that the branch-deploy model uses:
+The IssueOps + Branch Deploy model has an important workflow-definition trust boundary. Consider the workflow trigger that this model commonly uses:
 
 ```yaml
 on:
@@ -476,9 +488,11 @@ on:
     types: [created]
 ```
 
-Unlike the `on: pull_request` trigger, the `on: issue_comment` trigger only uses Actions workflow files from the default branch in GitHub. This means that a bad actor cannot open a PR with a malicious workflow edit and dump secrets, trigger bad deployments, or cause other issues. This means that any changes to the workflow files can be protected with branch protection rules to ensure only verified changes make it into your default branch.
+Unlike the `on: pull_request` trigger, the `on: issue_comment` trigger uses the Actions workflow definition from the repository's default branch. A pull request therefore cannot change the workflow that responds to its comments, and branch protection can review and protect changes to that workflow.
 
-If your workflow checks out pull request code and then runs deployment helper scripts, templates, or other orchestration code from that checkout, review the [trusted checkout hardening guide](docs/trusted-checkouts.md). It explains how to run trusted helper code from your default branch while still deploying the exact working commit selected by branch-deploy.
+This protection applies only to the workflow definition. Pull request code checked out later remains controlled by that pull request. Running scripts, build tools, dependencies, or configuration from that checkout with access to secrets or a write-capable token can expose credentials or modify repository and deployment resources.
+
+If your workflow checks out pull request code, review the [trusted checkout hardening guide](docs/trusted-checkouts.md). It explains how to keep deployment helpers on a trusted default-branch checkout while deploying the exact working commit selected by Branch Deploy. Custom deployment templates are fetched separately from the repository at the exact trusted workflow SHA.
 
 To further harden your workflow files, it is strongly suggested to include the base permissions that this Action needs to run:
 
@@ -503,12 +517,12 @@ It should also be noted that this Action has built in functions to check the per
 
 Here are some additional security best practices to consider:
 
-- Set the `allow_forks` input option to `"false"` to completely prevent deployments to forks if you do not require them for your project.
-- Set the `commit_verification` input option to `"true"` to enforce commit verification before a deployment can continue. This is an excellent way to enforce tighter security controls on your deployments. If a deployment is requested on a commit that does not have a verified signature, the deployment will be rejected.
-- Ensure that your branch protection settings require that PRs have approvals before. This prevents users from deploying changes that have not been reviewed.
-- Ensure that your branch protection settings require that PRs have some CI checks defined, and that those CI checks are required. This ensure that the code being deployed has passing CI checks.
+- Leave the `allow_forks` input option at its default of `false` unless you intentionally support deployments from forked pull requests.
+- Set the `commit_verification` input option to `true` to enforce commit verification before a deployment can continue. This is an excellent way to enforce tighter security controls on your deployments. If a deployment is requested on a commit that does not have a verified signature, the deployment will be rejected.
+- Ensure that your branch protection settings require pull request approvals. This prevents users from deploying changes that have not been reviewed.
+- Ensure that your branch protection settings define required CI checks. This ensures that the code being deployed has passing CI checks.
 - Set the [`deployment_confirmation: true`](./docs/deployment-confirmation.md) input option to require a final safety check of human approval before each deployment can continue. Ensure that you review the sha being used in the deployment confirmation comment with the sha that you expect to be deployed.
-- Use a [trusted checkout](docs/trusted-checkouts.md) for deployment helper code and templates when your workflow also checks out pull request code for deployment.
+- Use a [trusted checkout](docs/trusted-checkouts.md) for deployment helper code when your workflow also checks out pull request code for deployment. Branch Deploy independently fetches custom deployment templates at the exact trusted workflow SHA.
 
 ### Admins 👩‍🔬
 
@@ -571,9 +585,9 @@ Checkout the [merge commit workflow strategy](docs/merge-commit-strategy.md) for
 
 ## Manual Deployment Control
 
-If you need more fine tuned control over when the deployment status is set to `success` you can use the `skip_completing` option to prevent this Action from setting your deployment status to `success` after it completes.
+If you need fine-grained control over completion, set `skip_completing: true` to bypass Branch Deploy's entire post-action completion path.
 
-When using this option, you will need to manually set your deployment status depending on if you deployment succeeds or fails.
+When using this option, your workflow is responsible for the final deployment status and any required completion comments, reactions, labels, and non-sticky lock cleanup. Branch Deploy does not perform those operations after the deployment jobs finish.
 
 An example workflow using this option can be found [here](https://github.com/github/branch-deploy/blob/main/docs/examples.md#multiple-jobs)
 
@@ -663,15 +677,15 @@ Check out some of the links below to see how others are using this Action in the
 This section will cover a few suggestions and best practices that will help you when using this Action.
 
 1. Suggest Updating Pull Request Branches - You should absolutely use this option when using the `branch-deploy` Action. This option can be found in your repository's `/settings` page
-    ![update-pr-branches](./docs//assets/update-branch-setting.png)
+    ![update-pr-branches](./docs/assets/update-branch-setting.png)
 2. Enable Branch Protection Settings - It is always a good idea to enable branch protection settings for your repo, especially when using this Action
     1. Require Pull Request Reviews - Enforce that pull requests have approvals, code owner approvals, and dismiss stale pull request approvals upon new commits
       ![use-pr-reviews](./docs/assets/pr-reviews.png)
     2. Add Required Status Checks - Enforce that certain CI checks must pass before a pull request can be merged
       ![use-status-checks](./docs/assets/required-ci-checks.png)
-3. If you don't need to deploy PR forks (perhaps your project is internal and not open source), you can set the `allow_forks` input to `"false"` to prevent deployments from running on forks.
+3. If you need to deploy PR forks, explicitly set the `allow_forks` input to `true` and combine that with the normal review, CI, and trusted-checkout protections.
 4. You should **always** (unless you have a certain restriction) use the `sha` output variable over the `ref` output variable when deploying. It is more reliable for deployments, and safer from a security perspective. More details about using commit SHAs for deployments can be found [here](./docs/deploying-commit-SHAs.md).
-5. If your deployment workflow runs helper scripts or deployment message templates, consider using [trusted checkouts](docs/trusted-checkouts.md) so those helpers come from the protected default branch instead of the pull request checkout.
+5. If your deployment workflow runs repository-owned helper scripts after checking out pull request code, use [trusted checkouts](docs/trusted-checkouts.md) so those helpers come from the protected default branch. Custom deployment templates do not need a checkout because Branch Deploy fetches them separately at the trusted workflow SHA.
 
 ## Alternate Command Syntax
 

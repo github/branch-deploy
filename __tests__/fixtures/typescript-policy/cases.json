@@ -1,0 +1,468 @@
+[
+  {
+    "name": "valid",
+    "source": "export function value(): boolean { return true }\n",
+    "expected": []
+  },
+  {
+    "name": "no-suppressions",
+    "source": "// @ts-ignore\nconst value = 1\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/no-suppressions.ts:1:4: no-suppressions: TypeScript suppression directive"
+    ]
+  },
+  {
+    "name": "no-explicit-any",
+    "source": "let value: any\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/no-explicit-any.ts:1:12: no-explicit-any: explicit any is prohibited"
+    ]
+  },
+  {
+    "name": "no-unsafe-any",
+    "source": "JSON.parse('{}').value\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/no-unsafe-any.ts:1:1: no-unsafe-any: unsafe any flow"
+    ]
+  },
+  {
+    "name": "no-non-null-assertion",
+    "source": "declare const value: string | undefined\nvalue!\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/no-non-null-assertion.ts:2:1: no-non-null-assertion: non-null assertions are prohibited"
+    ]
+  },
+  {
+    "name": "no-unsafe-assertion",
+    "source": "const value: unknown = 'value'\nvalue as string\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/no-unsafe-assertion.ts:2:1: no-unsafe-assertion: unsafe type assertion"
+    ]
+  },
+  {
+    "name": "no-var",
+    "source": "var value = 1\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/no-var.ts:1:1: no-var: var declarations are prohibited"
+    ]
+  },
+  {
+    "name": "strict-equality",
+    "source": "1 == 1\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/strict-equality.ts:1:3: strict-equality: use strict equality"
+    ]
+  },
+  {
+    "name": "export-return-type",
+    "source": "export function value() { return true }\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/export-return-type.ts:1:1: export-return-type: exported function needs a return type"
+    ]
+  },
+  {
+    "name": "promise-safety",
+    "source": "Promise.resolve()\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/promise-safety.ts:1:1: promise-safety: floating Promise"
+    ]
+  },
+  {
+    "name": "strict-boolean",
+    "source": "if (null) {}\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/strict-boolean.ts:1:5: strict-boolean: condition must have a boolean type"
+    ]
+  },
+  {
+    "name": "safe-interpolation",
+    "source": "const value: object = {};\n`${value}`\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/safe-interpolation.ts:2:4: safe-interpolation: unsafe template value"
+    ]
+  },
+  {
+    "name": "safe-string-operations",
+    "source": "const value: object = {};\nString(value)\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/safe-string-operations.ts:2:1: safe-string-operations: object needs explicit serialization"
+    ]
+  },
+  {
+    "name": "module-syntax",
+    "source": "import value = require('value')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/module-syntax.ts:1:1: module-syntax: CommonJS syntax is prohibited"
+    ]
+  },
+  {
+    "name": "dangerous-eval",
+    "source": "eval('value')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/dangerous-eval.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "control-flow",
+    "source": "debugger\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/control-flow.ts:1:1: control-flow: debugger is prohibited"
+    ]
+  },
+  {
+    "name": "no-deprecated",
+    "source": "/** @deprecated */\nfunction oldValue(): void {}\noldValue()\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/no-deprecated.ts:3:1: no-deprecated: deprecated symbol"
+    ]
+  },
+  {
+    "name": "suppression-text-in-string",
+    "source": "const value = '@ts-ignore'\n",
+    "expected": []
+  },
+  {
+    "name": "unsafe-any-inferred-variable",
+    "source": "const value = JSON.parse('{}')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/unsafe-any-inferred-variable.ts:1:7: no-unsafe-any: unsafe any flow"
+    ]
+  },
+  {
+    "name": "unsafe-any-contained-unknown",
+    "source": "let value: unknown\nvalue = JSON.parse('{}')\n",
+    "expected": []
+  },
+  {
+    "name": "unsafe-any-concise-return",
+    "source": "const value = (): string => JSON.parse('{}')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/unsafe-any-concise-return.ts:1:15: no-unsafe-any: unsafe any flow"
+    ]
+  },
+  {
+    "name": "unsafe-any-contained-return",
+    "source": "const value = (): unknown => JSON.parse('{}')\n",
+    "expected": []
+  },
+  {
+    "name": "exported-indirect-function",
+    "source": "function value() { return true }\nexport {value}\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/exported-indirect-function.ts:1:1: export-return-type: exported function needs a return type"
+    ]
+  },
+  {
+    "name": "exported-default-arrow",
+    "source": "export default () => true\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/exported-default-arrow.ts:1:16: export-return-type: exported function needs a return type"
+    ]
+  },
+  {
+    "name": "exported-object-method",
+    "source": "export const api = {value() { return true }}\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/exported-object-method.ts:1:21: export-return-type: exported function needs a return type"
+    ]
+  },
+  {
+    "name": "exported-class-method",
+    "source": "export class Api { value() { return true } }\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/exported-class-method.ts:1:20: export-return-type: exported function needs a return type"
+    ]
+  },
+  {
+    "name": "exported-typed-arrow",
+    "source": "type Factory = () => boolean\nexport const value: Factory = () => true\n",
+    "expected": []
+  },
+  {
+    "name": "object-stringification",
+    "source": "const value: object = {}\nString(value)\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/object-stringification.ts:2:1: safe-string-operations: object needs explicit serialization"
+    ]
+  },
+  {
+    "name": "array-stringification",
+    "source": "const value: string[] = []\nString(value)\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/array-stringification.ts:2:1: safe-string-operations: object needs explicit serialization"
+    ]
+  },
+  {
+    "name": "custom-stringification",
+    "source": "const value: {toString(): string} = {toString: () => 'ok'}\nString(value)\n",
+    "expected": []
+  },
+  {
+    "name": "shadowed-string",
+    "source": "const String = (_value: object): string => 'ok'\nString({})\n",
+    "expected": []
+  },
+  {
+    "name": "nested-condition-assignment",
+    "source": "let value = false\nif (() => { value = true; return value }) {}\n",
+    "expected": []
+  },
+  {
+    "name": "direct-condition-assignment",
+    "source": "let value = false\nif ((value = true)) {}\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/direct-condition-assignment.ts:2:6: control-flow: assignment in condition"
+    ]
+  },
+  {
+    "name": "local-finally-break",
+    "source": "try {} finally { for (;;) { break } }\n",
+    "expected": []
+  },
+  {
+    "name": "caught-finally-throw",
+    "source": "try {} finally { try { throw new Error() } catch {} }\n",
+    "expected": []
+  },
+  {
+    "name": "escaping-finally-break",
+    "source": "outer: for (;;) { try {} finally { break outer } }\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/escaping-finally-break.ts:1:36: control-flow: abrupt completion in finally"
+    ]
+  },
+  {
+    "name": "escaping-finally-return",
+    "source": "function value(): void { try {} finally { return } }\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/escaping-finally-return.ts:1:43: control-flow: abrupt completion in finally"
+    ]
+  },
+  {
+    "name": "deprecated-declaration",
+    "source": "class Api {\n/** @deprecated */\nvalue(): void {}\n}\n",
+    "expected": []
+  },
+  {
+    "name": "shadowed-globals",
+    "source": "const eval = (_value: string): void => undefined\nconst Function = (_value: string): void => undefined\nconst require = (_value: string): void => undefined\nconst NaN = 1\nclass Promise { constructor(_value: () => unknown) {} }\neval('x')\nFunction('x')\nrequire('x')\nNaN === 1\nnew Promise(async () => { await globalThis.Promise.resolve() })\n",
+    "expected": []
+  },
+  {
+    "name": "global-require",
+    "source": "require('value')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-require.ts:1:1: module-syntax: CommonJS syntax is prohibited"
+    ]
+  },
+  {
+    "name": "global-indirect-eval",
+    "source": "(0, eval)('value')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-indirect-eval.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "global-function-construction",
+    "source": "Function('return 1')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-function-construction.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "global-nan-comparison",
+    "source": "NaN === 1\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-nan-comparison.ts:1:1: control-flow: use Number.isNaN"
+    ]
+  },
+  {
+    "name": "global-promise-executor",
+    "source": "new Promise(async resolve => { await Promise.resolve(); resolve() })\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-promise-executor.ts:1:1: promise-safety: floating Promise",
+      "__tests__/fixtures/typescript-policy/global-promise-executor.ts:1:13: promise-safety: async Promise executor",
+      "__tests__/fixtures/typescript-policy/global-promise-executor.ts:1:13: promise-safety: Promise used as void callback"
+    ]
+  },
+  {
+    "name": "unsafe-any-block-return",
+    "source": "function value(): string { return JSON.parse('{}') }\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/unsafe-any-block-return.ts:1:28: no-unsafe-any: unsafe any flow"
+    ]
+  },
+  {
+    "name": "unsafe-any-inferred-return",
+    "source": "function value() { return JSON.parse('{}') }\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/unsafe-any-inferred-return.ts:1:20: no-unsafe-any: unsafe any flow"
+    ]
+  },
+  {
+    "name": "unsafe-any-contextual-arrow",
+    "source": "const value: () => string = () => JSON.parse('{}')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/unsafe-any-contextual-arrow.ts:1:29: no-unsafe-any: unsafe any flow"
+    ]
+  },
+  {
+    "name": "tuple-stringification",
+    "source": "const value: [string] = ['x']\nString(value)\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/tuple-stringification.ts:2:1: safe-string-operations: object needs explicit serialization"
+    ]
+  },
+  {
+    "name": "global-this-string",
+    "source": "globalThis.String({})\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-this-string.ts:1:1: safe-string-operations: object needs explicit serialization"
+    ]
+  },
+  {
+    "name": "global-this-eval",
+    "source": "globalThis.eval('value')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-this-eval.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "conditional-global-callee",
+    "source": "const local = (_value: string): void => undefined\n;(true ? local : eval)('one')\n;(true ? eval : local)('two')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/conditional-global-callee.ts:2:2: dangerous-eval: dynamic evaluation is prohibited",
+      "__tests__/fixtures/typescript-policy/conditional-global-callee.ts:3:2: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "escaping-finally-throw",
+    "source": "try {} finally { throw new Error() }\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/escaping-finally-throw.ts:1:18: control-flow: abrupt completion in finally"
+    ]
+  },
+  {
+    "name": "unresolved-export",
+    "source": "export {foo} from './missing.js'\n",
+    "expected": []
+  },
+  {
+    "name": "invalid-finally-break",
+    "source": "try {} finally { break missing }\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/invalid-finally-break.ts:1:18: control-flow: abrupt completion in finally"
+    ]
+  },
+  {
+    "name": "unsafe-any-callee",
+    "source": "JSON.parse('{}')()\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/unsafe-any-callee.ts:1:1: no-unsafe-any: unsafe any flow"
+    ]
+  },
+  {
+    "name": "suppression-block-expect-error",
+    "source": "/* @ts-expect-error */\nconst value = 1\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/suppression-block-expect-error.ts:1:4: no-suppressions: TypeScript suppression directive"
+    ]
+  },
+  {
+    "name": "suppression-line-nocheck",
+    "source": "// @ts-nocheck\nconst value = 1\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/suppression-line-nocheck.ts:1:4: no-suppressions: TypeScript suppression directive"
+    ]
+  },
+  {
+    "name": "suppression-text-in-template",
+    "source": "const value = `@ts-ignore`\n",
+    "expected": []
+  },
+  {
+    "name": "global-optional-eval",
+    "source": "eval?.('value')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-optional-eval.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "global-asserted-eval",
+    "source": "(eval as typeof eval)('value')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-asserted-eval.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "global-new-function",
+    "source": "new Function('return 1')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-new-function.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "global-this-function",
+    "source": "globalThis.Function('return 1')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-this-function.ts:1:1: dangerous-eval: dynamic evaluation is prohibited"
+    ]
+  },
+  {
+    "name": "promise-async-foreach",
+    "source": "[1].forEach(async value => { await Promise.resolve(value) })\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/promise-async-foreach.ts:1:13: promise-safety: Promise used as void callback"
+    ]
+  },
+  {
+    "name": "promise-nested-await",
+    "source": "async function value(): Promise<void> { const nested = async (): Promise<void> => { await Promise.resolve() }; void nested }\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/promise-nested-await.ts:1:1: promise-safety: async function requires await"
+    ]
+  },
+  {
+    "name": "promise-void-expression",
+    "source": "void Promise.resolve()\n",
+    "expected": []
+  },
+  {
+    "name": "promise-for-await",
+    "source": "async function value(): Promise<void> { for await (const item of []) { void item } }\n",
+    "expected": []
+  },
+  {
+    "name": "nullable-string-condition",
+    "source": "declare const value: '' | 'production' | undefined\nif (value) {}\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/nullable-string-condition.ts:2:5: strict-boolean: condition must have a boolean type"
+    ]
+  },
+  {
+    "name": "nullable-object-condition",
+    "source": "declare const value: {active: true} | undefined\nif (value) {}\n",
+    "expected": []
+  },
+  {
+    "name": "unsafe-any-element-access",
+    "source": "JSON.parse('{}')['value']\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/unsafe-any-element-access.ts:1:1: no-unsafe-any: unsafe any flow"
+    ]
+  },
+  {
+    "name": "global-nan-reversed-comparison",
+    "source": "1 < NaN\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/global-nan-reversed-comparison.ts:1:1: control-flow: use Number.isNaN"
+    ]
+  },
+  {
+    "name": "unsafe-prototype-enumerable",
+    "source": "({}).propertyIsEnumerable('value')\n",
+    "expected": [
+      "__tests__/fixtures/typescript-policy/unsafe-prototype-enumerable.ts:1:1: control-flow: unsafe prototype method call"
+    ]
+  }
+]
