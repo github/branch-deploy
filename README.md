@@ -39,6 +39,12 @@ For the full command usage, check out the [usage document](docs/usage.md)
 
 Alternate command syntax and shortcuts can be found at the bottom of this readme [here](#alternate-command-syntax)
 
+## Credits
+
+For historical reasons, [@grantbirki](https://github.com/grantbirki) has been the main maintainer of this project when he was working at GitHub.
+He has now moved on but remains the core maintainer and will collaborate with GitHub staff to fix bugs and ship new features.
+Thank you Grant, you're a ⭐.
+
 ## Demo 🎥
 
 A video demo showing how IssueOps on a pull request works using this Action
