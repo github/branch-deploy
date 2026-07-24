@@ -42,7 +42,7 @@ Alternate command syntax and shortcuts can be found at the bottom of this readme
 ## Credits
 
 For historical reasons, [@grantbirki](https://github.com/grantbirki) has been the main maintainer of this project when he was working at GitHub.
-He has now moved on but remains the coree maintainer and will collaborate with GitHub staff to fix bugs and ship new features.
+He has now moved on but remains the core maintainer and will collaborate with GitHub staff to fix bugs and ship new features.
 Thank you Grant, you're a ⭐.
 
 ## Demo 🎥
