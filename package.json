@@ -31,15 +31,15 @@
   "author": "Grant Birkinbine",
   "license": "MIT",
   "dependencies": {
-    "@actions/github": "9.0.0",
+    "@actions/github": "9.1.1",
     "@octokit/plugin-retry": "8.0.3",
     "yargs-parser": "22.0.0"
   },
   "devDependencies": {
-    "@types/node": "24.13.2",
+    "@types/node": "25.6.0",
     "@vercel/ncc": "0.44.0",
     "js-yaml": "4.3.0",
-    "prettier": "3.8.1",
-    "typescript": "5.9.3"
+    "prettier": "3.8.3",
+    "typescript": "6.0.3"
   }
 }
