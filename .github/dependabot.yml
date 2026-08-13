@@ -1,23 +1,57 @@
 ---
+# source: github/sae-common-workflows/action-ln/sae-iam/dependabot/dependabot.yml
+# It's fine to have dependabot consider more languages than used in the repo.
 version: 2
+
+registries:
+  ghcr:
+    type: "docker-registry"
+    url: "ghcr.io"
+    username: "PAT"
+    password: "${{secrets.CONTAINER_BUILDER_TOKEN}}"
+  rubygems-github-packages:
+    type: "rubygems-server"
+    url: "rubygems.pkg.github.com/github"
+    token: "${{secrets.CONTAINER_BUILDER_TOKEN}}"
+
+# Group all updates into a single PR
+multi-ecosystem-groups:
+  all:
+    schedule:
+      interval: "monthly"
+
 updates:
-  - package-ecosystem: github-actions
+  - package-ecosystem: "bundler"
+    multi-ecosystem-group: "all"
+    vendor: true
     directory: "/"
-    cooldown:
-      default-days: 45
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-    schedule:
-      interval: monthly
+    registries: ["rubygems-github-packages"]
+    patterns: ["*"]
+
+  - package-ecosystem: "docker"
+    multi-ecosystem-group: "all"
+    directory: "/"
+    registries: ["ghcr"]
+    patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    multi-ecosystem-group: "all"
+    directory: "/"
+    patterns: ["*"]
+    ignore:
+      - dependency-name: "github/internal-actions"
+
+  - package-ecosystem: "pip"
+    multi-ecosystem-group: "all"
+    directory: "/"
+    patterns: ["*"]
+
+  - package-ecosystem: "gomod"
+    multi-ecosystem-group: "all"
+    directory: "/"
+    patterns: ["*"]
+
   - package-ecosystem: npm
+    multi-ecosystem-group: "all"
     directory: "/"
-    cooldown:
-      default-days: 90
-    groups:
-      npm-dependencies:
-        patterns:
-          - "*"
-    schedule:
-      interval: monthly
+    patterns: ["*"]
