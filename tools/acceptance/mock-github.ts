@@ -12,6 +12,8 @@ import type {
   MockDeploymentStatus,
   MockFault,
   MockGitHubState,
+  MockPullRequest,
+  MockPullRequestChecks,
   MockReaction,
   MockRollupContext,
   MockRouteLog
@@ -26,7 +28,10 @@ export const ACCEPTANCE_SHAS = {
   default: '1111111111111111111111111111111111111111',
   feature: '2222222222222222222222222222222222222222',
   fork: '3333333333333333333333333333333333333333',
-  oldDeployment: '4444444444444444444444444444444444444444'
+  oldDeployment: '4444444444444444444444444444444444444444',
+  stackBottom: '5555555555555555555555555555555555555555',
+  stackMiddle: '6666666666666666666666666666666666666666',
+  stackTop: '7777777777777777777777777777777777777777'
 } as const
 
 const owner = ACCEPTANCE_REPOSITORY.owner
@@ -211,6 +216,8 @@ export function createMockState(): MockGitHubState {
     nextStatusId: 6000,
     owner,
     permission: 'write',
+    prStack: null,
+    prStackResponses: [],
     pullRequest: {
       baseRef: defaultBranch,
       draft: false,
@@ -225,6 +232,7 @@ export function createMockState(): MockGitHubState {
     pullRequestMoveAfterReads: 2,
     pullRequestMoveSha: null,
     pullRequestReads: 0,
+    pullRequestStackResponses: [],
     refCreationBarrierTarget: 0,
     reactionFailureConsumed: false,
     reactions: [],
@@ -305,8 +313,18 @@ function branchSha(state: MockGitHubState, ref: string): string {
 }
 
 function branchResponse(branch: MockBranch): unknown {
+  const protection = branch.protection ?? {
+    enabled: false,
+    required_status_checks: {
+      enforcement_level: 'off',
+      contexts: [],
+      checks: []
+    }
+  }
   return {
     name: branch.name,
+    protected: protection.enabled,
+    protection,
     commit: {
       sha: branch.sha,
       commit: {
@@ -340,10 +358,29 @@ function commitResponse(commit: MockCommit): unknown {
 
 function pullResponse(state: MockGitHubState): unknown {
   const pr = state.pullRequest
+  const stack = state.prStack
   return {
     number: pr.number,
     draft: pr.draft,
     merged: pr.merged,
+    stack:
+      state.pullRequestStackResponses.length > 0
+        ? state.pullRequestStackResponses.shift()
+        : stack === null
+          ? undefined
+          : {
+              id: 1,
+              number: 1,
+              size: stack.members.length,
+              position:
+                stack.members.findIndex(
+                  member => member.pullRequest.number === pr.number
+                ) + 1,
+              base: {
+                ref: stack.baseRef,
+                sha: branchSha(state, stack.baseRef)
+              }
+            },
     base: {
       ref: pr.baseRef
     },
@@ -359,7 +396,7 @@ function pullResponse(state: MockGitHubState): unknown {
   }
 }
 
-function checkRollup(state: MockGitHubState, start = 0): unknown {
+function checkRollup(state: MockPullRequestChecks, start = 0): unknown {
   if (!state.rollupAvailable) {
     return undefined
   }
@@ -413,7 +450,28 @@ function rollupContextResponse(context: MockRollupContext): unknown {
   }
 }
 
-function prechecksGraphql(state: MockGitHubState): unknown {
+type MockPrechecksPull = MockPullRequestChecks & {
+  readonly pullRequest: MockPullRequest
+}
+
+function prechecksPull(
+  state: MockGitHubState,
+  number: number
+): MockPrechecksPull | undefined {
+  return number === state.pullRequest.number
+    ? state
+    : state.prStack?.members.find(
+        member => member.pullRequest.number === number
+      )
+}
+
+function prechecksCommitId(state: MockGitHubState, number: number): string {
+  return number === state.pullRequest.number
+    ? 'C_acceptance'
+    : `C_acceptance_${String(number)}`
+}
+
+function prechecksGraphql(state: MockPrechecksPull, commitId: string): unknown {
   return {
     data: {
       repository: {
@@ -427,12 +485,111 @@ function prechecksGraphql(state: MockGitHubState): unknown {
             nodes: [
               {
                 commit: {
-                  id: 'C_acceptance',
+                  id: commitId,
                   oid: state.graphqlCommitOid ?? state.pullRequest.headSha,
                   statusCheckRollup: checkRollup(state)
                 }
               }
             ]
+          }
+        }
+      }
+    }
+  }
+}
+
+function graphqlRepository(fullName: string) {
+  return {
+    id: `R_${fullName.replace('/', '_')}`,
+    nameWithOwner: fullName
+  }
+}
+
+function stackPullRequestNode(
+  state: MockGitHubState,
+  pullRequest: MockPullRequest,
+  baseSha: string,
+  pullState: string
+) {
+  return {
+    id: `PR_${String(pullRequest.number)}`,
+    number: pullRequest.number,
+    baseRefName: pullRequest.baseRef,
+    baseRefOid: baseSha,
+    headRefName: pullRequest.headRef,
+    headRefOid: pullRequest.headSha,
+    state: pullState,
+    isDraft: pullRequest.draft,
+    repository: graphqlRepository(`${state.owner}/${state.repo}`),
+    headRepository: graphqlRepository(pullRequest.headRepoFullName)
+  }
+}
+
+export function mockPrStackResponse(
+  state: MockGitHubState,
+  stableRef: string,
+  cursor: string | null
+): unknown {
+  const stack = state.prStack
+  const selectedIndex =
+    stack?.members.findIndex(
+      member => member.pullRequest.number === state.pullRequest.number
+    ) ?? -1
+  const selected = stack?.members[selectedIndex]
+  const stableBranch = state.branches.get(stableRef.replace('refs/heads/', ''))
+  const repository = {
+    ...graphqlRepository(`${state.owner}/${state.repo}`),
+    ref:
+      stableBranch === undefined
+        ? null
+        : {name: stableBranch.name, target: {oid: stableBranch.sha}}
+  }
+  const pullRequest = stackPullRequestNode(
+    state,
+    state.pullRequest,
+    selected?.baseSha ?? branchSha(state, state.pullRequest.baseRef),
+    selected?.state ?? (state.pullRequest.merged ? 'MERGED' : 'OPEN')
+  )
+  if (stack === null) {
+    return {
+      repository: {
+        ...repository,
+        pullRequest: {...pullRequest, stack: null, stackEntry: null}
+      }
+    }
+  }
+  const start = cursor === null ? 0 : Number(cursor)
+  const end = start + 100
+  return {
+    repository: {
+      ...repository,
+      pullRequest: {
+        ...pullRequest,
+        stackEntry: selectedIndex < 0 ? null : {position: selectedIndex + 1},
+        stack: {
+          id: 'S_acceptance',
+          number: 1,
+          size: stack.members.length,
+          baseRefName: stack.baseRef,
+          entries: {
+            totalCount: stack.members.length,
+            pageInfo: {
+              hasNextPage: end < stack.members.length,
+              endCursor: end < stack.members.length ? String(end) : null
+            },
+            nodes: stack.members.slice(start, end).map((member, index) => ({
+              id: `SE_${String(member.pullRequest.number)}`,
+              position: start + index + 1,
+              stack: {id: 'S_acceptance'},
+              pullRequest: stackPullRequestNode(
+                state,
+                member.pullRequest.number === state.pullRequest.number
+                  ? state.pullRequest
+                  : member.pullRequest,
+                member.baseSha,
+                member.state
+              )
+            }))
           }
         }
       }
@@ -495,6 +652,28 @@ function routeGraphql(
   const query = requireString(body, 'query')
   const variables = isRecord(body['variables']) ? body['variables'] : {}
   const normalizedQuery = query.replace(/\s+/gu, ' ')
+  if (normalizedQuery.includes('BranchDeployPullRequestStack')) {
+    if (
+      requireString(variables, 'owner') !== state.owner ||
+      requireString(variables, 'repo') !== state.repo ||
+      requireNumber(variables, 'pullNumber') !== state.pullRequest.number
+    ) {
+      throw new Error('unexpected pull request stack GraphQL variables')
+    }
+    const stableRef = requireString(variables, 'stableRef')
+    const cursor = variables['cursor']
+    if (cursor !== null && typeof cursor !== 'string') {
+      throw new Error('unexpected pull request stack GraphQL cursor')
+    }
+    const result =
+      state.prStackResponses.length === 0
+        ? mockPrStackResponse(state, stableRef, cursor)
+        : state.prStackResponses.shift()
+    if (result instanceof Error) {
+      return {status: 200, value: {errors: [{message: result.message}]}}
+    }
+    return {status: 200, value: {data: result}}
+  }
   if (normalizedQuery.includes('updateRefs(input: $input)')) {
     const input = variables['input']
     if (!isRecord(input)) throw new Error('expected ref update input')
@@ -536,22 +715,29 @@ function routeGraphql(
     normalizedQuery.includes('pullRequest(number:$number)') &&
     normalizedQuery.includes('statusCheckRollup')
   ) {
+    const number = requireNumber(variables, 'number')
+    const pull = prechecksPull(state, number)
     if (
       requireString(variables, 'owner') !== state.owner ||
       requireString(variables, 'name') !== state.repo ||
-      requireNumber(variables, 'number') !== state.pullRequest.number
+      pull === undefined
     ) {
       throw new Error('unexpected prechecks GraphQL variables')
     }
-    return {status: 200, value: prechecksGraphql(state)}
+    return {
+      status: 200,
+      value: prechecksGraphql(pull, prechecksCommitId(state, number))
+    }
   }
   if (
     normalizedQuery.includes('node(id:$commitId)') &&
     normalizedQuery.includes('statusCheckRollup')
   ) {
+    const number = requireNumber(variables, 'number')
+    const pull = prechecksPull(state, number)
     if (
-      requireString(variables, 'commitId') !== 'C_acceptance' ||
-      requireNumber(variables, 'number') !== state.pullRequest.number
+      pull === undefined ||
+      requireString(variables, 'commitId') !== prechecksCommitId(state, number)
     ) {
       throw new Error('unexpected paginated prechecks GraphQL variables')
     }
@@ -561,9 +747,9 @@ function routeGraphql(
       value: {
         data: {
           node: {
-            id: 'C_acceptance',
-            oid: state.graphqlCommitOid ?? state.pullRequest.headSha,
-            statusCheckRollup: checkRollup(state, Number(cursor))
+            id: prechecksCommitId(state, number),
+            oid: pull.graphqlCommitOid ?? pull.pullRequest.headSha,
+            statusCheckRollup: checkRollup(pull, Number(cursor))
           }
         }
       }
@@ -814,7 +1000,12 @@ function routeRest(
     parts.length === 6 &&
     part(parts, 4) === 'branches'
   ) {
-    return {status: 200, value: state.branchRules}
+    const page = Number(searchParams.get('page') ?? '1')
+    const perPage = Number(searchParams.get('per_page') ?? '30')
+    return {
+      status: 200,
+      value: state.branchRules.slice((page - 1) * perPage, page * perPage)
+    }
   }
 
   if (
@@ -823,7 +1014,24 @@ function routeRest(
     parts.length === 5 &&
     part(parts, 4).includes('...')
   ) {
-    return {status: 200, value: {behind_by: state.comparisonBehindBy}}
+    const comparison = part(parts, 4)
+    const separator = comparison.indexOf('...')
+    const base = comparison.slice(0, separator)
+    const head = comparison.slice(separator + 3)
+    return {
+      status: 200,
+      value: {
+        base_commit: {sha: base},
+        behind_by: state.comparisonBehindBy,
+        merge_base_commit: {sha: base},
+        status:
+          state.comparisonBehindBy > 0
+            ? 'behind'
+            : base === head
+              ? 'identical'
+              : 'ahead'
+      }
+    }
   }
 
   if (area === 'commits' && method === 'GET' && parts.length === 5) {

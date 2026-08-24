@@ -6,6 +6,10 @@ import {stringToArray} from './string-to-array.ts'
 import {COLORS} from './colors.ts'
 import {API_HEADERS} from './api-headers.ts'
 import {evaluatePrecheckGates} from './precheck-gates.ts'
+import {parsePrStackMembership, resolvePrStack} from './pr-stacks.ts'
+import type {PrStackSnapshot} from './pr-stacks.ts'
+import {loadPrStackRequiredChecks} from './pr-stack-checks.ts'
+import type {PrStackRequiredCheck} from './pr-stack-checks.ts'
 import {saveActionState, setActionOutput} from '../action-io.ts'
 import {
   legacyApiError,
@@ -26,6 +30,7 @@ import type {
   BranchDeployOctokit,
   CheckRunResult,
   PrecheckData,
+  PrecheckFailure,
   PrecheckResult,
   PrechecksGraphqlCommitNode,
   PrechecksGraphqlResult,
@@ -41,6 +46,9 @@ type PullUpdateParameters = Parameters<PullUpdateMethod>[0]
 type BranchGetMethod = BranchDeployOctokit['rest']['repos']['getBranch']
 type BranchGetParameters = Parameters<BranchGetMethod>[0]
 type FullBranchGetResponse = Awaited<ReturnType<BranchGetMethod>>
+type BranchRulesParameters = Parameters<
+  BranchDeployOctokit['rest']['repos']['getBranchRules']
+>[0]
 type CompareMethod = BranchDeployOctokit['rest']['repos']['compareCommits']
 type CompareParameters = Parameters<CompareMethod>[0]
 type FullCompareResponse = Awaited<ReturnType<CompareMethod>>
@@ -57,6 +65,7 @@ export interface PrechecksPullResponse {
   readonly data?: {
     readonly base?: Partial<Pick<FullPullGetResponse['data']['base'], 'ref'>>
     readonly draft?: Exclude<FullPullGetResponse['data']['draft'], undefined>
+    readonly stack?: unknown
     readonly head?: Partial<Pick<PullHead, 'label' | 'ref' | 'sha'>> & {
       readonly repo?: null | Partial<
         Pick<PullHeadRepository, 'fork' | 'full_name'>
@@ -69,6 +78,7 @@ export interface PrechecksPullResponse {
 export interface PrechecksPullData {
   readonly base: Pick<FullPullGetResponse['data']['base'], 'ref'>
   readonly draft?: Exclude<FullPullGetResponse['data']['draft'], undefined>
+  readonly stack?: unknown
   readonly head: Pick<PullHead, 'label' | 'ref' | 'sha'> & {
     readonly repo?: null | Partial<
       Pick<PullHeadRepository, 'fork' | 'full_name'>
@@ -111,6 +121,9 @@ export interface PrechecksOctokit {
       readonly getBranch: (
         parameters?: BranchGetParameters
       ) => Promise<PrechecksBranchResponse>
+      readonly getBranchRules: (
+        parameters?: BranchRulesParameters
+      ) => Promise<{readonly data: unknown}>
       readonly getCollaboratorPermissionLevel: (
         parameters?: PermissionParameters
       ) => Promise<{
@@ -248,6 +261,75 @@ export async function prechecks(
     data.inputs.allow_non_default_target_branch_deployments
   const securityWarningsEnabled = data.inputs.use_security_warnings
 
+  let stack: PrStackSnapshot | null = null
+  let stackRequiredChecks: readonly PrStackRequiredCheck[] | null = null
+  let expectNoStack = false
+  if (
+    data.inputs.enable_pr_stacks &&
+    isNotStableBranchDeploy &&
+    data.environmentObj.sha === null
+  ) {
+    try {
+      // Ordinary PRs must not depend on the preview stack APIs.
+      const membership = parsePrStackMembership(prData.stack)
+      if (membership !== null) {
+        stack = await resolvePrStack(octokit, {
+          ...context.repo,
+          pullNumber: context.issue.number,
+          expectedHeadSha: sha,
+          stableBranch: data.inputs.stable_branch
+        })
+        if (
+          stack === null ||
+          stack.stackNumber !== membership.number ||
+          stack.selectedPosition !== membership.position ||
+          stack.stableBranch !== membership.baseRef ||
+          stack.stableSha !== stableBaseBranch.data.commit.sha ||
+          stack.pullRequests.at(-1)?.headRef !== ref ||
+          stack.pullRequests.at(-1)?.baseRef !== baseRef
+        ) {
+          throw new Error('The stack changed during prechecks')
+        }
+      } else {
+        // A fork repository can contain same-repository PRs. Only a known
+        // cross-repository fork can skip the ordinary membership recheck.
+        const headRepository = prData.head.repo?.full_name
+        expectNoStack =
+          !isFork ||
+          typeof headRepository !== 'string' ||
+          !/^[^/\s]+\/[^/\s]+$/u.test(headRepository) ||
+          headRepository.toLowerCase() ===
+            `${context.repo.owner}/${context.repo.repo}`.toLowerCase()
+      }
+    } catch (error) {
+      return stackPrecheckUnavailable(error)
+    }
+  }
+
+  if (
+    stack !== null &&
+    !skipCi &&
+    (typeof checks === 'string' || checks.length === 0)
+  ) {
+    try {
+      stackRequiredChecks = await loadPrStackRequiredChecks(octokit, {
+        ...context.repo,
+        stableBranch: stack.stableBranch,
+        stableSha: stack.stableSha,
+        branch: stableBaseBranch.data
+      })
+    } catch (error) {
+      core.debug(
+        `PR stack required CI verification failed: ${legacyApiError(error).message}`
+      )
+      return {
+        message:
+          '### ⚠️ Cannot proceed with deployment\n\nThe Action could not read the required CI checks for this pull request stack. Make sure its base-branch rules are readable. Required-workflow rules are not yet supported by this preview.',
+        status: false
+      }
+    }
+  }
+
   if (nonDefaultTargetBranchUsed) {
     setActionOutput('non_default_target_branch_used', 'true')
   }
@@ -256,7 +338,8 @@ export async function prechecks(
   if (
     isNotStableBranchDeploy &&
     nonDefaultTargetBranchUsed &&
-    !nonDefaultDeploysAllowed
+    !nonDefaultDeploysAllowed &&
+    stack === null
   ) {
     return {
       message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`${String(baseRef)}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
@@ -268,7 +351,8 @@ export async function prechecks(
     isNotStableBranchDeploy &&
     nonDefaultTargetBranchUsed &&
     nonDefaultDeploysAllowed &&
-    securityWarningsEnabled
+    securityWarningsEnabled &&
+    stack === null
   ) {
     core.warning(
       `🚨 this pull request is attempting to merge into the \`${String(baseRef)}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`) - this action is potentially dangerous`
@@ -376,7 +460,16 @@ export async function prechecks(
     }
   }
   // Make the GraphQL query
-  const result = prechecksGraphqlResult(await octokit.graphql(query, variables))
+  let result: PrechecksGraphqlResult
+  try {
+    result = prechecksGraphqlResult(await octokit.graphql(query, variables))
+    if (stack !== null) {
+      requireStackPolicyData(result, stack.selectedHeadSha)
+    }
+  } catch (error) {
+    if (stack === null) throw error
+    return stackPrecheckUnavailable(error)
+  }
 
   // Fetch the commit oid which is the SHA1 hash of the commit
   const commit_oid = legacyPrechecksCommitOid(result)
@@ -409,7 +502,9 @@ export async function prechecks(
   const mergeStateStatus = result.repository.pullRequest.mergeStateStatus
 
   // Grab the draft status
-  const isDraft = prData.draft
+  const isDraft =
+    stack?.pullRequests.find(pull => pull.number === context.issue.number)
+      ?.isDraft ?? prData.draft
 
   // log some extra details if the state of the PR is in a 'draft'
   if (legacyTruthy(isDraft) && !allowDraftDeploy) {
@@ -429,7 +524,8 @@ export async function prechecks(
     octokit,
     pullRequestNumber: context.issue.number,
     result,
-    skipCi
+    skipCi,
+    stackRequiredChecks
   })
   const commitStatus = checkEvaluation.commitStatus
   const filterChecksResults =
@@ -457,6 +553,24 @@ export async function prechecks(
 
   // Get admin data
   const userIsAdmin = await isAdmin(context)
+
+  if (stack !== null) {
+    const stackFailure = await checkStackPrerequisites({
+      context,
+      data,
+      octokit,
+      query,
+      stack,
+      allowDraftDeploy,
+      ignoredChecks,
+      isFork,
+      skipCi,
+      skipReviews,
+      stackRequiredChecks,
+      userIsAdmin
+    })
+    if (stackFailure !== null) return stackFailure
+  }
 
   // Make an API call to get the base branch that the pull request is targeting
   const baseBranch =
@@ -575,6 +689,13 @@ export async function prechecks(
   }
 
   if (gateDecision.kind === 'update-branch') {
+    if (stack !== null) {
+      return {
+        message:
+          '### ⚠️ Cannot proceed with deployment\n\nThis pull request stack is out of date. Rebase the stack and rerun its checks before trying again.',
+        status: false
+      }
+    }
     try {
       const result = await octokit.rest.pulls.updateBranch({
         ...context.repo,
@@ -609,8 +730,136 @@ export async function prechecks(
     ref: ref,
     noopMode: noopMode,
     sha: sha,
-    isFork: isFork
+    isFork: isFork,
+    ...(expectNoStack ? {expectNoStack: true} : {}),
+    ...(stack === null ? {} : {stack})
   }
+}
+
+function stackPrecheckUnavailable(error: unknown): PrecheckFailure {
+  core.debug(`PR stack verification failed: ${legacyApiError(error).message}`)
+  return {
+    message:
+      '### ⚠️ Cannot proceed with deployment\n\nThe Action could not verify this pull request stack. Ensure it is a current, linear GitHub stack targeting the configured stable branch, then retry the command.',
+    status: false
+  }
+}
+
+function requireStackPolicyData(
+  result: PrechecksGraphqlResult,
+  expectedSha: string
+): void {
+  const pull = result.repository.pullRequest
+  const reviewDecisions = [
+    null,
+    'APPROVED',
+    'REVIEW_REQUIRED',
+    'CHANGES_REQUESTED'
+  ]
+  const mergeStates = [
+    'BEHIND',
+    'BLOCKED',
+    'CLEAN',
+    'DIRTY',
+    'DRAFT',
+    'HAS_HOOKS',
+    'UNSTABLE'
+  ]
+  if (
+    legacyPrechecksCommitOid(result) !== expectedSha ||
+    !reviewDecisions.some(value => value === pull.reviewDecision) ||
+    !mergeStates.some(value => value === pull.mergeStateStatus)
+  ) {
+    throw new Error('The stack pull request policy data is incomplete or stale')
+  }
+}
+
+interface StackPrecheckRequest extends PrechecksRequest {
+  readonly allowDraftDeploy: boolean
+  readonly ignoredChecks: readonly string[]
+  readonly isFork: boolean
+  readonly query: string
+  readonly skipCi: boolean
+  readonly skipReviews: boolean
+  readonly stack: PrStackSnapshot
+  readonly stackRequiredChecks: readonly PrStackRequiredCheck[] | null
+  readonly userIsAdmin: boolean
+}
+
+async function checkStackPrerequisites({
+  context,
+  data,
+  octokit,
+  query,
+  stack,
+  allowDraftDeploy,
+  ignoredChecks,
+  isFork,
+  skipCi,
+  skipReviews,
+  stackRequiredChecks,
+  userIsAdmin
+}: StackPrecheckRequest): Promise<PrecheckFailure | null> {
+  try {
+    for (const pull of stack.pullRequests) {
+      if (pull.number === context.issue.number) continue
+
+      const result = prechecksGraphqlResult(
+        await octokit.graphql(query, {
+          owner: context.repo.owner,
+          name: context.repo.repo,
+          number: pull.number,
+          headers: {Accept: 'application/vnd.github.merge-info-preview+json'}
+        })
+      )
+      requireStackPolicyData(result, pull.headSha)
+      const check = await evaluateCommitChecks({
+        checks: data.inputs.checks,
+        environment: data.environment,
+        ignoredChecks,
+        octokit,
+        pullRequestNumber: pull.number,
+        result,
+        skipCi,
+        stackRequiredChecks
+      })
+      const gate = evaluatePrecheckGates({
+        allowDraftDeploy,
+        allowShaDeployments: false,
+        commitOid: legacyPrechecksCommitOid(result),
+        commitStatus: check.commitStatus,
+        exactSha: null,
+        forkBypass: false,
+        isDraft: pull.isDraft,
+        isFork,
+        mergeStateStatus: result.repository.pullRequest.mergeStateStatus,
+        missingCheckMessage:
+          check.kind === 'missing' ? check.filterChecksResult.message : '',
+        noopMode: data.environmentObj.noop,
+        outdated: result.repository.pullRequest.mergeStateStatus === 'BEHIND',
+        outdatedBranch: stack.stableBranch,
+        reviewDecision:
+          skipReviews && !isFork
+            ? 'skip_reviews'
+            : result.repository.pullRequest.reviewDecision,
+        sha: pull.headSha,
+        stableBranch: stack.stableBranch,
+        stableBranchUsed: false,
+        updateBranch: 'warn',
+        userIsAdmin
+      })
+      if (gate.kind !== 'proceed') {
+        return {
+          message: `${gate.message}\n\n> PR #${pull.number} in stack #${stack.stackNumber} did not pass deployment checks.`,
+          status: false
+        }
+      }
+      core.info(`✅ stack PR #${pull.number} passed deployment checks`)
+    }
+  } catch (error) {
+    return stackPrecheckUnavailable(error)
+  }
+  return null
 }
 
 interface EvaluateCommitChecksRequest {
@@ -621,6 +870,7 @@ interface EvaluateCommitChecksRequest {
   readonly pullRequestNumber: number
   readonly result: PrechecksGraphqlResult
   readonly skipCi: boolean
+  readonly stackRequiredChecks: readonly PrStackRequiredCheck[] | null
 }
 
 async function evaluateCommitChecks({
@@ -630,7 +880,8 @@ async function evaluateCommitChecks({
   octokit,
   pullRequestNumber,
   result,
-  skipCi
+  skipCi,
+  stackRequiredChecks
 }: EvaluateCommitChecksRequest): Promise<CommitCheckEvaluation> {
   if (skipCi) {
     core.info(
@@ -657,6 +908,13 @@ async function evaluateCommitChecks({
     }
 
     if (statusCheckRollup === null) {
+      const missing = missingRequiredStackChecks({
+        checks,
+        checkResults: [],
+        ignoredChecks,
+        requiredChecks: stackRequiredChecks
+      })
+      if (missing !== null) return missing
       core.info('💡 no CI checks have been defined for this pull request')
       return {commitStatus: null, kind: 'no-checks'}
     }
@@ -671,6 +929,13 @@ async function evaluateCommitChecks({
       commit,
       statusCheckRollup
     )
+    const missing = missingRequiredStackChecks({
+      checks,
+      checkResults,
+      ignoredChecks,
+      requiredChecks: stackRequiredChecks
+    })
+    if (missing !== null) return missing
     const filterChecksResult = filterChecks(
       checks,
       checkResults,
@@ -699,6 +964,55 @@ async function evaluateCommitChecks({
     }
   } catch (error) {
     return {commitStatus: 'UNAVAILABLE', error, kind: 'unavailable'}
+  }
+}
+
+function missingRequiredStackChecks({
+  checks,
+  checkResults,
+  ignoredChecks,
+  requiredChecks
+}: {
+  readonly checks: PrecheckData['inputs']['checks']
+  readonly checkResults: readonly RawCheckResult[]
+  readonly ignoredChecks: readonly string[]
+  readonly requiredChecks: readonly PrStackRequiredCheck[] | null
+}): Extract<CommitCheckEvaluation, {kind: 'missing'}> | null {
+  if (requiredChecks === null || requiredChecks.length === 0) return null
+
+  // isRequired describes reported checks; the branch rules also name checks
+  // that GitHub has not created yet.
+  const latest = latestCheckResults(
+    checkResults,
+    check =>
+      !ignoredChecks.some(ignored => ignored === checkName(check)) &&
+      (checks !== 'required' || check.isRequired)
+  )
+  const missing = requiredChecks.filter(
+    expected =>
+      !ignoredChecks.includes(expected.context) &&
+      !latest.some(
+        check =>
+          check.isRequired &&
+          checkName(check) === expected.context &&
+          (expected.appId === null ||
+            // Legacy commit statuses do not expose an authoritative App ID.
+            (isCheckRun(check) && checkIntegrationId(check) === expected.appId))
+      )
+  )
+  if (missing.length === 0) return null
+
+  const names = missing.map(check =>
+    check.appId === null
+      ? check.context
+      : `${check.context} (GitHub App ${String(check.appId)})`
+  )
+  const message = `Required CI checks have not been reported for this stack: \`${names.join(', ')}\``
+  core.warning(message)
+  return {
+    commitStatus: 'MISSING',
+    filterChecksResult: {message, status: 'MISSING'},
+    kind: 'missing'
   }
 }
 

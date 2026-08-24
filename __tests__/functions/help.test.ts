@@ -77,6 +77,18 @@ test('successfully calls help with defaults', async () => {
   assertDebugIncludes(
     '`disable_lock: false` - This Action will use deployment locks'
   )
+  assertDebugIncludes(
+    '`enable_pr_stacks: false` - Enable deployments from native GitHub pull request stacks rooted at the stable branch'
+  )
+})
+
+test('shows the enabled PR stacks setting in help output', async () => {
+  const inputs = createActionInputs({enable_pr_stacks: true})
+
+  assert.strictEqual(await help(octokit, context, 123, inputs), undefined)
+  assertDebugIncludes(
+    '`enable_pr_stacks: true` - Enable deployments from native GitHub pull request stacks rooted at the stable branch'
+  )
 })
 
 test('explains disabled locking in help output', async () => {

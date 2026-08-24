@@ -35456,6 +35456,7 @@ const ACTION_INPUT_KEYS = (/* unused pure expression or super */ null && ([
     'deployment_order_scope',
     'use_security_warnings',
     'allow_non_default_target_branch_deployments',
+    'enable_pr_stacks',
     'deployment_confirmation',
     'deployment_confirmation_timeout'
 ]));
@@ -35475,6 +35476,7 @@ const BOOLEAN_ACTION_INPUT_KEYS = (/* unused pure expression or super */ null &&
     'skip_successful_deploy_labels_if_approved',
     'use_security_warnings',
     'allow_non_default_target_branch_deployments',
+    'enable_pr_stacks',
     'deployment_confirmation'
 ]));
 const INTEGER_ACTION_INPUT_KEYS = (/* unused pure expression or super */ null && ([
@@ -39296,7 +39298,424 @@ function evaluatePrecheckGates({ allowDraftDeploy, allowShaDeployments, commitOi
     return reject(`### ⚠️ Cannot proceed with deployment\n\n- reviewDecision: \`${String(reviewDecision)}\`\n- commitStatus: \`${String(commitStatus)}\`\n\n> This is usually caused by missing PR approvals or CI checks failing`);
 }
 
+// EXTERNAL MODULE: external "node:util"
+var external_node_util_ = __nccwpck_require__(7975);
+;// CONCATENATED MODULE: ./src/functions/pr-stacks.ts
+
+
+const STACK_QUERY = `query BranchDeployPullRequestStack($owner:String!, $repo:String!, $pullNumber:Int!, $stableRef:String!, $cursor:String) {
+  repository(owner:$owner, name:$repo) {
+    id
+    nameWithOwner
+    ref(qualifiedName:$stableRef) { name target { oid } }
+    pullRequest(number:$pullNumber) {
+      id number baseRefName baseRefOid headRefName headRefOid state isDraft
+      repository { id nameWithOwner }
+      headRepository { id nameWithOwner }
+      stackEntry { position }
+      stack {
+        id number size baseRefName
+        entries(first:100, after:$cursor) {
+          totalCount
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            id position stack { id }
+            pullRequest {
+              id number baseRefName baseRefOid headRefName headRefOid state isDraft
+              repository { id nameWithOwner }
+              headRepository { id nameWithOwner }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+function invalid(reason) {
+    throw new Error(`Cannot verify pull request stack: ${reason}`);
+}
+function isRecord(value) {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+function record(value) {
+    if (!isRecord(value))
+        invalid('incomplete response');
+    return value;
+}
+function isUnknownArray(value) {
+    return Array.isArray(value);
+}
+function array(value) {
+    if (!isUnknownArray(value))
+        invalid('incomplete stack entries');
+    return value;
+}
+function string(value) {
+    if (typeof value !== 'string' || value === '') {
+        invalid('invalid string in response');
+    }
+    return value;
+}
+function integer(value) {
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+        invalid('invalid number in response');
+    }
+    return value;
+}
+function parsePrStackMembership(value) {
+    if (value === null || value === undefined)
+        return null;
+    const membership = record(value);
+    return {
+        number: integer(membership['number']),
+        position: integer(membership['position']),
+        baseRef: string(record(membership['base'])['ref'])
+    };
+}
+function pr_stacks_boolean(value) {
+    if (typeof value !== 'boolean')
+        invalid('invalid boolean in response');
+    return value;
+}
+function sha(value) {
+    const result = string(value);
+    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu.test(result)) {
+        invalid('invalid commit SHA');
+    }
+    return result.toLowerCase();
+}
+function state(value) {
+    if (value !== 'OPEN' && value !== 'CLOSED' && value !== 'MERGED') {
+        invalid('invalid pull request state');
+    }
+    return value;
+}
+function repositoryMatches(value, repositoryId, repository) {
+    const result = record(value);
+    if (string(result['id']) !== repositoryId ||
+        string(result['nameWithOwner']).toLowerCase() !== repository.toLowerCase()) {
+        invalid('stack members must belong to the same repository');
+    }
+}
+function pull(value, position, repositoryId, repository) {
+    const result = record(value);
+    repositoryMatches(result['repository'], repositoryId, repository);
+    repositoryMatches(result['headRepository'], repositoryId, repository);
+    return {
+        id: string(result['id']),
+        number: integer(result['number']),
+        position,
+        baseRef: string(result['baseRefName']),
+        baseSha: sha(result['baseRefOid']),
+        headRef: string(result['headRefName']),
+        headSha: sha(result['headRefOid']),
+        state: state(result['state']),
+        isDraft: pr_stacks_boolean(result['isDraft'])
+    };
+}
+function page(value, request) {
+    const result = record(record(value)['repository']);
+    const repositoryId = string(result['id']);
+    const repository = `${request.owner}/${request.repo}`;
+    repositoryMatches(result, repositoryId, repository);
+    const selected = record(result['pullRequest']);
+    repositoryMatches(selected['repository'], repositoryId, repository);
+    if (integer(selected['number']) !== request.pullNumber ||
+        sha(selected['headRefOid']) !== sha(request.expectedHeadSha)) {
+        invalid('selected pull request changed');
+    }
+    if (selected['stack'] === null && selected['stackEntry'] === null)
+        return null;
+    const stack = record(selected['stack']);
+    const selectedPosition = integer(record(selected['stackEntry'])['position']);
+    const size = integer(stack['size']);
+    const stable = record(result['ref']);
+    if (string(stack['baseRefName']) !== request.stableBranch ||
+        string(stable['name']) !== request.stableBranch) {
+        invalid('stack does not target the configured stable branch');
+    }
+    const identity = {
+        repositoryId,
+        repository,
+        stackId: string(stack['id']),
+        stackNumber: integer(stack['number']),
+        stableBranch: request.stableBranch,
+        stableSha: sha(record(stable['target'])['oid']),
+        selectedPullNumber: request.pullNumber,
+        selectedPosition,
+        selectedHeadSha: sha(request.expectedHeadSha)
+    };
+    const entries = record(stack['entries']);
+    if (selectedPosition > size || integer(entries['totalCount']) !== size) {
+        invalid('incomplete stack membership');
+    }
+    const pageInfo = record(entries['pageInfo']);
+    const endCursor = pageInfo['endCursor'];
+    const nodes = array(entries['nodes']);
+    if (nodes.length > 100)
+        invalid('invalid stack page size');
+    return {
+        identity,
+        selected: pull(selected, selectedPosition, repositoryId, repository),
+        nodes,
+        hasNextPage: pr_stacks_boolean(pageInfo['hasNextPage']),
+        endCursor: endCursor === null ? null : string(endCursor)
+    };
+}
+async function readPage(octokit, request, cursor) {
+    return page(await octokit.graphql(STACK_QUERY, {
+        owner: request.owner,
+        repo: request.repo,
+        pullNumber: request.pullNumber,
+        stableRef: `refs/heads/${request.stableBranch}`,
+        cursor
+    }), request);
+}
+async function verifyAncestor(octokit, request, base, head) {
+    const comparison = await octokit.rest.repos.compareCommits({
+        owner: request.owner,
+        repo: request.repo,
+        base,
+        head,
+        headers: API_HEADERS
+    });
+    const data = record(comparison.data);
+    if (data['status'] !== (base === head ? 'identical' : 'ahead') ||
+        data['behind_by'] !== 0 ||
+        sha(record(data['base_commit'])['sha']) !== base ||
+        sha(record(data['merge_base_commit'])['sha']) !== base) {
+        invalid('stack is not linear; rebase the stack and try again');
+    }
+}
+async function resolvePrStack(octokit, request) {
+    const firstPage = await readPage(octokit, request, null);
+    if (firstPage === null)
+        return null;
+    const members = [];
+    const entryIds = new Set();
+    const pullIds = new Set();
+    const pullNumbers = new Set();
+    const headRefs = new Set([firstPage.identity.stableBranch]);
+    const cursors = new Set();
+    let currentPage = firstPage;
+    while (members.length < firstPage.identity.selectedPosition) {
+        const previousCount = members.length;
+        for (const value of currentPage.nodes) {
+            if (members.length === firstPage.identity.selectedPosition)
+                break;
+            const entry = record(value);
+            const entryId = string(entry['id']);
+            const position = integer(entry['position']);
+            const member = pull(entry['pullRequest'], position, firstPage.identity.repositoryId, firstPage.identity.repository);
+            if (string(record(entry['stack'])['id']) !== firstPage.identity.stackId ||
+                position !== members.length + 1 ||
+                entryIds.has(entryId) ||
+                pullIds.has(member.id) ||
+                pullNumbers.has(member.number) ||
+                headRefs.has(member.headRef)) {
+                invalid('invalid or duplicate stack membership');
+            }
+            entryIds.add(entryId);
+            pullIds.add(member.id);
+            pullNumbers.add(member.number);
+            headRefs.add(member.headRef);
+            members.push(member);
+        }
+        if (members.length === firstPage.identity.selectedPosition)
+            break;
+        if (members.length === previousCount ||
+            !currentPage.hasNextPage ||
+            currentPage.endCursor === null ||
+            cursors.has(currentPage.endCursor)) {
+            invalid('incomplete stack membership');
+        }
+        cursors.add(currentPage.endCursor);
+        const nextPage = await readPage(octokit, request, currentPage.endCursor);
+        if (nextPage === null ||
+            !(0,external_node_util_.isDeepStrictEqual)(nextPage.identity, firstPage.identity) ||
+            !(0,external_node_util_.isDeepStrictEqual)(nextPage.selected, firstPage.selected)) {
+            invalid('stack changed while it was being read');
+        }
+        currentPage = nextPage;
+    }
+    if (!(0,external_node_util_.isDeepStrictEqual)(members.at(-1), firstPage.selected)) {
+        invalid('selected pull request does not match its stack entry');
+    }
+    const pullRequests = [];
+    let baseRef = firstPage.identity.stableBranch;
+    let baseSha = firstPage.identity.stableSha;
+    for (const member of members) {
+        if (member.state === 'MERGED' && pullRequests.length === 0)
+            continue;
+        if (member.state !== 'OPEN') {
+            invalid('stack contains a closed or unexpectedly merged pull request');
+        }
+        if (member.baseRef !== baseRef || member.baseSha !== baseSha) {
+            invalid('stack is not linear; rebase the stack and try again');
+        }
+        await verifyAncestor(octokit, request, baseSha, member.headSha);
+        pullRequests.push(member);
+        baseRef = member.headRef;
+        baseSha = member.headSha;
+    }
+    if (pullRequests.at(-1)?.number !== request.pullNumber) {
+        invalid('selected pull request is not open');
+    }
+    return {
+        ...firstPage.identity,
+        pullRequests
+    };
+}
+async function prStackSnapshotMatches(octokit, snapshot) {
+    const separator = snapshot.repository.indexOf('/');
+    const current = await resolvePrStack(octokit, {
+        owner: snapshot.repository.slice(0, separator),
+        repo: snapshot.repository.slice(separator + 1),
+        pullNumber: snapshot.selectedPullNumber,
+        expectedHeadSha: snapshot.selectedHeadSha,
+        stableBranch: snapshot.stableBranch
+    });
+    return current !== null && (0,external_node_util_.isDeepStrictEqual)(snapshot, current);
+}
+
+;// CONCATENATED MODULE: ./src/functions/pr-stack-checks.ts
+
+
+function pr_stack_checks_invalid(reason) {
+    throw new Error(`Cannot verify pull request stack required checks: ${reason}`);
+}
+function pr_stack_checks_isRecord(value) {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+function pr_stack_checks_record(value) {
+    if (!pr_stack_checks_isRecord(value))
+        pr_stack_checks_invalid('incomplete policy response');
+    return value;
+}
+function pr_stack_checks_isUnknownArray(value) {
+    return Array.isArray(value);
+}
+function pr_stack_checks_array(value) {
+    if (!pr_stack_checks_isUnknownArray(value))
+        pr_stack_checks_invalid('incomplete required-check inventory');
+    return value;
+}
+function pr_stack_checks_string(value) {
+    if (typeof value !== 'string' || value === '') {
+        pr_stack_checks_invalid('invalid string in policy response');
+    }
+    return value;
+}
+function pr_stack_checks_boolean(value) {
+    if (typeof value !== 'boolean')
+        pr_stack_checks_invalid('invalid classic protection state');
+    return value;
+}
+function pr_stack_checks_sha(value) {
+    const result = pr_stack_checks_string(value);
+    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu.test(result)) {
+        pr_stack_checks_invalid('invalid stable commit SHA');
+    }
+    return result.toLowerCase();
+}
+function appId(value) {
+    if (value === null || value === -1)
+        return null;
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+        pr_stack_checks_invalid('invalid required-check app ID');
+    }
+    return value;
+}
+function requiredCheck(value, appKey) {
+    const result = pr_stack_checks_record(value);
+    const id = result[appKey];
+    return {
+        context: pr_stack_checks_string(result['context']),
+        appId: appKey === 'integration_id' && id === undefined ? null : appId(id)
+    };
+}
+function classicChecks(request) {
+    const branch = pr_stack_checks_record(request.branch);
+    if (pr_stack_checks_string(branch['name']) !== request.stableBranch ||
+        pr_stack_checks_sha(pr_stack_checks_record(branch['commit'])['sha']) !== pr_stack_checks_sha(request.stableSha)) {
+        pr_stack_checks_invalid('stable branch changed');
+    }
+    const protection = pr_stack_checks_record(branch['protection']);
+    const enabled = pr_stack_checks_boolean(protection['enabled']);
+    const policy = pr_stack_checks_record(protection['required_status_checks']);
+    const enforcement = policy['enforcement_level'];
+    if (enforcement !== 'off' &&
+        enforcement !== 'non_admins' &&
+        enforcement !== 'everyone') {
+        pr_stack_checks_invalid('invalid classic check enforcement');
+    }
+    const contexts = pr_stack_checks_array(policy['contexts']).map(pr_stack_checks_string);
+    const checks = pr_stack_checks_array(policy['checks']).map(value => requiredCheck(value, 'app_id'));
+    if (!enabled && enforcement !== 'off') {
+        pr_stack_checks_invalid('inconsistent classic protection state');
+    }
+    if (enforcement === 'off')
+        return [];
+    const detailedContexts = new Set(checks.map(check => check.context));
+    for (const context of contexts) {
+        if (!detailedContexts.has(context))
+            checks.push({ context, appId: null });
+    }
+    return checks;
+}
+function rulesetChecks(value) {
+    const rule = pr_stack_checks_record(value);
+    const type = pr_stack_checks_string(rule['type']);
+    if (type === 'workflows') {
+        pr_stack_checks_invalid('required workflows are not supported by this preview');
+    }
+    if (type !== 'required_status_checks')
+        return [];
+    const parameters = pr_stack_checks_record(rule['parameters']);
+    return pr_stack_checks_array(parameters['required_status_checks']).map(value => requiredCheck(value, 'integration_id'));
+}
+function compareChecks(left, right) {
+    if (left.context !== right.context) {
+        return left.context < right.context ? -1 : 1;
+    }
+    return (left.appId ?? 0) - (right.appId ?? 0);
+}
+async function loadPrStackRequiredChecks(octokit, request) {
+    const checks = [...classicChecks(request)];
+    const previousPages = [];
+    let page = 1;
+    while (true) {
+        const response = await octokit.rest.repos.getBranchRules({
+            owner: request.owner,
+            repo: request.repo,
+            branch: request.stableBranch,
+            per_page: 100,
+            page,
+            headers: API_HEADERS
+        });
+        const rules = pr_stack_checks_array(response.data);
+        if (rules.length > 100)
+            pr_stack_checks_invalid('invalid ruleset page size');
+        if (previousPages.some(previous => (0,external_node_util_.isDeepStrictEqual)(previous, rules))) {
+            pr_stack_checks_invalid('ruleset pagination did not advance');
+        }
+        for (const rule of rules)
+            checks.push(...rulesetChecks(rule));
+        if (rules.length < 100)
+            break;
+        previousPages.push(rules);
+        page += 1;
+    }
+    const unique = new Map();
+    for (const check of checks) {
+        unique.set(`${String(check.appId)}:${check.context}`, check);
+    }
+    return [...unique.values()].sort(compareChecks);
+}
+
 ;// CONCATENATED MODULE: ./src/functions/prechecks.ts
+
+
 
 
 
@@ -39373,13 +39792,75 @@ async function prechecks(context, octokit, data) {
     const isNotStableBranchDeploy = !data.environmentObj.stable_branch_used;
     const nonDefaultDeploysAllowed = data.inputs.allow_non_default_target_branch_deployments;
     const securityWarningsEnabled = data.inputs.use_security_warnings;
+    let stack = null;
+    let stackRequiredChecks = null;
+    let expectNoStack = false;
+    if (data.inputs.enable_pr_stacks &&
+        isNotStableBranchDeploy &&
+        data.environmentObj.sha === null) {
+        try {
+            // Ordinary PRs must not depend on the preview stack APIs.
+            const membership = parsePrStackMembership(prData.stack);
+            if (membership !== null) {
+                stack = await resolvePrStack(octokit, {
+                    ...context.repo,
+                    pullNumber: context.issue.number,
+                    expectedHeadSha: sha,
+                    stableBranch: data.inputs.stable_branch
+                });
+                if (stack === null ||
+                    stack.stackNumber !== membership.number ||
+                    stack.selectedPosition !== membership.position ||
+                    stack.stableBranch !== membership.baseRef ||
+                    stack.stableSha !== stableBaseBranch.data.commit.sha ||
+                    stack.pullRequests.at(-1)?.headRef !== ref ||
+                    stack.pullRequests.at(-1)?.baseRef !== baseRef) {
+                    throw new Error('The stack changed during prechecks');
+                }
+            }
+            else {
+                // A fork repository can contain same-repository PRs. Only a known
+                // cross-repository fork can skip the ordinary membership recheck.
+                const headRepository = prData.head.repo?.full_name;
+                expectNoStack =
+                    !isFork ||
+                        typeof headRepository !== 'string' ||
+                        !/^[^/\s]+\/[^/\s]+$/u.test(headRepository) ||
+                        headRepository.toLowerCase() ===
+                            `${context.repo.owner}/${context.repo.repo}`.toLowerCase();
+            }
+        }
+        catch (error) {
+            return stackPrecheckUnavailable(error);
+        }
+    }
+    if (stack !== null &&
+        !skipCi &&
+        (typeof checks === 'string' || checks.length === 0)) {
+        try {
+            stackRequiredChecks = await loadPrStackRequiredChecks(octokit, {
+                ...context.repo,
+                stableBranch: stack.stableBranch,
+                stableSha: stack.stableSha,
+                branch: stableBaseBranch.data
+            });
+        }
+        catch (error) {
+            debug(`PR stack required CI verification failed: ${legacyApiError(error).message}`);
+            return {
+                message: '### ⚠️ Cannot proceed with deployment\n\nThe Action could not read the required CI checks for this pull request stack. Make sure its base-branch rules are readable. Required-workflow rules are not yet supported by this preview.',
+                status: false
+            };
+        }
+    }
     if (nonDefaultTargetBranchUsed) {
         setActionOutput('non_default_target_branch_used', 'true');
     }
     // If the PR is targeting a branch other than the default branch (and it is not a stable branch deploy) reject the deployment, unless the Action is explicitly configured to allow it
     if (isNotStableBranchDeploy &&
         nonDefaultTargetBranchUsed &&
-        !nonDefaultDeploysAllowed) {
+        !nonDefaultDeploysAllowed &&
+        stack === null) {
         return {
             message: `### ⚠️ Cannot proceed with deployment\n\nThis pull request is attempting to merge into the \`${String(baseRef)}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`). This deployment has been rejected since it could be dangerous to proceed.`,
             status: false
@@ -39388,7 +39869,8 @@ async function prechecks(context, octokit, data) {
     if (isNotStableBranchDeploy &&
         nonDefaultTargetBranchUsed &&
         nonDefaultDeploysAllowed &&
-        securityWarningsEnabled) {
+        securityWarningsEnabled &&
+        stack === null) {
         warning(`🚨 this pull request is attempting to merge into the \`${String(baseRef)}\` branch which is not the default branch of this repository (\`${data.inputs.stable_branch}\`) - this action is potentially dangerous`);
     }
     // Determine whether to use the ref or sha depending on if the PR is from a fork or not
@@ -39487,7 +39969,18 @@ async function prechecks(context, octokit, data) {
         }
     };
     // Make the GraphQL query
-    const result = prechecksGraphqlResult(await octokit.graphql(query, variables));
+    let result;
+    try {
+        result = prechecksGraphqlResult(await octokit.graphql(query, variables));
+        if (stack !== null) {
+            requireStackPolicyData(result, stack.selectedHeadSha);
+        }
+    }
+    catch (error) {
+        if (stack === null)
+            throw error;
+        return stackPrecheckUnavailable(error);
+    }
     // Fetch the commit oid which is the SHA1 hash of the commit
     const commit_oid = legacyPrechecksCommitOid(result);
     // Check the reviewDecision
@@ -39511,7 +40004,8 @@ async function prechecks(context, octokit, data) {
     // Grab the mergeStateStatus from the GraphQL result
     const mergeStateStatus = result.repository.pullRequest.mergeStateStatus;
     // Grab the draft status
-    const isDraft = prData.draft;
+    const isDraft = stack?.pullRequests.find(pull => pull.number === context.issue.number)
+        ?.isDraft ?? prData.draft;
     // log some extra details if the state of the PR is in a 'draft'
     if (legacyTruthy(isDraft) && !allowDraftDeploy) {
         warning(`deployment requested on a draft PR from a non-allowed environment`);
@@ -39526,7 +40020,8 @@ async function prechecks(context, octokit, data) {
         octokit,
         pullRequestNumber: context.issue.number,
         result,
-        skipCi
+        skipCi,
+        stackRequiredChecks
     });
     const commitStatus = checkEvaluation.commitStatus;
     const filterChecksResults = 'filterChecksResult' in checkEvaluation
@@ -39546,6 +40041,24 @@ async function prechecks(context, octokit, data) {
     }
     // Get admin data
     const userIsAdmin = await isAdmin(context);
+    if (stack !== null) {
+        const stackFailure = await checkStackPrerequisites({
+            context,
+            data,
+            octokit,
+            query,
+            stack,
+            allowDraftDeploy,
+            ignoredChecks,
+            isFork,
+            skipCi,
+            skipReviews,
+            stackRequiredChecks,
+            userIsAdmin
+        });
+        if (stackFailure !== null)
+            return stackFailure;
+    }
     // Make an API call to get the base branch that the pull request is targeting
     const baseBranch = prData.base.ref === data.inputs.stable_branch
         ? stableBaseBranch
@@ -39651,6 +40164,12 @@ async function prechecks(context, octokit, data) {
         return { message: gateDecision.message, status: false };
     }
     if (gateDecision.kind === 'update-branch') {
+        if (stack !== null) {
+            return {
+                message: '### ⚠️ Cannot proceed with deployment\n\nThis pull request stack is out of date. Rebase the stack and rerun its checks before trying again.',
+                status: false
+            };
+        }
         try {
             const result = await octokit.rest.pulls.updateBranch({
                 ...context.repo,
@@ -39681,10 +40200,101 @@ async function prechecks(context, octokit, data) {
         ref: ref,
         noopMode: noopMode,
         sha: sha,
-        isFork: isFork
+        isFork: isFork,
+        ...(expectNoStack ? { expectNoStack: true } : {}),
+        ...(stack === null ? {} : { stack })
     };
 }
-async function evaluateCommitChecks({ checks, environment, ignoredChecks, octokit, pullRequestNumber, result, skipCi }) {
+function stackPrecheckUnavailable(error) {
+    debug(`PR stack verification failed: ${legacyApiError(error).message}`);
+    return {
+        message: '### ⚠️ Cannot proceed with deployment\n\nThe Action could not verify this pull request stack. Ensure it is a current, linear GitHub stack targeting the configured stable branch, then retry the command.',
+        status: false
+    };
+}
+function requireStackPolicyData(result, expectedSha) {
+    const pull = result.repository.pullRequest;
+    const reviewDecisions = [
+        null,
+        'APPROVED',
+        'REVIEW_REQUIRED',
+        'CHANGES_REQUESTED'
+    ];
+    const mergeStates = [
+        'BEHIND',
+        'BLOCKED',
+        'CLEAN',
+        'DIRTY',
+        'DRAFT',
+        'HAS_HOOKS',
+        'UNSTABLE'
+    ];
+    if (legacyPrechecksCommitOid(result) !== expectedSha ||
+        !reviewDecisions.some(value => value === pull.reviewDecision) ||
+        !mergeStates.some(value => value === pull.mergeStateStatus)) {
+        throw new Error('The stack pull request policy data is incomplete or stale');
+    }
+}
+async function checkStackPrerequisites({ context, data, octokit, query, stack, allowDraftDeploy, ignoredChecks, isFork, skipCi, skipReviews, stackRequiredChecks, userIsAdmin }) {
+    try {
+        for (const pull of stack.pullRequests) {
+            if (pull.number === context.issue.number)
+                continue;
+            const result = prechecksGraphqlResult(await octokit.graphql(query, {
+                owner: context.repo.owner,
+                name: context.repo.repo,
+                number: pull.number,
+                headers: { Accept: 'application/vnd.github.merge-info-preview+json' }
+            }));
+            requireStackPolicyData(result, pull.headSha);
+            const check = await evaluateCommitChecks({
+                checks: data.inputs.checks,
+                environment: data.environment,
+                ignoredChecks,
+                octokit,
+                pullRequestNumber: pull.number,
+                result,
+                skipCi,
+                stackRequiredChecks
+            });
+            const gate = evaluatePrecheckGates({
+                allowDraftDeploy,
+                allowShaDeployments: false,
+                commitOid: legacyPrechecksCommitOid(result),
+                commitStatus: check.commitStatus,
+                exactSha: null,
+                forkBypass: false,
+                isDraft: pull.isDraft,
+                isFork,
+                mergeStateStatus: result.repository.pullRequest.mergeStateStatus,
+                missingCheckMessage: check.kind === 'missing' ? check.filterChecksResult.message : '',
+                noopMode: data.environmentObj.noop,
+                outdated: result.repository.pullRequest.mergeStateStatus === 'BEHIND',
+                outdatedBranch: stack.stableBranch,
+                reviewDecision: skipReviews && !isFork
+                    ? 'skip_reviews'
+                    : result.repository.pullRequest.reviewDecision,
+                sha: pull.headSha,
+                stableBranch: stack.stableBranch,
+                stableBranchUsed: false,
+                updateBranch: 'warn',
+                userIsAdmin
+            });
+            if (gate.kind !== 'proceed') {
+                return {
+                    message: `${gate.message}\n\n> PR #${pull.number} in stack #${stack.stackNumber} did not pass deployment checks.`,
+                    status: false
+                };
+            }
+            info(`✅ stack PR #${pull.number} passed deployment checks`);
+        }
+    }
+    catch (error) {
+        return stackPrecheckUnavailable(error);
+    }
+    return null;
+}
+async function evaluateCommitChecks({ checks, environment, ignoredChecks, octokit, pullRequestNumber, result, skipCi, stackRequiredChecks }) {
     if (skipCi) {
         info(`⏩ CI checks have been ${COLORS.highlight}disabled${COLORS.reset} for the ${COLORS.highlight}${environment}${COLORS.reset} environment`);
         return { commitStatus: 'skip_ci', kind: 'skipped' };
@@ -39705,6 +40315,14 @@ async function evaluateCommitChecks({ checks, environment, ignoredChecks, octoki
             };
         }
         if (statusCheckRollup === null) {
+            const missing = missingRequiredStackChecks({
+                checks,
+                checkResults: [],
+                ignoredChecks,
+                requiredChecks: stackRequiredChecks
+            });
+            if (missing !== null)
+                return missing;
             info('💡 no CI checks have been defined for this pull request');
             return { commitStatus: null, kind: 'no-checks' };
         }
@@ -39712,6 +40330,14 @@ async function evaluateCommitChecks({ checks, environment, ignoredChecks, octoki
             throw new Error('The GraphQL response did not include a check rollup');
         }
         const checkResults = await loadAllCheckResults(octokit, pullRequestNumber, commit, statusCheckRollup);
+        const missing = missingRequiredStackChecks({
+            checks,
+            checkResults,
+            ignoredChecks,
+            requiredChecks: stackRequiredChecks
+        });
+        if (missing !== null)
+            return missing;
         const filterChecksResult = filterChecks(checks, checkResults, ignoredChecks, checks === 'required');
         if (filterChecksResult.status === 'SUCCESS') {
             return {
@@ -39736,6 +40362,32 @@ async function evaluateCommitChecks({ checks, environment, ignoredChecks, octoki
     catch (error) {
         return { commitStatus: 'UNAVAILABLE', error, kind: 'unavailable' };
     }
+}
+function missingRequiredStackChecks({ checks, checkResults, ignoredChecks, requiredChecks }) {
+    if (requiredChecks === null || requiredChecks.length === 0)
+        return null;
+    // isRequired describes reported checks; the branch rules also name checks
+    // that GitHub has not created yet.
+    const latest = latestCheckResults(checkResults, check => !ignoredChecks.some(ignored => ignored === checkName(check)) &&
+        (checks !== 'required' || check.isRequired));
+    const missing = requiredChecks.filter(expected => !ignoredChecks.includes(expected.context) &&
+        !latest.some(check => check.isRequired &&
+            checkName(check) === expected.context &&
+            (expected.appId === null ||
+                // Legacy commit statuses do not expose an authoritative App ID.
+                (isCheckRun(check) && checkIntegrationId(check) === expected.appId))));
+    if (missing.length === 0)
+        return null;
+    const names = missing.map(check => check.appId === null
+        ? check.context
+        : `${check.context} (GitHub App ${String(check.appId)})`);
+    const message = `Required CI checks have not been reported for this stack: \`${names.join(', ')}\``;
+    warning(message);
+    return {
+        commitStatus: 'MISSING',
+        filterChecksResult: { message, status: 'MISSING' },
+        kind: 'missing'
+    };
 }
 async function loadAllCheckResults(octokit, pullRequestNumber, commit, statusCheckRollup) {
     const checkResults = [...statusCheckRollup.contexts.nodes];
@@ -40040,7 +40692,10 @@ function checkStatus(check) {
 ;// CONCATENATED MODULE: ./src/functions/selected-ref-check.ts
 
 async function selectedRefMatches(octokit, context, request) {
-    if (request.exactSha || (request.isFork && !request.stableBranchUsed)) {
+    if (request.exactSha ||
+        (request.isFork &&
+            !request.stableBranchUsed &&
+            request.expectNoStack !== true)) {
         return true;
     }
     if (request.stableBranchUsed) {
@@ -40056,7 +40711,13 @@ async function selectedRefMatches(octokit, context, request) {
         pull_number: context.issue.number,
         headers: API_HEADERS
     });
-    return pull.data.head.sha === request.expectedSha;
+    if (request.expectNoStack === true &&
+        pull.data.stack !== null &&
+        pull.data.stack !== undefined) {
+        return false;
+    }
+    // Fork deployments keep their checked SHA even if the head branch moves.
+    return request.isFork || pull.data.head.sha === request.expectedSha;
 }
 
 ;// CONCATENATED MODULE: ./src/functions/unlock-if-unchanged.ts
@@ -40173,6 +40834,7 @@ async function validDeploymentOrder({ context, enforcedDeploymentOrder, environm
 }
 
 ;// CONCATENATED MODULE: ./src/functions/deployment-operation.ts
+
 
 
 
@@ -40432,19 +41094,32 @@ async function acquireDeploymentLock(request, ready) {
 }
 async function changedRefOutcome(request, ready, lease, deploymentType) {
     const { context, inputs, octokit, reactionId } = request;
-    const unchanged = await selectedRefMatches(octokit, context, {
-        exactSha: ready.environmentResult.environmentObj.sha !== null,
-        expectedSha: ready.precheck.sha,
-        isFork: ready.precheck.isFork,
-        stableBranch: inputs.stable_branch,
-        stableBranchUsed: ready.environmentResult.environmentObj.stable_branch_used
-    });
+    let unchanged;
+    if (ready.precheck.stack === undefined) {
+        unchanged = await selectedRefMatches(octokit, context, {
+            exactSha: ready.environmentResult.environmentObj.sha !== null,
+            ...(ready.precheck.expectNoStack === true ? { expectNoStack: true } : {}),
+            expectedSha: ready.precheck.sha,
+            isFork: ready.precheck.isFork,
+            stableBranch: inputs.stable_branch,
+            stableBranchUsed: ready.environmentResult.environmentObj.stable_branch_used
+        });
+    }
+    else {
+        try {
+            unchanged = await prStackSnapshotMatches(octokit, ready.precheck.stack);
+        }
+        catch (error) {
+            debug(`PR stack recheck failed: ${legacyApiError(error).message}`);
+            unchanged = false;
+        }
+    }
     if (unchanged)
         return null;
     const message = dedent(`
     ### Deployment Ref Changed
 
-    The selected branch moved after deployment checks completed. Run the command again so the new commit can be reviewed and checked.
+    ${ready.precheck.stack === undefined ? 'The selected branch moved' : 'The pull request stack changed or could not be verified'} after deployment checks completed. Run the command again so the new commit can be reviewed and checked.
   `);
     saveActionState('bypass', 'true');
     await lease.cleanup('after the selected ref changed');
@@ -40591,11 +41266,12 @@ async function createDeployment(request, ready, lease, deploymentType, deploymen
         : inputs.required_contexts.split(',').map(item => item.trim());
     const production = inputs.production_environments.includes(environment);
     debug(`production_environment: ${production}`);
-    const autoMerge = environmentResult.environmentObj.sha === null &&
+    const autoMerge = precheck.stack === undefined &&
+        environmentResult.environmentObj.sha === null &&
         inputs.update_branch !== 'disabled';
     const response = await octokit.rest.repos.createDeployment({
         ...context.repo,
-        ref: precheck.ref,
+        ref: precheck.stack === undefined ? precheck.ref : precheck.sha,
         auto_merge: autoMerge,
         required_contexts: requiredContexts,
         environment,
@@ -41404,6 +42080,7 @@ async function help(octokit, context, reactionId, inputs) {
   - \`permissions: ${inputs.permissions.join(',')}\` - The acceptable permissions that this Action will require to run
   - \`allow_sha_deployments: ${inputs.allow_sha_deployments}\` - ${sha_deployment_message}
   - \`allow_non_default_target_branch_deployments: ${inputs.allow_non_default_target_branch_deployments}\` - This Action will ${inputs.allow_non_default_target_branch_deployments ? 'allow' : 'not allow'} the deployments of pull requests that target a branch other than the default branch (aka stable branch)
+  - \`enable_pr_stacks: ${inputs.enable_pr_stacks}\` - Enable deployments from native GitHub pull request stacks rooted at the stable branch
 
   ---
 
@@ -41595,6 +42272,7 @@ function getInputs() {
     const ignored_checks = stringToArray(getActionInput('ignored_checks'));
     const use_security_warnings = getBooleanActionInput('use_security_warnings');
     const allow_non_default_target_branch_deployments = getBooleanActionInput('allow_non_default_target_branch_deployments');
+    const enable_pr_stacks = getBooleanActionInput('enable_pr_stacks');
     const deployment_confirmation = getBooleanActionInput('deployment_confirmation');
     const deployment_confirmation_timeout = getIntInput('deployment_confirmation_timeout');
     // validate inputs
@@ -41648,7 +42326,8 @@ function getInputs() {
         deployment_confirmation: deployment_confirmation,
         deployment_confirmation_timeout: deployment_confirmation_timeout,
         use_security_warnings: use_security_warnings,
-        allow_non_default_target_branch_deployments: allow_non_default_target_branch_deployments
+        allow_non_default_target_branch_deployments: allow_non_default_target_branch_deployments,
+        enable_pr_stacks: enable_pr_stacks
     };
 }
 

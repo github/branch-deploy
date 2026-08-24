@@ -520,6 +520,16 @@ inputs:
     default:
       type: string
       required: false
+  enable_pr_stacks:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: false
   deployment_confirmation:
     description:
       type: string

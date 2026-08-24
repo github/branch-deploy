@@ -3,6 +3,7 @@ import {afterEach, beforeEach, mock, test, type Mock} from 'node:test'
 import {isDeepStrictEqual} from 'node:util'
 import {COLORS} from '../src/functions/colors.ts'
 import type {BranchDeployOctokit, OperationResultV1} from '../src/types.ts'
+import type {PrStackSnapshot} from '../src/functions/pr-stacks.ts'
 import {decodedJsonValue} from '../src/trust-boundaries.ts'
 import {unsafeInvalidValue} from './unsafe-fixtures.ts'
 import {
@@ -31,6 +32,7 @@ type LockModule = typeof import('../src/functions/lock.ts')
 type NakedCommandCheckModule =
   typeof import('../src/functions/naked-command-check.ts')
 type PrechecksModule = typeof import('../src/functions/prechecks.ts')
+type PrStacksModule = typeof import('../src/functions/pr-stacks.ts')
 type ReactEmoteModule = typeof import('../src/functions/react-emote.ts')
 type TimestampModule = typeof import('../src/functions/timestamp.ts')
 type UnlockModule = typeof import('../src/functions/unlock.ts')
@@ -75,6 +77,8 @@ const lockMock = createMock<LockModule['lock']>()
 const nakedCommandCheckMock =
   createMock<NakedCommandCheckModule['nakedCommandCheck']>()
 const prechecksMock = createMock<PrechecksModule['prechecks']>()
+const prStackSnapshotMatchesMock =
+  createMock<PrStacksModule['prStackSnapshotMatches']>()
 const reactEmoteMock = createMock<ReactEmoteModule['reactEmote']>()
 const timestampMock = createMock<TimestampModule['timestamp']>()
 const unlockMock = createMock<UnlockModule['unlock']>()
@@ -156,6 +160,11 @@ installModuleMock(
 )
 installModuleMock(
   mock,
+  new URL('../src/functions/pr-stacks.ts', import.meta.url),
+  {prStackSnapshotMatches: prStackSnapshotMatchesMock}
+)
+installModuleMock(
+  mock,
   new URL('../src/functions/react-emote.ts', import.meta.url),
   {reactEmote: reactEmoteMock}
 )
@@ -202,10 +211,46 @@ const permissionsMsg =
   '👋 __monalisa__, seems as if you have not admin/write permissions in this repo, permissions: read'
 
 const mock_sha = 'abc123'
+const stackSnapshot: PrStackSnapshot = {
+  repositoryId: 'R_test',
+  repository: 'corp/test',
+  stackId: 'STACK_test',
+  stackNumber: 7,
+  stableBranch: 'main',
+  stableSha: 'a'.repeat(40),
+  selectedPullNumber: 123,
+  selectedPosition: 2,
+  selectedHeadSha: 'c'.repeat(40),
+  pullRequests: [
+    {
+      id: 'PR_lower',
+      number: 122,
+      position: 1,
+      baseRef: 'main',
+      baseSha: 'a'.repeat(40),
+      headRef: 'lower',
+      headSha: 'b'.repeat(40),
+      state: 'OPEN',
+      isDraft: false
+    },
+    {
+      id: 'PR_selected',
+      number: 123,
+      position: 2,
+      baseRef: 'lower',
+      baseSha: 'b'.repeat(40),
+      headRef: 'test-ref',
+      headSha: 'c'.repeat(40),
+      state: 'OPEN',
+      isDraft: false
+    }
+  ]
+}
 let selectedSha = mock_sha
 let liveRefSha: string | null = null
 let lateLiveRefSha: string | null = null
 let pullRefReads = 0
+let stackOnRefRead: number | null = null
 let createdDeploymentSha: string | null = null
 let deploymentStatusError: Error | null = null
 let commentError: Error | null = null
@@ -264,6 +309,7 @@ const environmentDefaults = {
   INPUT_IGNORED_CHECKS: '',
   INPUT_USE_SECURITY_WARNINGS: 'true',
   INPUT_ALLOW_NON_DEFAULT_TARGET_BRANCH_DEPLOYMENTS: 'false',
+  INPUT_ENABLE_PR_STACKS: 'false',
   INPUT_DEPLOYMENT_CONFIRMATION: 'false',
   INPUT_DEPLOYMENT_CONFIRMATION_TIMEOUT: '60'
 } as const
@@ -307,6 +353,19 @@ function setPrechecksResult(
 ): void {
   if (result.status) selectedSha = result.sha
   prechecksMock.mock.mockImplementation(() => Promise.resolve(result))
+}
+
+function setStackPrechecksResult(noopMode = false): void {
+  setEnv('INPUT_ENABLE_PR_STACKS', 'true')
+  setPrechecksResult({
+    ref: 'test-ref',
+    status: true,
+    message: 'Stack checks passed',
+    noopMode,
+    sha: stackSnapshot.selectedHeadSha,
+    isFork: false,
+    stack: stackSnapshot
+  })
 }
 
 function setValidPermissionsResult(
@@ -380,6 +439,7 @@ beforeEach(() => {
   liveRefSha = null
   lateLiveRefSha = null
   pullRefReads = 0
+  stackOnRefRead = null
   createdDeploymentSha = null
   deploymentStatusError = null
   commentError = null
@@ -408,6 +468,7 @@ beforeEach(() => {
     lockMock,
     nakedCommandCheckMock,
     prechecksMock,
+    prStackSnapshotMatchesMock,
     reactEmoteMock,
     timestampMock,
     unlockMock,
@@ -475,7 +536,10 @@ beforeEach(() => {
             pullRefReads > 1 && lateLiveRefSha !== null
               ? lateLiveRefSha
               : (liveRefSha ?? selectedSha)
-        }
+        },
+        ...(stackOnRefRead !== null && pullRefReads >= stackOnRefRead
+          ? {stack: {id: 7}}
+          : {})
       }
     } else if (options.url.endsWith('/branches/{branch}')) {
       data = {commit: {sha: liveRefSha ?? selectedSha}}
@@ -513,8 +577,14 @@ beforeEach(() => {
       message: '✔️ PR is approved and all CI checks passed - OK',
       noopMode: false,
       sha: mock_sha,
-      isFork: false
+      isFork: false,
+      ...(process.env['INPUT_ENABLE_PR_STACKS'] === 'true'
+        ? {expectNoStack: true}
+        : {})
     })
+  )
+  prStackSnapshotMatchesMock.mock.mockImplementation(() =>
+    Promise.resolve(true)
   )
   branchRulesetChecksMock.mock.mockImplementation(() =>
     Promise.resolve({success: true})
@@ -543,6 +613,7 @@ afterEach(() => {
 
 test('successfully runs the action', async () => {
   assert.strictEqual(await run(), 'success')
+  assertNotCalled(prStackSnapshotMatchesMock)
   assertOperationResult({
     decision: 'continue',
     reason_code: 'deployment_ready',
@@ -581,6 +652,248 @@ test('successfully runs the action', async () => {
     `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
   )
 })
+
+for (const phase of [
+  'after confirmation',
+  'after the started comment'
+] as const) {
+  for (const enabled of [false, true]) {
+    test(`rechecks newly added stack membership ${phase} with stacks ${String(enabled)}`, async () => {
+      setEnv('INPUT_ENABLE_PR_STACKS', String(enabled))
+      stackOnRefRead = phase === 'after confirmation' ? 1 : 2
+
+      assert.strictEqual(await run(), enabled ? 'failure' : 'success')
+      assertOperationResult({
+        decision: enabled ? 'failure' : 'continue',
+        reason_code: enabled ? 'ref_changed' : 'deployment_ready',
+        operation: 'deploy',
+        deployment_type: 'branch',
+        environment: 'production',
+        ref: 'test-ref',
+        sha: mock_sha,
+        ...(enabled ? {} : {deployment_id: 123})
+      })
+      assert.strictEqual(pullRefReads, enabled ? stackOnRefRead : 2)
+      assertNotCalled(prStackSnapshotMatchesMock)
+      if (enabled) {
+        assertCalledTimes(unlockIfUnchangedMock, 1)
+        assertNotCalled(createDeploymentMock)
+        assertCalledWith(saveStateMock, 'bypass', 'true')
+        assertCalledWith(
+          setFailedMock,
+          'the selected deployment ref changed after prechecks'
+        )
+      } else {
+        assertNotCalled(unlockIfUnchangedMock)
+        const request = createDeploymentMock.mock.calls.at(-1)?.arguments[0]
+        assert.ok(request !== undefined)
+        assert.partialDeepStrictEqual(request, {
+          ref: 'test-ref',
+          auto_merge: true
+        })
+      }
+    })
+  }
+}
+
+for (const phase of [
+  'after confirmation',
+  'after the started comment'
+] as const) {
+  for (const noop of [false, true]) {
+    for (const sticky of [false, true]) {
+      test(`rejects newly added stack membership in a fork repository ${phase}, noop ${String(noop)}, sticky ${String(sticky)}`, async () => {
+        setEnv('INPUT_ENABLE_PR_STACKS', 'true')
+        setEnv('INPUT_ALLOW_FORKS', 'true')
+        setEnv('INPUT_DEPLOYMENT_CONFIRMATION', 'true')
+        setEnv('INPUT_STICKY_LOCKS', String(sticky))
+        setEnv('INPUT_STICKY_LOCKS_FOR_NOOP', String(sticky))
+        setCommentBody(noop ? '.noop' : '.deploy')
+        setPrechecksResult({
+          ref: mock_sha,
+          status: true,
+          message: 'Fork checks passed',
+          noopMode: noop,
+          sha: mock_sha,
+          isFork: true,
+          expectNoStack: true
+        })
+        stackOnRefRead = phase === 'after confirmation' ? 1 : 2
+
+        assert.strictEqual(await run(), 'failure')
+        assertOperationResult({
+          decision: 'failure',
+          reason_code: 'ref_changed',
+          operation: noop ? 'noop' : 'deploy',
+          deployment_type: noop ? 'noop' : 'branch',
+          environment: 'production',
+          ref: mock_sha,
+          sha: mock_sha
+        })
+        assert.strictEqual(pullRefReads, stackOnRefRead)
+        assertCalledTimes(unlockIfUnchangedMock, sticky ? 0 : 1)
+        assertNotCalled(createDeploymentMock)
+        assertNotCalled(prStackSnapshotMatchesMock)
+        assertCalledWith(saveStateMock, 'bypass', 'true')
+        assertCalledWith(
+          setFailedMock,
+          'the selected deployment ref changed after prechecks'
+        )
+      })
+    }
+  }
+}
+
+for (const enabled of [false, true]) {
+  test(`keeps ineligible fork deployments on the immutable shortcut with stacks ${String(enabled)}`, async () => {
+    setEnv('INPUT_ENABLE_PR_STACKS', String(enabled))
+    setEnv('INPUT_ALLOW_FORKS', 'true')
+    setPrechecksResult({
+      ref: mock_sha,
+      status: true,
+      message: 'Fork checks passed',
+      noopMode: false,
+      sha: mock_sha,
+      isFork: true
+    })
+    stackOnRefRead = 1
+
+    assert.strictEqual(await run(), 'success')
+    assertOperationResult({
+      decision: 'continue',
+      reason_code: 'deployment_ready',
+      operation: 'deploy',
+      deployment_type: 'branch',
+      environment: 'production',
+      ref: mock_sha,
+      sha: mock_sha,
+      deployment_id: 123
+    })
+    assert.strictEqual(pullRefReads, 0)
+    assertNotCalled(prStackSnapshotMatchesMock)
+    const request = createDeploymentMock.mock.calls.at(-1)?.arguments[0]
+    assert.ok(request !== undefined)
+    assert.partialDeepStrictEqual(request, {ref: mock_sha, auto_merge: true})
+  })
+}
+
+test('keeps the checked fork SHA when only its branch head moves', async () => {
+  setEnv('INPUT_ENABLE_PR_STACKS', 'true')
+  setEnv('INPUT_ALLOW_FORKS', 'true')
+  setPrechecksResult({
+    ref: mock_sha,
+    status: true,
+    message: 'Fork checks passed',
+    noopMode: false,
+    sha: mock_sha,
+    isFork: true,
+    expectNoStack: true
+  })
+  liveRefSha = 'new-commit'
+
+  assert.strictEqual(await run(), 'success')
+  assert.strictEqual(pullRefReads, 2)
+  assertNotCalled(prStackSnapshotMatchesMock)
+  const request = createDeploymentMock.mock.calls.at(-1)?.arguments[0]
+  assert.ok(request !== undefined)
+  assert.partialDeepStrictEqual(request, {
+    ref: mock_sha,
+    auto_merge: true,
+    payload: {sha: mock_sha}
+  })
+})
+
+test('deploys a checked stack SHA without changing the public branch outputs', async () => {
+  setStackPrechecksResult()
+  setEnv('INPUT_REQUIRED_CONTEXTS', 'test1, test2')
+
+  assert.strictEqual(await run(), 'success')
+  assertOperationResult({
+    decision: 'continue',
+    reason_code: 'deployment_ready',
+    operation: 'deploy',
+    deployment_type: 'branch',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: stackSnapshot.selectedHeadSha,
+    deployment_id: 123
+  })
+  assertCalledTimes(prStackSnapshotMatchesMock, 2)
+  assertCalledWith(prStackSnapshotMatchesMock, octokit, stackSnapshot)
+  assert.strictEqual(pullRefReads, 0)
+  const request = createDeploymentMock.mock.calls.at(-1)?.arguments[0]
+  assert.ok(request !== undefined)
+  assert.partialDeepStrictEqual(request, {
+    ref: stackSnapshot.selectedHeadSha,
+    auto_merge: false,
+    required_contexts: ['test1', 'test2'],
+    payload: {sha: stackSnapshot.selectedHeadSha, type: 'branch-deploy'}
+  })
+  assertCalledWith(setOutputMock, 'ref', 'test-ref')
+  assertCalledWith(saveStateMock, 'ref', 'test-ref')
+  assertCalledWith(setOutputMock, 'sha', stackSnapshot.selectedHeadSha)
+})
+
+test('rechecks a stack for noop without creating a deployment', async () => {
+  setCommentBody('.noop')
+  setStackPrechecksResult(true)
+
+  assert.strictEqual(await run(), 'success - noop')
+  assertOperationResult({
+    decision: 'continue',
+    reason_code: 'noop_ready',
+    operation: 'noop',
+    deployment_type: 'noop',
+    environment: 'production',
+    ref: 'test-ref',
+    sha: stackSnapshot.selectedHeadSha
+  })
+  assertCalledTimes(prStackSnapshotMatchesMock, 2)
+  assertNotCalled(createDeploymentMock)
+})
+
+for (const phase of [
+  'after confirmation',
+  'after the started comment'
+] as const) {
+  for (const failure of ['changed', 'unavailable'] as const) {
+    test(`rejects a ${failure} stack ${phase}`, async () => {
+      setStackPrechecksResult()
+      const failingCall = phase === 'after confirmation' ? 1 : 2
+      let calls = 0
+      prStackSnapshotMatchesMock.mock.mockImplementation(() => {
+        calls += 1
+        if (calls < failingCall) return Promise.resolve(true)
+        return failure === 'changed'
+          ? Promise.resolve(false)
+          : Promise.reject(new Error('stack API unavailable'))
+      })
+
+      assert.strictEqual(await run(), 'failure')
+      assertOperationResult({
+        decision: 'failure',
+        reason_code: 'ref_changed',
+        operation: 'deploy',
+        deployment_type: 'branch',
+        environment: 'production',
+        ref: 'test-ref',
+        sha: stackSnapshot.selectedHeadSha
+      })
+      assertCalledTimes(prStackSnapshotMatchesMock, failingCall)
+      assertCalledTimes(unlockIfUnchangedMock, 1)
+      assertNotCalled(createDeploymentMock)
+      assert.strictEqual(pullRefReads, 0)
+      assertCalledWith(saveStateMock, 'bypass', 'true')
+      assert.ok(
+        actionStatusMock.mock.calls.some(call =>
+          call.arguments[0].message.includes(
+            'The pull request stack changed or could not be verified'
+          )
+        )
+      )
+    })
+  }
+}
 
 test('successfully deploys without acquiring a lock when locking is disabled', async () => {
   setEnv('INPUT_DISABLE_LOCK', 'true')

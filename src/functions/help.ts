@@ -281,6 +281,7 @@ export async function help(
   }\` - This Action will ${
     inputs.allow_non_default_target_branch_deployments ? 'allow' : 'not allow'
   } the deployments of pull requests that target a branch other than the default branch (aka stable branch)
+  - \`enable_pr_stacks: ${inputs.enable_pr_stacks}\` - Enable deployments from native GitHub pull request stacks rooted at the stable branch
 
   ---
 

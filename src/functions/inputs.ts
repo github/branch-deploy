@@ -126,6 +126,7 @@ export function getInputs(): ActionInputs {
   const allow_non_default_target_branch_deployments = getBooleanActionInput(
     'allow_non_default_target_branch_deployments'
   )
+  const enable_pr_stacks = getBooleanActionInput('enable_pr_stacks')
   const deployment_confirmation = getBooleanActionInput(
     'deployment_confirmation'
   )
@@ -198,6 +199,7 @@ export function getInputs(): ActionInputs {
     deployment_confirmation_timeout: deployment_confirmation_timeout,
     use_security_warnings: use_security_warnings,
     allow_non_default_target_branch_deployments:
-      allow_non_default_target_branch_deployments
+      allow_non_default_target_branch_deployments,
+    enable_pr_stacks: enable_pr_stacks
   }
 }

@@ -22,6 +22,7 @@ import {environmentTargets} from './environment-targets.ts'
 import {jsonCodeBlock} from './json-code-block.ts'
 import {lock} from './lock.ts'
 import {prechecks} from './prechecks.ts'
+import {prStackSnapshotMatches} from './pr-stacks.ts'
 import {selectedRefMatches} from './selected-ref-check.ts'
 import {timestamp} from './timestamp.ts'
 import {unlockIfUnchanged} from './unlock-if-unchanged.ts'
@@ -367,19 +368,31 @@ async function changedRefOutcome(
   deploymentType: OperationDeploymentType
 ): Promise<OperationOutcome | null> {
   const {context, inputs, octokit, reactionId} = request
-  const unchanged = await selectedRefMatches(octokit, context, {
-    exactSha: ready.environmentResult.environmentObj.sha !== null,
-    expectedSha: ready.precheck.sha,
-    isFork: ready.precheck.isFork,
-    stableBranch: inputs.stable_branch,
-    stableBranchUsed: ready.environmentResult.environmentObj.stable_branch_used
-  })
+  let unchanged: boolean
+  if (ready.precheck.stack === undefined) {
+    unchanged = await selectedRefMatches(octokit, context, {
+      exactSha: ready.environmentResult.environmentObj.sha !== null,
+      ...(ready.precheck.expectNoStack === true ? {expectNoStack: true} : {}),
+      expectedSha: ready.precheck.sha,
+      isFork: ready.precheck.isFork,
+      stableBranch: inputs.stable_branch,
+      stableBranchUsed:
+        ready.environmentResult.environmentObj.stable_branch_used
+    })
+  } else {
+    try {
+      unchanged = await prStackSnapshotMatches(octokit, ready.precheck.stack)
+    } catch (error) {
+      core.debug(`PR stack recheck failed: ${legacyApiError(error).message}`)
+      unchanged = false
+    }
+  }
   if (unchanged) return null
 
   const message = dedent(`
     ### Deployment Ref Changed
 
-    The selected branch moved after deployment checks completed. Run the command again so the new commit can be reviewed and checked.
+    ${ready.precheck.stack === undefined ? 'The selected branch moved' : 'The pull request stack changed or could not be verified'} after deployment checks completed. Run the command again so the new commit can be reviewed and checked.
   `)
   saveActionState('bypass', 'true')
   await lease.cleanup('after the selected ref changed')
@@ -557,11 +570,12 @@ async function createDeployment(
   const production = inputs.production_environments.includes(environment)
   core.debug(`production_environment: ${production}`)
   const autoMerge =
+    precheck.stack === undefined &&
     environmentResult.environmentObj.sha === null &&
     inputs.update_branch !== 'disabled'
   const response = await octokit.rest.repos.createDeployment({
     ...context.repo,
-    ref: precheck.ref,
+    ref: precheck.stack === undefined ? precheck.ref : precheck.sha,
     auto_merge: autoMerge,
     required_contexts: requiredContexts,
     environment,

@@ -50,6 +50,7 @@ export const ACTION_INPUT_KEYS = [
   'deployment_order_scope',
   'use_security_warnings',
   'allow_non_default_target_branch_deployments',
+  'enable_pr_stacks',
   'deployment_confirmation',
   'deployment_confirmation_timeout'
 ] as const satisfies readonly string[]
@@ -72,6 +73,7 @@ export const BOOLEAN_ACTION_INPUT_KEYS = [
   'skip_successful_deploy_labels_if_approved',
   'use_security_warnings',
   'allow_non_default_target_branch_deployments',
+  'enable_pr_stacks',
   'deployment_confirmation'
 ] as const satisfies readonly ActionInputKey[]
 

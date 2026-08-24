@@ -21,6 +21,7 @@ const DEFAULT_INPUTS = {
   disable_lock: false,
   disable_naked_commands: false,
   draft_permitted_targets: '',
+  enable_pr_stacks: false,
   enforced_deployment_order: [],
   environment: 'production',
   environment_targets: 'production,staging,development',

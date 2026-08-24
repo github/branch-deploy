@@ -10,7 +10,10 @@ export interface SelectedRefOctokit {
   readonly rest: {
     readonly pulls: {
       readonly get: (parameters?: GetPullParameters) => Promise<{
-        readonly data: {readonly head: {readonly sha: string}}
+        readonly data: {
+          readonly head: {readonly sha: string}
+          readonly stack?: unknown
+        }
       }>
     }
     readonly repos: {
@@ -23,6 +26,7 @@ export interface SelectedRefOctokit {
 
 export interface SelectedRefRequest {
   readonly exactSha: boolean
+  readonly expectNoStack?: boolean
   readonly expectedSha: string
   readonly isFork: boolean
   readonly stableBranch: string
@@ -34,7 +38,12 @@ export async function selectedRefMatches(
   context: BranchDeployContext,
   request: SelectedRefRequest
 ): Promise<boolean> {
-  if (request.exactSha || (request.isFork && !request.stableBranchUsed)) {
+  if (
+    request.exactSha ||
+    (request.isFork &&
+      !request.stableBranchUsed &&
+      request.expectNoStack !== true)
+  ) {
     return true
   }
 
@@ -52,5 +61,13 @@ export async function selectedRefMatches(
     pull_number: context.issue.number,
     headers: API_HEADERS
   })
-  return pull.data.head.sha === request.expectedSha
+  if (
+    request.expectNoStack === true &&
+    pull.data.stack !== null &&
+    pull.data.stack !== undefined
+  ) {
+    return false
+  }
+  // Fork deployments keep their checked SHA even if the head branch moves.
+  return request.isFork || pull.data.head.sha === request.expectedSha
 }

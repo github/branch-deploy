@@ -1,4 +1,5 @@
 import type {getOctokit} from '@actions/github'
+import type {PrStackSnapshot} from './functions/pr-stacks.ts'
 
 export type BranchDeployOctokit = ReturnType<typeof getOctokit>
 
@@ -86,6 +87,7 @@ export interface ActionInputs {
   readonly disable_naked_commands: boolean
   readonly draft_permitted_targets: string
   readonly deployment_order_scope: DeploymentOrderScope
+  readonly enable_pr_stacks: boolean
   readonly enforced_deployment_order: readonly string[]
   readonly environment: string
   readonly environment_targets: string
@@ -251,11 +253,13 @@ export interface PrecheckFailure {
 }
 
 export interface PrecheckSuccess {
+  readonly expectNoStack?: boolean
   readonly isFork: boolean
   readonly message: string
   readonly noopMode: boolean
   readonly ref: string
   readonly sha: string
+  readonly stack?: PrStackSnapshot
   readonly status: true
 }
 

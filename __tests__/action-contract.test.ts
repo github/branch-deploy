@@ -14,6 +14,7 @@ import {
 import {
   CHECKS_MODE_VALUES,
   DEPLOYMENT_ORDER_SCOPE_VALUES,
+  getInputs,
   LITERAL_ACTION_INPUT_KEYS,
   LITERAL_ACTION_INPUT_VALUES,
   OUTDATED_MODE_VALUES,
@@ -90,6 +91,7 @@ const expectedInputContract = {
     default: 'false',
     required: false
   },
+  enable_pr_stacks: {default: 'false', required: false},
   deployment_confirmation: {default: 'false', required: false},
   deployment_confirmation_timeout: {default: '60', required: false}
 } as const satisfies Record<string, InputContract>
@@ -110,6 +112,7 @@ const expectedBooleanInputKeys = [
   'skip_successful_deploy_labels_if_approved',
   'use_security_warnings',
   'allow_non_default_target_branch_deployments',
+  'enable_pr_stacks',
   'deployment_confirmation'
 ] as const satisfies readonly ActionInputKey[]
 
@@ -172,7 +175,7 @@ test('action input and output registries exactly match action.yml', () => {
     [...ACTION_OUTPUT_KEYS].sort(),
     Object.keys(outputs).sort()
   )
-  assert.strictEqual(ACTION_INPUT_KEYS.length, 51)
+  assert.strictEqual(ACTION_INPUT_KEYS.length, 52)
   assert.strictEqual(ACTION_OUTPUT_KEYS.length, 41)
 })
 
@@ -204,7 +207,7 @@ test('action input defaults, required flags, and accepted literals stay fixed', 
 
 test('typed input registries stay complete and exact', () => {
   assert.deepStrictEqual(BOOLEAN_ACTION_INPUT_KEYS, expectedBooleanInputKeys)
-  assert.strictEqual(BOOLEAN_ACTION_INPUT_KEYS.length, 16)
+  assert.strictEqual(BOOLEAN_ACTION_INPUT_KEYS.length, 17)
   assert.deepStrictEqual(INTEGER_ACTION_INPUT_KEYS, expectedIntegerInputKeys)
   assert.deepStrictEqual(LITERAL_ACTION_INPUT_KEYS, expectedLiteralInputKeys)
   assert.deepStrictEqual(LITERAL_ACTION_INPUT_VALUES, {
@@ -221,6 +224,34 @@ test('typed input registries stay complete and exact', () => {
     ...LITERAL_ACTION_INPUT_KEYS
   ]) {
     assert.strictEqual(registeredInputs.has(key), true)
+  }
+})
+
+test('PR stacks remain an opt-in boolean input', () => {
+  const originalEnvironment = new Map<string, string | undefined>()
+  try {
+    for (const [key, definition] of Object.entries(expectedInputContract)) {
+      const environmentKey = `INPUT_${key.toUpperCase()}`
+      originalEnvironment.set(environmentKey, process.env[environmentKey])
+      process.env[environmentKey] = definition.default
+    }
+
+    assert.strictEqual(getInputs().enable_pr_stacks, false)
+    process.env['INPUT_ENABLE_PR_STACKS'] = 'true'
+    assert.strictEqual(getInputs().enable_pr_stacks, true)
+    assert.strictEqual(
+      getInputs().allow_non_default_target_branch_deployments,
+      false
+    )
+    process.env['INPUT_ENABLE_PR_STACKS'] = 'FALSE'
+    assert.strictEqual(getInputs().enable_pr_stacks, false)
+    process.env['INPUT_ENABLE_PR_STACKS'] = 'yes'
+    assert.throws(() => getInputs(), /specification: enable_pr_stacks/u)
+  } finally {
+    for (const [key, value] of originalEnvironment) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
   }
 })
 
