@@ -137,6 +137,26 @@ inputs:
     description: 'If set to true, bypass the entire post-action completion path. The workflow must manage final deployment status, comments, reactions, labels, and non-sticky lock cleanup. Default is false.'
     required: false
     default: "false"
+  result_mode:
+    description: 'Complete a deployment or noop started by this Action in an earlier job of the same workflow run and attempt. Requires context and job_results. Default is false.'
+    required: false
+    default: "false"
+  context:
+    description: 'The unchanged context output from the starting Branch Deploy invocation. Required only in result mode. Do not supply the GitHub context or data from untrusted jobs.'
+    required: false
+    default: ""
+  job_results:
+    description: 'A non-empty JSON array of the selected job results, such as ["success","failure"]. Required only in result mode. Every selected job must succeed; cancellation, failure, and unexpected skips are not success.'
+    required: false
+    default: ""
+  result_inherit_settings:
+    description: 'In result mode, inherit completion settings from the starting invocation. Set false to use the normal template, label, and environment URL settings and defaults of the result invocation instead.'
+    required: false
+    default: "true"
+  result_url:
+    description: 'Optional HTTPS deployment URL to display in result mode. Overrides the inherited or configured environment URL. The Action never visits this URL. Embedded credentials and control characters are not allowed.'
+    required: false
+    default: ""
   deploy_message_path:
     description: 'The repository-relative path to a trusted Markdown template for custom deployment messages. The file is fetched from the repository at the exact workflow SHA. Example: ".github/deployment_message.md"'
     required: false
@@ -210,6 +230,10 @@ inputs:
     required: false
     default: "60"
 outputs:
+  context:
+    description: 'Versioned completion data emitted for a ready deployment or noop when skip_completing is true. Forward unchanged to a result-mode invocation in the same workflow run and attempt.'
+  deployment_result:
+    description: 'The selected jobs outcome in result mode: success, failure, cancelled, or skipped. Reporting or cleanup can fail independently of this outcome.'
   continue:
     description: 'The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not'
   triggered:

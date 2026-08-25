@@ -1,4 +1,5 @@
 import * as core from '../actions-core.ts'
+import {deferredCompletionRequested} from './deferred-completion.ts'
 import {validPermissions} from './valid-permissions.ts'
 import {isAdmin} from './admin.ts'
 import {isOutdated} from './outdated-check.ts'
@@ -604,6 +605,12 @@ export async function prechecks(
 
   // Return a success message
   return {
+    ...(deferredCompletionRequested()
+      ? {
+          approved_reviews_count: approvedReviewsCount,
+          review_decision: reviewDecision
+        }
+      : {}),
     message: message,
     status: true,
     ref: ref,

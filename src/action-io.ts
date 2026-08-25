@@ -34,6 +34,11 @@ export const ACTION_INPUT_KEYS = [
   'merge_deploy_mode',
   'unlock_on_merge_mode',
   'skip_completing',
+  'result_mode',
+  'context',
+  'job_results',
+  'result_inherit_settings',
+  'result_url',
   'deploy_message_path',
   'sticky_locks',
   'sticky_locks_for_noop',
@@ -63,6 +68,8 @@ export const BOOLEAN_ACTION_INPUT_KEYS = [
   'merge_deploy_mode',
   'unlock_on_merge_mode',
   'skip_completing',
+  'result_mode',
+  'result_inherit_settings',
   'sticky_locks',
   'sticky_locks_for_noop',
   'disable_lock',
@@ -84,6 +91,8 @@ export const INTEGER_ACTION_INPUT_KEYS = [
 export type IntegerActionInputKey = (typeof INTEGER_ACTION_INPUT_KEYS)[number]
 
 export const ACTION_OUTPUT_KEYS = [
+  'context',
+  'deployment_result',
   'continue',
   'triggered',
   'comment_body',

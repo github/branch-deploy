@@ -33,6 +33,7 @@ type ActionsCoreModule = typeof import('../../src/actions-core.ts')
 type AdminModule = typeof import('../../src/functions/admin.ts')
 type OutdatedModule = typeof import('../../src/functions/outdated-check.ts')
 
+const actualCore = await import('../../src/actions-core.ts')
 const infoMock = createMock<ActionsCoreModule['info']>()
 const warningMock = createMock<ActionsCoreModule['warning']>()
 const debugMock = createMock<ActionsCoreModule['debug']>()
@@ -47,6 +48,7 @@ const isOutdatedMock = createMock<OutdatedModule['isOutdated']>(() =>
 )
 
 installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
+  ...actualCore,
   debug: debugMock,
   error: errorMock,
   info: infoMock,
@@ -155,6 +157,7 @@ beforeEach(testContext => {
     Promise.resolve({outdated: false, branch: 'test-branch'})
   )
   stubEnv(testContext, 'INPUT_PERMISSIONS', 'admin,write')
+  stubEnv(testContext, 'INPUT_SKIP_COMPLETING', 'false')
 
   baseCommitWithOid = {
     nodes: [
@@ -1168,6 +1171,20 @@ test('runs prechecks and finds that the IssueOps command is valid for a branch d
     status: true,
     sha: 'abc123',
     isFork: false
+  })
+})
+
+test('adds the review snapshot only for deferred completion', async testContext => {
+  stubEnv(testContext, 'INPUT_SKIP_COMPLETING', 'true')
+  assert.deepStrictEqual(await prechecks(context, octokit, data), {
+    message: '✅ PR is approved and all CI checks passed',
+    noopMode: false,
+    ref: 'test-ref',
+    status: true,
+    sha: 'abc123',
+    isFork: false,
+    approved_reviews_count: 1,
+    review_decision: 'APPROVED'
   })
 })
 

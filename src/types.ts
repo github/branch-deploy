@@ -251,6 +251,8 @@ export interface PrecheckFailure {
 }
 
 export interface PrecheckSuccess {
+  readonly approved_reviews_count?: number | undefined
+  readonly review_decision?: string | null | undefined
   readonly isFork: boolean
   readonly message: string
   readonly noopMode: boolean
@@ -528,6 +530,12 @@ export type OperationReasonCode =
   | 'unlock_failed'
   | 'unlock_on_merge_completed'
   | 'unsupported_event'
+  | 'result_completed'
+  | 'result_non_success'
+  | 'invalid_result_context'
+  | 'invalid_result_inputs'
+  | 'result_verification_failed'
+  | 'result_completion_failed'
 export type OperationDecision = 'complete' | 'continue' | 'failure' | 'stop'
 export type Operation =
   | 'deploy'
@@ -536,6 +544,7 @@ export type Operation =
   | 'lock_info'
   | 'merge_deploy'
   | 'none'
+  | 'result'
   | 'noop'
   | 'unlock'
   | 'unlock_on_merge'
@@ -559,7 +568,54 @@ export type RunResult =
   | 'success - merge deploy mode'
   | 'success - noop'
   | 'success - unlock on merge mode'
+  | 'success - result mode'
   | 'success'
   | undefined
 
 export type PostResult = 'success - noop' | 'success' | undefined
+
+export type DeploymentResult = 'success' | 'failure' | 'cancelled' | 'skipped'
+
+// Retain the original inputs without validating completion settings early.
+export interface CompletionSettings {
+  readonly deploy_message_path: string
+  readonly environment_url_in_comment: string
+  readonly successful_deploy_labels: string
+  readonly failed_deploy_labels: string
+  readonly successful_noop_labels: string
+  readonly failed_noop_labels: string
+  readonly skip_successful_noop_labels_if_approved: string
+  readonly skip_successful_deploy_labels_if_approved: string
+}
+
+export interface CompletionMetadata {
+  readonly schema_version: 1
+  readonly repository: string
+  readonly run_id: number
+  readonly run_attempt: number
+  readonly issue_number: number
+  readonly trigger_comment_id: number
+  readonly trusted_sha: string
+  readonly lock_ref_sha: string | null
+  readonly disable_lock: boolean
+}
+
+export interface CompletionContext extends CompletionMetadata {
+  readonly started_comment_id: number
+  readonly deployment_id: number | null
+  readonly reaction_id: number | null
+  readonly noop: boolean
+  readonly ref: string
+  readonly sha: string
+  readonly environment: string
+  readonly environment_url: string | null
+  readonly actor: string
+  readonly fork: boolean
+  readonly commit_verified: boolean
+  readonly deployment_start_time: string
+  readonly approved_reviews_count: string
+  readonly review_decision: string
+  readonly params: string
+  readonly parsed_params: string
+  readonly settings: CompletionSettings
+}

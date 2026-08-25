@@ -16,7 +16,7 @@ export interface TrustedTemplateOctokit {
   }
 }
 
-function validRepositoryPath(path: string): boolean {
+export function validRepositoryPath(path: string): boolean {
   return (
     path !== '' &&
     !posix.isAbsolute(path) &&

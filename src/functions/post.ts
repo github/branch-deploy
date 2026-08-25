@@ -21,6 +21,14 @@ export async function post(): Promise<void> {
   try {
     const token = getActionState('actionsToken')
     const bypass = getActionState('bypass') === 'true'
+    if (
+      bypass &&
+      getActionInput('result_mode') !== '' &&
+      getBooleanActionInput('result_mode')
+    ) {
+      core.debug('result mode has no post completion')
+      return
+    }
     const skip_completing = getBooleanActionInput('skip_completing')
 
     const data = {

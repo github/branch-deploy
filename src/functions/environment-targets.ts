@@ -364,7 +364,7 @@ function onLockChecks(
 // :param environment: The environment target
 // :param environment_urls: The environment URLs from the action inputs
 // :returns: The environment URL if found, an empty string otherwise
-function findEnvironmentUrl(
+export function findEnvironmentUrl(
   environment: string,
   environment_urls: string | null
 ): string | null {

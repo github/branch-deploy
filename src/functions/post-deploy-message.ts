@@ -1,3 +1,4 @@
+import {URL} from 'node:url'
 import * as core from '../actions-core.ts'
 import {checkInput} from './check-input.ts'
 import {getBooleanActionInput} from '../action-io.ts'
@@ -5,6 +6,26 @@ import {jsonCodeBlock} from './json-code-block.ts'
 import {renderDeploymentTemplate} from './deployment-template.ts'
 import {decodedJsonValue} from '../trust-boundaries.ts'
 import type {BranchDeployContext, PostDeployMessageData} from '../types.ts'
+
+interface ResultMessageOptions {
+  readonly environmentUrlInComment: boolean
+  readonly resultUrl: string
+}
+
+function escapeResultUrl(value: string): string {
+  return new URL(value).href
+    .replaceAll('\\', '%5C')
+    .replaceAll('<', '%3C')
+    .replaceAll('>', '%3E')
+    .replaceAll('(', '%28')
+    .replaceAll(')', '%29')
+    .replaceAll('[', '%5B')
+    .replaceAll(']', '%5D')
+    .replaceAll('`', '%60')
+    .replaceAll('"', '%22')
+    .replaceAll("'", '%27')
+    .replace(/\s/gu, encodeURIComponent)
+}
 
 // Helper function construct a post deployment message
 // :param context: The GitHub Actions event context
@@ -28,12 +49,13 @@ import type {BranchDeployContext, PostDeployMessageData} from '../types.ts'
 export function postDeployMessage(
   context: BranchDeployContext,
   data: PostDeployMessageData,
-  template: string | null = null
+  template: string | null = null,
+  resultOptions?: ResultMessageOptions
 ): string {
   // fetch the inputs
-  const environment_url_in_comment = getBooleanActionInput(
-    'environment_url_in_comment'
-  )
+  const environment_url_in_comment =
+    resultOptions?.environmentUrlInComment ??
+    getBooleanActionInput('environment_url_in_comment')
   const deploymentResults = checkInput(process.env['DEPLOY_MESSAGE'])
 
   const vars = {
@@ -61,6 +83,12 @@ export function postDeployMessage(
 
   if (template !== null) {
     core.debug('using trusted deployment template')
+    if (resultOptions !== undefined && resultOptions.resultUrl !== '') {
+      return renderDeploymentTemplate(template, {
+        ...vars,
+        environment_url: escapeResultUrl(resultOptions.resultUrl)
+      })
+    }
     return renderDeploymentTemplate(template, vars)
   }
 
@@ -132,6 +160,12 @@ export function postDeployMessage(
   } else if (data.status === 'failure') {
     message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${data.ref}\` to **${data.environment}**`
     deployStatus = '❌'
+  } else if (resultOptions !== undefined && data.status === 'cancelled') {
+    message = `The${deployTypeString}deployment of branch \`${data.ref}\` to **${data.environment}** was cancelled`
+    deployStatus = '⚠️'
+  } else if (resultOptions !== undefined && data.status === 'skipped') {
+    message = `The${deployTypeString}deployment of branch \`${data.ref}\` to **${data.environment}** did not complete because a required job was skipped`
+    deployStatus = '❌'
   } else {
     message = `Warning:${deployTypeString}deployment status is unknown, please use caution`
     deployStatus = '⚠️'
@@ -175,10 +209,14 @@ export function postDeployMessage(
     !data.noop &&
     environment_url_in_comment
   ) {
-    const environment_url_short = data.environment_url
-      .replace('https://', '')
-      .replace('http://', '')
-    message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${data.environment_url})`
+    if (resultOptions !== undefined && resultOptions.resultUrl !== '') {
+      message_fmt += `\n\n> **Environment URL:** [View deployment](<${escapeResultUrl(resultOptions.resultUrl)}>)`
+    } else {
+      const environment_url_short = data.environment_url
+        .replace('https://', '')
+        .replace('http://', '')
+      message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${data.environment_url})`
+    }
   }
 
   return message_fmt

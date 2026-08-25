@@ -350,6 +350,56 @@ inputs:
     default:
       type: string
       required: false
+  result_mode:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  context:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  job_results:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  result_inherit_settings:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
+  result_url:
+    description:
+      type: string
+      required: true
+    required:
+      type: boolean
+      required: true
+    default:
+      type: string
+      required: true
   skip_completing:
     description:
       type: string
@@ -543,6 +593,14 @@ inputs:
 
 # outputs section
 outputs:
+  context:
+    description:
+      type: string
+      required: true
+  deployment_result:
+    description:
+      type: string
+      required: true
   decision:
     description:
       type: string

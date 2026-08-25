@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import {beforeEach, mock, test} from 'node:test'
 import {COLORS} from '../../src/functions/colors.ts'
-import type {PostDeployOctokit} from '../../src/functions/post-deploy.ts'
+import type {
+  PostDeployOctokit,
+  ResultPostDeployOptions
+} from '../../src/functions/post-deploy.ts'
 import type {
   IssueCommentContext,
   PostDeployLabels,
@@ -50,6 +53,8 @@ const loadTrustedDeploymentTemplateMock =
   createMock<TrustedDeploymentTemplate['loadTrustedDeploymentTemplate']>()
 const unlockIfUnchangedMock =
   createMock<UnlockIfUnchanged['unlockIfUnchanged']>()
+const getBranchMock =
+  createMock<PostDeployOctokit['rest']['repos']['getBranch']>()
 
 installModuleMock(mock, new URL('../../src/actions-core.ts', import.meta.url), {
   ...actualCore,
@@ -140,7 +145,8 @@ beforeEach(() => {
     lockMock,
     postDeployMessageMock,
     loadTrustedDeploymentTemplateMock,
-    unlockIfUnchangedMock
+    unlockIfUnchangedMock,
+    getBranchMock
   ]) {
     mockFunction.mock.resetCalls()
   }
@@ -164,6 +170,11 @@ beforeEach(() => {
     })
   )
   unlockIfUnchangedMock.mock.mockImplementation(() => Promise.resolve(true))
+  getBranchMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      data: {commit: {sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}}
+    })
+  )
 
   context = {
     ...createIssueCommentContext({
@@ -175,7 +186,14 @@ beforeEach(() => {
     workflow: 'test-workflow'
   }
 
-  octokit = createOctokit()
+  const client = createOctokit()
+  octokit = {
+    ...client,
+    rest: {
+      ...client.rest,
+      repos: {...client.rest.repos, getBranch: getBranchMock}
+    }
+  }
 
   labels = {
     successful_deploy: [],
@@ -211,6 +229,250 @@ beforeEach(() => {
     lock_ref_sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     trusted_sha: '0123456789abcdef0123456789abcdef01234567'
   }
+})
+
+const resultOptions: ResultPostDeployOptions = {
+  deployMessagePath: '',
+  environmentUrlInComment: true,
+  resultUrl: '',
+  retainLock: false
+}
+
+test('result mode passes inherited template and display settings without consulting current inputs', async () => {
+  process.env['INPUT_DEPLOY_MESSAGE_PATH'] = '.github/current.md'
+  const options = {
+    ...resultOptions,
+    deployMessagePath: '.github/origin.md',
+    environmentUrlInComment: false
+  }
+  await postDeploy(context, octokit, data, options)
+  assertCalledWith(
+    loadTrustedDeploymentTemplateMock,
+    octokit,
+    context,
+    '.github/origin.md',
+    '0123456789abcdef0123456789abcdef01234567'
+  )
+  assert.equal(postDeployMessageMock.mock.calls[0]?.arguments[3], options)
+})
+
+test('result mode supplies the final environment URL to status and comment rendering', async () => {
+  const resultUrl = 'https://result.example.com/deployment?part=(one)'
+  data.environment_url = resultUrl
+  await postDeploy(context, octokit, data, {...resultOptions, resultUrl})
+  assertCalledWith(
+    createDeploymentStatusMock,
+    octokit,
+    context,
+    'test-ref',
+    'success',
+    '456',
+    'production',
+    resultUrl
+  )
+  assert.equal(
+    postDeployMessageMock.mock.calls[0]?.arguments[1].environment_url,
+    resultUrl
+  )
+  assert.equal(
+    actionStatusMock.mock.calls[0]?.arguments[0].message,
+    'Updated 1 server'
+  )
+})
+
+for (const noop of [false, true]) {
+  test(`result mode retains the original ${noop ? 'noop' : 'deployment'} lock when cancelled`, async () => {
+    data.noop = noop
+    data.status = 'cancelled'
+    await postDeploy(context, octokit, data, {
+      ...resultOptions,
+      retainLock: true
+    })
+    assertNotCalled(lockMock)
+    assertNotCalled(getBranchMock)
+    assertNotCalled(unlockIfUnchangedMock)
+    assertCalledTimes(labelMock, 1)
+    assert.equal(actionStatusMock.mock.calls[0]?.arguments[0].result, 'failure')
+    assert.match(
+      String(actionStatusMock.mock.calls[0]?.arguments[0].message),
+      /Automatic lock cleanup was skipped because the deployment was cancelled\./u
+    )
+    if (noop) assertNotCalled(createDeploymentStatusMock)
+    else
+      assert.equal(
+        createDeploymentStatusMock.mock.calls[0]?.arguments[3],
+        'failure'
+      )
+  })
+}
+
+test('result cancellation does not claim to retain a disabled lock', async () => {
+  data.disable_lock = true
+  data.status = 'cancelled'
+  await postDeploy(context, octokit, data, {...resultOptions, retainLock: true})
+  assert.equal(
+    actionStatusMock.mock.calls[0]?.arguments[0].message,
+    'Updated 1 server'
+  )
+  assertNotCalled(lockMock)
+  assertNotCalled(getBranchMock)
+})
+
+for (const status of ['success', 'failure', 'skipped']) {
+  test(`result mode conditionally releases the original nonsticky lock for ${status}`, async () => {
+    data.status = status
+    lockMock.mock.mockImplementation(() =>
+      Promise.resolve(createLockResponse(false))
+    )
+    assert.equal(
+      await postDeploy(context, octokit, data, resultOptions),
+      'success'
+    )
+    assertCalledTimes(getBranchMock, 1)
+    assertCalledWith(
+      unlockIfUnchangedMock,
+      octokit,
+      context,
+      'production',
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    )
+  })
+}
+
+test('result mode leaves sticky locks untouched', async () => {
+  assert.equal(
+    await postDeploy(context, octokit, data, resultOptions),
+    'success'
+  )
+  assertNotCalled(getBranchMock)
+  assertNotCalled(unlockIfUnchangedMock)
+})
+
+test('result mode leaves global lock metadata untouched', async () => {
+  const response = createLockResponse(false)
+  assert.ok(response.lockData)
+  const globalResponse = {
+    ...response,
+    lockData: {...response.lockData, global: true}
+  }
+  lockMock.mock.mockImplementation(() => Promise.resolve(globalResponse))
+  assert.equal(
+    await postDeploy(context, octokit, data, resultOptions),
+    'success'
+  )
+  assertNotCalled(getBranchMock)
+  assertNotCalled(unlockIfUnchangedMock)
+})
+
+test('result mode never removes the reserved global branch even if the environment has that name', async () => {
+  data.environment = 'global'
+  assert.equal(
+    await postDeploy(context, octokit, data, resultOptions),
+    'success'
+  )
+  assertNotCalled(lockMock)
+  assertNotCalled(getBranchMock)
+  assertNotCalled(unlockIfUnchangedMock)
+})
+
+for (const currentRef of ['missing', 'replacement']) {
+  test(`result mode preserves a ${currentRef} lock before conditional deletion`, async () => {
+    lockMock.mock.mockImplementation(() =>
+      Promise.resolve(createLockResponse(false))
+    )
+    getBranchMock.mock.mockImplementation(() =>
+      currentRef === 'missing'
+        ? Promise.reject(Object.assign(new Error('missing'), {status: 404}))
+        : Promise.resolve({
+            data: {commit: {sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'}}
+          })
+    )
+    assert.equal(
+      await postDeploy(context, octokit, data, resultOptions),
+      'success'
+    )
+    assertNotCalled(unlockIfUnchangedMock)
+  })
+}
+
+for (const currentRef of ['missing', 'replacement']) {
+  test(`result mode preserves a ${currentRef} lock after conditional deletion loses a race`, async () => {
+    lockMock.mock.mockImplementation(() =>
+      Promise.resolve(createLockResponse(false))
+    )
+    let reads = 0
+    getBranchMock.mock.mockImplementation(() => {
+      reads += 1
+      if (reads === 1)
+        return Promise.resolve({
+          data: {commit: {sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}}
+        })
+      return currentRef === 'missing'
+        ? Promise.reject(Object.assign(new Error('missing'), {status: 404}))
+        : Promise.resolve({
+            data: {commit: {sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'}}
+          })
+    })
+    unlockIfUnchangedMock.mock.mockImplementation(() => Promise.resolve(false))
+    assert.equal(
+      await postDeploy(context, octokit, data, resultOptions),
+      'success'
+    )
+    assertCalledTimes(getBranchMock, 2)
+    assertCalledTimes(unlockIfUnchangedMock, 1)
+  })
+}
+
+test('result mode reports cleanup failure when the original lock remains after deletion fails', async () => {
+  lockMock.mock.mockImplementation(() =>
+    Promise.resolve(createLockResponse(false))
+  )
+  unlockIfUnchangedMock.mock.mockImplementation(() => Promise.resolve(false))
+  await assert.rejects(postDeploy(context, octokit, data, resultOptions), {
+    message: 'Could not release the original deployment lock'
+  })
+  assertCalledTimes(getBranchMock, 2)
+  assertNotCalled(labelMock)
+})
+
+test('result mode does not treat a lock inspection API failure as a replacement lock', async () => {
+  lockMock.mock.mockImplementation(() =>
+    Promise.resolve(createLockResponse(false))
+  )
+  getBranchMock.mock.mockImplementation(() =>
+    Promise.reject(Object.assign(new Error('unavailable'), {status: 503}))
+  )
+  await assert.rejects(postDeploy(context, octokit, data, resultOptions), {
+    message: 'Could not inspect the current deployment lock'
+  })
+  assertNotCalled(unlockIfUnchangedMock)
+  assertNotCalled(labelMock)
+})
+
+test('result mode still cleans up after a report API failure', async () => {
+  lockMock.mock.mockImplementation(() =>
+    Promise.resolve(createLockResponse(false))
+  )
+  actionStatusMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('report unavailable'))
+  )
+  await assert.rejects(postDeploy(context, octokit, data, resultOptions), {
+    message: 'report unavailable'
+  })
+  assertCalledTimes(createDeploymentStatusMock, 1)
+  assertCalledTimes(unlockIfUnchangedMock, 1)
+})
+
+test('result mode leaves the lock when updating deployment status fails', async () => {
+  createDeploymentStatusMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('status unavailable'))
+  )
+  await assert.rejects(postDeploy(context, octokit, data, resultOptions), {
+    message: 'status unavailable'
+  })
+  assertCalledTimes(actionStatusMock, 1)
+  assertNotCalled(lockMock)
+  assertNotCalled(unlockIfUnchangedMock)
 })
 
 test('successfully completes a production branch deployment', async () => {

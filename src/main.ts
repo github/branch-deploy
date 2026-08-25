@@ -9,6 +9,7 @@ import {COLORS} from './functions/colors.ts'
 import {contextCheck} from './functions/context-check.ts'
 import {runDeploymentOperation} from './functions/deployment-operation.ts'
 import {runDirectOperation} from './functions/direct-operation.ts'
+import {runResultOperation} from './functions/result-operation.ts'
 import {help} from './functions/help.ts'
 import {identicalCommitCheck} from './functions/identical-commit-check.ts'
 import {getInputs} from './functions/inputs.ts'
@@ -23,6 +24,7 @@ import {finishOperation} from './operation-result.ts'
 import {
   getActionInput,
   getActionState,
+  getBooleanActionInput,
   saveActionState,
   setActionOutput
 } from './action-io.ts'
@@ -67,6 +69,25 @@ export async function run(): Promise<RunResult> {
     core.debug(`context: ${JSON.stringify(context)}`)
 
     const token = getActionInput('github_token', {required: true})
+    if (
+      getActionInput('result_mode') !== '' &&
+      getBooleanActionInput('result_mode')
+    ) {
+      operation = 'result'
+      saveActionState('isPost', 'true')
+      saveActionState('bypass', 'true')
+      const resultOctokit = github.getOctokit(token, {
+        userAgent: `github/branch-deploy@${VERSION}`,
+        additionalPlugins: [retry]
+      })
+      return finish(
+        await runResultOperation({
+          context: branchDeployContext(context),
+          trustedSha: context.sha,
+          octokit: resultOctokit
+        })
+      )
+    }
     const inputs = getInputs()
     const octokit = github.getOctokit(token, {
       userAgent: `github/branch-deploy@${VERSION}`,
@@ -240,6 +261,7 @@ export async function run(): Promise<RunResult> {
 
     return finish(
       await runDeploymentOperation({
+        trustedSha: context.sha,
         body,
         context: actionContext,
         inputs,

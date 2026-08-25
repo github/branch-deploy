@@ -10,7 +10,10 @@ import {COLORS} from './colors.ts'
 import {getActionInput, setActionOutput} from '../action-io.ts'
 import {checkInput} from './check-input.ts'
 import {loadTrustedDeploymentTemplate} from './trusted-deployment-template.ts'
-import {legacyLength} from '../trust-boundaries.ts'
+import {legacyApiError, legacyLength} from '../trust-boundaries.ts'
+import {constructValidBranchName} from './valid-branch-name.ts'
+import {LOCK_METADATA} from './lock-metadata.ts'
+import {API_HEADERS} from './api-headers.ts'
 import type {ActionStatusOctokit} from './action-status.ts'
 import type {DeploymentStatusOctokit} from './deployment.ts'
 import type {LabelOctokit} from './label.ts'
@@ -36,18 +39,78 @@ export interface PostDeployRequest {
   readonly octokit: PostDeployOctokit
 }
 
+export interface ResultPostDeployOptions {
+  readonly deployMessagePath: string
+  readonly environmentUrlInComment: boolean
+  readonly resultUrl: string
+  readonly retainLock: boolean
+}
+
 const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`
 const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`
+
+async function currentLockRef(
+  context: BranchDeployContext,
+  octokit: PostDeployOctokit,
+  environment: string
+): Promise<string | null> {
+  try {
+    const branch = await octokit.rest.repos.getBranch({
+      ...context.repo,
+      branch: `${constructValidBranchName(environment)}-${LOCK_METADATA.lockBranchSuffix}`,
+      headers: API_HEADERS
+    })
+    return branch.data.commit.sha
+  } catch (error) {
+    if (legacyApiError(error).status === 404) return null
+    throw new Error('Could not inspect the current deployment lock')
+  }
+}
+
+async function removeResultLock(
+  context: BranchDeployContext,
+  octokit: PostDeployOctokit,
+  environment: string,
+  expectedSha: string
+): Promise<void> {
+  if ((await currentLockRef(context, octokit, environment)) !== expectedSha) {
+    core.info(
+      'The original deployment lock is absent or replaced; leaving current locks unchanged'
+    )
+    return
+  }
+  if (await unlockIfUnchanged(octokit, context, environment, expectedSha))
+    return
+  if ((await currentLockRef(context, octokit, environment)) === expectedSha) {
+    throw new Error('Could not release the original deployment lock')
+  }
+  core.info(
+    'The deployment lock changed during cleanup; leaving current locks unchanged'
+  )
+}
 
 async function completeLockLifecycle(
   context: BranchDeployContext,
   octokit: PostDeployOctokit,
   data: PostDeployData,
   postDeployStep: boolean,
-  leaveComment: boolean
+  leaveComment: boolean,
+  resultOptions?: ResultPostDeployOptions
 ): Promise<boolean> {
   if (data.disable_lock) {
     core.info('🔓 deployment locking is disabled; skipping lock completion')
+    return true
+  }
+  if (resultOptions?.retainLock === true) {
+    core.info('Deployment cancelled; retaining the original deployment lock')
+    return true
+  }
+  if (
+    resultOptions !== undefined &&
+    `${constructValidBranchName(data.environment)}-${LOCK_METADATA.lockBranchSuffix}` ===
+      LOCK_METADATA.globalLockBranch
+  ) {
+    core.info('Global deployment locks are not released by result mode')
     return true
   }
 
@@ -65,7 +128,9 @@ async function completeLockLifecycle(
 
   const lockData = lockResponse.lockData
   core.debug(JSON.stringify(lockData))
-  if (lockData?.sticky === true) {
+  if (resultOptions !== undefined && lockData?.global === true) {
+    core.info('Global deployment locks are not released by result mode')
+  } else if (lockData?.sticky === true) {
     core.info(stickyMsg)
   } else if (lockData === null) {
     core.warning(
@@ -84,12 +149,21 @@ async function completeLockLifecycle(
       )
       return true
     }
-    await unlockIfUnchanged(
-      octokit,
-      context,
-      data.environment,
-      data.lock_ref_sha
-    )
+    if (resultOptions === undefined) {
+      await unlockIfUnchanged(
+        octokit,
+        context,
+        data.environment,
+        data.lock_ref_sha
+      )
+    } else {
+      await removeResultLock(
+        context,
+        octokit,
+        data.environment,
+        data.lock_ref_sha
+      )
+    }
   }
   return true
 }
@@ -119,7 +193,8 @@ async function completeLockLifecycle(
 export async function postDeploy(
   context: BranchDeployContext,
   octokit: PostDeployOctokit,
-  data: RawPostDeployData
+  data: RawPostDeployData,
+  resultOptions?: ResultPostDeployOptions
 ): Promise<PostResult> {
   // check the inputs to ensure they are valid
   validateInputs(data)
@@ -142,7 +217,9 @@ export async function postDeploy(
 
   let result: PostResult = undefined
   try {
-    const deployMessagePath = checkInput(getActionInput('deploy_message_path'))
+    const deployMessagePath = checkInput(
+      resultOptions?.deployMessagePath ?? getActionInput('deploy_message_path')
+    )
     const template =
       deployMessagePath === null
         ? null
@@ -152,7 +229,7 @@ export async function postDeploy(
             deployMessagePath,
             data.trusted_sha
           )
-    const message = postDeployMessage(
+    let message = postDeployMessage(
       context,
       {
         environment: data.environment,
@@ -171,8 +248,13 @@ export async function postDeploy(
         commit_verified: data.commit_verified,
         total_seconds: total_seconds
       },
-      template
+      template,
+      resultOptions
     )
+    if (resultOptions?.retainLock === true && !data.disable_lock) {
+      message +=
+        '\n\n> Automatic lock cleanup was skipped because the deployment was cancelled.'
+    }
     const reactionId =
       data.reaction_id === null ||
       data.reaction_id === undefined ||
@@ -189,7 +271,7 @@ export async function postDeploy(
       result: data.status === 'success' ? 'success' : 'failure'
     })
   } finally {
-    result = await completePostDeploy(context, octokit, data)
+    result = await completePostDeploy(context, octokit, data, resultOptions)
   }
 
   return result
@@ -198,7 +280,8 @@ export async function postDeploy(
 async function completePostDeploy(
   context: BranchDeployContext,
   octokit: PostDeployOctokit,
-  data: PostDeployData
+  data: PostDeployData,
+  resultOptions?: ResultPostDeployOptions
 ): Promise<PostResult> {
   const success = data.status === 'success'
 
@@ -233,7 +316,16 @@ async function completePostDeploy(
   // if the deployment mode is noop, return here
   if (data.noop) {
     core.debug('deployment mode: noop')
-    if (!(await completeLockLifecycle(context, octokit, data, true, true)))
+    if (
+      !(await completeLockLifecycle(
+        context,
+        octokit,
+        data,
+        true,
+        true,
+        resultOptions
+      ))
+    )
       return undefined
 
     // check to see if the pull request labels should be applied or not
@@ -267,7 +359,16 @@ async function completePostDeploy(
     data.environment_url // can be null
   )
 
-  if (!(await completeLockLifecycle(context, octokit, data, true, false)))
+  if (
+    !(await completeLockLifecycle(
+      context,
+      octokit,
+      data,
+      true,
+      false,
+      resultOptions
+    ))
+  )
     return undefined
 
   // check to see if the pull request labels should be applied or not

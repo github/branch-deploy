@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import {afterEach, beforeEach, mock, test, type Mock} from 'node:test'
 import {isDeepStrictEqual} from 'node:util'
 import {COLORS} from '../src/functions/colors.ts'
+import {parseCompletionContext} from '../src/functions/result-context.ts'
 import type {BranchDeployOctokit, OperationResultV1} from '../src/types.ts'
 import {decodedJsonValue} from '../src/trust-boundaries.ts'
 import {unsafeInvalidValue} from './unsafe-fixtures.ts'
@@ -32,6 +33,8 @@ type NakedCommandCheckModule =
   typeof import('../src/functions/naked-command-check.ts')
 type PrechecksModule = typeof import('../src/functions/prechecks.ts')
 type ReactEmoteModule = typeof import('../src/functions/react-emote.ts')
+type ResultOperationModule =
+  typeof import('../src/functions/result-operation.ts')
 type TimestampModule = typeof import('../src/functions/timestamp.ts')
 type UnlockModule = typeof import('../src/functions/unlock.ts')
 type UnlockIfUnchangedModule =
@@ -76,6 +79,8 @@ const nakedCommandCheckMock =
   createMock<NakedCommandCheckModule['nakedCommandCheck']>()
 const prechecksMock = createMock<PrechecksModule['prechecks']>()
 const reactEmoteMock = createMock<ReactEmoteModule['reactEmote']>()
+const resultOperationMock =
+  createMock<ResultOperationModule['runResultOperation']>()
 const timestampMock = createMock<TimestampModule['timestamp']>()
 const unlockMock = createMock<UnlockModule['unlock']>()
 const unlockIfUnchangedMock =
@@ -161,6 +166,11 @@ installModuleMock(
 )
 installModuleMock(
   mock,
+  new URL('../src/functions/result-operation.ts', import.meta.url),
+  {runResultOperation: resultOperationMock}
+)
+installModuleMock(
+  mock,
   new URL('../src/functions/timestamp.ts', import.meta.url),
   {timestamp: timestampMock}
 )
@@ -230,6 +240,7 @@ function setCommentBody(body: string): void {
 const environmentDefaults = {
   GITHUB_SERVER_URL: 'https://github.com',
   GITHUB_RUN_ID: '12345',
+  GITHUB_RUN_ATTEMPT: '1',
   INPUT_GITHUB_TOKEN: 'faketoken',
   INPUT_TRIGGER: '.deploy',
   INPUT_REACTION: 'eyes',
@@ -251,6 +262,20 @@ const environmentDefaults = {
   INPUT_GLOBAL_LOCK_FLAG: '--global',
   INPUT_MERGE_DEPLOY_MODE: 'false',
   INPUT_UNLOCK_ON_MERGE_MODE: 'false',
+  INPUT_SKIP_COMPLETING: 'false',
+  INPUT_RESULT_MODE: '',
+  INPUT_RESULT_INHERIT_SETTINGS: 'true',
+  INPUT_CONTEXT: '',
+  INPUT_JOB_RESULTS: '',
+  INPUT_RESULT_URL: '',
+  INPUT_DEPLOY_MESSAGE_PATH: '.github/deployment_message.md',
+  INPUT_ENVIRONMENT_URL_IN_COMMENT: 'true',
+  INPUT_SUCCESSFUL_DEPLOY_LABELS: '',
+  INPUT_FAILED_DEPLOY_LABELS: '',
+  INPUT_SUCCESSFUL_NOOP_LABELS: '',
+  INPUT_FAILED_NOOP_LABELS: '',
+  INPUT_SKIP_SUCCESSFUL_NOOP_LABELS_IF_APPROVED: 'false',
+  INPUT_SKIP_SUCCESSFUL_DEPLOY_LABELS_IF_APPROVED: 'false',
   INPUT_STICKY_LOCKS: 'false',
   INPUT_STICKY_LOCKS_FOR_NOOP: 'false',
   INPUT_DISABLE_LOCK: 'false',
@@ -409,6 +434,7 @@ beforeEach(() => {
     nakedCommandCheckMock,
     prechecksMock,
     reactEmoteMock,
+    resultOperationMock,
     timestampMock,
     unlockMock,
     unlockIfUnchangedMock,
@@ -437,6 +463,9 @@ beforeEach(() => {
   }
 
   githubContext.actor = 'monalisa'
+  githubContext.eventName = 'issue_comment'
+  githubContext.runId = 12345
+  githubContext.sha = '1'.repeat(40)
 
   octokit = actualGithub.getOctokit('test-token')
   octokit.hook.wrap('request', (_request, options) => {
@@ -505,6 +534,14 @@ beforeEach(() => {
   )
   contextCheckMock.mock.mockImplementation(() => true)
   reactEmoteMock.mock.mockImplementation(() => Promise.resolve(123))
+  resultOperationMock.mock.mockImplementation(() =>
+    Promise.resolve({
+      operation: 'result',
+      runResult: 'success - result mode',
+      decision: 'complete',
+      reasonCode: 'result_completed'
+    })
+  )
   timestampMock.mock.mockImplementation(() => '2025-01-01T00:00:00.000Z')
   prechecksMock.mock.mockImplementation(() =>
     Promise.resolve({
@@ -581,6 +618,207 @@ test('successfully runs the action', async () => {
     `🚀 ${COLORS.success}deployment started!${COLORS.reset}`
   )
 })
+
+for (const resultMode of [undefined, 'false']) {
+  test(`ordinary deployments ignore result inputs when result mode is ${String(resultMode)}`, async () => {
+    setEnv('INPUT_RESULT_MODE', resultMode)
+    setEnv('INPUT_CONTEXT', 'not-json')
+    setEnv('INPUT_JOB_RESULTS', 'not-json')
+    setEnv('INPUT_RESULT_INHERIT_SETTINGS', 'invalid')
+    setEnv('INPUT_RESULT_URL', 'http://example.com')
+
+    assert.strictEqual(await run(), 'success')
+    assertNotCalled(resultOperationMock)
+    assertNotCalledWith(setOutputMock, 'context', String)
+    const payload = createDeploymentMock.mock.calls[0]?.arguments[0]?.payload
+    assert.ok(typeof payload === 'object' && payload !== null)
+    assert.strictEqual(Object.hasOwn(payload, 'completion'), false)
+    assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+  })
+}
+
+test('dispatches result mode before command checks and suppresses its post hook', async () => {
+  setEnv('INPUT_RESULT_MODE', 'true')
+  setEnv('INPUT_STICKY_LOCKS', 'invalid')
+  setCommentBody('not a deployment command')
+  resultOperationMock.mock.mockImplementation(request => {
+    assert.strictEqual(request.trustedSha, githubContext.sha)
+    assert.deepStrictEqual(request.context.repo, {owner: 'corp', repo: 'test'})
+    assertCalledWith(saveStateMock, 'isPost', 'true')
+    assertCalledWith(saveStateMock, 'bypass', 'true')
+    return Promise.resolve({
+      operation: 'result',
+      runResult: 'success - result mode',
+      decision: 'complete',
+      reasonCode: 'result_completed'
+    })
+  })
+
+  assert.strictEqual(await run(), 'success - result mode')
+  assertCalledTimes(resultOperationMock, 1)
+  assertNotCalled(contextCheckMock)
+  assertNotCalled(prechecksMock)
+  assertNotCalled(lockMock)
+  assertNotCalled(createDeploymentMock)
+  assertNotCalledWith(saveStateMock, 'actionsToken', String)
+  assertOperationResult({
+    operation: 'result',
+    decision: 'complete',
+    reason_code: 'result_completed'
+  })
+})
+
+test('suppresses post completion even when result mode throws', async () => {
+  setEnv('INPUT_RESULT_MODE', 'true')
+  resultOperationMock.mock.mockImplementation(() =>
+    Promise.reject(new Error('result reporting unavailable'))
+  )
+  assert.strictEqual(await run(), undefined)
+  assertCalledWith(saveStateMock, 'bypass', 'true')
+  assertNotCalled(prechecksMock)
+  assertNotCalled(createDeploymentMock)
+  assertOperationResult({
+    operation: 'result',
+    decision: 'failure',
+    reason_code: 'unexpected_error'
+  })
+})
+
+function prepareDeferredDeployment(noop: boolean): void {
+  setEnv('INPUT_SKIP_COMPLETING', 'true')
+  setCommentBody(noop ? '.noop' : '.deploy production | --color=blue')
+  setPrechecksResult({
+    status: true,
+    ref: 'test-ref',
+    sha: '3'.repeat(40),
+    message: 'ready',
+    noopMode: noop,
+    isFork: false,
+    ...(noop ? {} : {approved_reviews_count: 2, review_decision: 'APPROVED'})
+  })
+  setLockResult({
+    environment: 'production',
+    global: false,
+    globalFlag: '',
+    lockData: null,
+    status: true,
+    lockRefSha: '2'.repeat(40)
+  })
+}
+
+for (const noop of [false, true]) {
+  test(`publishes ready ${noop ? 'noop' : 'deployment'} context without changing legacy state writes`, async () => {
+    prepareDeferredDeployment(noop)
+    setEnv('INPUT_SUCCESSFUL_DEPLOY_LABELS', 'deployed')
+    const createComment = mock.method(octokit.rest.issues, 'createComment')
+    assert.strictEqual(await run(), noop ? 'success - noop' : 'success')
+    const contextCall = setOutputMock.mock.calls.find(
+      call => call.arguments[0] === 'context'
+    )
+    assert.ok(contextCall !== undefined)
+    const ready = parseCompletionContext(String(contextCall.arguments[1]))
+    assert.strictEqual(ready.run_id, 12345)
+    assert.strictEqual(ready.run_attempt, 1)
+    assert.strictEqual(ready.repository, 'corp/test')
+    assert.strictEqual(ready.trusted_sha, '1'.repeat(40))
+    assert.strictEqual(ready.sha, '3'.repeat(40))
+    assert.strictEqual(ready.lock_ref_sha, '2'.repeat(40))
+    assert.strictEqual(ready.deployment_id, noop ? null : 123)
+    assert.strictEqual(ready.started_comment_id, 123456)
+    assert.strictEqual(ready.trigger_comment_id, 123)
+    assert.strictEqual(ready.reaction_id, 123)
+    assert.strictEqual(ready.noop, noop)
+    assert.strictEqual(ready.approved_reviews_count, noop ? '' : '2')
+    assert.strictEqual(ready.review_decision, noop ? '' : 'APPROVED')
+    assert.strictEqual(ready.settings.successful_deploy_labels, 'deployed')
+    assert.strictEqual(ready.params, noop ? '' : '--color=blue')
+    assert.strictEqual(
+      ready.parsed_params,
+      noop ? '' : '{"_":[],"color":"blue"}'
+    )
+    assert.ok(!String(contextCall.arguments[1]).includes('faketoken'))
+    assert.ok(!String(contextCall.arguments[1]).includes('actionsToken'))
+    assertCalledWith(saveStateMock, 'isPost', 'true')
+    assertCalledWith(saveStateMock, 'actionsToken', 'faketoken')
+    assertCalledWith(saveStateMock, 'initial_comment_id', 123456)
+    const outputKeys = setOutputMock.mock.calls.map(call => call.arguments[0])
+    assert.ok(outputKeys.indexOf('context') > outputKeys.indexOf('continue'))
+    const commentBody = createComment.mock.calls.at(-1)?.arguments[0]?.body
+    assert.ok(typeof commentBody === 'string')
+    assert.ok(commentBody.includes('"completion": {'))
+    assert.ok(commentBody.includes('"run_attempt": 1'))
+    assert.ok(commentBody.includes('"lock_ref_sha": "' + '2'.repeat(40) + '"'))
+    if (noop) {
+      assertNotCalled(createDeploymentMock)
+    } else {
+      const payload =
+        createDeploymentMock.mock.calls.at(-1)?.arguments[0]?.payload
+      assert.ok(typeof payload === 'object' && payload !== null)
+      assert.deepStrictEqual(payload['completion'], {
+        schema_version: 1,
+        repository: 'corp/test',
+        run_id: 12345,
+        run_attempt: 1,
+        issue_number: 123,
+        trigger_comment_id: 123,
+        trusted_sha: '1'.repeat(40),
+        lock_ref_sha: '2'.repeat(40),
+        disable_lock: false
+      })
+    }
+  })
+}
+
+test('publishes deferred context when locks are disabled and reactions are unavailable', async () => {
+  prepareDeferredDeployment(false)
+  setEnv('INPUT_DISABLE_LOCK', 'true')
+  reactEmoteMock.mock.mockImplementation(() => Promise.resolve(null))
+  assert.strictEqual(await run(), 'success')
+  const contextCall = setOutputMock.mock.calls.find(
+    call => call.arguments[0] === 'context'
+  )
+  assert.ok(contextCall !== undefined)
+  const ready = parseCompletionContext(String(contextCall.arguments[1]))
+  assert.strictEqual(ready.disable_lock, true)
+  assert.strictEqual(ready.lock_ref_sha, null)
+  assert.strictEqual(ready.reaction_id, null)
+  assertNotCalled(lockMock)
+})
+
+test('manual completion does not gain earlier completion-setting validation', async () => {
+  prepareDeferredDeployment(false)
+  setEnv('INPUT_ENVIRONMENT_URL_IN_COMMENT', 'invalid')
+  setEnv('INPUT_SKIP_SUCCESSFUL_DEPLOY_LABELS_IF_APPROVED', 'invalid')
+  assert.strictEqual(await run(), 'success')
+  assertCalledWith(setOutputMock, 'continue', 'true')
+  assertCalledTimes(createDeploymentMock, 1)
+})
+
+test('manual completion remains usable when run-attempt metadata is unavailable', async () => {
+  prepareDeferredDeployment(false)
+  setEnv('GITHUB_RUN_ATTEMPT', undefined)
+  assert.strictEqual(await run(), 'success')
+  assertNotCalledWith(setOutputMock, 'context', String)
+  assertCalledWith(setOutputMock, 'continue', 'true')
+})
+
+for (const failure of [
+  'moved-ref',
+  'wrong-deployment-sha',
+  'status-error'
+] as const) {
+  test(`does not publish usable context after ${failure}`, async () => {
+    prepareDeferredDeployment(false)
+    if (failure === 'moved-ref') lateLiveRefSha = '4'.repeat(40)
+    if (failure === 'wrong-deployment-sha')
+      createdDeploymentSha = '4'.repeat(40)
+    if (failure === 'status-error')
+      deploymentStatusError = new Error('status unavailable')
+    await run()
+    assertNotCalledWith(setOutputMock, 'context', String)
+    assertNotCalledWith(setOutputMock, 'continue', 'true')
+  })
+}
 
 test('successfully deploys without acquiring a lock when locking is disabled', async () => {
   setEnv('INPUT_DISABLE_LOCK', 'true')

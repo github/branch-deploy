@@ -6,6 +6,7 @@ import {COLORS} from '../../src/functions/colors.ts'
 import {createOctokit} from '../test-helpers.ts'
 import {
   assertCalledWith,
+  assertNotCalled,
   createMock,
   installModuleMock
 } from '../node-test-helpers.ts'
@@ -189,6 +190,45 @@ test('exits due to a bypass being set', async () => {
     `⛔ ${COLORS.highlight}bypass${COLORS.reset} set, exiting`
   )
 })
+
+test('result mode bypasses its post hook before reading unused completion inputs', async () => {
+  getActionStateMock.mock.mockImplementation(name =>
+    name === 'bypass' ? 'true' : validStates[name]
+  )
+  getActionInputMock.mock.mockImplementation(name => {
+    assert.strictEqual(name, 'result_mode')
+    return 'true'
+  })
+  getBooleanActionInputMock.mock.mockImplementation(name => {
+    if (name === 'result_mode') return true
+    throw new Error('unused completion input is malformed')
+  })
+
+  await post()
+  assertCalledWith(debugMock, 'result mode has no post completion')
+  assertNotCalled(postDeployMock)
+  assertNotCalled(contextCheckMock)
+  assertNotCalled(getOctokitMock)
+  assertNotCalled(setFailedMock)
+})
+
+for (const resultMode of ['', 'false']) {
+  test(`legacy bypass keeps its input-validation ordering with result mode ${JSON.stringify(resultMode)}`, async () => {
+    getActionStateMock.mock.mockImplementation(name =>
+      name === 'bypass' ? 'true' : validStates[name]
+    )
+    getActionInputMock.mock.mockImplementation(name =>
+      name === 'result_mode' ? resultMode : (validInputs[name] ?? '')
+    )
+    getBooleanActionInputMock.mock.mockImplementation(name => {
+      if (name === 'result_mode') return false
+      throw new Error('legacy completion input is malformed')
+    })
+    await post()
+    assertCalledWith(setFailedMock, 'legacy completion input is malformed')
+    assertNotCalled(postDeployMock)
+  })
+}
 
 test('skips the process of completing a deployment', async () => {
   const skipped: Partial<Record<ActionInputKey, boolean>> = {

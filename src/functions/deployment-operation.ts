@@ -18,6 +18,12 @@ import {
   createDeploymentStatus
 } from './deployment.ts'
 import {deploymentConfirmation} from './deployment-confirmation.ts'
+import {
+  completionSettings,
+  deferredCompletionMetadata,
+  publishCompletionContext
+} from './deferred-completion.ts'
+import type {CompletionMetadata} from '../types.ts'
 import {environmentTargets} from './environment-targets.ts'
 import {jsonCodeBlock} from './json-code-block.ts'
 import {lock} from './lock.ts'
@@ -39,6 +45,7 @@ import type {
 } from '../types.ts'
 
 export interface DeploymentOperationRequest {
+  readonly trustedSha?: string
   readonly body: string
   readonly context: BranchDeployContext
   readonly inputs: ActionInputs
@@ -50,6 +57,7 @@ export interface DeploymentOperationRequest {
 }
 
 interface DeploymentLockLease {
+  readonly lockRefSha?: string | undefined
   readonly cleanup: (reason: string) => Promise<void>
 }
 
@@ -62,6 +70,7 @@ interface OperationProgress {
 }
 
 interface ReadyDeployment {
+  readonly completionMetadata: CompletionMetadata | null
   readonly commitHtmlUrl: string
   readonly committer: string | null | undefined
   readonly environment: string
@@ -272,6 +281,7 @@ async function prepareDeployment(
   }
 
   return {
+    completionMetadata: null,
     commitHtmlUrl: commitData.data.html_url,
     committer,
     environment,
@@ -330,6 +340,7 @@ async function acquireDeploymentLock(
   let cleanupAttempted = false
   const lockRefSha = lockResponse.lockRefSha
   return {
+    lockRefSha,
     cleanup: async (reason: string): Promise<void> => {
       if (sticky || cleanupAttempted) return
       cleanupAttempted = true
@@ -470,6 +481,9 @@ async function createStartedComment(
   const {body, context, issueComment, octokit} = request
   const {environment, environmentResult, precheck} = ready
   const metadata = {
+    ...(ready.completionMetadata === null
+      ? {}
+      : {completion: ready.completionMetadata}),
     type: deploymentType.toLowerCase(),
     environment: {
       name: environment,
@@ -567,6 +581,9 @@ async function createDeployment(
     environment,
     production_environment: production,
     payload: {
+      ...(ready.completionMetadata === null
+        ? {}
+        : {completion: ready.completionMetadata}),
       type: BRANCH_DEPLOY_PAYLOAD_TYPE,
       sha: precheck.sha,
       params: environmentResult.environmentObj.params,
@@ -682,6 +699,13 @@ async function createDeployment(
   )
   core.info(`🚀 ${COLORS.success}deployment started!${COLORS.reset}`)
   setActionOutput('continue', 'true')
+  publishReadyContext(
+    request,
+    ready,
+    deploymentStartTime,
+    startedCommentId,
+    deployment.id
+  )
   return terminal(request, {
     runResult: 'success',
     decision: 'continue',
@@ -731,9 +755,18 @@ async function continueDeployment(
   const deploymentStartTime = timestamp()
   core.debug(`deployment_start_time: ${deploymentStartTime}`)
   saveActionState('deployment_start_time', deploymentStartTime)
+  const readyWithCompletion = {
+    ...ready,
+    completionMetadata: deferredCompletionMetadata({
+      context: request.issueComment,
+      trustedSha: request.trustedSha,
+      lockRefSha: lease.lockRefSha,
+      disableLock: request.inputs.disable_lock
+    })
+  }
   const startedCommentId = await createStartedComment(
     request,
-    ready,
+    readyWithCompletion,
     deploymentType,
     deploymentStartTime,
     logUrl
@@ -754,6 +787,13 @@ async function continueDeployment(
       `🧑‍🚀 commit sha to noop: ${COLORS.highlight}${precheck.sha}${COLORS.reset}`
     )
     core.info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`)
+    publishReadyContext(
+      request,
+      readyWithCompletion,
+      deploymentStartTime,
+      startedCommentId,
+      null
+    )
     return terminal(request, {
       runResult: 'success - noop',
       decision: 'continue',
@@ -768,7 +808,7 @@ async function continueDeployment(
 
   return createDeployment(
     request,
-    ready,
+    readyWithCompletion,
     lease,
     deploymentType,
     deploymentStartTime,
@@ -776,6 +816,45 @@ async function continueDeployment(
     startedCommentId,
     progress
   )
+}
+
+function publishReadyContext(
+  request: DeploymentOperationRequest,
+  ready: ReadyDeployment,
+  startedAt: string,
+  startedCommentId: number,
+  deploymentId: number | null
+): void {
+  const metadata = ready.completionMetadata
+  if (metadata === null) return
+  const {environmentObj} = ready.environmentResult
+  const {precheck} = ready
+  publishCompletionContext({
+    ...metadata,
+    started_comment_id: startedCommentId,
+    deployment_id: deploymentId,
+    reaction_id: request.reactionId,
+    noop: precheck.noopMode,
+    ref: precheck.ref,
+    sha: precheck.sha,
+    environment: ready.environment,
+    environment_url: ready.environmentResult.environmentUrl,
+    actor: request.context.actor,
+    fork: precheck.isFork,
+    commit_verified: ready.isVerified,
+    deployment_start_time: startedAt,
+    approved_reviews_count:
+      precheck.approved_reviews_count === undefined
+        ? ''
+        : String(precheck.approved_reviews_count),
+    review_decision: precheck.review_decision ?? '',
+    params: environmentObj.params ?? '',
+    parsed_params:
+      environmentObj.parsed_params === null
+        ? ''
+        : JSON.stringify(environmentObj.parsed_params),
+    settings: completionSettings()
+  })
 }
 
 export async function runDeploymentOperation(

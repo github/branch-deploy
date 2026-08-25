@@ -301,7 +301,12 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `admins_pat` | `false` | `"false"` | A GitHub personal access token with "read:org" scopes. This is only needed if you are using the "admins" option with a GitHub org team. For example: "my-org/my-team" |
 | `merge_deploy_mode` | `false` | `false` | Advanced configuration option for operations on merge commits. See the [merge commit docs](#merge-commit-workflow-strategy) below |
 | `unlock_on_merge_mode` | `false` | `false` | Advanced configuration option for automatically releasing locks associated with a pull request when that pull request is merged. See the [unlock on merge mode](docs/unlock-on-merge.md) documentation for more details |
-| `skip_completing` | `false` | `false` | If set to `true`, bypass the entire post-action completion path. Your workflow must manage final deployment status, comments, reactions, labels, and non-sticky lock cleanup. Default is `false`. |
+| `skip_completing` | `false` | `false` | If set to `true`, bypass the initial invocation's post-action completion path. Use [result mode](docs/result-mode.md) in a later job, or manage final statuses, comments, reactions, labels, and safe non-sticky lock cleanup yourself. |
+| `result_mode` | `false` | `false` | Complete an admitted deployment or noop in a later job of the same workflow run and attempt. Requires `context` and `job_results`. See [result mode](docs/result-mode.md). |
+| `context` | `false` | `""` | The original start job's `context` output, passed unchanged to result mode. Do not construct it or read it from pull request files or build artifacts. |
+| `job_results` | `false` | `""` | A nonempty JSON array of selected job results for result mode, such as `${{ toJSON(needs.*.result) }}`. Accepted values are `success`, `failure`, `cancelled`, and `skipped`; do not pass the full `needs` object. |
+| `result_inherit_settings` | `false` | `true` | Use the initial invocation's completion settings. If `false`, replace them with the result invocation's normal completion inputs and defaults, without merging omitted values from the initial invocation. |
+| `result_url` | `false` | `""` | Optional HTTPS result link. Credentials and control characters are rejected, and the URL is never fetched. |
 | `deploy_message_path` | `false` | `".github/deployment_message.md"` | The repository-relative path to a trusted Markdown template for custom deployment messages. Branch Deploy fetches the file from the repository at the exact trusted workflow SHA; absolute paths, traversal segments, and runner filesystem paths are rejected. See the [custom deployment messages documentation](docs/custom-deployment-messages.md). |
 | `sticky_locks` | `false` | `false` | If set to `true`, locks will not be released after a deployment run completes. This applies to both successful, and failed deployments. Sticky locks are also known as ["hubot style deployment locks"](./docs/hubot-style-deployment-locks.md). They will persist until they are manually released by a user, or if you configure [another workflow with the "unlock on merge" mode](./docs/unlock-on-merge.md) to remove them automatically on PR merge. |
 | `sticky_locks_for_noop` | `false` | `false` | If set to `true`, then sticky_locks will also be used for noop deployments. This can be useful in some cases but it often leads to locks being left behind when users test noop deployments. |
@@ -328,6 +333,8 @@ As seen above, we have two steps. One for a noop deploy, and one for a regular d
 | `decision` | The preferred main action decision output. Values are `continue`, `complete`, `stop`, or `failure`. |
 | `reason_code` | The preferred stable machine-readable reason code for the main action decision. |
 | `result` | The preferred deterministic JSON string describing the versioned main action result. Parse it with `fromJSON(...)` in workflow expressions. |
+| `context` | JSON completion context for a later result-mode job in the same workflow run and attempt. Forward it unchanged from the trusted start job; its `run_attempt` also guards downstream jobs against stale partial reruns. See [result mode](docs/result-mode.md). |
+| `deployment_result` | The selected job outcome in result mode: `success`, `failure`, `cancelled`, or `skipped`. Reporting or cleanup can fail independently of this outcome. See [result mode](docs/result-mode.md). |
 | `continue` | Compatibility alias. The string "true" if the deployment should continue, otherwise empty - Use this to conditionally control if your deployment should proceed or not |
 | `fork` | The string "true" if the pull request is a fork, otherwise "false" |
 | `triggered` | The string "true" if the trigger was found, otherwise the string "false" |
@@ -592,11 +599,11 @@ Checkout the [merge commit workflow strategy](docs/merge-commit-strategy.md) for
 
 ## Manual Deployment Control
 
-If you need fine-grained control over completion, set `skip_completing: true` to bypass Branch Deploy's entire post-action completion path.
+For deployments that span jobs, set `skip_completing: true` on the initial invocation and use [result mode](docs/result-mode.md) in a final job. It handles deployment and noop completion using the original context. See the [multiple-jobs example](docs/examples.md#multiple-jobs).
 
-When using this option, your workflow is responsible for the final deployment status and any required completion comments, reactions, labels, and non-sticky lock cleanup. Branch Deploy does not perform those operations after the deployment jobs finish.
+If you need full manual control, `skip_completing: true` without a result invocation still bypasses completion. Your workflow is then responsible for final deployment statuses, comments, reactions, labels, and safe non-sticky lock cleanup. Existing single-job workflows keep their normal post-action completion when this option is `false`.
 
-An example workflow using this option can be found [here](https://github.com/github/branch-deploy/blob/main/docs/examples.md#multiple-jobs)
+The [manual multi-job examples](docs/examples.md#multiple-jobs-with-github-pages-and-hugo) remain available for that case.
 
 ## Saving on Actions Compute
 

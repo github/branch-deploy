@@ -157,9 +157,9 @@ test('manual deployment examples release only their original non-sticky locks', 
     match => match[0]
   )
 
-  assert.strictEqual(captureSteps.length, 4)
-  assert.strictEqual(capturedOutputs.length, 4)
-  assert.strictEqual(releaseSteps.length, 4)
+  assert.strictEqual(captureSteps.length, 3)
+  assert.strictEqual(capturedOutputs.length, 3)
+  assert.strictEqual(releaseSteps.length, 3)
 
   for (const step of releaseSteps) {
     assert.match(step, /lock\.json\?ref=\$\{LOCK_REF_SHA\}/u)
@@ -175,6 +175,55 @@ test('manual deployment examples release only their original non-sticky locks', 
     assert.match(step, /-f before="\$LOCK_REF_SHA"/u)
     assert.doesNotMatch(step, /global-branch-deploy-lock|--method\s+DELETE/u)
   }
+})
+
+test('the result-mode example uses trusted context and guards deployment reruns', () => {
+  const examples = readFileSync('docs/examples.md', 'utf8')
+  const example = /^## Multiple Jobs\n([\s\S]*?)(?=^## )/mu.exec(examples)?.[1]
+  assert.ok(example !== undefined)
+  assert.match(example, /skip_completing: true/u)
+  assert.match(
+    example,
+    /context: \$\{\{ steps\.branch-deploy\.outputs\.context \}\}/u
+  )
+  assert.match(
+    example,
+    /fromJSON\(needs\.trigger\.outputs\.context\)\.run_attempt == github\.run_attempt/u
+  )
+  assert.match(
+    example,
+    /if: \$\{\{ needs\.trigger\.outputs\.noop == 'true' \}\}/u
+  )
+  assert.match(
+    example,
+    /if: \$\{\{ needs\.trigger\.outputs\.noop != 'true' \}\}/u
+  )
+  const resultJob = /^ {2}result:\n([\s\S]*?)^```/mu.exec(example)?.[1]
+  assert.ok(resultJob !== undefined)
+  assert.match(resultJob, /needs: \[trigger, deploy\]/u)
+  assert.match(
+    resultJob,
+    /always\(\) && needs\.trigger\.outputs\.continue == 'true'/u
+  )
+  assert.match(resultJob, /result_mode: true/u)
+  assert.match(
+    resultJob,
+    /context: \$\{\{ needs\.trigger\.outputs\.context \}\}/u
+  )
+  assert.match(
+    resultJob,
+    /job_results: \$\{\{ toJSON\(needs\.\*\.result\) \}\}/u
+  )
+  assert.doesNotMatch(
+    resultJob,
+    /actions\/checkout|download-artifact|toJSON\(needs\)/u
+  )
+  const pins = Array.from(
+    example.matchAll(/uses: github\/branch-deploy@(\S+)/gu),
+    match => match[1]
+  )
+  assert.strictEqual(pins.length, 2)
+  assert.strictEqual(pins[0], pins[1])
 })
 
 test('documented deployment messages do not use fixed delimiters', () => {

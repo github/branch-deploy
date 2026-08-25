@@ -35440,6 +35440,11 @@ const ACTION_INPUT_KEYS = (/* unused pure expression or super */ null && ([
     'merge_deploy_mode',
     'unlock_on_merge_mode',
     'skip_completing',
+    'result_mode',
+    'context',
+    'job_results',
+    'result_inherit_settings',
+    'result_url',
     'deploy_message_path',
     'sticky_locks',
     'sticky_locks_for_noop',
@@ -35466,6 +35471,8 @@ const BOOLEAN_ACTION_INPUT_KEYS = (/* unused pure expression or super */ null &&
     'merge_deploy_mode',
     'unlock_on_merge_mode',
     'skip_completing',
+    'result_mode',
+    'result_inherit_settings',
     'sticky_locks',
     'sticky_locks_for_noop',
     'disable_lock',
@@ -35481,6 +35488,8 @@ const INTEGER_ACTION_INPUT_KEYS = (/* unused pure expression or super */ null &&
     'deployment_confirmation_timeout'
 ]));
 const ACTION_OUTPUT_KEYS = (/* unused pure expression or super */ null && ([
+    'context',
+    'deployment_result',
     'continue',
     'triggered',
     'comment_body',
@@ -36264,6 +36273,323 @@ function isRetryableConfirmationError(error) {
         return true;
     }
     return status >= 500 && status < 600;
+}
+
+// EXTERNAL MODULE: external "node:buffer"
+var external_node_buffer_ = __nccwpck_require__(4573);
+// EXTERNAL MODULE: external "node:url"
+var external_node_url_ = __nccwpck_require__(3136);
+;// CONCATENATED MODULE: ./src/functions/result-context.ts
+
+
+const MAX_COMPLETION_CONTEXT_BYTES = 64 * 1024;
+const METADATA_KEYS = [
+    'schema_version',
+    'repository',
+    'run_id',
+    'run_attempt',
+    'issue_number',
+    'trigger_comment_id',
+    'trusted_sha',
+    'lock_ref_sha',
+    'disable_lock'
+];
+const CONTEXT_KEYS = [
+    ...METADATA_KEYS,
+    'started_comment_id',
+    'deployment_id',
+    'reaction_id',
+    'noop',
+    'ref',
+    'sha',
+    'environment',
+    'environment_url',
+    'actor',
+    'fork',
+    'commit_verified',
+    'deployment_start_time',
+    'approved_reviews_count',
+    'review_decision',
+    'params',
+    'parsed_params',
+    'settings'
+];
+const SETTINGS_KEYS = [
+    'deploy_message_path',
+    'environment_url_in_comment',
+    'successful_deploy_labels',
+    'failed_deploy_labels',
+    'successful_noop_labels',
+    'failed_noop_labels',
+    'skip_successful_noop_labels_if_approved',
+    'skip_successful_deploy_labels_if_approved'
+];
+const RESULT_PRIORITY = {
+    success: 0,
+    skipped: 1,
+    failure: 2,
+    cancelled: 3
+};
+function invalid(field) {
+    throw new Error(`Invalid ${field}`);
+}
+function checkSize(value, field) {
+    if (external_node_buffer_.Buffer.byteLength(value, 'utf8') > MAX_COMPLETION_CONTEXT_BYTES) {
+        throw new Error(`${field} exceeds the maximum size`);
+    }
+}
+function parseJson(value, field) {
+    checkSize(value, field);
+    try {
+        const parsed = JSON.parse(value);
+        return parsed;
+    }
+    catch {
+        throw new Error(`${field} must contain valid JSON`);
+    }
+}
+function isArray(value) {
+    return Array.isArray(value);
+}
+function isRecord(value) {
+    if (typeof value !== 'object' || value === null || isArray(value))
+        return false;
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+}
+function exactRecord(value, keys, field) {
+    if (!isRecord(value))
+        invalid(field);
+    if (Reflect.ownKeys(value).length !== keys.length ||
+        !keys.every(key => Object.hasOwn(value, key))) {
+        invalid(`${field} fields`);
+    }
+    return value;
+}
+function stringValue(value, field) {
+    if (typeof value !== 'string')
+        invalid(field);
+    return value;
+}
+function nonemptyString(value, field) {
+    const result = stringValue(value, field);
+    if (result.length === 0)
+        invalid(field);
+    return result;
+}
+function booleanValue(value, field) {
+    if (typeof value !== 'boolean')
+        invalid(field);
+    return value;
+}
+function positiveId(value, field) {
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+        invalid(field);
+    }
+    return value;
+}
+function nullableId(value, field) {
+    return value === null ? null : positiveId(value, field);
+}
+function shaValue(value, field) {
+    const sha = stringValue(value, field);
+    if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/iu.test(sha))
+        invalid(field);
+    return sha;
+}
+function readMetadata(value) {
+    if (value['schema_version'] !== 1)
+        invalid('context schema_version');
+    const repository = nonemptyString(value['repository'], 'repository');
+    if (!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/iu.test(repository))
+        invalid('repository');
+    return {
+        schema_version: 1,
+        repository,
+        run_id: positiveId(value['run_id'], 'run_id'),
+        run_attempt: positiveId(value['run_attempt'], 'run_attempt'),
+        issue_number: positiveId(value['issue_number'], 'issue_number'),
+        trigger_comment_id: positiveId(value['trigger_comment_id'], 'trigger_comment_id'),
+        trusted_sha: shaValue(value['trusted_sha'], 'trusted_sha'),
+        lock_ref_sha: value['lock_ref_sha'] === null
+            ? null
+            : shaValue(value['lock_ref_sha'], 'lock_ref_sha'),
+        disable_lock: booleanValue(value['disable_lock'], 'disable_lock')
+    };
+}
+function readSettings(value) {
+    const settings = exactRecord(value, SETTINGS_KEYS, 'context settings');
+    return {
+        deploy_message_path: stringValue(settings['deploy_message_path'], 'deploy_message_path'),
+        environment_url_in_comment: stringValue(settings['environment_url_in_comment'], 'environment_url_in_comment'),
+        successful_deploy_labels: stringValue(settings['successful_deploy_labels'], 'successful_deploy_labels'),
+        failed_deploy_labels: stringValue(settings['failed_deploy_labels'], 'failed_deploy_labels'),
+        successful_noop_labels: stringValue(settings['successful_noop_labels'], 'successful_noop_labels'),
+        failed_noop_labels: stringValue(settings['failed_noop_labels'], 'failed_noop_labels'),
+        skip_successful_noop_labels_if_approved: stringValue(settings['skip_successful_noop_labels_if_approved'], 'skip_successful_noop_labels_if_approved'),
+        skip_successful_deploy_labels_if_approved: stringValue(settings['skip_successful_deploy_labels_if_approved'], 'skip_successful_deploy_labels_if_approved')
+    };
+}
+function timestampValue(value) {
+    const timestamp = stringValue(value, 'deployment_start_time');
+    const parsed = new Date(timestamp);
+    if (!Number.isFinite(parsed.getTime()) ||
+        parsed.toISOString() !== timestamp) {
+        invalid('deployment_start_time');
+    }
+    return timestamp;
+}
+function parseCompletionMetadata(value) {
+    return readMetadata(exactRecord(value, METADATA_KEYS, 'completion metadata'));
+}
+function completionMetadata(context) {
+    return {
+        schema_version: context.schema_version,
+        repository: context.repository,
+        run_id: context.run_id,
+        run_attempt: context.run_attempt,
+        issue_number: context.issue_number,
+        trigger_comment_id: context.trigger_comment_id,
+        trusted_sha: context.trusted_sha,
+        lock_ref_sha: context.lock_ref_sha,
+        disable_lock: context.disable_lock
+    };
+}
+function parseCompletionContext(serialized) {
+    const value = exactRecord(parseJson(serialized, 'context'), CONTEXT_KEYS, 'context');
+    const noop = booleanValue(value['noop'], 'noop');
+    const deploymentId = nullableId(value['deployment_id'], 'deployment_id');
+    if (noop !== (deploymentId === null))
+        invalid('noop/deployment_id combination');
+    const parsedParams = stringValue(value['parsed_params'], 'parsed_params');
+    if (parsedParams !== '' &&
+        !isRecord(parseJson(parsedParams, 'parsed_params'))) {
+        invalid('parsed_params object');
+    }
+    return {
+        ...readMetadata(value),
+        started_comment_id: positiveId(value['started_comment_id'], 'started_comment_id'),
+        deployment_id: deploymentId,
+        reaction_id: nullableId(value['reaction_id'], 'reaction_id'),
+        noop,
+        ref: nonemptyString(value['ref'], 'ref'),
+        sha: shaValue(value['sha'], 'sha'),
+        environment: nonemptyString(value['environment'], 'environment'),
+        environment_url: value['environment_url'] === null
+            ? null
+            : stringValue(value['environment_url'], 'environment_url'),
+        actor: nonemptyString(value['actor'], 'actor'),
+        fork: booleanValue(value['fork'], 'fork'),
+        commit_verified: booleanValue(value['commit_verified'], 'commit_verified'),
+        deployment_start_time: timestampValue(value['deployment_start_time']),
+        approved_reviews_count: stringValue(value['approved_reviews_count'], 'approved_reviews_count'),
+        review_decision: stringValue(value['review_decision'], 'review_decision'),
+        params: stringValue(value['params'], 'params'),
+        parsed_params: parsedParams,
+        settings: readSettings(value['settings'])
+    };
+}
+function serializeCompletionContext(context) {
+    const settings = {};
+    for (const key of SETTINGS_KEYS)
+        settings[key] = context.settings[key];
+    const value = {};
+    for (const key of CONTEXT_KEYS) {
+        value[key] = key === 'settings' ? settings : context[key];
+    }
+    const serialized = JSON.stringify(value);
+    return external_node_buffer_.Buffer.byteLength(serialized, 'utf8') > MAX_COMPLETION_CONTEXT_BYTES
+        ? null
+        : serialized;
+}
+function isDeploymentResult(value) {
+    return (value === 'success' ||
+        value === 'failure' ||
+        value === 'cancelled' ||
+        value === 'skipped');
+}
+function parseJobResults(serialized) {
+    const values = parseJson(serialized, 'job_results');
+    if (!isArray(values) || values.length === 0)
+        invalid('job_results array');
+    let result = 'success';
+    for (const value of values) {
+        if (!isDeploymentResult(value))
+            invalid('job_results value');
+        if (RESULT_PRIORITY[value] > RESULT_PRIORITY[result])
+            result = value;
+    }
+    return result;
+}
+function validateResultUrl(value) {
+    checkSize(value, 'result_url');
+    if (!/^https:\/\//iu.test(value) ||
+        /[\s\u0000-\u001f\u007f-\u009f]/u.test(value)) {
+        invalid('result_url: expected an HTTPS URL without credentials or control characters');
+    }
+    let url;
+    try {
+        url = new external_node_url_.URL(value);
+    }
+    catch {
+        invalid('result_url: expected a valid HTTPS URL');
+    }
+    if (url.username !== '' || url.password !== '') {
+        invalid('result_url: credentials are not allowed');
+    }
+    return value;
+}
+
+;// CONCATENATED MODULE: ./src/functions/deferred-completion.ts
+
+
+
+function deferredCompletionRequested() {
+    // Leave malformed boolean handling at the original post-action boundary.
+    const value = getActionInput('skip_completing');
+    return value === 'true' || value === 'True' || value === 'TRUE';
+}
+function deferredCompletionMetadata({ context, trustedSha, lockRefSha, disableLock }) {
+    if (!deferredCompletionRequested())
+        return null;
+    const runAttempt = Number(process.env['GITHUB_RUN_ATTEMPT']);
+    if (!Number.isSafeInteger(runAttempt) ||
+        runAttempt < 1 ||
+        trustedSha === undefined) {
+        warning('completion context is unavailable; complete this deployment manually');
+        return null;
+    }
+    return {
+        schema_version: 1,
+        repository: `${context.repo.owner}/${context.repo.repo}`,
+        run_id: context.runId,
+        run_attempt: runAttempt,
+        issue_number: context.issue.number,
+        trigger_comment_id: context.payload.comment.id,
+        trusted_sha: trustedSha,
+        lock_ref_sha: lockRefSha ?? null,
+        disable_lock: disableLock
+    };
+}
+function completionSettings() {
+    return {
+        deploy_message_path: getActionInput('deploy_message_path'),
+        environment_url_in_comment: getActionInput('environment_url_in_comment'),
+        successful_deploy_labels: getActionInput('successful_deploy_labels'),
+        failed_deploy_labels: getActionInput('failed_deploy_labels'),
+        successful_noop_labels: getActionInput('successful_noop_labels'),
+        failed_noop_labels: getActionInput('failed_noop_labels'),
+        skip_successful_noop_labels_if_approved: getActionInput('skip_successful_noop_labels_if_approved'),
+        skip_successful_deploy_labels_if_approved: getActionInput('skip_successful_deploy_labels_if_approved')
+    };
+}
+function publishCompletionContext(context) {
+    const value = serializeCompletionContext(context);
+    if (value === null) {
+        warning('completion context is too large; complete this deployment manually');
+        return;
+    }
+    setActionOutput('context', value);
 }
 
 ;// CONCATENATED MODULE: ./src/functions/check-input.ts
@@ -39307,6 +39633,7 @@ function evaluatePrecheckGates({ allowDraftDeploy, allowShaDeployments, commitOi
 
 
 
+
 // Runs precheck logic before the branch deployment can proceed
 // :param context: The context of the event
 // :param octokit: The octokit client
@@ -39676,6 +40003,12 @@ async function prechecks(context, octokit, data) {
     message = gateDecision.message;
     // Return a success message
     return {
+        ...(deferredCompletionRequested()
+            ? {
+                approved_reviews_count: approvedReviewsCount,
+                review_decision: reviewDecision
+            }
+            : {}),
         message: message,
         status: true,
         ref: ref,
@@ -40192,6 +40525,7 @@ async function validDeploymentOrder({ context, enforcedDeploymentOrder, environm
 
 
 
+
 function terminal(request, outcome) {
     return { ...outcome, operation: request.operation };
 }
@@ -40361,6 +40695,7 @@ async function prepareDeployment(request, progress) {
             return orderFailure;
     }
     return {
+        completionMetadata: null,
         commitHtmlUrl: commitData.data.html_url,
         committer,
         environment,
@@ -40410,6 +40745,7 @@ async function acquireDeploymentLock(request, ready) {
     let cleanupAttempted = false;
     const lockRefSha = lockResponse.lockRefSha;
     return {
+        lockRefSha,
         cleanup: async (reason) => {
             if (sticky || cleanupAttempted)
                 return;
@@ -40518,6 +40854,9 @@ async function createStartedComment(request, ready, deploymentType, deploymentSt
     const { body, context, issueComment, octokit } = request;
     const { environment, environmentResult, precheck } = ready;
     const metadata = {
+        ...(ready.completionMetadata === null
+            ? {}
+            : { completion: ready.completionMetadata }),
         type: deploymentType.toLowerCase(),
         environment: {
             name: environment,
@@ -40601,6 +40940,9 @@ async function createDeployment(request, ready, lease, deploymentType, deploymen
         environment,
         production_environment: production,
         payload: {
+            ...(ready.completionMetadata === null
+                ? {}
+                : { completion: ready.completionMetadata }),
             type: BRANCH_DEPLOY_PAYLOAD_TYPE,
             sha: precheck.sha,
             params: environmentResult.environmentObj.params,
@@ -40687,6 +41029,7 @@ async function createDeployment(request, ready, lease, deploymentType, deploymen
     info(`🧑‍🚀 commit sha to deploy: ${COLORS.highlight}${precheck.sha}${COLORS.reset}`);
     info(`🚀 ${COLORS.success}deployment started!${COLORS.reset}`);
     setActionOutput('continue', 'true');
+    publishReadyContext(request, ready, deploymentStartTime, startedCommentId, deployment.id);
     return terminal(request, {
         runResult: 'success',
         decision: 'continue',
@@ -40718,7 +41061,16 @@ async function continueDeployment(request, ready, lease, progress) {
     const deploymentStartTime = timestamp();
     debug(`deployment_start_time: ${deploymentStartTime}`);
     saveActionState('deployment_start_time', deploymentStartTime);
-    const startedCommentId = await createStartedComment(request, ready, deploymentType, deploymentStartTime, logUrl);
+    const readyWithCompletion = {
+        ...ready,
+        completionMetadata: deferredCompletionMetadata({
+            context: request.issueComment,
+            trustedSha: request.trustedSha,
+            lockRefSha: lease.lockRefSha,
+            disableLock: request.inputs.disable_lock
+        })
+    };
+    const startedCommentId = await createStartedComment(request, readyWithCompletion, deploymentType, deploymentStartTime, logUrl);
     const finalRefFailure = await changedRefOutcome(request, ready, lease, deploymentType);
     if (finalRefFailure !== null)
         return finalRefFailure;
@@ -40728,6 +41080,7 @@ async function continueDeployment(request, ready, lease, progress) {
         saveActionState('noop', precheck.noopMode);
         info(`🧑‍🚀 commit sha to noop: ${COLORS.highlight}${precheck.sha}${COLORS.reset}`);
         info(`🚀 ${COLORS.success}deployment started!${COLORS.reset} (noop)`);
+        publishReadyContext(request, readyWithCompletion, deploymentStartTime, startedCommentId, null);
         return terminal(request, {
             runResult: 'success - noop',
             decision: 'continue',
@@ -40739,7 +41092,38 @@ async function continueDeployment(request, ready, lease, progress) {
         });
     }
     saveActionState('noop', precheck.noopMode);
-    return createDeployment(request, ready, lease, deploymentType, deploymentStartTime, githubRunId, startedCommentId, progress);
+    return createDeployment(request, readyWithCompletion, lease, deploymentType, deploymentStartTime, githubRunId, startedCommentId, progress);
+}
+function publishReadyContext(request, ready, startedAt, startedCommentId, deploymentId) {
+    const metadata = ready.completionMetadata;
+    if (metadata === null)
+        return;
+    const { environmentObj } = ready.environmentResult;
+    const { precheck } = ready;
+    publishCompletionContext({
+        ...metadata,
+        started_comment_id: startedCommentId,
+        deployment_id: deploymentId,
+        reaction_id: request.reactionId,
+        noop: precheck.noopMode,
+        ref: precheck.ref,
+        sha: precheck.sha,
+        environment: ready.environment,
+        environment_url: ready.environmentResult.environmentUrl,
+        actor: request.context.actor,
+        fork: precheck.isFork,
+        commit_verified: ready.isVerified,
+        deployment_start_time: startedAt,
+        approved_reviews_count: precheck.approved_reviews_count === undefined
+            ? ''
+            : String(precheck.approved_reviews_count),
+        review_decision: precheck.review_decision ?? '',
+        params: environmentObj.params ?? '',
+        parsed_params: environmentObj.parsed_params === null
+            ? ''
+            : JSON.stringify(environmentObj.parsed_params),
+        settings: completionSettings()
+    });
 }
 async function runDeploymentOperation(request) {
     let lease = null;
@@ -41213,6 +41597,1071 @@ async function runDirectOperation(request) {
     }
 }
 
+// EXTERNAL MODULE: external "node:util"
+var external_node_util_ = __nccwpck_require__(7975);
+;// CONCATENATED MODULE: ./src/functions/label.ts
+
+
+// Helper function to add labels to a pull request
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :param labelsToAdd: An array of labels to add to the pull request (Array)
+// :parm labelsToRemove: An array of labels to remove from the pull request (Array)
+// :returns: An object containing the labels added and removed (Object)
+async function label(context, octokit, labelsToAdd, labelsToRemove) {
+    // Get the owner, repo, and issue number from the context
+    const { owner, repo } = context.repo;
+    const issueNumber = context.issue.number;
+    let addedLabels = []; // an array of labels that were actually added
+    const removedLabels = []; // an array of labels that were actually removed
+    // exit early if there are no labels to add or remove
+    if (labelsToAdd.length === 0 && labelsToRemove.length === 0) {
+        debug('🏷️ no labels to add or remove');
+        return {
+            added: [],
+            removed: []
+        };
+    }
+    // first, find and cleanup labelsToRemove if any are provided
+    if (labelsToRemove.length > 0) {
+        // Fetch current labels on the issue
+        debug('fetching current labels on the issue');
+        const currentLabels = [];
+        const labelsPerPage = 100;
+        let page = 1;
+        while (true) {
+            const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
+                owner: owner,
+                repo: repo,
+                issue_number: issueNumber,
+                per_page: labelsPerPage,
+                page,
+                headers: API_HEADERS
+            });
+            currentLabels.push(...currentLabelsResult.data.map(label => label.name));
+            if (currentLabelsResult.data.length < labelsPerPage)
+                break;
+            page += 1;
+        }
+        debug(`current labels: ${currentLabels.join(',')}`);
+        debug(`labels to remove: ${labelsToRemove.join(',')}`);
+        // Remove unwanted labels
+        for (const label of labelsToRemove) {
+            if (currentLabels.includes(label)) {
+                await octokit.rest.issues.removeLabel({
+                    owner: owner,
+                    repo: repo,
+                    issue_number: issueNumber,
+                    name: label,
+                    headers: API_HEADERS
+                });
+                info(`🏷️ label removed: ${label}`);
+                removedLabels.push(label);
+            }
+            else {
+                debug(`🏷️ label not found: '${label}' so it was not removed`);
+            }
+        }
+    }
+    // now, add the labels if any are provided
+    if (labelsToAdd.length > 0) {
+        debug(`attempting to apply labels: ${labelsToAdd.join(',')}`);
+        await octokit.rest.issues.addLabels({
+            owner: owner,
+            repo: repo,
+            issue_number: issueNumber,
+            labels: [...labelsToAdd],
+            headers: API_HEADERS
+        });
+        info(`🏷️ labels added: ${labelsToAdd.join(',')}`);
+        addedLabels = labelsToAdd;
+    }
+    return {
+        added: addedLabels,
+        removed: removedLabels
+    };
+}
+
+;// CONCATENATED MODULE: ./src/functions/deployment-template.ts
+
+const IDENTIFIER = /^[a-z_][a-z0-9_]*$/u;
+const COMPARISON = /^([a-z_][a-z0-9_]*)\s*(===|==|!==|!=)\s*("(?:[^"\\]|\\.)*"|true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)$/u;
+const TERNARY = /^("(?:[^"\\]|\\.)*"|true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)\s+if\s+(.+?)\s+else\s+("(?:[^"\\]|\\.)*"|true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)$/u;
+function parseLiteral(value) {
+    return decodedDeploymentTemplateLiteral(value);
+}
+function htmlEscape(value) {
+    return value
+        .replace(/&/gu, '&amp;')
+        .replace(/</gu, '&lt;')
+        .replace(/>/gu, '&gt;')
+        .replace(/"/gu, '&quot;')
+        .replace(/'/gu, '&#39;');
+}
+function variable(variables, name) {
+    if (!Object.hasOwn(variables, name)) {
+        throw new Error(`Unknown deployment template variable: ${name}`);
+    }
+    return variables[name] ?? null;
+}
+function evaluateCondition(expression, variables) {
+    const trimmed = expression.trim();
+    if (trimmed.startsWith('not ')) {
+        const name = trimmed.slice(4).trim();
+        if (!IDENTIFIER.test(name)) {
+            throw new Error(`Unsupported deployment template condition: ${trimmed}`);
+        }
+        const value = variable(variables, name);
+        if (typeof value !== 'boolean') {
+            throw new Error(`Deployment template condition is not boolean: ${trimmed}`);
+        }
+        return !value;
+    }
+    if (IDENTIFIER.test(trimmed)) {
+        const value = variable(variables, trimmed);
+        if (typeof value !== 'boolean') {
+            throw new Error(`Deployment template condition is not boolean: ${trimmed}`);
+        }
+        return value;
+    }
+    const comparison = trimmed.match(COMPARISON);
+    if (comparison === null) {
+        throw new Error(`Unsupported deployment template condition: ${trimmed}`);
+    }
+    const name = regexCapture(comparison, 1);
+    const operator = regexCapture(comparison, 2);
+    const literal = regexCapture(comparison, 3);
+    const equal = variable(variables, name) === parseLiteral(literal);
+    return operator === '===' || operator === '==' ? equal : !equal;
+}
+function renderExpression(expression, variables) {
+    const trimmed = expression.trim();
+    if (IDENTIFIER.test(trimmed)) {
+        const value = variable(variables, trimmed);
+        const rendered = value === null ? '' : String(value);
+        return trimmed === 'results' ? rendered : htmlEscape(rendered);
+    }
+    const ternary = trimmed.match(TERNARY);
+    if (ternary === null) {
+        throw new Error(`Unsupported deployment template expression: ${trimmed}`);
+    }
+    const whenTrue = regexCapture(ternary, 1);
+    const condition = regexCapture(ternary, 2);
+    const whenFalse = regexCapture(ternary, 3);
+    const value = evaluateCondition(condition, variables)
+        ? parseLiteral(whenTrue)
+        : parseLiteral(whenFalse);
+    return value === null ? '' : String(value);
+}
+function renderDeploymentTemplate(template, variables) {
+    const tokenPattern = /(\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\})/gu;
+    const frames = [];
+    let active = true;
+    let cursor = 0;
+    let output = '';
+    for (const match of template.matchAll(tokenPattern)) {
+        const token = match[0];
+        const index = match.index;
+        const text = template.slice(cursor, index);
+        if (text.includes('{{') || text.includes('{%') || text.includes('{#')) {
+            throw new Error('Malformed deployment template syntax');
+        }
+        if (active)
+            output += text;
+        if (token.startsWith('{{')) {
+            const rendered = renderExpression(token.slice(2, -2), variables);
+            if (active)
+                output += rendered;
+        }
+        else {
+            const statement = token.slice(2, -2).trim();
+            if (statement.startsWith('if ')) {
+                const frame = {
+                    condition: evaluateCondition(statement.slice(3), variables),
+                    parentActive: active,
+                    seenElse: false
+                };
+                frames.push(frame);
+                active = frame.parentActive && frame.condition;
+            }
+            else if (statement === 'else') {
+                const frame = frames.at(-1);
+                if (frame === undefined || frame.seenElse) {
+                    throw new Error('Unexpected deployment template else statement');
+                }
+                frame.seenElse = true;
+                active = frame.parentActive && !frame.condition;
+            }
+            else if (statement === 'endif') {
+                const frame = frames.pop();
+                if (frame === undefined) {
+                    throw new Error('Unexpected deployment template endif statement');
+                }
+                active = frame.parentActive;
+            }
+            else {
+                throw new Error(`Unsupported deployment template statement: ${statement}`);
+            }
+        }
+        cursor = index + token.length;
+    }
+    const remaining = template.slice(cursor);
+    if (remaining.includes('{{') ||
+        remaining.includes('{%') ||
+        remaining.includes('{#')) {
+        throw new Error('Malformed deployment template syntax');
+    }
+    if (frames.length !== 0) {
+        throw new Error('Unclosed deployment template if statement');
+    }
+    if (active)
+        output += remaining;
+    return output;
+}
+
+;// CONCATENATED MODULE: ./src/functions/post-deploy-message.ts
+
+
+
+
+
+
+
+function escapeResultUrl(value) {
+    return new external_node_url_.URL(value).href
+        .replaceAll('\\', '%5C')
+        .replaceAll('<', '%3C')
+        .replaceAll('>', '%3E')
+        .replaceAll('(', '%28')
+        .replaceAll(')', '%29')
+        .replaceAll('[', '%5B')
+        .replaceAll(']', '%5D')
+        .replaceAll('`', '%60')
+        .replaceAll('"', '%22')
+        .replaceAll("'", '%27')
+        .replace(/\s/gu, encodeURIComponent);
+}
+// Helper function construct a post deployment message
+// :param context: The GitHub Actions event context
+// :param data: A data object containing attributes of the message
+//   - attribute: environment: The environment of the deployment (String)
+//   - attribute: environment_url: The environment url of the deployment (String)
+//   - attribute: status: The status of the deployment (String)
+//   - attribute: noop: Indicates whether the deployment is a noop or not (Boolean)
+//   - attribute: ref: The ref (branch) which is being used for deployment (String)
+//   - attribute: sha: The exact commit SHA of the deployment (String)
+//   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
+//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
+//   - attribute: deployment_id: The id of the deployment (String)
+//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
+//   - attribute: params: The raw string of deployment parameters (String)
+//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
+//   - attribute: deployment_end_time: The time the deployment ended - this value is not _exact_ but it is very close (String)
+//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
+//   - attribute: total_seconds: The total amount of seconds that the deployment took (Int)
+// :returns: The formatted message (String)
+function postDeployMessage(context, data, template = null, resultOptions) {
+    // fetch the inputs
+    const environment_url_in_comment = resultOptions?.environmentUrlInComment ??
+        getBooleanActionInput('environment_url_in_comment');
+    const deploymentResults = checkInput(process.env['DEPLOY_MESSAGE']);
+    const vars = {
+        environment: data.environment,
+        environment_url: data.environment_url === '' ? null : data.environment_url,
+        status: data.status,
+        noop: data.noop,
+        ref: data.ref,
+        sha: data.sha,
+        approved_reviews_count: data.approved_reviews_count
+            ? parseInt(data.approved_reviews_count)
+            : null,
+        review_decision: data.review_decision === '' ? null : data.review_decision,
+        deployment_id: data.deployment_id ? parseInt(data.deployment_id) : null,
+        fork: data.fork,
+        params: data.params === '' ? null : data.params,
+        parsed_params: data.parsed_params === '' ? null : data.parsed_params,
+        deployment_end_time: data.deployment_end_time,
+        actor: context.actor,
+        logs: `${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/actions/runs/${String(process.env['GITHUB_RUN_ID'])}`,
+        commit_verified: data.commit_verified,
+        total_seconds: data.total_seconds,
+        results: deploymentResults ?? ''
+    };
+    if (template !== null) {
+        debug('using trusted deployment template');
+        if (resultOptions !== undefined && resultOptions.resultUrl !== '') {
+            return renderDeploymentTemplate(template, {
+                ...vars,
+                environment_url: escapeResultUrl(resultOptions.resultUrl)
+            });
+        }
+        return renderDeploymentTemplate(template, vars);
+    }
+    const parsedParams = vars.parsed_params === null || vars.parsed_params === ''
+        ? null
+        : decodedJsonValue(vars.parsed_params);
+    const metadata = {
+        status: vars.status,
+        environment: {
+            name: vars.environment,
+            url: vars.environment_url
+        },
+        deployment: {
+            id: vars.deployment_id,
+            timestamp: vars.deployment_end_time,
+            logs: vars.logs,
+            duration: vars.total_seconds
+        },
+        git: {
+            branch: vars.ref,
+            commit: vars.sha,
+            verified: vars.commit_verified
+        },
+        context: {
+            actor: vars.actor,
+            noop: vars.noop,
+            fork: vars.fork
+        },
+        reviews: {
+            count: vars.approved_reviews_count,
+            decision: vars.review_decision
+        },
+        parameters: {
+            raw: vars.params,
+            parsed: parsedParams
+        }
+    };
+    const metadataBlock = jsonCodeBlock(metadata);
+    const deployment_metadata = [
+        '<details><summary>Details</summary>',
+        '',
+        '<!--- post-deploy-metadata-start -->',
+        '',
+        metadataBlock,
+        '',
+        '<!--- post-deploy-metadata-end -->',
+        '',
+        '</details>'
+    ].join('\n');
+    // If we get here, try to use the env var option with the default message structure
+    const deployMessageEnvVar = deploymentResults;
+    let deployTypeString = ' '; // a single space as a default
+    // Set the mode and deploy type based on the deployment mode
+    if (data.noop) {
+        deployTypeString = ' **noop** ';
+    }
+    // Dynamically set the message text depending if the deployment succeeded or failed
+    let message;
+    let deployStatus;
+    if (data.status === 'success') {
+        message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${data.ref}\` to **${data.environment}**`;
+        deployStatus = '✅';
+    }
+    else if (data.status === 'failure') {
+        message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${data.ref}\` to **${data.environment}**`;
+        deployStatus = '❌';
+    }
+    else if (resultOptions !== undefined && data.status === 'cancelled') {
+        message = `The${deployTypeString}deployment of branch \`${data.ref}\` to **${data.environment}** was cancelled`;
+        deployStatus = '⚠️';
+    }
+    else if (resultOptions !== undefined && data.status === 'skipped') {
+        message = `The${deployTypeString}deployment of branch \`${data.ref}\` to **${data.environment}** did not complete because a required job was skipped`;
+        deployStatus = '❌';
+    }
+    else {
+        message = `Warning:${deployTypeString}deployment status is unknown, please use caution`;
+        deployStatus = '⚠️';
+    }
+    // Conditionally format the message body
+    let message_fmt;
+    if (deployMessageEnvVar !== null) {
+        const customMessageFmt = deployMessageEnvVar
+            .replace(/\\n/g, '\n')
+            .replace(/\\t/g, '\t');
+        message_fmt = [
+            `### Deployment Results ${deployStatus}`,
+            '',
+            message,
+            '',
+            '<details><summary>Show Results</summary>',
+            '',
+            customMessageFmt,
+            '',
+            '</details>',
+            '',
+            deployment_metadata
+        ].join('\n');
+    }
+    else {
+        message_fmt = [
+            `### Deployment Results ${deployStatus}`,
+            '',
+            message,
+            '',
+            deployment_metadata
+        ].join('\n');
+    }
+    // Conditionally add the environment url to the message body
+    // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
+    if (data.environment_url !== null &&
+        data.environment_url !== '' &&
+        data.status === 'success' &&
+        !data.noop &&
+        environment_url_in_comment) {
+        if (resultOptions !== undefined && resultOptions.resultUrl !== '') {
+            message_fmt += `\n\n> **Environment URL:** [View deployment](<${escapeResultUrl(resultOptions.resultUrl)}>)`;
+        }
+        else {
+            const environment_url_short = data.environment_url
+                .replace('https://', '')
+                .replace('http://', '');
+            message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${data.environment_url})`;
+        }
+    }
+    return message_fmt;
+}
+
+;// CONCATENATED MODULE: external "node:path"
+const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
+;// CONCATENATED MODULE: ./src/functions/trusted-deployment-template.ts
+
+
+
+function validRepositoryPath(path) {
+    return (path !== '' &&
+        !external_node_path_namespaceObject.posix.isAbsolute(path) &&
+        !path.includes('\\') &&
+        path
+            .split('/')
+            .every(segment => segment !== '' && segment !== '.' && segment !== '..'));
+}
+function decodeTemplate(value) {
+    if (typeof value !== 'object' ||
+        value === null ||
+        !('type' in value) ||
+        value.type !== 'file' ||
+        !('encoding' in value) ||
+        value.encoding !== 'base64' ||
+        !('content' in value) ||
+        typeof value.content !== 'string') {
+        throw new Error('Trusted deployment template response is not a file');
+    }
+    return Buffer.from(value.content, 'base64').toString('utf8');
+}
+async function loadTrustedDeploymentTemplate(octokit, context, path, trustedSha) {
+    if (!validRepositoryPath(path)) {
+        throw new Error('deploy_message_path must be a repository-relative path without traversal segments');
+    }
+    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu.test(trustedSha)) {
+        throw new Error('Trusted deployment template SHA is invalid');
+    }
+    try {
+        const response = await octokit.rest.repos.getContent({
+            ...context.repo,
+            path,
+            ref: trustedSha,
+            headers: API_HEADERS
+        });
+        return decodeTemplate(response.data);
+    }
+    catch (error) {
+        if (legacyApiError(error).status === 404)
+            return null;
+        throw error;
+    }
+}
+
+;// CONCATENATED MODULE: ./src/functions/post-deploy.ts
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`;
+const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`;
+async function currentLockRef(context, octokit, environment) {
+    try {
+        const branch = await octokit.rest.repos.getBranch({
+            ...context.repo,
+            branch: `${constructValidBranchName(environment)}-${LOCK_METADATA.lockBranchSuffix}`,
+            headers: API_HEADERS
+        });
+        return branch.data.commit.sha;
+    }
+    catch (error) {
+        if (legacyApiError(error).status === 404)
+            return null;
+        throw new Error('Could not inspect the current deployment lock');
+    }
+}
+async function removeResultLock(context, octokit, environment, expectedSha) {
+    if ((await currentLockRef(context, octokit, environment)) !== expectedSha) {
+        info('The original deployment lock is absent or replaced; leaving current locks unchanged');
+        return;
+    }
+    if (await unlockIfUnchanged(octokit, context, environment, expectedSha))
+        return;
+    if ((await currentLockRef(context, octokit, environment)) === expectedSha) {
+        throw new Error('Could not release the original deployment lock');
+    }
+    info('The deployment lock changed during cleanup; leaving current locks unchanged');
+}
+async function completeLockLifecycle(context, octokit, data, postDeployStep, leaveComment, resultOptions) {
+    if (data.disable_lock) {
+        info('🔓 deployment locking is disabled; skipping lock completion');
+        return true;
+    }
+    if (resultOptions?.retainLock === true) {
+        info('Deployment cancelled; retaining the original deployment lock');
+        return true;
+    }
+    if (resultOptions !== undefined &&
+        `${constructValidBranchName(data.environment)}-${LOCK_METADATA.lockBranchSuffix}` ===
+            LOCK_METADATA.globalLockBranch) {
+        info('Global deployment locks are not released by result mode');
+        return true;
+    }
+    const lockResponse = await lock({
+        octokit,
+        context,
+        ref: null,
+        reactionId: null,
+        sticky: false,
+        environment: data.environment,
+        mode: { type: 'details', postDeployStep },
+        leaveComment
+    });
+    if (lockResponse.status === 'ambiguous')
+        return false;
+    const lockData = lockResponse.lockData;
+    debug(JSON.stringify(lockData));
+    if (resultOptions !== undefined && lockData?.global === true) {
+        info('Global deployment locks are not released by result mode');
+    }
+    else if (lockData?.sticky === true) {
+        info(stickyMsg);
+    }
+    else if (lockData === null) {
+        warning('💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running');
+    }
+    else {
+        info(nonStickyMsg);
+        debug(`lockData.sticky: ${String(lockData.sticky)}`);
+        if (data.lock_ref_sha === undefined ||
+            data.lock_ref_sha === null ||
+            data.lock_ref_sha === '') {
+            warning('could not remove the deployment lock because its original ref SHA was not saved; leaving the current lock in place');
+            return true;
+        }
+        if (resultOptions === undefined) {
+            await unlockIfUnchanged(octokit, context, data.environment, data.lock_ref_sha);
+        }
+        else {
+            await removeResultLock(context, octokit, data.environment, data.lock_ref_sha);
+        }
+    }
+    return true;
+}
+// Helper function to help facilitate the process of completing a deployment
+// :param context: The GitHub Actions event context
+// :param octokit: The octokit client
+// :param data: The data object containing the deployment details:
+//   - attribute: sha: The exact commit SHA of the deployment (String)
+//   - attribute: comment_id: The comment_id which initially triggered the deployment Action
+//   - attribute: reaction_id: The reaction_id which was initially added to the comment that triggered the Action
+//   - attribute: status: The status of the deployment (String)
+//   - attribute: ref: The ref (branch) which is being used for deployment (String)
+//   - attribute: noop: Indicates whether the deployment is a noop or not (Boolean)
+//   - attribute: deployment_id: The id of the deployment (String)
+//   - attribute: environment: The environment of the deployment (String)
+//   - attribute: environment_url: The environment url of the deployment (String)
+//   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
+//   - attribute: labels: A dictionary of labels to apply to the issue (Object)
+//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
+//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
+//   - attribute: params: The raw string of deployment parameters (String)
+//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
+//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
+//   - attribute: deployment_start_time: The timestamp of when the deployment started (String)
+// :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
+async function postDeploy(context, octokit, data, resultOptions) {
+    // check the inputs to ensure they are valid
+    validateInputs(data);
+    // this is the timestamp that we consider the deployment to have ended at for logging and auditing purposes
+    // it is not the exact time the deployment ended, but it is very close
+    const now = new Date();
+    const deployment_end_time = now.toISOString();
+    debug(`deployment_end_time: ${deployment_end_time}`);
+    // calculate the total amount of seconds that the deployment took
+    const total_seconds = calculateDeploymentTime(data.deployment_start_time, deployment_end_time);
+    info(`🕒 deployment completed in ${COLORS.highlight}${total_seconds}${COLORS.reset} seconds`);
+    setActionOutput('total_seconds', total_seconds);
+    let result = undefined;
+    try {
+        const deployMessagePath = checkInput(resultOptions?.deployMessagePath ?? getActionInput('deploy_message_path'));
+        const template = deployMessagePath === null
+            ? null
+            : await loadTrustedDeploymentTemplate(octokit, context, deployMessagePath, data.trusted_sha);
+        let message = postDeployMessage(context, {
+            environment: data.environment,
+            environment_url: data.environment_url,
+            status: data.status,
+            noop: data.noop,
+            ref: data.ref,
+            sha: data.sha,
+            approved_reviews_count: data.approved_reviews_count,
+            deployment_id: data.deployment_id,
+            review_decision: data.review_decision,
+            fork: data.fork,
+            params: data.params,
+            parsed_params: data.parsed_params,
+            deployment_end_time: deployment_end_time,
+            commit_verified: data.commit_verified,
+            total_seconds: total_seconds
+        }, template, resultOptions);
+        if (resultOptions?.retainLock === true && !data.disable_lock) {
+            message +=
+                '\n\n> Automatic lock cleanup was skipped because the deployment was cancelled.';
+        }
+        const reactionId = data.reaction_id === null ||
+            data.reaction_id === undefined ||
+            data.reaction_id === ''
+            ? null
+            : parseInt(data.reaction_id);
+        // update the action status to indicate the result of the deployment as a comment
+        await actionStatus({
+            context,
+            octokit,
+            reactionId,
+            message,
+            result: data.status === 'success' ? 'success' : 'failure'
+        });
+    }
+    finally {
+        result = await completePostDeploy(context, octokit, data, resultOptions);
+    }
+    return result;
+}
+async function completePostDeploy(context, octokit, data, resultOptions) {
+    const success = data.status === 'success';
+    // Update the deployment status of the branch-deploy
+    let deploymentStatus;
+    let labelsToAdd;
+    let labelsToRemove;
+    if (success) {
+        deploymentStatus = 'success';
+        if (data.noop) {
+            labelsToAdd = data.labels.successful_noop;
+            labelsToRemove = data.labels.failed_noop;
+        }
+        else {
+            labelsToAdd = data.labels.successful_deploy;
+            labelsToRemove = data.labels.failed_deploy;
+        }
+    }
+    else {
+        deploymentStatus = 'failure';
+        if (data.noop) {
+            labelsToAdd = data.labels.failed_noop;
+            labelsToRemove = data.labels.successful_noop;
+        }
+        else {
+            labelsToAdd = data.labels.failed_deploy;
+            labelsToRemove = data.labels.successful_deploy;
+        }
+    }
+    debug(`deploymentStatus: ${deploymentStatus}`);
+    // if the deployment mode is noop, return here
+    if (data.noop) {
+        debug('deployment mode: noop');
+        if (!(await completeLockLifecycle(context, octokit, data, true, true, resultOptions)))
+            return undefined;
+        // check to see if the pull request labels should be applied or not
+        if (success &&
+            data.labels.skip_successful_noop_labels_if_approved &&
+            data.review_decision === 'APPROVED') {
+            info(`⏩ skipping noop labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`);
+        }
+        else {
+            // attempt to add labels to the pull request (if any)
+            await label(context, octokit, labelsToAdd, labelsToRemove);
+        }
+        info(`✅ ${COLORS.success}post deploy completed! (noop)${COLORS.reset}`);
+        return 'success - noop';
+    }
+    // update the final deployment status with either success or failure
+    await createDeploymentStatus(octokit, context, data.ref, deploymentStatus, data.deployment_id, data.environment, data.environment_url // can be null
+    );
+    if (!(await completeLockLifecycle(context, octokit, data, true, false, resultOptions)))
+        return undefined;
+    // check to see if the pull request labels should be applied or not
+    if (success &&
+        data.labels.skip_successful_deploy_labels_if_approved &&
+        data.review_decision === 'APPROVED') {
+        info(`⏩ skipping deploy labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`);
+    }
+    else {
+        // attempt to add labels to the pull request (if any)
+        await label(context, octokit, labelsToAdd, labelsToRemove);
+    }
+    // if the post deploy comment logic completes successfully, return
+    info(`✅ ${COLORS.success}post deploy completed!${COLORS.reset}`);
+    return 'success';
+}
+function validateInput(input, name) {
+    if (input === null || input === undefined || legacyLength(input) === 0) {
+        throw new Error(`no ${name} provided`);
+    }
+}
+function validateInputs(data) {
+    const requiredInputs = [
+        'comment_id',
+        'status',
+        'ref',
+        'environment',
+        'sha',
+        'commit_verified',
+        'trusted_sha'
+    ];
+    requiredInputs.forEach(input => {
+        validateInput(data[input], input);
+    });
+    if (data.noop === null || data.noop === undefined) {
+        throw new Error('no noop value provided');
+    }
+    if (!data.noop) {
+        // if the deployment is not a noop (e.g. a `.deploy`) then we need to validate a few extra inputs
+        const additionalInputs = ['deployment_id'];
+        additionalInputs.forEach(input => {
+            validateInput(data[input], input);
+        });
+    }
+}
+// Helper function to calculate the deployment time in seconds
+// :param start_time: The timestamp of when the deployment started (String)
+// :param end_time: The timestamp of when the deployment ended (String)
+// :returns: The total amount of seconds that the deployment took (Integer) - rounded to the nearest second
+function calculateDeploymentTime(start_time, end_time) {
+    const start = new Date(start_time);
+    const end = new Date(end_time);
+    return Math.round((end.getTime() - start.getTime()) / 1000);
+}
+
+;// CONCATENATED MODULE: ./src/functions/result-operation.ts
+
+
+
+
+
+
+
+
+
+
+
+
+const FAILURE_MESSAGES = {
+    invalid_result_context: 'The result context does not match the originating operation',
+    invalid_result_inputs: 'The result inputs are invalid',
+    result_verification_failed: 'GitHub could not verify the originating operation',
+    result_completion_failed: 'Result completion failed; inspect the deployment and original lock before manual recovery'
+};
+function isObject(value) {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+function object(value) {
+    if (!isObject(value)) {
+        throw new Error('Invalid result evidence');
+    }
+    return value;
+}
+function same(actual, expected) {
+    if (!(0,external_node_util_.isDeepStrictEqual)(actual, expected)) {
+        throw new Error('Result evidence does not match');
+    }
+}
+function parsedParams(completion) {
+    return completion.parsed_params === ''
+        ? null
+        : decodedJsonValue(completion.parsed_params);
+}
+function verifyInvocation({ context, trustedSha }, completion) {
+    const issue = object(context.payload.issue);
+    const comment = object(context.payload.comment);
+    if (context.eventName !== 'issue_comment' ||
+        issue['pull_request'] === null ||
+        issue['pull_request'] === undefined) {
+        throw new Error('Result mode requires the original pull request comment event');
+    }
+    same({
+        repository: completion.repository,
+        runId: completion.run_id,
+        runAttempt: String(completion.run_attempt),
+        issue: completion.issue_number,
+        payloadIssue: completion.issue_number,
+        comment: completion.trigger_comment_id,
+        actor: completion.actor,
+        trustedSha: completion.trusted_sha
+    }, {
+        repository: `${context.repo.owner}/${context.repo.repo}`,
+        runId: context.runId,
+        runAttempt: process.env['GITHUB_RUN_ATTEMPT'],
+        issue: context.issue.number,
+        payloadIssue: issue['number'],
+        comment: comment['id'],
+        actor: context.actor,
+        trustedSha
+    });
+}
+function startedMetadata(body) {
+    if (typeof body !== 'string')
+        throw new Error('Invalid started comment');
+    const lines = body.split('\n');
+    const startMarker = '<!--- pre-deploy-metadata-start -->';
+    const endMarker = '<!--- pre-deploy-metadata-end -->';
+    const start = lines.indexOf(startMarker);
+    const end = lines.indexOf(endMarker);
+    if (start === -1 ||
+        end <= start ||
+        start !== lines.lastIndexOf(startMarker) ||
+        end !== lines.lastIndexOf(endMarker)) {
+        throw new Error('Invalid started comment metadata');
+    }
+    const block = lines
+        .slice(start + 1, end)
+        .join('\n')
+        .trim();
+    const json = /^(`{3,})json\n([\s\S]*)\n\1$/u.exec(block)?.[2];
+    if (json === undefined)
+        throw new Error('Invalid started comment JSON block');
+    return object(decodedJsonValue(json));
+}
+function verifyStartedComment(request, completion, value) {
+    const comment = object(value);
+    same(comment['id'], completion.started_comment_id);
+    const apiUrl = process.env['GITHUB_API_URL'] ?? 'https://api.github.com';
+    same(comment['issue_url'], `${apiUrl}/repos/${completion.repository}/issues/${completion.issue_number}`);
+    const metadata = startedMetadata(comment['body']);
+    same(parseCompletionMetadata(metadata['completion']), completionMetadata(completion));
+    const git = object(metadata['git']);
+    const origin = object(metadata['context']);
+    const sourceComment = object(origin['comment']);
+    const eventComment = object(request.context.payload.comment);
+    same({
+        environment: metadata['environment'],
+        deployment: metadata['deployment'],
+        git: {
+            branch: git['branch'],
+            commit: git['commit'],
+            verified: git['verified']
+        },
+        origin: {
+            actor: origin['actor'],
+            noop: origin['noop'],
+            fork: origin['fork']
+        },
+        commentUrl: sourceComment['html_url'],
+        parameters: metadata['parameters']
+    }, {
+        environment: {
+            name: completion.environment,
+            url: completion.environment_url
+        },
+        deployment: {
+            timestamp: completion.deployment_start_time,
+            logs: `${String(process.env['GITHUB_SERVER_URL'])}/${completion.repository}/actions/runs/${completion.run_id}`
+        },
+        git: {
+            branch: completion.ref,
+            commit: completion.sha,
+            verified: completion.commit_verified
+        },
+        origin: {
+            actor: completion.actor,
+            noop: completion.noop,
+            fork: completion.fork
+        },
+        commentUrl: eventComment['html_url'],
+        parameters: {
+            raw: completion.params === '' ? null : completion.params,
+            parsed: parsedParams(completion)
+        }
+    });
+    const type = metadata['type'];
+    if (completion.noop && type === 'noop')
+        return 'noop';
+    if (!completion.noop && (type === 'branch' || type === 'sha'))
+        return type;
+    throw new Error('Invalid originating deployment type');
+}
+function verifyDeployment(completion, value) {
+    const deployment = object(value);
+    let payload = deployment['payload'];
+    for (let layer = 0; layer < 2 && typeof payload === 'string'; layer += 1) {
+        payload = decodedJsonValue(payload);
+    }
+    const metadata = object(payload);
+    same(parseCompletionMetadata(metadata['completion']), completionMetadata(completion));
+    same({
+        id: deployment['id'],
+        sha: deployment['sha'],
+        ref: deployment['ref'],
+        environment: deployment['environment'],
+        type: metadata['type'],
+        checkedSha: metadata['sha'],
+        runId: metadata['github_run_id'],
+        commentId: metadata['initial_comment_id'],
+        startedCommentId: metadata['deployment_started_comment_id'],
+        reactionId: metadata['initial_reaction_id'],
+        timestamp: metadata['timestamp'],
+        actor: metadata['actor'],
+        verified: metadata['commit_verified'],
+        params: metadata['params'] === '' ? null : metadata['params'],
+        parsedParams: metadata['parsed_params']
+    }, {
+        id: completion.deployment_id,
+        sha: completion.sha,
+        ref: completion.ref,
+        environment: completion.environment,
+        type: 'branch-deploy',
+        checkedSha: completion.sha,
+        runId: completion.run_id,
+        commentId: completion.trigger_comment_id,
+        startedCommentId: completion.started_comment_id,
+        reactionId: completion.reaction_id,
+        timestamp: completion.deployment_start_time,
+        actor: completion.actor,
+        verified: completion.commit_verified,
+        params: completion.params === '' ? null : completion.params,
+        parsedParams: parsedParams(completion)
+    });
+}
+function booleanSetting(value) {
+    if (['true', 'True', 'TRUE'].includes(value))
+        return true;
+    if (['false', 'False', 'FALSE'].includes(value))
+        return false;
+    throw new Error('Invalid result boolean setting');
+}
+async function runResultOperation(request) {
+    let verifiedCompletion = null;
+    let deploymentType = null;
+    let failureCode = 'invalid_result_context';
+    try {
+        // The caller must pass a trusted ready job output. A started comment alone
+        // does not prove that a noop passed its final prechecks.
+        const completion = parseCompletionContext(getActionInput('context'));
+        verifyInvocation(request, completion);
+        failureCode = 'invalid_result_inputs';
+        const deploymentResult = parseJobResults(getActionInput('job_results'));
+        const rawResultUrl = getActionInput('result_url');
+        const resultUrl = rawResultUrl === '' ? '' : validateResultUrl(rawResultUrl);
+        const inheritSettings = getBooleanActionInput('result_inherit_settings');
+        const settings = inheritSettings
+            ? completion.settings
+            : completionSettings();
+        const deployMessagePath = checkInput(settings.deploy_message_path);
+        if (deployMessagePath !== null && !validRepositoryPath(deployMessagePath)) {
+            throw new Error('Invalid result template path');
+        }
+        const options = {
+            deployMessagePath: settings.deploy_message_path,
+            environmentUrlInComment: booleanSetting(settings.environment_url_in_comment),
+            resultUrl,
+            retainLock: deploymentResult === 'cancelled'
+        };
+        const labels = {
+            successful_deploy: stringToArray(settings.successful_deploy_labels),
+            failed_deploy: stringToArray(settings.failed_deploy_labels),
+            successful_noop: stringToArray(settings.successful_noop_labels),
+            failed_noop: stringToArray(settings.failed_noop_labels),
+            skip_successful_noop_labels_if_approved: booleanSetting(settings.skip_successful_noop_labels_if_approved),
+            skip_successful_deploy_labels_if_approved: booleanSetting(settings.skip_successful_deploy_labels_if_approved)
+        };
+        failureCode = 'result_verification_failed';
+        const started = await request.octokit.rest.issues.getComment({
+            ...request.context.repo,
+            comment_id: completion.started_comment_id,
+            headers: API_HEADERS
+        });
+        const deployment = completion.deployment_id === null
+            ? null
+            : await request.octokit.rest.repos.getDeployment({
+                ...request.context.repo,
+                deployment_id: completion.deployment_id,
+                headers: API_HEADERS
+            });
+        failureCode = 'invalid_result_context';
+        deploymentType = verifyStartedComment(request, completion, started.data);
+        if (deployment !== null)
+            verifyDeployment(completion, deployment.data);
+        verifiedCompletion = completion;
+        failureCode = 'invalid_result_inputs';
+        const environmentUrl = resultUrl !== ''
+            ? resultUrl
+            : inheritSettings
+                ? completion.environment_url
+                : findEnvironmentUrl(completion.environment, getActionInput('environment_urls'));
+        const data = {
+            ...completion,
+            comment_id: String(completion.trigger_comment_id),
+            deployment_id: completion.deployment_id === null
+                ? ''
+                : String(completion.deployment_id),
+            reaction_id: completion.reaction_id === null ? '' : String(completion.reaction_id),
+            environment_url: environmentUrl,
+            status: deploymentResult,
+            labels
+        };
+        failureCode = 'result_completion_failed';
+        setActionOutput('deployment_result', deploymentResult);
+        const completed = await postDeploy(request.context, request.octokit, data, options);
+        if (completed === undefined)
+            throw new Error('Result completion did not finish');
+        if (deploymentResult !== 'success') {
+            setFailed(`Deployment result: ${deploymentResult}`);
+        }
+        return {
+            operation: 'result',
+            runResult: deploymentResult === 'success' ? 'success - result mode' : 'failure',
+            decision: deploymentResult === 'success' ? 'complete' : 'failure',
+            reasonCode: deploymentResult === 'success'
+                ? 'result_completed'
+                : 'result_non_success',
+            deploymentType,
+            deploymentId: completion.deployment_id,
+            environment: completion.environment,
+            ref: completion.ref,
+            sha: completion.sha
+        };
+    }
+    catch {
+        return {
+            operation: 'result',
+            runResult: 'failure',
+            decision: 'failure',
+            reasonCode: failureCode,
+            deploymentType,
+            deploymentId: verifiedCompletion?.deployment_id ?? null,
+            environment: verifiedCompletion?.environment ?? null,
+            ref: verifiedCompletion?.ref ?? null,
+            sha: verifiedCompletion?.sha ?? null,
+            error: new Error(FAILURE_MESSAGES[failureCode])
+        };
+    }
+}
+
 ;// CONCATENATED MODULE: ./src/functions/help.ts
 
 
@@ -41537,7 +42986,7 @@ const LITERAL_ACTION_INPUT_VALUES = {
 // :param inputName: The name of the input being validated (string)
 // :param inputValue: The input value to validate (string)
 // :param validValues: An array of valid values for the input (array)
-function validateInput(inputName, inputValue, validValues) {
+function inputs_validateInput(inputName, inputValue, validValues) {
     const validValue = validValues.find(value => value === inputValue);
     if (validValue === undefined) {
         throw new Error(`Invalid value for '${inputName}': ${inputValue}. Must be one of: ${validValues.join(', ')}`);
@@ -41598,12 +43047,12 @@ function getInputs() {
     const deployment_confirmation = getBooleanActionInput('deployment_confirmation');
     const deployment_confirmation_timeout = getIntInput('deployment_confirmation_timeout');
     // validate inputs
-    const update_branch = validateInput('update_branch', getActionInput('update_branch'), UPDATE_BRANCH_VALUES);
-    const outdated_mode = validateInput('outdated_mode', getActionInput('outdated_mode'), OUTDATED_MODE_VALUES);
-    const deployment_order_scope = validateInput('deployment_order_scope', getActionInput('deployment_order_scope'), DEPLOYMENT_ORDER_SCOPE_VALUES);
+    const update_branch = inputs_validateInput('update_branch', getActionInput('update_branch'), UPDATE_BRANCH_VALUES);
+    const outdated_mode = inputs_validateInput('outdated_mode', getActionInput('outdated_mode'), OUTDATED_MODE_VALUES);
+    const deployment_order_scope = inputs_validateInput('deployment_order_scope', getActionInput('deployment_order_scope'), DEPLOYMENT_ORDER_SCOPE_VALUES);
     let checks;
     if (rawChecks === 'all' || rawChecks === 'required') {
-        checks = validateInput('checks', rawChecks, CHECKS_MODE_VALUES);
+        checks = inputs_validateInput('checks', rawChecks, CHECKS_MODE_VALUES);
     }
     else {
         checks = stringToArray(rawChecks);
@@ -41873,678 +43322,6 @@ async function nakedCommandCheck(body, param_separator, triggers, octokit, conte
     return result.isNaked;
 }
 
-;// CONCATENATED MODULE: ./src/functions/label.ts
-
-
-// Helper function to add labels to a pull request
-// :param context: The GitHub Actions event context
-// :param octokit: The octokit client
-// :param labelsToAdd: An array of labels to add to the pull request (Array)
-// :parm labelsToRemove: An array of labels to remove from the pull request (Array)
-// :returns: An object containing the labels added and removed (Object)
-async function label(context, octokit, labelsToAdd, labelsToRemove) {
-    // Get the owner, repo, and issue number from the context
-    const { owner, repo } = context.repo;
-    const issueNumber = context.issue.number;
-    let addedLabels = []; // an array of labels that were actually added
-    const removedLabels = []; // an array of labels that were actually removed
-    // exit early if there are no labels to add or remove
-    if (labelsToAdd.length === 0 && labelsToRemove.length === 0) {
-        debug('🏷️ no labels to add or remove');
-        return {
-            added: [],
-            removed: []
-        };
-    }
-    // first, find and cleanup labelsToRemove if any are provided
-    if (labelsToRemove.length > 0) {
-        // Fetch current labels on the issue
-        debug('fetching current labels on the issue');
-        const currentLabels = [];
-        const labelsPerPage = 100;
-        let page = 1;
-        while (true) {
-            const currentLabelsResult = await octokit.rest.issues.listLabelsOnIssue({
-                owner: owner,
-                repo: repo,
-                issue_number: issueNumber,
-                per_page: labelsPerPage,
-                page,
-                headers: API_HEADERS
-            });
-            currentLabels.push(...currentLabelsResult.data.map(label => label.name));
-            if (currentLabelsResult.data.length < labelsPerPage)
-                break;
-            page += 1;
-        }
-        debug(`current labels: ${currentLabels.join(',')}`);
-        debug(`labels to remove: ${labelsToRemove.join(',')}`);
-        // Remove unwanted labels
-        for (const label of labelsToRemove) {
-            if (currentLabels.includes(label)) {
-                await octokit.rest.issues.removeLabel({
-                    owner: owner,
-                    repo: repo,
-                    issue_number: issueNumber,
-                    name: label,
-                    headers: API_HEADERS
-                });
-                info(`🏷️ label removed: ${label}`);
-                removedLabels.push(label);
-            }
-            else {
-                debug(`🏷️ label not found: '${label}' so it was not removed`);
-            }
-        }
-    }
-    // now, add the labels if any are provided
-    if (labelsToAdd.length > 0) {
-        debug(`attempting to apply labels: ${labelsToAdd.join(',')}`);
-        await octokit.rest.issues.addLabels({
-            owner: owner,
-            repo: repo,
-            issue_number: issueNumber,
-            labels: [...labelsToAdd],
-            headers: API_HEADERS
-        });
-        info(`🏷️ labels added: ${labelsToAdd.join(',')}`);
-        addedLabels = labelsToAdd;
-    }
-    return {
-        added: addedLabels,
-        removed: removedLabels
-    };
-}
-
-;// CONCATENATED MODULE: ./src/functions/deployment-template.ts
-
-const IDENTIFIER = /^[a-z_][a-z0-9_]*$/u;
-const COMPARISON = /^([a-z_][a-z0-9_]*)\s*(===|==|!==|!=)\s*("(?:[^"\\]|\\.)*"|true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)$/u;
-const TERNARY = /^("(?:[^"\\]|\\.)*"|true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)\s+if\s+(.+?)\s+else\s+("(?:[^"\\]|\\.)*"|true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)$/u;
-function parseLiteral(value) {
-    return decodedDeploymentTemplateLiteral(value);
-}
-function htmlEscape(value) {
-    return value
-        .replace(/&/gu, '&amp;')
-        .replace(/</gu, '&lt;')
-        .replace(/>/gu, '&gt;')
-        .replace(/"/gu, '&quot;')
-        .replace(/'/gu, '&#39;');
-}
-function variable(variables, name) {
-    if (!Object.hasOwn(variables, name)) {
-        throw new Error(`Unknown deployment template variable: ${name}`);
-    }
-    return variables[name] ?? null;
-}
-function evaluateCondition(expression, variables) {
-    const trimmed = expression.trim();
-    if (trimmed.startsWith('not ')) {
-        const name = trimmed.slice(4).trim();
-        if (!IDENTIFIER.test(name)) {
-            throw new Error(`Unsupported deployment template condition: ${trimmed}`);
-        }
-        const value = variable(variables, name);
-        if (typeof value !== 'boolean') {
-            throw new Error(`Deployment template condition is not boolean: ${trimmed}`);
-        }
-        return !value;
-    }
-    if (IDENTIFIER.test(trimmed)) {
-        const value = variable(variables, trimmed);
-        if (typeof value !== 'boolean') {
-            throw new Error(`Deployment template condition is not boolean: ${trimmed}`);
-        }
-        return value;
-    }
-    const comparison = trimmed.match(COMPARISON);
-    if (comparison === null) {
-        throw new Error(`Unsupported deployment template condition: ${trimmed}`);
-    }
-    const name = regexCapture(comparison, 1);
-    const operator = regexCapture(comparison, 2);
-    const literal = regexCapture(comparison, 3);
-    const equal = variable(variables, name) === parseLiteral(literal);
-    return operator === '===' || operator === '==' ? equal : !equal;
-}
-function renderExpression(expression, variables) {
-    const trimmed = expression.trim();
-    if (IDENTIFIER.test(trimmed)) {
-        const value = variable(variables, trimmed);
-        const rendered = value === null ? '' : String(value);
-        return trimmed === 'results' ? rendered : htmlEscape(rendered);
-    }
-    const ternary = trimmed.match(TERNARY);
-    if (ternary === null) {
-        throw new Error(`Unsupported deployment template expression: ${trimmed}`);
-    }
-    const whenTrue = regexCapture(ternary, 1);
-    const condition = regexCapture(ternary, 2);
-    const whenFalse = regexCapture(ternary, 3);
-    const value = evaluateCondition(condition, variables)
-        ? parseLiteral(whenTrue)
-        : parseLiteral(whenFalse);
-    return value === null ? '' : String(value);
-}
-function renderDeploymentTemplate(template, variables) {
-    const tokenPattern = /(\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\})/gu;
-    const frames = [];
-    let active = true;
-    let cursor = 0;
-    let output = '';
-    for (const match of template.matchAll(tokenPattern)) {
-        const token = match[0];
-        const index = match.index;
-        const text = template.slice(cursor, index);
-        if (text.includes('{{') || text.includes('{%') || text.includes('{#')) {
-            throw new Error('Malformed deployment template syntax');
-        }
-        if (active)
-            output += text;
-        if (token.startsWith('{{')) {
-            const rendered = renderExpression(token.slice(2, -2), variables);
-            if (active)
-                output += rendered;
-        }
-        else {
-            const statement = token.slice(2, -2).trim();
-            if (statement.startsWith('if ')) {
-                const frame = {
-                    condition: evaluateCondition(statement.slice(3), variables),
-                    parentActive: active,
-                    seenElse: false
-                };
-                frames.push(frame);
-                active = frame.parentActive && frame.condition;
-            }
-            else if (statement === 'else') {
-                const frame = frames.at(-1);
-                if (frame === undefined || frame.seenElse) {
-                    throw new Error('Unexpected deployment template else statement');
-                }
-                frame.seenElse = true;
-                active = frame.parentActive && !frame.condition;
-            }
-            else if (statement === 'endif') {
-                const frame = frames.pop();
-                if (frame === undefined) {
-                    throw new Error('Unexpected deployment template endif statement');
-                }
-                active = frame.parentActive;
-            }
-            else {
-                throw new Error(`Unsupported deployment template statement: ${statement}`);
-            }
-        }
-        cursor = index + token.length;
-    }
-    const remaining = template.slice(cursor);
-    if (remaining.includes('{{') ||
-        remaining.includes('{%') ||
-        remaining.includes('{#')) {
-        throw new Error('Malformed deployment template syntax');
-    }
-    if (frames.length !== 0) {
-        throw new Error('Unclosed deployment template if statement');
-    }
-    if (active)
-        output += remaining;
-    return output;
-}
-
-;// CONCATENATED MODULE: ./src/functions/post-deploy-message.ts
-
-
-
-
-
-
-// Helper function construct a post deployment message
-// :param context: The GitHub Actions event context
-// :param data: A data object containing attributes of the message
-//   - attribute: environment: The environment of the deployment (String)
-//   - attribute: environment_url: The environment url of the deployment (String)
-//   - attribute: status: The status of the deployment (String)
-//   - attribute: noop: Indicates whether the deployment is a noop or not (Boolean)
-//   - attribute: ref: The ref (branch) which is being used for deployment (String)
-//   - attribute: sha: The exact commit SHA of the deployment (String)
-//   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
-//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
-//   - attribute: deployment_id: The id of the deployment (String)
-//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
-//   - attribute: params: The raw string of deployment parameters (String)
-//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
-//   - attribute: deployment_end_time: The time the deployment ended - this value is not _exact_ but it is very close (String)
-//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
-//   - attribute: total_seconds: The total amount of seconds that the deployment took (Int)
-// :returns: The formatted message (String)
-function postDeployMessage(context, data, template = null) {
-    // fetch the inputs
-    const environment_url_in_comment = getBooleanActionInput('environment_url_in_comment');
-    const deploymentResults = checkInput(process.env['DEPLOY_MESSAGE']);
-    const vars = {
-        environment: data.environment,
-        environment_url: data.environment_url === '' ? null : data.environment_url,
-        status: data.status,
-        noop: data.noop,
-        ref: data.ref,
-        sha: data.sha,
-        approved_reviews_count: data.approved_reviews_count
-            ? parseInt(data.approved_reviews_count)
-            : null,
-        review_decision: data.review_decision === '' ? null : data.review_decision,
-        deployment_id: data.deployment_id ? parseInt(data.deployment_id) : null,
-        fork: data.fork,
-        params: data.params === '' ? null : data.params,
-        parsed_params: data.parsed_params === '' ? null : data.parsed_params,
-        deployment_end_time: data.deployment_end_time,
-        actor: context.actor,
-        logs: `${String(process.env['GITHUB_SERVER_URL'])}/${context.repo.owner}/${context.repo.repo}/actions/runs/${String(process.env['GITHUB_RUN_ID'])}`,
-        commit_verified: data.commit_verified,
-        total_seconds: data.total_seconds,
-        results: deploymentResults ?? ''
-    };
-    if (template !== null) {
-        debug('using trusted deployment template');
-        return renderDeploymentTemplate(template, vars);
-    }
-    const parsedParams = vars.parsed_params === null || vars.parsed_params === ''
-        ? null
-        : decodedJsonValue(vars.parsed_params);
-    const metadata = {
-        status: vars.status,
-        environment: {
-            name: vars.environment,
-            url: vars.environment_url
-        },
-        deployment: {
-            id: vars.deployment_id,
-            timestamp: vars.deployment_end_time,
-            logs: vars.logs,
-            duration: vars.total_seconds
-        },
-        git: {
-            branch: vars.ref,
-            commit: vars.sha,
-            verified: vars.commit_verified
-        },
-        context: {
-            actor: vars.actor,
-            noop: vars.noop,
-            fork: vars.fork
-        },
-        reviews: {
-            count: vars.approved_reviews_count,
-            decision: vars.review_decision
-        },
-        parameters: {
-            raw: vars.params,
-            parsed: parsedParams
-        }
-    };
-    const metadataBlock = jsonCodeBlock(metadata);
-    const deployment_metadata = [
-        '<details><summary>Details</summary>',
-        '',
-        '<!--- post-deploy-metadata-start -->',
-        '',
-        metadataBlock,
-        '',
-        '<!--- post-deploy-metadata-end -->',
-        '',
-        '</details>'
-    ].join('\n');
-    // If we get here, try to use the env var option with the default message structure
-    const deployMessageEnvVar = deploymentResults;
-    let deployTypeString = ' '; // a single space as a default
-    // Set the mode and deploy type based on the deployment mode
-    if (data.noop) {
-        deployTypeString = ' **noop** ';
-    }
-    // Dynamically set the message text depending if the deployment succeeded or failed
-    let message;
-    let deployStatus;
-    if (data.status === 'success') {
-        message = `**${context.actor}** successfully${deployTypeString}deployed branch \`${data.ref}\` to **${data.environment}**`;
-        deployStatus = '✅';
-    }
-    else if (data.status === 'failure') {
-        message = `**${context.actor}** had a failure when${deployTypeString}deploying branch \`${data.ref}\` to **${data.environment}**`;
-        deployStatus = '❌';
-    }
-    else {
-        message = `Warning:${deployTypeString}deployment status is unknown, please use caution`;
-        deployStatus = '⚠️';
-    }
-    // Conditionally format the message body
-    let message_fmt;
-    if (deployMessageEnvVar !== null) {
-        const customMessageFmt = deployMessageEnvVar
-            .replace(/\\n/g, '\n')
-            .replace(/\\t/g, '\t');
-        message_fmt = [
-            `### Deployment Results ${deployStatus}`,
-            '',
-            message,
-            '',
-            '<details><summary>Show Results</summary>',
-            '',
-            customMessageFmt,
-            '',
-            '</details>',
-            '',
-            deployment_metadata
-        ].join('\n');
-    }
-    else {
-        message_fmt = [
-            `### Deployment Results ${deployStatus}`,
-            '',
-            message,
-            '',
-            deployment_metadata
-        ].join('\n');
-    }
-    // Conditionally add the environment url to the message body
-    // This message only gets added if the deployment was successful, and the noop mode is not enabled, and the environment url is not empty
-    if (data.environment_url !== null &&
-        data.environment_url !== '' &&
-        data.status === 'success' &&
-        !data.noop &&
-        environment_url_in_comment) {
-        const environment_url_short = data.environment_url
-            .replace('https://', '')
-            .replace('http://', '');
-        message_fmt += `\n\n> **Environment URL:** [${environment_url_short}](${data.environment_url})`;
-    }
-    return message_fmt;
-}
-
-;// CONCATENATED MODULE: external "node:path"
-const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
-;// CONCATENATED MODULE: ./src/functions/trusted-deployment-template.ts
-
-
-
-function validRepositoryPath(path) {
-    return (path !== '' &&
-        !external_node_path_namespaceObject.posix.isAbsolute(path) &&
-        !path.includes('\\') &&
-        path
-            .split('/')
-            .every(segment => segment !== '' && segment !== '.' && segment !== '..'));
-}
-function decodeTemplate(value) {
-    if (typeof value !== 'object' ||
-        value === null ||
-        !('type' in value) ||
-        value.type !== 'file' ||
-        !('encoding' in value) ||
-        value.encoding !== 'base64' ||
-        !('content' in value) ||
-        typeof value.content !== 'string') {
-        throw new Error('Trusted deployment template response is not a file');
-    }
-    return Buffer.from(value.content, 'base64').toString('utf8');
-}
-async function loadTrustedDeploymentTemplate(octokit, context, path, trustedSha) {
-    if (!validRepositoryPath(path)) {
-        throw new Error('deploy_message_path must be a repository-relative path without traversal segments');
-    }
-    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu.test(trustedSha)) {
-        throw new Error('Trusted deployment template SHA is invalid');
-    }
-    try {
-        const response = await octokit.rest.repos.getContent({
-            ...context.repo,
-            path,
-            ref: trustedSha,
-            headers: API_HEADERS
-        });
-        return decodeTemplate(response.data);
-    }
-    catch (error) {
-        if (legacyApiError(error).status === 404)
-            return null;
-        throw error;
-    }
-}
-
-;// CONCATENATED MODULE: ./src/functions/post-deploy.ts
-
-
-
-
-
-
-
-
-
-
-
-
-const stickyMsg = `🍯 ${COLORS.highlight}sticky${COLORS.reset} lock detected, will not remove lock`;
-const nonStickyMsg = `🧹 ${COLORS.highlight}non-sticky${COLORS.reset} lock detected, will remove lock`;
-async function completeLockLifecycle(context, octokit, data, postDeployStep, leaveComment) {
-    if (data.disable_lock) {
-        info('🔓 deployment locking is disabled; skipping lock completion');
-        return true;
-    }
-    const lockResponse = await lock({
-        octokit,
-        context,
-        ref: null,
-        reactionId: null,
-        sticky: false,
-        environment: data.environment,
-        mode: { type: 'details', postDeployStep },
-        leaveComment
-    });
-    if (lockResponse.status === 'ambiguous')
-        return false;
-    const lockData = lockResponse.lockData;
-    debug(JSON.stringify(lockData));
-    if (lockData?.sticky === true) {
-        info(stickyMsg);
-    }
-    else if (lockData === null) {
-        warning('💡 a request to obtain the lock data returned null or undefined - the lock may have been removed by another process while this Action was running');
-    }
-    else {
-        info(nonStickyMsg);
-        debug(`lockData.sticky: ${String(lockData.sticky)}`);
-        if (data.lock_ref_sha === undefined ||
-            data.lock_ref_sha === null ||
-            data.lock_ref_sha === '') {
-            warning('could not remove the deployment lock because its original ref SHA was not saved; leaving the current lock in place');
-            return true;
-        }
-        await unlockIfUnchanged(octokit, context, data.environment, data.lock_ref_sha);
-    }
-    return true;
-}
-// Helper function to help facilitate the process of completing a deployment
-// :param context: The GitHub Actions event context
-// :param octokit: The octokit client
-// :param data: The data object containing the deployment details:
-//   - attribute: sha: The exact commit SHA of the deployment (String)
-//   - attribute: comment_id: The comment_id which initially triggered the deployment Action
-//   - attribute: reaction_id: The reaction_id which was initially added to the comment that triggered the Action
-//   - attribute: status: The status of the deployment (String)
-//   - attribute: ref: The ref (branch) which is being used for deployment (String)
-//   - attribute: noop: Indicates whether the deployment is a noop or not (Boolean)
-//   - attribute: deployment_id: The id of the deployment (String)
-//   - attribute: environment: The environment of the deployment (String)
-//   - attribute: environment_url: The environment url of the deployment (String)
-//   - attribute: approved_reviews_count: The count of approved reviews for the deployment (String representation of an int or null)
-//   - attribute: labels: A dictionary of labels to apply to the issue (Object)
-//   - attribute: review_decision: The review status of the pull request (String or null) - Ex: APPROVED, REVIEW_REQUIRED, etc
-//   - attribute: fork: Indicates whether the deployment is from a forked repository (Boolean)
-//   - attribute: params: The raw string of deployment parameters (String)
-//   - attribute: parsed_params: A string representation of the parsed deployment parameters (String)
-//   - attribute: commit_verified: Indicates whether the commit is verified or not (Boolean)
-//   - attribute: deployment_start_time: The timestamp of when the deployment started (String)
-// :returns: 'success' if the deployment was successful, 'success - noop' if a noop, throw error otherwise
-async function postDeploy(context, octokit, data) {
-    // check the inputs to ensure they are valid
-    validateInputs(data);
-    // this is the timestamp that we consider the deployment to have ended at for logging and auditing purposes
-    // it is not the exact time the deployment ended, but it is very close
-    const now = new Date();
-    const deployment_end_time = now.toISOString();
-    debug(`deployment_end_time: ${deployment_end_time}`);
-    // calculate the total amount of seconds that the deployment took
-    const total_seconds = calculateDeploymentTime(data.deployment_start_time, deployment_end_time);
-    info(`🕒 deployment completed in ${COLORS.highlight}${total_seconds}${COLORS.reset} seconds`);
-    setActionOutput('total_seconds', total_seconds);
-    let result = undefined;
-    try {
-        const deployMessagePath = checkInput(getActionInput('deploy_message_path'));
-        const template = deployMessagePath === null
-            ? null
-            : await loadTrustedDeploymentTemplate(octokit, context, deployMessagePath, data.trusted_sha);
-        const message = postDeployMessage(context, {
-            environment: data.environment,
-            environment_url: data.environment_url,
-            status: data.status,
-            noop: data.noop,
-            ref: data.ref,
-            sha: data.sha,
-            approved_reviews_count: data.approved_reviews_count,
-            deployment_id: data.deployment_id,
-            review_decision: data.review_decision,
-            fork: data.fork,
-            params: data.params,
-            parsed_params: data.parsed_params,
-            deployment_end_time: deployment_end_time,
-            commit_verified: data.commit_verified,
-            total_seconds: total_seconds
-        }, template);
-        const reactionId = data.reaction_id === null ||
-            data.reaction_id === undefined ||
-            data.reaction_id === ''
-            ? null
-            : parseInt(data.reaction_id);
-        // update the action status to indicate the result of the deployment as a comment
-        await actionStatus({
-            context,
-            octokit,
-            reactionId,
-            message,
-            result: data.status === 'success' ? 'success' : 'failure'
-        });
-    }
-    finally {
-        result = await completePostDeploy(context, octokit, data);
-    }
-    return result;
-}
-async function completePostDeploy(context, octokit, data) {
-    const success = data.status === 'success';
-    // Update the deployment status of the branch-deploy
-    let deploymentStatus;
-    let labelsToAdd;
-    let labelsToRemove;
-    if (success) {
-        deploymentStatus = 'success';
-        if (data.noop) {
-            labelsToAdd = data.labels.successful_noop;
-            labelsToRemove = data.labels.failed_noop;
-        }
-        else {
-            labelsToAdd = data.labels.successful_deploy;
-            labelsToRemove = data.labels.failed_deploy;
-        }
-    }
-    else {
-        deploymentStatus = 'failure';
-        if (data.noop) {
-            labelsToAdd = data.labels.failed_noop;
-            labelsToRemove = data.labels.successful_noop;
-        }
-        else {
-            labelsToAdd = data.labels.failed_deploy;
-            labelsToRemove = data.labels.successful_deploy;
-        }
-    }
-    debug(`deploymentStatus: ${deploymentStatus}`);
-    // if the deployment mode is noop, return here
-    if (data.noop) {
-        debug('deployment mode: noop');
-        if (!(await completeLockLifecycle(context, octokit, data, true, true)))
-            return undefined;
-        // check to see if the pull request labels should be applied or not
-        if (success &&
-            data.labels.skip_successful_noop_labels_if_approved &&
-            data.review_decision === 'APPROVED') {
-            info(`⏩ skipping noop labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`);
-        }
-        else {
-            // attempt to add labels to the pull request (if any)
-            await label(context, octokit, labelsToAdd, labelsToRemove);
-        }
-        info(`✅ ${COLORS.success}post deploy completed! (noop)${COLORS.reset}`);
-        return 'success - noop';
-    }
-    // update the final deployment status with either success or failure
-    await createDeploymentStatus(octokit, context, data.ref, deploymentStatus, data.deployment_id, data.environment, data.environment_url // can be null
-    );
-    if (!(await completeLockLifecycle(context, octokit, data, true, false)))
-        return undefined;
-    // check to see if the pull request labels should be applied or not
-    if (success &&
-        data.labels.skip_successful_deploy_labels_if_approved &&
-        data.review_decision === 'APPROVED') {
-        info(`⏩ skipping deploy labels since the pull request is ${COLORS.success}approved${COLORS.reset} (based on your configuration)`);
-    }
-    else {
-        // attempt to add labels to the pull request (if any)
-        await label(context, octokit, labelsToAdd, labelsToRemove);
-    }
-    // if the post deploy comment logic completes successfully, return
-    info(`✅ ${COLORS.success}post deploy completed!${COLORS.reset}`);
-    return 'success';
-}
-function post_deploy_validateInput(input, name) {
-    if (input === null || input === undefined || legacyLength(input) === 0) {
-        throw new Error(`no ${name} provided`);
-    }
-}
-function validateInputs(data) {
-    const requiredInputs = [
-        'comment_id',
-        'status',
-        'ref',
-        'environment',
-        'sha',
-        'commit_verified',
-        'trusted_sha'
-    ];
-    requiredInputs.forEach(input => {
-        post_deploy_validateInput(data[input], input);
-    });
-    if (data.noop === null || data.noop === undefined) {
-        throw new Error('no noop value provided');
-    }
-    if (!data.noop) {
-        // if the deployment is not a noop (e.g. a `.deploy`) then we need to validate a few extra inputs
-        const additionalInputs = ['deployment_id'];
-        additionalInputs.forEach(input => {
-            post_deploy_validateInput(data[input], input);
-        });
-    }
-}
-// Helper function to calculate the deployment time in seconds
-// :param start_time: The timestamp of when the deployment started (String)
-// :param end_time: The timestamp of when the deployment ended (String)
-// :returns: The total amount of seconds that the deployment took (Integer) - rounded to the nearest second
-function calculateDeploymentTime(start_time, end_time) {
-    const start = new Date(start_time);
-    const end = new Date(end_time);
-    return Math.round((end.getTime() - start.getTime()) / 1000);
-}
-
 ;// CONCATENATED MODULE: ./src/functions/post.ts
 
 
@@ -42562,6 +43339,12 @@ async function post() {
     try {
         const token = getActionState('actionsToken');
         const bypass = getActionState('bypass') === 'true';
+        if (bypass &&
+            getActionInput('result_mode') !== '' &&
+            getBooleanActionInput('result_mode')) {
+            debug('result mode has no post completion');
+            return;
+        }
         const skip_completing = getBooleanActionInput('skip_completing');
         const data = {
             sha: getActionState('sha'),
@@ -42768,6 +43551,12 @@ const OPERATION_REASON_CODES = (/* unused pure expression or super */ null && ([
     'merge_deploy_required',
     'merge_deploy_not_required',
     'unsupported_event',
+    'result_completed',
+    'result_non_success',
+    'invalid_result_context',
+    'invalid_result_inputs',
+    'result_verification_failed',
+    'result_completion_failed',
     'deprecated_command',
     'naked_command_disabled',
     'no_trigger',
@@ -42824,6 +43613,7 @@ function finishOperation(runResult, result) {
 
 
 
+
 function finish(outcome) {
     if (outcome.error !== undefined) {
         const error = legacyApiError(outcome.error);
@@ -42852,6 +43642,21 @@ async function run() {
         info(`🛸 github/branch-deploy ${COLORS.info}${src_version_VERSION}${COLORS.reset}`);
         debug(`context: ${JSON.stringify(github_context)}`);
         const token = getActionInput('github_token', { required: true });
+        if (getActionInput('result_mode') !== '' &&
+            getBooleanActionInput('result_mode')) {
+            operation = 'result';
+            saveActionState('isPost', 'true');
+            saveActionState('bypass', 'true');
+            const resultOctokit = getOctokit(token, {
+                userAgent: `github/branch-deploy@${src_version_VERSION}`,
+                additionalPlugins: [retry]
+            });
+            return finish(await runResultOperation({
+                context: branchDeployContext(github_context),
+                trustedSha: github_context.sha,
+                octokit: resultOctokit
+            }));
+        }
         const inputs = getInputs();
         const octokit = getOctokit(token, {
             userAgent: `github/branch-deploy@${src_version_VERSION}`,
@@ -42993,6 +43798,7 @@ async function run() {
             }));
         }
         return finish(await runDeploymentOperation({
+            trustedSha: github_context.sha,
             body,
             context: actionContext,
             inputs,

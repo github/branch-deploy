@@ -453,3 +453,145 @@ test('escapes ordinary variables while rendering results raw and only once', tes
     ].join('\n')
   )
 })
+
+for (const noop of [false, true]) {
+  for (const status of ['cancelled', 'skipped']) {
+    test(`describes the ${status} result for ${noop ? 'noops' : 'deployments'}`, () => {
+      const message = postDeployMessage(
+        context,
+        {...data, noop, status},
+        null,
+        {
+          environmentUrlInComment: true,
+          resultUrl: ''
+        }
+      )
+      assert.ok(
+        message.includes(
+          status === 'cancelled'
+            ? 'was cancelled'
+            : 'a required job was skipped'
+        )
+      )
+      assert.ok(
+        message.includes(noop ? 'The **noop** deployment' : 'The deployment')
+      )
+      assert.equal(message.includes('> **Environment URL:**'), false)
+    })
+  }
+}
+
+test('retains the unknown-state fallback for unsupported result statuses', () => {
+  const message = postDeployMessage(
+    context,
+    {...data, status: 'unknown'},
+    null,
+    {
+      environmentUrlInComment: true,
+      resultUrl: ''
+    }
+  )
+  assert.ok(message.includes('deployment status is unknown'))
+})
+
+test('uses inherited URL display settings without reading the result job boolean', testContext => {
+  stubEnv(testContext, 'INPUT_ENVIRONMENT_URL_IN_COMMENT', 'false')
+  const message = postDeployMessage(context, data, null, {
+    environmentUrlInComment: true,
+    resultUrl: ''
+  })
+  assert.ok(
+    message.includes(
+      '> **Environment URL:** [example.com](https://example.com)'
+    )
+  )
+  assert.equal(getBooleanInputMock.mock.calls.length, 0)
+})
+
+test('renders an explicit result URL with a fixed label and escaped Markdown destination', () => {
+  const resultUrl = 'https://example.com/a(b)[c]`d`<e>\\f"g\'h i'
+  const message = postDeployMessage(
+    context,
+    {...data, environment_url: resultUrl},
+    null,
+    {
+      environmentUrlInComment: true,
+      resultUrl
+    }
+  )
+  assert.ok(
+    message.endsWith(
+      '> **Environment URL:** [View deployment](<https://example.com/a%28b%29%5Bc%5D%60d%60%3Ce%3E/f%22g%27h%20i>)'
+    )
+  )
+})
+
+test('normalizes result URL backslashes before escaping so the destination host cannot change', () => {
+  const resultUrl = 'https://example.com\\@other.example'
+  const rendered = postDeployMessage(
+    context,
+    {...data, environment_url: resultUrl},
+    '{{ environment_url }}',
+    {
+      environmentUrlInComment: true,
+      resultUrl
+    }
+  )
+  assert.equal(rendered, 'https://example.com/@other.example')
+})
+
+test('does not add a result URL link when URL display is disabled', () => {
+  const resultUrl = 'https://result.example.com'
+  const message = postDeployMessage(
+    context,
+    {...data, environment_url: resultUrl},
+    null,
+    {
+      environmentUrlInComment: false,
+      resultUrl
+    }
+  )
+  assert.equal(message.includes('> **Environment URL:**'), false)
+})
+
+for (const change of [{status: 'failure'}, {noop: true}]) {
+  test(`does not add a result URL link for ${Object.keys(change).join()}`, () => {
+    const resultUrl = 'https://result.example.com'
+    const message = postDeployMessage(
+      context,
+      {...data, ...change, environment_url: resultUrl},
+      null,
+      {
+        environmentUrlInComment: true,
+        resultUrl
+      }
+    )
+    assert.equal(message.includes('> **Environment URL:**'), false)
+  })
+}
+
+test('makes the explicit result URL safe for ordinary Markdown destinations in trusted templates', testContext => {
+  stubEnv(testContext, 'DEPLOY_MESSAGE', '**deployment details**')
+  const resultUrl = 'https://example.com/path)[other](https://example.net)'
+  const rendered = postDeployMessage(
+    context,
+    {...data, environment_url: resultUrl},
+    '[Result]({{ environment_url }}) {{ results }}',
+    {
+      environmentUrlInComment: true,
+      resultUrl
+    }
+  )
+  assert.equal(
+    rendered,
+    '[Result](https://example.com/path%29%5Bother%5D%28https://example.net%29) **deployment details**'
+  )
+})
+
+test('preserves inherited environment URLs and custom template display choices without an explicit override', () => {
+  const result = postDeployMessage(context, data, '{{ environment_url }}', {
+    environmentUrlInComment: false,
+    resultUrl: ''
+  })
+  assert.equal(result, 'https://example.com')
+})
