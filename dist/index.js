@@ -38405,8 +38405,12 @@ async function checkBranch(octokit, context, branchName) {
 // :return: true if the lock owner is the requestor, false if not
 async function checkLockOwner(octokit, context, lockData, sticky, reactionId, leaveComment) {
     debug('checking the owner of the lock...');
-    // If the requestor is the one who owns the lock, return 'owner'
-    if (lockData.created_by === context.actor) {
+    // A distinct non-sticky deployment must not share cleanup ownership with an
+    // active deployment, even when both requests come from the same actor.
+    if (lockData.created_by === context.actor &&
+        !(lockData.claim_id !== undefined &&
+            lockData.sticky === false &&
+            sticky === false)) {
         info(`✅ ${COLORS.highlight}${context.actor}${COLORS.reset} initiated this request and is also the owner of the current lock`);
         // If this is a '.lock' command (sticky) and not a sticky_locks deployment request, update with actionStatus as we are about to exit
         if (sticky === true && leaveComment) {
