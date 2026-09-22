@@ -8,6 +8,7 @@ import type {
 import type {
   BranchDeployContext,
   CreatedDeployment,
+  GraphqlResponseErrorLike,
   IssueCommentContext,
   LegacyApiError,
   LockData,
@@ -37,6 +38,10 @@ export function issueCommentContext(
 
 export function legacyApiError(error: unknown): LegacyApiError {
   return error as LegacyApiError
+}
+
+export function graphqlResponseError(error: unknown): GraphqlResponseErrorLike {
+  return error as GraphqlResponseErrorLike
 }
 
 export function decodedLockData(value: string): LockData {

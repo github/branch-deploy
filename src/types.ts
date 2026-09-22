@@ -8,6 +8,14 @@ export interface LegacyApiError {
   readonly status?: number
 }
 
+export interface GraphqlResponseErrorLike {
+  readonly data?: unknown
+  readonly errors?: readonly {
+    readonly path?: readonly (number | string)[]
+    readonly type?: string
+  }[]
+}
+
 /** @deprecated Use the named conversion in trust-boundaries.ts. */
 export type ApiError = LegacyApiError
 

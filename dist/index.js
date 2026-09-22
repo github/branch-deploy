@@ -35241,6 +35241,9 @@ function issueCommentContext(context) {
 function legacyApiError(error) {
     return error;
 }
+function graphqlResponseError(error) {
+    return error;
+}
 function decodedLockData(value) {
     return JSON.parse(value);
 }
@@ -39487,7 +39490,7 @@ async function prechecks(context, octokit, data) {
         }
     };
     // Make the GraphQL query
-    const result = prechecksGraphqlResult(await octokit.graphql(query, variables));
+    const result = prechecksGraphqlResult(await graphqlAllowingInaccessibleApps(octokit, query, variables));
     // Fetch the commit oid which is the SHA1 hash of the commit
     const commit_oid = legacyPrechecksCommitOid(result);
     // Check the reviewDecision
@@ -39737,6 +39740,32 @@ async function evaluateCommitChecks({ checks, environment, ignoredChecks, octoki
         return { commitStatus: 'UNAVAILABLE', error, kind: 'unavailable' };
     }
 }
+// GitHub emits per-node FORBIDDEN errors when the token cannot view the App
+// that owns a check suite; octokit then discards a still-usable partial response
+async function graphqlAllowingInaccessibleApps(octokit, query, variables) {
+    try {
+        return await octokit.graphql(query, variables);
+    }
+    catch (error) {
+        const response = graphqlResponseError(error);
+        const errors = response.errors ?? [];
+        const tolerable = response.data !== undefined &&
+            response.data !== null &&
+            errors.length > 0 &&
+            errors.every(entry => entry.type === 'FORBIDDEN' && isCheckSuiteAppMetadataPath(entry.path));
+        if (!tolerable) {
+            throw error;
+        }
+        warning(`⚠️ ${errors.length} check result(s) belong to a GitHub App that this workflow's token cannot view - continuing without that App metadata`);
+        return response.data;
+    }
+}
+function isCheckSuiteAppMetadataPath(path) {
+    return ((path?.at(-2) === 'checkSuite' && path.at(-1) === 'app') ||
+        (path?.at(-3) === 'checkSuite' &&
+            path.at(-2) === 'app' &&
+            path.at(-1) === 'databaseId'));
+}
 async function loadAllCheckResults(octokit, pullRequestNumber, commit, statusCheckRollup) {
     const checkResults = [...statusCheckRollup.contexts.nodes];
     let pageInfo = statusCheckRollup.contexts.pageInfo;
@@ -39798,7 +39827,7 @@ async function loadAllCheckResults(octokit, pullRequestNumber, commit, statusChe
             throw new Error('The check page cursor did not advance');
         }
         seenCursors.add(cursor);
-        const page = prechecksGraphqlContextsPageResult(await octokit.graphql(query, {
+        const page = prechecksGraphqlContextsPageResult(await graphqlAllowingInaccessibleApps(octokit, query, {
             commitId: commit.id,
             cursor,
             number: pullRequestNumber
