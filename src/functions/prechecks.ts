@@ -8,6 +8,7 @@ import {API_HEADERS} from './api-headers.ts'
 import {evaluatePrecheckGates} from './precheck-gates.ts'
 import {saveActionState, setActionOutput} from '../action-io.ts'
 import {
+  graphqlResponseError,
   legacyApiError,
   legacyArrayElement,
   legacyBranchTreeSha,
@@ -376,7 +377,9 @@ export async function prechecks(
     }
   }
   // Make the GraphQL query
-  const result = prechecksGraphqlResult(await octokit.graphql(query, variables))
+  const result = prechecksGraphqlResult(
+    await graphqlAllowingInaccessibleApps(octokit, query, variables)
+  )
 
   // Fetch the commit oid which is the SHA1 hash of the commit
   const commit_oid = legacyPrechecksCommitOid(result)
@@ -702,6 +705,47 @@ async function evaluateCommitChecks({
   }
 }
 
+// GitHub emits per-node FORBIDDEN errors when the token cannot view the App
+// that owns a check suite; octokit then discards a still-usable partial response
+async function graphqlAllowingInaccessibleApps(
+  octokit: PrechecksOctokit,
+  query: string,
+  variables: Readonly<Record<string, unknown>>
+): Promise<unknown> {
+  try {
+    return await octokit.graphql(query, variables)
+  } catch (error) {
+    const response = graphqlResponseError(error)
+    const errors = response.errors ?? []
+    const tolerable =
+      response.data !== undefined &&
+      response.data !== null &&
+      errors.length > 0 &&
+      errors.every(
+        entry =>
+          entry.type === 'FORBIDDEN' && isCheckSuiteAppMetadataPath(entry.path)
+      )
+    if (!tolerable) {
+      throw error
+    }
+    core.warning(
+      `⚠️ ${errors.length} check result(s) belong to a GitHub App that this workflow's token cannot view - continuing without that App metadata`
+    )
+    return response.data
+  }
+}
+
+function isCheckSuiteAppMetadataPath(
+  path: readonly (number | string)[] | undefined
+): boolean {
+  return (
+    (path?.at(-2) === 'checkSuite' && path.at(-1) === 'app') ||
+    (path?.at(-3) === 'checkSuite' &&
+      path.at(-2) === 'app' &&
+      path.at(-1) === 'databaseId')
+  )
+}
+
 async function loadAllCheckResults(
   octokit: PrechecksOctokit,
   pullRequestNumber: number,
@@ -774,7 +818,7 @@ async function loadAllCheckResults(
     seenCursors.add(cursor)
 
     const page = prechecksGraphqlContextsPageResult(
-      await octokit.graphql(query, {
+      await graphqlAllowingInaccessibleApps(octokit, query, {
         commitId: commit.id,
         cursor,
         number: pullRequestNumber
